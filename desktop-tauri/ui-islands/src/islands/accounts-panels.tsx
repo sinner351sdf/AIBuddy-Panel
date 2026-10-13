@@ -317,16 +317,13 @@ export function ExpiryCell({ account }: { account: AccountRecord }) {
 
 /**
  * 连接数：此刻正在使用这个账号的请求数（2 秒一轮的实时计数）。
- * 口径与 OmniProxy 上游管理页的「连接」列一致 —— 有连接时显示数字、为 0 时**什么都不
- * 显示**（留空）。满屏的 0 会把少数几个真正在跑的账号淹没；要看「谁是 0」时空白本身
- * 就是答案。计数缺失（还没拉到、后端不可达）与 0 同样处理：把一个尚未知的值渲染成 0
- * 会读成「这个账号没在用」，而事实可能是「数据还没到」。
+ * 默认显示 0，避免空白难以理解；空闲数字用中性色，正在处理请求时保留绿色强调。
+ * 计数读取与轮询失败时保留缓存的行为由 connectionsOf / syncConnections 负责。
  */
 export function ConnectionsCell({ account }: { account: AccountRecord }) {
   const value = connectionsOf(account.id)
-  if (value <= 0) return null
   return (
-    <span className='conn-count' title={t('{n} 个请求正在使用该账号（含还在下发内容的流式请求）', { n: value })}>
+    <span className={cn('conn-count', value === 0 && 'idle')} title={t('{n} 个请求正在使用该账号（含还在下发内容的流式请求）', { n: value })}>
       {value}
     </span>
   )

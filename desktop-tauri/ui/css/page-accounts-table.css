@@ -517,6 +517,7 @@ body.queue-dragging * { cursor: grabbing !important; }
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+.cell-connections .conn-count.idle { color: var(--text-3); font-weight: 400; }
 
 /* ─── 状态列 ───
    本级默认只有一枚开关（启用 / 禁用由轨道位置与滑块表达）；
