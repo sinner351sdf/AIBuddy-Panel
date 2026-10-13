@@ -576,7 +576,7 @@ function grantUsage(plan: Record<string, unknown>): { used: number; total: numbe
  * 不拿 0 或 100 冒充 —— 一条满格的进度条与一条空进度条读起来是相反的意思，
  * 而它们都可能是错的。
  */
-export function usagePool(entry: UsageEntry): { planName: string; text: string; valueText: string; percent: number | null } | null {
+export function usagePool(entry: UsageEntry): { planName: string; text: string; valueText: string; unit?: string; percent: number | null } | null {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null
   const data = entry as Record<string, unknown>
   const wallets = Array.isArray(data.wallets) ? data.wallets as Array<Record<string, unknown>> : []
@@ -627,6 +627,7 @@ export function usagePool(entry: UsageEntry): { planName: string; text: string; 
         }),
         percent: Math.max(0, Math.min(100, (remaining / usage.total) * 100)),
         valueText: `${compactNumber(remaining)} / ${compactNumber(usage.total)}`,
+        unit: usage.unit,
       }
     }
     const grant = biggestGrant(plan)
@@ -639,6 +640,7 @@ export function usagePool(entry: UsageEntry): { planName: string; text: string; 
       // 权益额度不是剩余量：不画条（口径见上面那段文档）
       percent: null,
       valueText: compactNumber(grant.units),
+      unit: grant.unit,
     }
   }
   // 套餐名优先取这个桶自己的（`wallet.planName`），退回账号级那份 ——
@@ -650,6 +652,7 @@ export function usagePool(entry: UsageEntry): { planName: string; text: string; 
     text: String(lead.balanceView || numberText(lead.balance)),
     valueText: numberOrNull(lead.balance) !== null ? compactNumber(Number(lead.balance))
       : percent !== null ? `${Math.round(percent)}%` : '—',
+    unit: String(lead.unit || data.unit || ''),
     percent: percent === null ? null : Math.max(0, Math.min(100, percent)),
   }
 }
@@ -831,10 +834,10 @@ function usageDetailOf(entry: UsageEntry): UsageDetail | null {
       token.push({
         name: flatMeterName(name),
         view: flat,
-        valueText: unlimited ? `∞ · ${compactNumber(used)}`
-          : hasTotal ? `${compactNumber(Math.max(0, allowance - used))} / ${compactNumber(allowance)}`
+        valueText: unlimited ? `∞ · ${compactNumber(used)} token`
+          : hasTotal ? `${compactNumber(Math.max(0, allowance - used))} / ${compactNumber(allowance)} token`
           : percentageOnly ? `${Math.round(percent!)}%`
-          : used > 0 ? compactNumber(used) : '—',
+          : used > 0 ? `${compactNumber(used)} token` : '—',
         percentageOnly,
         tone: over ? 'bad' : !hasTotal && !unlimited ? 'muted'
           : percent !== null && percent < 20 ? 'warn' : 'ok',
@@ -991,7 +994,7 @@ export function UsageCell({ account }: { account: AccountRecord }) {
   return (
     <span className='usage-pool' title={summary.title}>
       {pool?.planName ? <span className='usage-pool-name'>{pool.planName}</span> : null}
-      <BalanceRows rows={balanceDisplayRows(entry, pool)} tone={summary.kind} />
+      <BalanceRows rows={balanceDisplayRows(entry, pool, t('积分'))} tone={summary.kind} />
       {blockedBadge}
       {pendingBadge}
       {tokenSub}
@@ -1052,7 +1055,7 @@ function UsageDetailCell({ summary, detail, blockedBadge, tokenSub }: {
           render={<button type='button' className={`usage-toggle ${summary.kind}`}
             title={summary.title} aria-label={t('积分明细')} />}
         >
-          <BalanceRows rows={[{ key: 'balance', text: numberText(detail.total), percent: null }]} tone={summary.kind} />
+          <BalanceRows rows={[{ key: 'balance', text: detail.total === null ? '—' : `${numberText(detail.total)} ${detail.unit}`, percent: null }]} tone={summary.kind} />
           <span className='caret' aria-hidden>▾</span>
         </PopoverTrigger>
         <PopoverContent align='end' sideOffset={6} className='usage-pop w-[288px]'>
