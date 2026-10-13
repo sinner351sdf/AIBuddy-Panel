@@ -174,4 +174,3 @@ pub fn signed_headers(
     }
     Ok(headers)
 }
-

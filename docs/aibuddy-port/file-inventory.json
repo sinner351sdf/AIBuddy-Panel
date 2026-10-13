@@ -1581,7 +1581,7 @@
       "baseline_blob": "e6908e2264800fe6f1b650704c1d4c6c950f44af",
       "upstream_blob": "1bfee268943c4284fdec0a5b13bb7703986a7250",
       "fork_blob": "82f5275a8f3201969227724ae8c5c8da162a632d",
-      "applied_sha256": "421319464aa8992341cac75e079f49041b0987d3c3f1179e49b4f9ec1a9404d2"
+      "applied_sha256": "d7678d181d8e5d8a01d56b190bce72824582b2ca89b2ff50bf2abf7246ec23a0"
     },
     {
       "path": "desktop-tauri/src-tauri/server/src/server/db/mod.rs",

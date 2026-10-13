@@ -716,4 +716,3 @@ fn request_id() -> String {
 fn is_image_model(model: &str) -> bool {
     model.to_ascii_lowercase().contains("image")
 }
-

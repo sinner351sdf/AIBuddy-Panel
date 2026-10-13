@@ -674,4 +674,3 @@ pub fn snapshot(store: &AccountStore) -> Value {
         "tokenUsage": token_usage,
     })
 }
-
