@@ -21,14 +21,19 @@ def request_json(url, token=None):
         return error.code, None
 
 
-def check_private(repository, token, allow_missing=False, fetch=request_json):
+def check_private(repository, token, allow_missing=False, fetch=request_json, package_name=None, require_owner=False):
     owner, name = repository.lower().split("/", 1)
+    name = package_name or name
     if not token:
-        raise ValueError("GITHUB_TOKEN 未配置，无法确认私有性")
+        raise ValueError("发布凭据未配置；请在仓库 Actions Secrets 设置 GHCR_PUBLISH_TOKEN")
+    if require_owner:
+        status, user = fetch("https://api.github.com/user", token)
+        if status != 200 or user.get("login", "").lower() != owner:
+            raise ValueError("必须使用镜像命名空间所有者的个人发布 Token，不能使用公开仓库的 GITHUB_TOKEN")
     url = f"https://api.github.com/users/{owner}/packages/container/{urllib.parse.quote(name, safe='')}"
     status, package = fetch(url, token)
     if status == 404 and allow_missing:
-        result = "目标包不存在或尚不可访问，首次发布将采用 GHCR 默认的 private 可见性"
+        result = "目标包不存在或尚不可访问，首次发布使用个人 Token 的默认 private 可见性"
     elif status != 200:
         raise ValueError(f"无法读取包的可见性（HTTP {status}），停止发布")
     elif package.get("visibility") != "private":
@@ -53,7 +58,9 @@ def main():
     parser.add_argument("--allow-missing", action="store_true")
     args = parser.parse_args()
     try:
-        print(check_private(os.environ["GITHUB_REPOSITORY"], os.environ.get("GITHUB_TOKEN"), args.allow_missing))
+        print(check_private(os.environ["GITHUB_REPOSITORY"], os.environ.get("GITHUB_TOKEN"), args.allow_missing,
+                            package_name=os.environ.get("GHCR_PACKAGE_NAME"),
+                            require_owner=os.environ.get("GHCR_REQUIRE_OWNER") == "1"))
     except (ValueError, KeyError, urllib.error.URLError, TimeoutError) as error:
         print("私有 GHCR 检查失败：" + str(error), file=sys.stderr)
         return 1

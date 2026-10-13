@@ -53,6 +53,21 @@ class PrivacyChecks(unittest.TestCase):
         with self.assertRaises(ValueError):
             module.check_private("sinner351sdf/AIBuddy-Panel", "")
 
+    def test_workflow_bot_cannot_create_package(self):
+        with self.assertRaises(ValueError):
+            module.check_private("sinner351sdf/AIBuddy-Panel", "test-placeholder", True,
+                                 fetch=lambda *args: (200, {"login": "github-actions[bot]"}), require_owner=True)
+
+    def test_owner_token_targets_private_package_name(self):
+        responses = iter([(200, {"login": "sinner351sdf"}), (200, {"visibility": "private"}), (403, None)])
+        urls = []
+        def fetch(url, *args):
+            urls.append(url)
+            return next(responses)
+        module.check_private("sinner351sdf/AIBuddy-Panel", "test-placeholder", fetch=fetch,
+                             package_name="aibuddy-panel-private", require_owner=True)
+        self.assertTrue(urls[1].endswith("/aibuddy-panel-private"))
+
     def test_network_failure_is_not_treated_as_private(self):
         def failed(*args):
             raise urllib.error.URLError("test network failure")

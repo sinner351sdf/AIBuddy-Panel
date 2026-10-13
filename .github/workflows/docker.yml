@@ -2,7 +2,8 @@ name: docker
 
 # 仅发布到私有 GHCR；不使用 Docker Hub 凭据。
 # tag 示例：v3.0.2-aibuddy.1，保留上游版本并区分定制发行版。
-# 新包默认私有；已存在的包必须是 private，发布后再次确认。
+# 使用个人发布 Token 创建私有包，避免公开仓库的 GITHUB_TOKEN 继承可见性。
+# 已存在的包必须是 private，发布后再次确认；不自动关联公开仓库权限。
 on:
   workflow_dispatch:
     inputs:
@@ -16,7 +17,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: private-ghcr-${{ github.repository }}
@@ -43,11 +43,13 @@ jobs:
             echo "version=$version" >> "$GITHUB_OUTPUT"
           fi
           repository=$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
-          echo "image=ghcr.io/$repository" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${repository}-private" >> "$GITHUB_OUTPUT"
 
       - name: 确认目标包未公开
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GHCR_PUBLISH_TOKEN }}
+          GHCR_PACKAGE_NAME: aibuddy-panel-private
+          GHCR_REQUIRE_OWNER: '1'
         run: python3 scripts/check-ghcr-private.py --allow-missing
 
       - name: 设置 buildx
@@ -58,13 +60,16 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ github.token }}
+          password: ${{ secrets.GHCR_PUBLISH_TOKEN }}
 
       - name: 生成镜像 tag
         id: meta
         uses: docker/metadata-action@v6
         with:
           images: ${{ steps.release.outputs.image }}
+          # 移除 source 标签，避免私有包继承公开源码仓库的读取权限。
+          labels: |
+            org.opencontainers.image.source=
           tags: |
             type=raw,value=${{ steps.release.outputs.version }},enable=${{ steps.release.outputs.version != '' }}
             type=raw,value=v${{ steps.release.outputs.version }},enable=${{ steps.release.outputs.version != '' }}
@@ -85,7 +90,9 @@ jobs:
 
       - name: 验证已发布镜像仍为私有
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GHCR_PUBLISH_TOKEN }}
+          GHCR_PACKAGE_NAME: aibuddy-panel-private
+          GHCR_REQUIRE_OWNER: '1'
         run: python3 scripts/check-ghcr-private.py
 
       - name: 记录发布结果
