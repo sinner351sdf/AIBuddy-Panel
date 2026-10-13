@@ -169,10 +169,10 @@ export function GroupBandRow({ group, collapsed, colSpan }: {
       <td colSpan={colSpan}>
         <div className='grp-band-inner'>
           <span className='queue-grip' role='button' tabIndex={-1} aria-label={t('拖动调整整组顺序')}
-            title={t('按住拖动，调整这一家的组顺位（整组一起动）')}
+            title={t('按住拖动，调整这一组的路由优先级（整组一起移动）')}
             dangerouslySetInnerHTML={{ __html: iconHtml('gripVertical', 14) }} />
-          <span className='grp-rank' title={t('组顺位：越小越先用（拖动分组带调整）')}>
-            {t('第 {rank} 顺位', { rank: group.rank })}
+          <span className='grp-rank' title={t('路由优先级：数值越小，越优先尝试该组账号（拖动分组带调整）')}>
+            {t('路由优先级 {rank}', { rank: group.rank })}
           </span>
           <span className='grp-logo'>
             {icon
@@ -971,9 +971,7 @@ export function UsageCell({ account }: { account: AccountRecord }) {
     return (
       <span className='usage-sum-wrap'>
         <span className={`usage-sum ${summary.kind}`} title={summary.title}>{summary.text}</span>
-        {blockedBadge}
-        {pendingBadge}
-        {tokenSub}
+        <UsageNotices>{blockedBadge}{pendingBadge}{tokenSub}</UsageNotices>
       </span>
     )
   }
@@ -985,9 +983,7 @@ export function UsageCell({ account }: { account: AccountRecord }) {
     return (
       <span className='usage-sum-wrap'>
         <span className={`usage-sum ${summary.kind}`} title={summary.title}>{summary.text}</span>
-        {blockedBadge}
-        {pendingBadge}
-        {tokenSub}
+        <UsageNotices>{blockedBadge}{pendingBadge}{tokenSub}</UsageNotices>
       </span>
     )
   }
@@ -995,11 +991,15 @@ export function UsageCell({ account }: { account: AccountRecord }) {
     <span className='usage-pool' title={summary.title}>
       {pool?.planName ? <span className='usage-pool-name'>{pool.planName}</span> : null}
       <BalanceRows rows={balanceDisplayRows(entry, pool, t('积分'))} tone={summary.kind} />
-      {blockedBadge}
-      {pendingBadge}
-      {tokenSub}
+      <UsageNotices>{blockedBadge}{pendingBadge}{tokenSub}</UsageNotices>
     </span>
   )
+}
+
+/** 余额读数下方的状态区：有提示才占一行，不挤占余额的横向空间。 */
+function UsageNotices({ children }: { children: React.ReactNode }) {
+  const items = React.Children.toArray(children)
+  return items.length ? <span className='usage-notices'>{items}</span> : null
 }
 
 function BalanceRows({ rows, tone }: { rows: BalanceDisplayRow[]; tone: string }) {
@@ -1107,8 +1107,7 @@ function UsageDetailCell({ summary, detail, blockedBadge, tokenSub }: {
           <span className='usage-flat-view muted'>{t('无福利额度')}</span>
         </span>
       ) : null}
-      {blockedBadge}
-      {tokenSub}
+      <UsageNotices>{blockedBadge}{tokenSub}</UsageNotices>
     </span>
   )
 }

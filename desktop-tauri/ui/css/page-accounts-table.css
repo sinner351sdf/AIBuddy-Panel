@@ -645,6 +645,16 @@ body.queue-dragging * { cursor: grabbing !important; }
 .balance-readings { display: inline-flex; flex-direction: column; gap: 4px; vertical-align: middle; }
 .balance-reading { display: flex; align-items: center; justify-content: center; gap: 6px; }
 
+/* 余额在上、跳过/待生效/Token 限额提示在下；没有提示时不增加行高。 */
+.usage-notices {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  min-width: 0;
+}
+
 /* ─── 余额列：套餐徽标 + 明细弹层的两行形态（usageDetail 能力位，CodeArts）───
    第一行是套餐徽标（试用版 / 免费版 —— 两个权益不同的账号第一眼就能分开），
    第二行「可用 N 积分」可点击，点开逐项读数（样式在下面的 .usage-pop 一组）。

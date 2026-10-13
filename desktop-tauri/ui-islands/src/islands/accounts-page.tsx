@@ -478,7 +478,7 @@ function AccountsPage() {
       const to = next.findIndex(group => group.provider === drop.provider)
       if (to === from) return
       const queue = next.flatMap(group => group.members.map(account => account.id))
-      void reorderQueue(queue, t('{name} 移到第 {rank} 顺位', { name: moved.label, rank: to + 1 }))
+      void reorderQueue(queue, t('{name} 的路由优先级调整为 {rank}', { name: moved.label, rank: to + 1 }))
       return
     }
     const group = current.find(item => item.provider === drop.provider)
