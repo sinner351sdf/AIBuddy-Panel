@@ -3,8 +3,8 @@
 镜像地址：`ghcr.io/sinner351sdf/aibuddy-panel-private`。
 
 当前服务端基础版本为 3.0.2。私有定制发行标签采用
-`v3.0.2-aibuddy.2`，镜像标签对应 `3.0.2-aibuddy.2`、
-`v3.0.2-aibuddy.2` 和 `latest`。不移动或覆盖上游的版本标签。
+`v3.0.2-aibuddy.3`，镜像标签对应 `3.0.2-aibuddy.3`、
+`v3.0.2-aibuddy.3` 和 `latest`。不移动或覆盖上游的版本标签。
 
 ## 发布
 
@@ -33,7 +33,7 @@ Cargo 基础版本的发布版本，或留空只发布 `dev`。
 ```sh
 docker login ghcr.io -u sinner351sdf
 # 在 Password 提示中输入 PAT（不是 GitHub 登录密码）。
-docker pull ghcr.io/sinner351sdf/aibuddy-panel-private:3.0.2-aibuddy.2
+docker pull ghcr.io/sinner351sdf/aibuddy-panel-private:3.0.2-aibuddy.3
 ```
 
 部署时使用上述固定标签，或发布结果中的 SHA256 digest，便于回滚。
