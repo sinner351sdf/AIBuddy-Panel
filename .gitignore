@@ -42,3 +42,5 @@ data/
 /docs/*
 !/docs/aibuddy-port/
 !/docs/OPEN-SOURCE-REFERENCES.md
+# 正式 Release 的发布说明由工作流读取，需纳入版本控制。
+!/docs/releases/

@@ -1,0 +1,89 @@
+name: publish-release
+
+# 从已成功的安装包构建创建本次正式 Release；不触发 Docker 发布。
+# 重跑只更新同一发行记录，不移动 tag，也不使用私有 GHCR 凭据。
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-release.yml
+      - docs/releases/v3.0.2-aibuddy.3.zh-CN.md
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: publish-release-v3.0.2-aibuddy.3
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'sinner351sdf/AIBuddy-Panel'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: v3.0.2-aibuddy.3
+      BUILD_RUN_ID: '38419693209'
+      EXPECTED_SHA: 360cff421cd4a6c01a50e64370823c11afdd23b5
+      NOTES_FILE: docs/releases/v3.0.2-aibuddy.3.zh-CN.md
+      RELEASE_TITLE: 'AIBuddy Panel 3.0.2 · 上游同步与账号管理优化'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: 核对 tag 与安装包来源
+        run: |
+          test "$(git rev-parse "$TAG^{commit}")" = "$EXPECTED_SHA"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID" > "$RUNNER_TEMP/release-build.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID/artifacts" > "$RUNNER_TEMP/release-artifacts.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          temp = Path(os.environ['RUNNER_TEMP'])
+          run = json.loads((temp / 'release-build.json').read_text())
+          assert run['conclusion'] == 'success' and run['name'] == 'build'
+          assert run['head_sha'] == os.environ['EXPECTED_SHA'] and run['head_branch'] == os.environ['TAG']
+          artifacts = json.loads((temp / 'release-artifacts.json').read_text())['artifacts']
+          for name in ('windows-nsis', 'macos-universal'):
+              matches = [a for a in artifacts if a['name'] == name and not a['expired']]
+              assert len(matches) == 1 and matches[0]['workflow_run']['head_sha'] == os.environ['EXPECTED_SHA']
+          notes = Path(os.environ['NOTES_FILE']).read_text()
+          assert 1000 < len(notes) <= 4000, '发布说明必须完整且不超过面板显示上限'
+          print('tag、构建提交、两个安装包及发布说明已核对。')
+          PY
+
+      - name: 下载成功构建的安装包
+        run: |
+          gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --name windows-nsis --name macos-universal --dir "$RUNNER_TEMP/release-assets"
+
+      - name: 挂载安装包并发布正式 Release
+        run: |
+          shopt -s nullglob
+          windows=("$RUNNER_TEMP"/release-assets/windows-nsis/*.exe)
+          macos=("$RUNNER_TEMP"/release-assets/macos-universal/*.dmg)
+          test "${#windows[@]}" -eq 1 && test "${#macos[@]}" -eq 1
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "$RELEASE_TITLE" --notes-file "$NOTES_FILE"
+          fi
+          gh release upload "$TAG" "${windows[0]}" "${macos[0]}" --repo "$GITHUB_REPOSITORY" --clobber
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest --title "$RELEASE_TITLE" --notes-file "$NOTES_FILE"
+
+      - name: 验证 latest 和发布说明
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases/latest" > "$RUNNER_TEMP/release-latest.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          release = json.loads((Path(os.environ['RUNNER_TEMP']) / 'release-latest.json').read_text())
+          assert release['tag_name'] == os.environ['TAG'] and not release['draft'] and not release['prerelease']
+          assert release['body'] == Path(os.environ['NOTES_FILE']).read_text()
+          names = [a['name'] for a in release['assets']]
+          assert sum(n.endswith('.exe') for n in names) == 1 and sum(n.endswith('.dmg') for n in names) == 1
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('正式 Release 已发布：' + release['html_url'] + '\n')
+              summary.write('latest 接口、更新日志、Windows 与 macOS 附件验证通过。\n')
+          print(release['html_url'])
+          PY
