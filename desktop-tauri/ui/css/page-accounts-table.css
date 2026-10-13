@@ -641,6 +641,20 @@ body.queue-dragging * { cursor: grabbing !important; }
 .usage-pool-view.ok { color: var(--ok); font-weight: 600; }
 .usage-pool-view.warn { color: var(--warn); font-weight: 600; }
 
+/* 余额表头统一切换：数值模式只留读数，条形模式不为缺失总额的账号伪造比例。 */
+.balance-readings { display: inline-flex; flex-direction: column; gap: 4px; vertical-align: middle; }
+.balance-reading { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.balance-readings.bars .balance-reading { justify-content: flex-start; }
+.balance-unknown-bar {
+  flex: 0 0 40px;
+  height: 6px;
+  border: 1px dashed var(--text-3);
+  border-radius: 999px;
+  background: var(--surface-inset);
+  opacity: .55;
+}
+.balance-mode:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
 /* ─── 余额列：套餐徽标 + 明细弹层的两行形态（usageDetail 能力位，CodeArts）───
    第一行是套餐徽标（试用版 / 免费版 —— 两个权益不同的账号第一眼就能分开），
    第二行「可用 N 积分」可点击，点开逐项读数（样式在下面的 .usage-pop 一组）。

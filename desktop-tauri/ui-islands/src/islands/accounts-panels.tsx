@@ -64,12 +64,13 @@ import {
   PROXY_CUSTOM_CURRENT, PROXY_CUSTOM_EDIT, applyProxyPick,
   connectionsOf, maskName, openBatchDialog, openSettingsDialog, openZcodePlans,
   poolError, proxyPoolSnapshot, queryUsageOnce, setAccountEnabled, setGroupEnabled, setPanelOpen,
-  tokenUsageOf, toggleGroupCollapsed, toggleNamesHidden, usageEntryOf, usageFailureOf,
+  tokenUsageOf, toggleGroupCollapsed, toggleNamesHidden, toggleBalanceBars, usageEntryOf, usageFailureOf,
 } from './accounts-data'
 import type { AccountGroup } from './accounts-domain'
 import { PROVIDER_ICONS } from './add-provider-pick'
 import { t } from '../i18n'
 import { WorkBuddyTasksDialog } from './workbuddy-tasks-dialog'
+import { balanceDisplayRows, type BalanceDisplayRow } from './accounts-balance'
 
 /** 图标（icons.js 的内联 SVG 串）：整站共用一份图标集，这里只做注入 */
 function iconHtml(name: string, size: number): string {
@@ -575,7 +576,7 @@ function grantUsage(plan: Record<string, unknown>): { used: number; total: numbe
  * 不拿 0 或 100 冒充 —— 一条满格的进度条与一条空进度条读起来是相反的意思，
  * 而它们都可能是错的。
  */
-export function usagePool(entry: UsageEntry): { planName: string; text: string; percent: number | null } | null {
+export function usagePool(entry: UsageEntry): { planName: string; text: string; valueText: string; percent: number | null } | null {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null
   const data = entry as Record<string, unknown>
   const wallets = Array.isArray(data.wallets) ? data.wallets as Array<Record<string, unknown>> : []
@@ -606,6 +607,7 @@ export function usagePool(entry: UsageEntry): { planName: string; text: string; 
       return {
         planName: String(tightest.wallet.planName || subscription.planName || ''),
         text: view || t('剩余 {percent}%', { percent: Math.round(percent) }),
+        valueText: `${Math.round(percent)}%`,
         percent,
       }
     }
@@ -624,6 +626,7 @@ export function usagePool(entry: UsageEntry): { planName: string; text: string; 
           unit: usage.unit ? ` ${usage.unit}` : '',
         }),
         percent: Math.max(0, Math.min(100, (remaining / usage.total) * 100)),
+        valueText: `${compactNumber(remaining)} / ${compactNumber(usage.total)}`,
       }
     }
     const grant = biggestGrant(plan)
@@ -635,6 +638,7 @@ export function usagePool(entry: UsageEntry): { planName: string; text: string; 
         : t('权益 {value}', { value: compactNumber(grant.units) }),
       // 权益额度不是剩余量：不画条（口径见上面那段文档）
       percent: null,
+      valueText: compactNumber(grant.units),
     }
   }
   // 套餐名优先取这个桶自己的（`wallet.planName`），退回账号级那份 ——
@@ -644,6 +648,8 @@ export function usagePool(entry: UsageEntry): { planName: string; text: string; 
   return {
     planName,
     text: String(lead.balanceView || numberText(lead.balance)),
+    valueText: numberOrNull(lead.balance) !== null ? compactNumber(Number(lead.balance))
+      : percent !== null ? `${Math.round(percent)}%` : '—',
     percent: percent === null ? null : Math.max(0, Math.min(100, percent)),
   }
 }
@@ -695,6 +701,8 @@ type UsageFlatRow = {
   name: string
   /** 紧凑读数（万/亿缩写；「剩 0 / 1000 万」比 8 位原数好读得多） */
   view: string
+  /** 表格数值模式不带前缀，完整口径仍放在 title。 */
+  valueText: string
   tone: 'ok' | 'warn' | 'bad' | 'muted'
   /** **剩余**百分比（画条用，与积分明细同向）；null = 无真总量，不画条 */
   percent: number | null
@@ -822,17 +830,20 @@ function usageDetailOf(entry: UsageEntry): UsageDetail | null {
       token.push({
         name: flatMeterName(name),
         view: flat,
+        valueText: unlimited ? `∞ · ${compactNumber(used)}`
+          : hasTotal ? `${compactNumber(Math.max(0, allowance - used))} / ${compactNumber(allowance)}`
+          : used > 0 ? compactNumber(used) : '—',
         tone: over ? 'bad' : !hasTotal && !unlimited ? 'muted'
           : percent !== null && percent < 20 ? 'warn' : 'ok',
         percent,
         over,
-        title: [view, unlimited ? t('无上限按日计（上游到达上限后仍继续计数，超额如实显示）') : null]
+        title: [flat, view, unlimited ? t('无上限按日计（上游到达上限后仍继续计数，超额如实显示）') : null]
           .filter(Boolean).join(' · '),
       })
       continue
     }
     // 既无积分也无 token 量（理论不该出现）：退回一句读数，不静默丢行
-    token.push({ name, view, tone: 'muted', percent: null, over: false, title: view })
+    token.push({ name, view, valueText: numberText(wallet.balance), tone: 'muted', percent: null, over: false, title: view })
   }
   const subscription = (data.subscription && typeof data.subscription === 'object'
     ? data.subscription : {}) as Record<string, unknown>
@@ -912,7 +923,7 @@ function prominentTokenLimit(account: AccountRecord): React.ReactNode {
   )
 }
 
-export function UsageCell({ account }: { account: AccountRecord }) {
+export function UsageCell({ account, balanceBars = false }: { account: AccountRecord; balanceBars?: boolean }) {
   if (!supportsUsage(account)) {
     return <span className='muted' title={t('该提供商没有余额查询')}>—</span>
   }
@@ -948,7 +959,7 @@ export function UsageCell({ account }: { account: AccountRecord }) {
     const usable = summary.kind === 'ok' || summary.kind === 'warn'
     const detail = usable ? usageDetailOf(entry) : null
     if (detail) {
-      return <UsageDetailCell summary={summary} detail={detail} blockedBadge={blockedBadge} tokenSub={tokenSub} />
+      return <UsageDetailCell summary={summary} detail={detail} blockedBadge={blockedBadge} tokenSub={tokenSub} balanceBars={balanceBars} />
     }
     // 还没查到 / 查询失败 / 没拼出明细：维持单行读数的老样子
     return (
@@ -963,7 +974,8 @@ export function UsageCell({ account }: { account: AccountRecord }) {
   // 失败 / 未配置那些档不画进度条：读数本身就不是「还剩多少」，
   // 给它配个进度条会把一句错误装饰成一条可信的读数
   const pool = summary.kind === 'ok' || summary.kind === 'warn' ? usagePool(entry) : null
-  if (!pool) {
+  const usable = summary.kind === 'ok' || summary.kind === 'warn'
+  if (!usable) {
     return (
       <span className='usage-sum-wrap'>
         <span className={`usage-sum ${summary.kind}`} title={summary.title}>{summary.text}</span>
@@ -975,16 +987,32 @@ export function UsageCell({ account }: { account: AccountRecord }) {
   }
   return (
     <span className='usage-pool' title={summary.title}>
-      {pool.planName ? <span className='usage-pool-name'>{pool.planName}</span> : null}
-      <span className='usage-pool-line'>
-        {pool.percent !== null ? <Progress value={pool.percent} className='usage-pool-bar' /> : null}
-        <span className={`usage-pool-view ${summary.kind}`}>{pool.text}</span>
-      </span>
+      {pool?.planName ? <span className='usage-pool-name'>{pool.planName}</span> : null}
+      <BalanceRows rows={balanceDisplayRows(entry, pool)} bars={balanceBars} tone={summary.kind} />
       {blockedBadge}
       {pendingBadge}
       {tokenSub}
     </span>
   )
+}
+
+function BalanceRows({ rows, bars, tone }: { rows: BalanceDisplayRow[]; bars: boolean; tone: string }) {
+  return <span className={`balance-readings${bars ? ' bars' : ''}`}>
+    {rows.map((row, index) => {
+      const label = row.key === 'cycle' ? t('周期剩余额度')
+        : row.key === 'subscription' ? t('套餐剩余额度') : t('余额')
+      const title = `${label}：${row.text}` + (bars && row.percent === null
+        ? ` · ${t('上游未给总量，画不出剩余比例')}` : '')
+      return <span className='balance-reading' key={row.key} data-balance-kind={row.key} title={title}>
+        {bars ? row.percent !== null
+          ? <Progress value={row.percent} className='usage-pool-bar' aria-label={label} />
+          : <span className='balance-unknown-bar' aria-label={t('上游未给总量，画不出剩余比例')} />
+          : null}
+        <span className={`usage-pool-view ${tone}`}>{row.text}</span>
+        {tone === 'warn' && index === 0 ? <span aria-label={t('余额数据不完整')}>⚠</span> : null}
+      </span>
+    })}
+  </span>
 }
 
 /**
@@ -1000,12 +1028,13 @@ export function UsageCell({ account }: { account: AccountRecord }) {
  * 的信息，总额 + 弹层足够。弹层走组件库的 Popover（Portal + 贴边翻转都是现成的），
  * 锚点就是那颗积分读数按钮，与 ⋯ 菜单同一个交互语言。
  */
-function UsageDetailCell({ summary, detail, blockedBadge, tokenSub }: {
+function UsageDetailCell({ summary, detail, blockedBadge, tokenSub, balanceBars }: {
   summary: { text: string; kind: string; title: string }
   detail: UsageDetail
   blockedBadge: React.ReactNode
   /** Token 限制器的周期读数（余额格第二行；配了规则才有） */
   tokenSub: React.ReactNode
+  balanceBars: boolean
 }) {
   const [open, setOpen] = React.useState(false)
   const usable = summary.kind === 'ok' || summary.kind === 'warn'
@@ -1024,7 +1053,7 @@ function UsageDetailCell({ summary, detail, blockedBadge, tokenSub }: {
           render={<button type='button' className={`usage-toggle ${summary.kind}`}
             title={summary.title} aria-label={t('积分明细')} />}
         >
-          <span className='val'>{summary.text}</span>
+          <BalanceRows rows={[{ key: 'balance', text: numberText(detail.total), percent: null }]} bars={balanceBars} tone={summary.kind} />
           <span className='caret' aria-hidden>▾</span>
         </PopoverTrigger>
         <PopoverContent align='end' sideOffset={6} className='usage-pop w-[288px]'>
@@ -1060,13 +1089,13 @@ function UsageDetailCell({ summary, detail, blockedBadge, tokenSub }: {
         <span className='usage-flat-line' key={row.name} title={row.title}>
           <span className='usage-flat-head'>
             <span className='usage-flat-name'>{row.name}</span>
-            <span className={`usage-flat-view ${row.tone}`}>{row.view}</span>
+            <span className={`usage-flat-view ${row.tone}`}>{row.valueText}</span>
           </span>
-          {row.percent !== null ? (
+          {balanceBars && row.percent !== null ? (
             <span className={`usage-flat-track${row.over ? ' over' : ''}`}>
               <i style={{ width: `${row.percent}%` }} aria-label={t('剩余 {percent}%', { percent: Math.round(row.percent) })} />
             </span>
-          ) : null}
+          ) : balanceBars ? <span className='balance-unknown-bar' aria-label={t('上游未给总量，画不出剩余比例')} /> : null}
         </span>
       ))}
       {detail.benefitAbsent ? (
@@ -1470,8 +1499,9 @@ export function PanelsRow({ account, colSpan, limitsOpen, onClear }: {
  * 各列的对齐类（ta-*）由 syncStaticHead 统一贴（它按用户配置给），所以这里不写 ——
  * 写了反而会与它的结果打架。数据行相反：完全按 visibleColumns() 逐列渲染。
  */
-export function TableHead({ namesHidden, allPicked, somePicked, disabled, onToggleAll }: {
+export function TableHead({ namesHidden, balanceBars, allPicked, somePicked, disabled, onToggleAll }: {
   namesHidden: boolean
+  balanceBars: boolean
   allPicked: boolean
   somePicked: boolean
   disabled: boolean
@@ -1522,7 +1552,7 @@ export function TableHead({ namesHidden, allPicked, somePicked, disabled, onTogg
           <span className='th-label'>{t('有效期')}</span>{grip}
         </th>
         <th className='cell-usage' data-col='usage'>
-          <span className='th-label'>{t('余额')}</span>{grip}
+          <span className='th-label'>{t('余额')}<BalanceModeButton bars={balanceBars} /></span>{grip}
         </th>
         {/* 最后一列不给把手：它绝对定位在右缘，钉在表格右缘会顶出一条横向滚动条 */}
         <th className='cell-actions' data-col='actions'><span className='th-label'>{t('操作')}</span></th>
@@ -1543,6 +1573,17 @@ export function NameEyeButton({ hidden }: { hidden: boolean }) {
       aria-pressed={hidden} onClick={() => toggleNamesHidden()}
       dangerouslySetInnerHTML={{ __html: iconHtml(hidden ? 'eyeOff' : 'eye', 13) }} />
   )
+}
+
+function BalanceModeButton({ bars }: { bars: boolean }) {
+  const label = bars ? t('余额显示：进度条（点击切换为数值）') : t('余额显示：数值（点击切换为进度条）')
+  return <button type='button' className={`name-eye balance-mode${bars ? ' on' : ''}`}
+    title={label} aria-label={label} aria-pressed={bars} onClick={() => toggleBalanceBars()}>
+    <svg width='13' height='13' viewBox='0 0 16 16' aria-hidden='true' fill='none' stroke='currentColor' strokeWidth='1.4' strokeLinecap='round'>
+      {bars ? <><path d='M2 5h3l-1 6M8 5h4l-4 6h4' /></>
+        : <><path d='M3 12V8m5 4V4m5 8V6M1 14h14' /></>}
+    </svg>
+  </button>
 }
 
 type ClineKeyRow = {
