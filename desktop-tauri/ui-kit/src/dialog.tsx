@@ -70,6 +70,8 @@ function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) 
 }
 
 type DialogContentProps = DialogPrimitive.Popup.Props & {
+  /** Optional backdrop layer override for pages with fixed drawers above the default layer. */
+  overlayClassName?: string
   /** 是否自带右上角关闭按钮，默认 true */
   showCloseButton?: boolean
   /**
@@ -98,6 +100,7 @@ type DialogContentProps = DialogPrimitive.Popup.Props & {
 
 function DialogContent({
   className,
+  overlayClassName,
   children,
   showCloseButton = true,
   keepMounted = false,
@@ -106,7 +109,7 @@ function DialogContent({
 }: DialogContentProps) {
   return (
     <DialogPortal keepMounted={keepMounted}>
-      <DialogOverlay forceRender={overlayForceRender} />
+      <DialogOverlay className={overlayClassName} forceRender={overlayForceRender} />
       <DialogPrimitive.Popup
         data-slot='dialog-content'
         className={cn(

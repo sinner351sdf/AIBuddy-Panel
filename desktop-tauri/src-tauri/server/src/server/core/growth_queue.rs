@@ -177,8 +177,10 @@ impl GrowthQueue {
 
     /// 并发拉取每个账号的合并任务列表（默认 + mp 口径；refs taskcenter.go:59-104
     /// 的并发扫描同款）。返回 (账号 id, 显示名, 会话, 任务列表或错误)。
-    async fn scan_accounts(&self) -> Vec<(String, String, Option<Value>, Result<Vec<growth::Task>, String>)> {
-        let accounts = self.collect_accounts();
+    async fn scan_accounts(&self, account_id: Option<&str>) -> Vec<(String, String, Option<Value>, Result<Vec<growth::Task>, String>)> {
+        // Scope before loading tasks: a row action must never scan other accounts.
+        let accounts: Vec<_> = self.collect_accounts().into_iter()
+            .filter(|(id, _, _)| account_id.is_none_or(|selected| id == selected)).collect();
         let billing = self.billing.clone();
         let handles: Vec<_> = accounts
             .into_iter()
@@ -211,7 +213,7 @@ impl GrowthQueue {
         let scanned_at = logging::now_ms();
         let mut results = Vec::new();
         let mut pending = 0usize;
-        for (id, name, _session, tasks) in self.scan_accounts().await {
+        for (id, name, _session, tasks) in self.scan_accounts(None).await {
             match tasks {
                 Ok(tasks) => {
                     // filter 的谓词拿到的是 &&Task，这里用闭包做一层解引用
@@ -243,10 +245,10 @@ impl GrowthQueue {
     // ─── 入队与执行 ─────────────────────────────────────────
 
     /// 扫描待办并组队（写 items、返回账号组）。已在 RunningGuard 持有期调用。
-    async fn plan_pending(&self, concurrency: usize) -> Vec<AccountPlan> {
+    async fn plan_pending(&self, concurrency: usize, account_id: Option<&str>) -> Vec<AccountPlan> {
         let mut items = Vec::new();
         let mut plans = Vec::new();
-        for (id, name, session, tasks) in self.scan_accounts().await {
+        for (id, name, session, tasks) in self.scan_accounts(account_id).await {
             let mut pending: Vec<growth::Task> = match tasks {
                 Ok(tasks) => tasks.into_iter().filter(growth::growth_pending).collect(),
                 Err(message) => {
@@ -300,6 +302,15 @@ impl GrowthQueue {
     /// 启动一轮执行。已有轮次在跑时返回 Err（api 层翻成 409）。
     /// 返回 Ok(本轮入队的待办总数)。
     pub async fn run(&self, concurrency: usize) -> Result<usize, ()> {
+        self.run_scoped(concurrency, None).await
+    }
+
+    /// Row action: share the global queue and exclusion guard, but scan one account only.
+    pub async fn run_for_account(&self, account_id: &str) -> Result<usize, ()> {
+        self.run_scoped(1, Some(account_id)).await
+    }
+
+    async fn run_scoped(&self, concurrency: usize, account_id: Option<&str>) -> Result<usize, ()> {
         let concurrency = concurrency.clamp(DEFAULT_CONCURRENCY, MAX_CONCURRENCY);
         // ① CAS 抢「执行中」标记（RunningGuard 模式，auto_checkin.rs:349-360）
         let guard = {
@@ -312,7 +323,7 @@ impl GrowthQueue {
             RunningGuard { inner: self.inner.clone() }
         };
         // ② 扫描待办并组队（异步段在锁外）
-        let plans = self.plan_pending(concurrency).await;
+        let plans = self.plan_pending(concurrency, account_id).await;
         let total = self.lock().total;
         if total == 0 {
             logging::log("[Growth]", "没有待执行的成长任务，本轮结束");

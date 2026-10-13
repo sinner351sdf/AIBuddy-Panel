@@ -544,6 +544,18 @@ pub fn panel_router(state: ServerState) -> Router {
         .route("/api/growth-tasks/stop", post(api::growth_tasks::stop))
         .route("/api/growth-tasks/trial", post(api::growth_tasks::trial))
         .route("/api/growth-tasks/gift", post(api::growth_tasks::gift))
+        .route(
+            "/api/growth-tasks/accounts/{account_id}",
+            get(api::growth_tasks::account_tasks),
+        )
+        .route(
+            "/api/growth-tasks/accounts/{account_id}/accept",
+            post(api::growth_tasks::accept_account_tasks),
+        )
+        .route(
+            "/api/growth-tasks/accounts/{account_id}/claim",
+            post(api::growth_tasks::claim_account_task),
+        )
         // 成长任务定时调度的开关与时点（growth 01:00 / travel [9,21] / blackcat
         // 23:00，缺省全关）：GET 回显、PUT 部分更新，落 task_state 的 kv
         .route(

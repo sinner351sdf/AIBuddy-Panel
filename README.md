@@ -2,6 +2,8 @@
 
 > 此仓库为 AIBuddy-Panel 定制版本，代码上游为 agent2api。已跟进上游 **3.0.2**（`221e552`），保留原面板定制；升级前请阅读[3.0.2 核对与代码审查](docs/aibuddy-port/REVIEW-3.0.2.zh-CN.md)及[完整移植清单与兼容性说明](docs/aibuddy-port/BETA-INTEGRATION-2026-10-13.zh-CN.md)。
 
+WorkBuddy 国内版账号可在账号池的「任务」按钮中查看和操作[单账号积分任务](docs/aibuddy-port/WORKBUDDY-ACCOUNT-TASKS.zh-CN.md)。
+
 **简体中文** | [English](./README.en.md) | [繁體中文](./README.zh-Hant.md) | [日本語](./README.ja.md) | [한국어](./README.ko.md) | [Português (BR)](./README.pt-BR.md)
 
 把多家 AI 桌面客户端的登录态变成一个本地 **OpenAI 兼容 API 网关**：统一暴露一个 `base_url`，带多账号管理、模型管理、出网代理与请求报表，并附一个开箱即用的 Tauri 桌面端。任何支持自定义 `base_url` 的 OpenAI 客户端都能以 `http://127.0.0.1:3065/v1` 调用这几家的模型额度 —— 不需要上游 API Key，不需要改客户端。

@@ -51,7 +51,7 @@ import {
 } from '@ui'
 import { esc, errorMessage, toast, formatTime, poolItemLabel, POOL_VALUE_PREFIX, shared, type AccountRecord, type LimiterRule, type TokenReading, type UsageEntry } from './accounts-shared'
 import {
-  accountTags, activeLimits, balanceBlockedOf, claimDoneTitle, claimedToday,
+  accountEdition, accountTags, activeLimits, balanceBlockedOf, claimDoneTitle, claimedToday,
   displayNameOf, expiryMillis, formatIntervalSeconds, formatResetText,
   formatTokenCount, identifierOf, isDesktopAccount, isEnabled, isFreePlan, planBadgeLabel,
   providerFeatures,
@@ -69,6 +69,7 @@ import {
 import type { AccountGroup } from './accounts-domain'
 import { PROVIDER_ICONS } from './add-provider-pick'
 import { t } from '../i18n'
+import { WorkBuddyTasksDialog } from './workbuddy-tasks-dialog'
 
 /** 图标（icons.js 的内联 SVG 串）：整站共用一份图标集，这里只做注入 */
 function iconHtml(name: string, size: number): string {
@@ -1267,6 +1268,7 @@ export function ProxyCell({ account }: { account: AccountRecord }) {
 export function ActionsCell({ account, atFront }: { account: AccountRecord; atFront: boolean }) {
   const [usageBusy, setUsageBusy] = React.useState(false)
   const [keysOpen, setKeysOpen] = React.useState(false)
+  const [tasksOpen, setTasksOpen] = React.useState(false)
   const canUsage = supportsUsage(account)
   const canClaim = supportsClaim(account)
 
@@ -1294,10 +1296,13 @@ export function ActionsCell({ account, atFront }: { account: AccountRecord; atFr
       ) : null}
       <Button variant='outline' size='xs' title={t('备注名 / 启用 / 代理')}
         onClick={() => openSettingsDialog(account.id)}>{t('设置')}</Button>
+      {providerOf(account) === 'workbuddy' && accountEdition(account) === 'cn' ?
+        <Button variant='outline' size='xs' onClick={() => setTasksOpen(true)}>{t('任务')}</Button> : null}
       {supportsApiKeys(account) ? <Button variant='outline' size='xs' onClick={() => setKeysOpen(true)}>API Key</Button> : null}
       <MoreMenu account={account} atFront={atFront} />
     </div>
     {keysOpen ? <ClineKeysDialog account={account} onClose={() => setKeysOpen(false)} /> : null}
+    {tasksOpen ? <WorkBuddyTasksDialog account={account} onClose={() => setTasksOpen(false)} /> : null}
     </>
   )
 }
