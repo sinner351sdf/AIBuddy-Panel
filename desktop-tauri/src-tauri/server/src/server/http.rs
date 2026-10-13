@@ -853,6 +853,20 @@ async fn require_api_key(mut request: Request, next: Next) -> Response {
         return api::maintenance_api::maintenance_response();
     }
 
+    // Desktop capability never comes from the UI or a distributed inference key.
+    if path.starts_with("/api/") {
+        if crate::server::access::native_management_valid(request.headers()) {
+            return next.run(request).await;
+        }
+        if !crate::server::access::session_valid(request.headers()) {
+            if let Some(key) = keys.iter().find(|key| request_matches_key(&request, key)) {
+                if scope_for_key(&snapshot.raw(), key).is_some_and(|scope| scope.restricted()) {
+                    return errors::management_error(403, "受限 API Key 只能调用网关，管理操作需要管理员会话");
+                }
+            }
+        }
+    }
+
     // ── 面板认证（headless 配置了管理员时启用）──────────────────
     // `/api/*` 认「会话 cookie（人，账号密码换来）」或「API Key（程序，
     // 桌面壳/脚本自动带）」。两者都没有 → 401 并注明是面板登录 ——

@@ -94,6 +94,12 @@ impl KeyScope {
         }
     }
 
+    /// 受限推理凭证永远不能作为管理凭证。
+    pub fn restricted(&self) -> bool {
+        self.restricts_models() || self.restricts_providers()
+            || self.quota_tokens.is_some() || self.expires_at.is_some()
+    }
+
     /// 命中的 Key 记录 id（额度计量的记账键，见 `core::key_quota`）
     pub fn key_id(&self) -> &str {
         &self.key_id

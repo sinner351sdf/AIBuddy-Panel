@@ -31,12 +31,7 @@
 //! 所以用 `TransactionBehavior::Immediate` 先拿写锁再读（与 `core::task_state`
 //! 的 `change` 同一手法、同一理由），跨进程也不会丢计数。
 //!
-//! ── 数据库不可用时宁可放行 ──────────────────────────────────
-//! 判定读不到已用数（`used_tokens` 返回 0）会让带配额的 Key 暂时不受限 ——
-//! 这是有意的：本项目「数据库的问题不该让服务崩，但也绝不悄悄给出错误答案」
-//! （见 `db` 模块头），配额计量挂了就如实降级成「暂不限制」，每次都打一行
-//! verbose 日志（控制台恒可见），不静默。删除 Key 不清理计量行：残留几行
-//! 无害（Key 已不存在就没有判定会读它），下次同一 id 也不会复活（id 含时间戳）。
+//! 账本不可读时拒绝新的受限请求；在途请求仍可完成，记账错误显式记录。
 
 use std::sync::OnceLock;
 
@@ -65,53 +60,31 @@ fn database() -> Result<&'static Db, String> {
         .ok_or_else(|| "额度计量数据库不可用".to_string())
 }
 
-/// 读整份用量表（库损坏 / 手工改坏 → 空表重开：这一行只影响计量，
-/// 从零重计比整条链路报错更可恢复，理由同 `proxy_pool::read_items`）
-fn read_usage(conn: &rusqlite::Connection) -> Map<String, Value> {
-    let text: Option<String> = conn
-        .query_row("SELECT value FROM kv WHERE key = ?1", [KV_KEY], |row| row.get(0))
-        .optional()
-        .ok()
-        .flatten();
-    let Some(text) = text else {
-        return Map::new();
-    };
-    match serde_json::from_str::<Value>(&text) {
-        Ok(Value::Object(map)) => map,
-        _ => Map::new(),
+/// Missing ledger is a new database; malformed or unreadable ledger is an error.
+fn read_usage(conn: &rusqlite::Connection) -> Result<Map<String, Value>, String> {
+    let text: Option<String> = conn.query_row(
+        "SELECT value FROM kv WHERE key = ?1", [KV_KEY], |row| row.get(0))
+        .optional().map_err(|_| "额度账本读取失败".to_string())?;
+    match text {
+        None => Ok(Map::new()),
+        Some(text) => match serde_json::from_str::<Value>(&text) {
+            Ok(Value::Object(map)) => Ok(map),
+            _ => Err("额度账本损坏，请管理员恢复备份".to_string()),
+        },
     }
 }
-
-/// 单条用量记录的「已用 Token」读数（记录缺失 / 形态不对 → 0）
-fn used_of(entry: Option<&Value>) -> i64 {
-    entry
-        .and_then(|value| value.get("usedTokens"))
-        .and_then(Value::as_i64)
-        .unwrap_or(0)
-        .max(0)
+fn used_of(entry: Option<&Value>) -> Result<i64, String> {
+    match entry {
+        None => Ok(0),
+        Some(entry) => entry.get("usedTokens").and_then(Value::as_i64)
+            .filter(|used| *used >= 0).ok_or_else(|| "Key 用量记录损坏".to_string()),
+    }
 }
-
-/// 当前已用 Token（Key 还没消耗过 / 库不可用 → 0）。
-///
-/// 判定入口 [`check_scope`] 用它做**放行**方向的兜底（见模块头「宁可放行」），
-/// 所以失败不返回 `Result`，而是返回 0 并打一行 verbose —— 调用方不必处理
-/// 「读失败要不要拦」这个没有正确答案的问题。
-pub fn used_tokens(key_id: &str) -> i64 {
-    let Ok(db) = database() else {
-        logging::verbose("[Quota]", "❌ 额度计量数据库不可用，本次按 0 已用放行");
-        return 0;
-    };
-    let used = db.with(|conn| {
-        let map = read_usage(conn);
+pub fn used_tokens(key_id: &str) -> Result<i64, String> {
+    database()?.with(|conn| {
+        let map = read_usage(conn)?;
         used_of(map.get(key_id))
-    });
-    match used {
-        Some(used) => used,
-        None => {
-            logging::verbose("[Quota]", "❌ 读取 Key 用量失败（连接锁异常），本次按 0 已用放行");
-            0
-        }
-    }
+    }).ok_or_else(|| "额度计量数据库不可用".to_string())?
 }
 
 /// 累计一次用量（`tokens` 为本次请求消耗的 Token 总数），返回累计后的值。
@@ -126,7 +99,7 @@ pub fn used_tokens(key_id: &str) -> i64 {
 /// 由调用方打一行日志即可。
 pub fn add_usage(key_id: &str, tokens: i64) -> Result<i64, String> {
     if key_id.is_empty() || tokens <= 0 {
-        return Ok(used_tokens(key_id));
+        return used_tokens(key_id);
     }
     let db = database()?;
     let now = logging::now_ms();
@@ -137,8 +110,8 @@ pub fn add_usage(key_id: &str, tokens: i64) -> Result<i64, String> {
         let tx = conn
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|error| format!("锁定额度计量失败: {error}"))?;
-        let mut usage = read_usage(&tx);
-        let used = used_of(usage.get(&key)).saturating_add(tokens);
+        let mut usage = read_usage(&tx)?;
+        let used = used_of(usage.get(&key))?.saturating_add(tokens);
         usage.insert(
             key,
             serde_json::json!({ "usedTokens": used, "updatedAt": now }),
@@ -170,7 +143,7 @@ pub fn reset_usage(key_id: &str) -> Result<(), String> {
         let tx = conn
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|error| format!("锁定额度计量失败: {error}"))?;
-        let mut usage = read_usage(&tx);
+        let mut usage = read_usage(&tx)?;
         usage.remove(&key);
         let text = serde_json::to_string(&Value::Object(usage))
             .map_err(|error| format!("编码额度计量失败: {error}"))?;
@@ -208,7 +181,7 @@ pub fn check_scope(scope: Option<&KeyScope>) -> Result<(), String> {
     }
     // 配额只在真的设了限（>0）时才去读库 —— 不限量的 Key 零额外开销
     if let Some(quota) = scope.quota_tokens().filter(|quota| *quota > 0) {
-        let used = used_tokens(scope.key_id());
+        let used = used_tokens(scope.key_id())?;
         if used >= quota {
             return Err("Key 配额已用尽".to_string());
         }
@@ -226,4 +199,23 @@ pub fn key_id_of(scope: Option<&KeyScope>) -> String {
     scope
         .map(|scope| scope.key_id().to_string())
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod ledger_tests {
+    use super::*;
+    #[test]
+    fn unreadable_and_invalid_ledgers_never_become_zero() {
+        let db = rusqlite::Connection::open_in_memory().unwrap();
+        assert!(read_usage(&db).is_err());
+        db.execute_batch("CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)").unwrap();
+        assert!(read_usage(&db).unwrap().is_empty());
+        for invalid in ["{broken", "[]", "null"] {
+            db.execute("INSERT OR REPLACE INTO kv VALUES (?1, ?2)", [KV_KEY, invalid]).unwrap();
+            assert!(read_usage(&db).is_err());
+        }
+        assert!(used_of(Some(&serde_json::json!({"usedTokens": -1}))).is_err());
+        assert!(used_of(Some(&serde_json::json!({}))).is_err());
+        assert_eq!(used_of(None).unwrap(), 0);
+    }
 }

@@ -124,14 +124,16 @@ fn find_entry(id: &str) -> Option<api_keys::ApiKeyEntry> {
 /// 不限量的 Key 是无意义读数，给 0 会让人误会已经用尽）；`expired` 是服务端
 /// 的过期判定（与转发准入 `KeyScope::expired` 同一口径：时刻本身已不可用）。
 fn quota_json(entry: &api_keys::ApiKeyEntry) -> Value {
-    let used = key_quota::used_tokens(&entry.id);
-    let remaining = entry.quota_tokens.map(|quota| (quota - used).max(0));
+    let reading = key_quota::used_tokens(&entry.id);
+    let used = reading.as_ref().ok().copied();
+    let remaining = entry.quota_tokens.zip(used).map(|(quota, used)| (quota - used).max(0));
     json!({
         "id": entry.id,
         "name": entry.name,
         "enabled": entry.enabled,
         "quotaTokens": entry.quota_tokens,
         "usedTokens": used,
+        "meteringError": reading.err(),
         "remainingTokens": remaining,
         "expiresAt": entry.expires_at,
         "expired": entry.expires_at.is_some_and(|at| logging::now_ms() >= at),

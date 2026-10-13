@@ -117,6 +117,8 @@ with tempfile.TemporaryDirectory(prefix='agent2api-port-test-') as scratch:
             admin('/api/branding','PUT',{'title':'changed'})
             snapshot['kind'] = 'aibuddy-panel-backup' # fork snapshot compatibility
             admin('/api/backup/import','POST',{'data':snapshot,'confirm':True})
+            req('/api/sessions/list',token=token,expected=401)
+            token = req('/api/panel/login?auth-mode=body','POST',{'username':'port-review','password':password})['data']['accessToken']
             check(req('/api/panel/branding')['data']['title'] == '移植回归测试','backup did not restore branding')
             check(admin(quota_path)['data']['quotaTokens'] == 100,'backup did not restore quota')
             admin('/api/backup/run','POST',{})

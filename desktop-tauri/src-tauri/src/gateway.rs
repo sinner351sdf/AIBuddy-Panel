@@ -212,7 +212,8 @@ fn request_builder(method: &str, path: &str, body: Option<&Value>) -> Result<req
         "DELETE" => base.delete(&url),
         other => return Err(format!("不支持的请求方法: {other}")),
     };
-    builder = builder.header("Accept", "application/json");
+    builder = builder.header("Accept", "application/json")
+        .header("x-agent2api-native", crate::server::access::native_management_token());
     if let Some(key) = read_api_key() {
         builder = builder.header("X-API-Key", key);
     }

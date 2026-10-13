@@ -390,22 +390,11 @@ fn refresh_tokens() -> &'static Mutex<Vec<RefreshRecord>> {
 
 /// 启动时把库里的刷新令牌载入内存（`bootstrap` 完成后调用一次）。
 pub fn load_refresh_tokens() {
-    let Some(loaded) = db().and_then(|db| {
-        db.with(|conn| {
-            conn.query_row(
-                "SELECT value FROM kv WHERE key = ?1",
-                rusqlite::params![KV_TOKENS_KEY],
-                |row| row.get::<_, String>(0),
-            )
-            .ok()
-        })
-        .flatten()
-    }) else {
-        return;
-    };
-    let Ok(records) = serde_json::from_str::<Vec<RefreshRecord>>(&loaded) else {
-        return;
-    };
+    let records = db().and_then(|db| db.with(|conn| {
+        conn.query_row("SELECT value FROM kv WHERE key = ?1", [KV_TOKENS_KEY],
+            |row| row.get::<_, String>(0)).ok()
+    }).flatten()).and_then(|loaded| serde_json::from_str::<Vec<RefreshRecord>>(&loaded).ok())
+        .unwrap_or_default();
     match refresh_tokens().lock() {
         Ok(mut table) => *table = records,
         Err(poisoned) => *poisoned.into_inner() = records,
@@ -1330,4 +1319,22 @@ mod credential_candidate_tests {
             &[]
         )));
     }
+}
+
+// Created only by the native shell; never returned through HTTP or persisted.
+static NATIVE_MANAGEMENT: OnceLock<String> = OnceLock::new();
+pub fn native_management_token() -> &'static str {
+    NATIVE_MANAGEMENT.get_or_init(|| random_hex(32))
+}
+pub fn native_management_valid(headers: &HeaderMap) -> bool {
+    NATIVE_MANAGEMENT.get().is_some_and(|expected| {
+        headers.get("x-agent2api-native").and_then(|v| v.to_str().ok()) == Some(expected.as_str())
+    })
+}
+/// Restore is an authentication boundary, including refresh tokens from the snapshot.
+pub fn invalidate_restored_sessions() {
+    revoke_all_sessions_except(None);
+    let mut table = refresh_tokens().lock().unwrap_or_else(|p| p.into_inner());
+    table.clear();
+    persist_refresh_tokens(&mut table);
 }

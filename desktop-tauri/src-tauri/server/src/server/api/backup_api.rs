@@ -225,7 +225,7 @@ pub async fn post_import(State(state): State<ServerState>, body: Bytes) -> Respo
 
     // 三个内存态与库对齐（细节见模块头）。日志在所有锁外打。
     config::reload();
-    access::load_refresh_tokens();
+    access::invalidate_restored_sessions();
     maintenance_api::refresh_from_config();
     audit_api::audit(
         "backup.import",
@@ -237,7 +237,7 @@ pub async fn post_import(State(state): State<ServerState>, body: Bytes) -> Respo
     );
     ok_json(json!({
         "imported": { "kv": kv_count, "accounts": account_count },
-        "warning": "导入已整表覆盖：当前登录的刷新令牌可能已失效，access 过期后需用快照中的管理员账号重新登录",
+        "warning": "导入已整表覆盖，全部登录会话已撤销，请用快照中的管理员账号重新登录",
     }))
 }
 
