@@ -40,6 +40,11 @@ type DragState = {
   kind: 'group' | 'row'
   provider: string
   accountId: string
+  pointerId: number
+  startX: number
+  startY: number
+  moved: boolean
+  host: HTMLElement
   item: HTMLElement
   container: HTMLElement
   items: HTMLElement[]
@@ -94,12 +99,29 @@ function paintDropMark(state: DragState): void {
   else others[state.index].classList.add(DROP_CLASSES[0])
 }
 
+/** Polling may replace rows while the pointer is down: resolve by identity again. */
+function refreshItems(state: DragState): boolean {
+  const group = [...state.host.querySelectorAll<HTMLElement>('tbody.acct-group')]
+    .find(item => item.dataset.provider === state.provider)
+  const item = state.kind === 'group' ? group : group &&
+    [...group.querySelectorAll<HTMLElement>('tr.acct-row')].find(row => row.dataset.id === state.accountId)
+  if (!item) return false
+  if (item !== state.item) state.item.classList.remove(DRAGGING_CLASS)
+  state.item = item
+  state.container = item.parentElement || state.host
+  state.items = siblingsOf(item, state.kind)
+  item.classList.add(DRAGGING_CLASS)
+  return state.items.length >= 2
+}
+
 function onPointerMove(event: PointerEvent): void {
-  if (!drag) return
+  if (!drag || event.pointerId !== drag.pointerId) return
   if (event.buttons === 0) { finish(false); return }
+  if (handlersRef?.isLocked() || !refreshItems(drag)) { finish(false); return }
+  if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 4) return
+  drag.moved = true
   const others = drag.items.filter(item => item !== drag!.item)
   const next = insertionIndex(others, event.clientY)
-  if (next === drag.index) return
   drag.index = next
   paintDropMark(drag)
 }
@@ -112,10 +134,11 @@ function finish(drop: boolean): void {
   window.removeEventListener('pointerup', onPointerUp)
   window.removeEventListener('pointercancel', onPointerCancel)
   window.removeEventListener('keydown', onKeyDown)
+  window.removeEventListener('blur', onWindowBlur)
   document.body.classList.remove('queue-dragging')
   state.item.classList.remove(DRAGGING_CLASS)
   clearDropMarks(state.container)
-  if (!drop) return
+  if (!drop || !state.moved || handlersRef?.isLocked()) return
   if (state.kind === 'group') {
     handlersRef?.onDrop({ kind: 'group', provider: state.provider, index: state.index })
   } else {
@@ -123,8 +146,19 @@ function finish(drop: boolean): void {
   }
 }
 
-function onPointerUp(): void { finish(true) }
-function onPointerCancel(): void { finish(false) }
+function onPointerUp(event: PointerEvent): void {
+  if (!drag || event.pointerId !== drag.pointerId) return
+  // The last movement may precede a rerender or scrolling; use the release position.
+  if (drag.moved) {
+    if (handlersRef?.isLocked() || !refreshItems(drag)) { finish(false); return }
+    drag.index = insertionIndex(drag.items.filter(item => item !== drag!.item), event.clientY)
+  }
+  finish(true)
+}
+function onPointerCancel(event: PointerEvent): void {
+  if (event.pointerId === drag?.pointerId) finish(false)
+}
+function onWindowBlur(): void { finish(false) }
 
 /** Esc = 放弃这次拖动（与列设置面板的排序同一手感） */
 function onKeyDown(event: KeyboardEvent): void {
@@ -171,6 +205,8 @@ export function bindQueueDrag(host: HTMLElement | null, handlers: QueueDragHandl
     const others = items.filter(candidate => candidate !== item)
     drag = {
       kind, provider, accountId, item,
+      pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
+      moved: false, host,
       container: item.parentElement || host,
       items,
       index: insertionIndex(others, event.clientY),
@@ -181,5 +217,6 @@ export function bindQueueDrag(host: HTMLElement | null, handlers: QueueDragHandl
     window.addEventListener('pointerup', onPointerUp)
     window.addEventListener('pointercancel', onPointerCancel)
     window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('blur', onWindowBlur)
   })
 }

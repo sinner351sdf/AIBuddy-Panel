@@ -707,7 +707,9 @@ export async function setAccountEnabled(id: string, enabled: boolean): Promise<v
 export async function reorderQueue(ids: string[], note?: string): Promise<boolean> {
   if (!ids.length) return false
   try {
-    await shared().workbuddyDesktop?.reorderAccounts?.(ids)
+    const bridge = shared().workbuddyDesktop
+    if (typeof bridge?.reorderAccounts !== 'function') throw new Error(t('后端桥不可用'))
+    await bridge.reorderAccounts(ids)
     toast(note ? t('✅ 已保存：{note}', { note }) : t('✅ 顺序已保存'))
     await shared().wbApp?.refresh?.()
     return true

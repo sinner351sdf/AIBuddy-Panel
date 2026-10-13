@@ -384,7 +384,7 @@
 .queue-grip:hover { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text-2); }
 
 .acct-row.dragging,
-.grp-band.dragging { opacity: .45; }
+.acct-group.dragging { opacity: .45; }
 
 /* 拖动中：整页光标切成抓取态，提示「现在松手就会落位」 */
 body.queue-dragging,
@@ -399,6 +399,10 @@ body.queue-dragging * { cursor: grabbing !important; }
 
 .acct-row.drop-after > td,
 .grp-band.drop-after > td { box-shadow: inset 0 -2px 0 0 var(--primary); }
+
+/* 整组拖拽标记在 tbody 上；边界必须画在首行 / 末行的单元格上。 */
+.acct-group.drop-before > tr:first-child > td { box-shadow: inset 0 2px 0 0 var(--primary); }
+.acct-group.drop-after > tr:last-child > td { box-shadow: inset 0 -2px 0 0 var(--primary); }
 
 /* 组内序号：#N。与分组带的「第 N 顺位」是同一种读数的两个层级，
    都取中性灰 —— 顺序不是状态，不该有颜色。 */

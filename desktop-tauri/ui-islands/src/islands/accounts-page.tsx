@@ -81,6 +81,7 @@ import {
   PanelsRow, ProxyCell, StatusCell, TableHead, UsageCell,
 } from './accounts-panels'
 import { bindQueueDrag, type QueueDrop } from './accounts-queue-drag'
+import { moveQueueGroup } from './accounts-queue-order'
 import { AccountsDialogs } from './accounts-dialogs'
 
 /** 列设置的句柄（注册在挂载后的布局 effect 里，见下方说明） */
@@ -470,15 +471,12 @@ function AccountsPage() {
       const from = current.findIndex(group => group.provider === drop.provider)
       if (from < 0) return
       const moved = current[from]
-      const rest = current.filter((_, position) => position !== from)
       // 落点下标来自**渲染出来的**那些组（中点比出来的），而全量列表里还夹着
       // 不显示的组 —— 所以按「锚点」换算：插到第 N 个可见组之前 = 完整列表里
       // 那个组的下标之前；N 等于可见组数 = 插到队尾（不显示的组留在原处）
-      const anchor = drop.index < displayed.length ? displayed[drop.index].provider : null
-      const at = anchor === null ? -1 : rest.findIndex(group => group.provider === anchor)
-      const to = anchor === null || at < 0 ? rest.length : at
+      const next = moveQueueGroup(current, displayed, drop.provider, drop.index)
+      const to = next.findIndex(group => group.provider === drop.provider)
       if (to === from) return
-      const next = [...rest.slice(0, to), moved, ...rest.slice(to)]
       const queue = next.flatMap(group => group.members.map(account => account.id))
       void reorderQueue(queue, t('{name} 移到第 {rank} 顺位', { name: moved.label, rank: to + 1 }))
       return

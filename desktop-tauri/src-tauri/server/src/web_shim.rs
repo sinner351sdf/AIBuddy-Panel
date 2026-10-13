@@ -755,6 +755,11 @@ pub fn shim_js() -> &'static str {
     refreshAccountToken: function (id) { return call('POST', '/api/accounts/refresh', id ? { id: id } : {}); },
     removeAccount: function (id) { return call('DELETE', '/api/accounts/' + encodeURIComponent(id)); },
     updateAccount: function (id, patch) { return call('PATCH', '/api/accounts/' + encodeURIComponent(id), patch); },
+    reorderAccounts: function (queue) {
+      return call('POST', '/api/accounts/reorder', {
+        queue: Array.isArray(queue) ? queue.map(function (item) { return String(item); }) : [],
+      });
+    },
     moveAccount: function (id, direction) {
       return call('POST', '/api/accounts/' + encodeURIComponent(id) + '/move', {
         direction: direction === 'down' ? 'down' : 'up',
