@@ -548,7 +548,7 @@ function AccountsPage() {
         )
       }
       case 'usage':
-        return <UsageCell account={account} balanceBars={store.balanceBars} />
+        return <UsageCell account={account} />
       case 'actions':
         return <ActionsCell account={account} atFront={ctx.seat.position <= 1} />
       default:
@@ -683,7 +683,7 @@ function AccountsPage() {
               {/* 上面那条 min-width 是「弹性列压到只剩 FLEX_MIN_WIDTH、再窄就横滚」的那条线，
                   由列宽算出（不再由 CSS 写死，见 accounts-columns 的 tableMinWidth） */}
               <ColGroup />
-              <TableHead namesHidden={store.namesHidden} balanceBars={store.balanceBars} allPicked={allPicked} somePicked={somePicked}
+              <TableHead namesHidden={store.namesHidden} allPicked={allPicked} somePicked={somePicked}
                 disabled={!visibleIds.length} onToggleAll={next => setAllPicked(visibleIds, next)} />
               {groups.map(group => {
                 const collapsed = store.collapsed.has(group.provider)

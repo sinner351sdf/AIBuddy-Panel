@@ -50,8 +50,6 @@ export type AccountsStore = {
   clash: ClashSnapshot | null
   dialog: AccountsDialog
   namesHidden: boolean
-  /** 余额整列统一显示进度条或数值；跨次启动保留。 */
-  balanceBars: boolean
   /** 批量查询余额在途（工具条按钮的文案与禁用态） */
   usageBusy: boolean
   /** 余额查询在途的账号（行上那颗「余额」按钮的去重闸） */
@@ -66,7 +64,6 @@ const COLLAPSED_KEY = 'workbuddy-desktop-accounts-collapsed'
 /** 账号名隐藏开关（表头「账号」旁边那颗眼睛）：打开后账号列的名字整体显示成星号。
  *  这是「怎么看这张表」的偏好，与列宽同一档，存 localStorage 跨次启动保留 */
 const NAMES_HIDDEN_KEY = 'workbuddy-desktop-accounts-names-hidden'
-const BALANCE_BARS_KEY = 'workbuddy-desktop-accounts-balance-bars'
 
 /** 恢复提供商与状态筛选；搜索词不持久化，避免重开页面时隐藏账号。 */
 function loadFilter(): AccountFilter {
@@ -98,10 +95,6 @@ function loadNamesHidden(): boolean {
   }
 }
 
-function loadBalanceBars(): boolean {
-  try { return localStorage.getItem(BALANCE_BARS_KEY) === '1' } catch { return false }
-}
-
 /* ─── store ─────────────────────────────────── */
 
 let store: AccountsStore = {
@@ -114,7 +107,6 @@ let store: AccountsStore = {
   clash: null,
   dialog: null,
   namesHidden: loadNamesHidden(),
-  balanceBars: loadBalanceBars(),
   usageBusy: false,
   usageInflight: new Set<string>(),
 }
@@ -365,12 +357,6 @@ export function toggleNamesHidden(): void {
   const next = !store.namesHidden
   try { localStorage.setItem(NAMES_HIDDEN_KEY, next ? '1' : '0') } catch { /* 存不了只影响下次启动 */ }
   patch({ namesHidden: next })
-}
-
-export function toggleBalanceBars(): void {
-  const next = !store.balanceBars
-  try { localStorage.setItem(BALANCE_BARS_KEY, next ? '1' : '0') } catch { /* 仍可在当前页面切换 */ }
-  patch({ balanceBars: next })
 }
 
 /**

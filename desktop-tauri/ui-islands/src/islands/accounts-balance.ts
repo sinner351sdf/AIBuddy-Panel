@@ -16,23 +16,22 @@ export function balanceDisplayRows(entry: unknown, pool: BalancePool | null): Ba
   const totalLeft = numeric(data.totalLeft)
   const available = numeric(data.available)
   const percent = pool?.percent ?? (percentage ? available : null)
-  const text = pool?.valueText
-    ?? (data.unlimited === true ? '∞'
-      : totalLeft !== null ? String(totalLeft)
-      : available !== null ? `${available}${percentage ? '%' : ''}`
-      : percent !== null ? `${Math.round(percent)}%` : '—')
-  const rows: BalanceDisplayRow[] = [{ key: percentage ? 'cycle' : 'balance', text, percent }]
-  // 套餐余量与周期窗口是独立口径。只在百分比 provider 的订阅里补这一行，
-  // 不重复其他家的积分汇总，也不把未知总额补成 0。
+  // 有套餐的绝对余量时只显示它；周期比例保留在原始摘要的悬停提示里。
   if (percentage && data.subscription && typeof data.subscription === 'object') {
     const subscription = data.subscription as Record<string, unknown>
     const remaining = numeric(subscription.remainQuota)
     const total = numeric(subscription.totalQuota)
-    if (remaining !== null) rows.push({
+    if (remaining !== null) return [{
       key: 'subscription',
       text: total !== null ? `${remaining} / ${total}` : String(remaining),
       percent: total !== null && total > 0 ? Math.max(0, Math.min(100, remaining / total * 100)) : null,
-    })
+    }]
   }
-  return rows
+  if (data.unlimited === true) return [{ key: 'balance', text: '∞', percent: null }]
+  if (totalLeft !== null) return [{ key: 'balance', text: String(totalLeft), percent: null }]
+  if (!percentage && available !== null) return [{ key: 'balance', text: String(available), percent: null }]
+  // 数量和比例不混用：只有百分比时才画进度条，不为缺失总额的余额画占位条。
+  const percentageOnly = percentage || Boolean(pool?.valueText?.endsWith('%'))
+  const text = percentageOnly && percent !== null ? `${Math.round(percent)}%` : pool?.valueText || '—'
+  return [{ key: percentageOnly ? 'cycle' : 'balance', text, percent }]
 }
