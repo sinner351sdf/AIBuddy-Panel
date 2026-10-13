@@ -13,8 +13,9 @@
 //!   - `unit` = `"%"`；
 //!   - `wallets` 里给一条「额度余量」= `100 - usagePercent`，
 //!     并把重置倒计时写进它的 `detail` 字段；
-//!   - `subscription` 用 `remainQuota / totalQuota`（都是百分比）承载同一件事，
-//!     免得前端只认 subscription 时什么都显示不出来。
+//!   - `remainingPercent` 用于账号页进度条；缺失用量时报告查询失败，不假定未使用；
+//!   - `subscription` 保留上游套餐的 `remainQuota / totalQuota`，与周期百分比
+//!     是不同口径，不能把套餐额度当作百分比。
 //!
 //! ── 401 为什么原样透出 ──────────────────────────────────────
 //! 契约要求（见 `ProviderAdapter::query_usage`）：调用方据此走「刷新后重试一次」。
@@ -54,17 +55,7 @@ pub async fn query(
         return Err(GatewayError::with_status(401, "Accio 凭证已失效，请重新登录"));
     }
     let quota = auth::payload(quota_response, "额度查询").map(auth::unwrap_data)?;
-    let usage_percent = quota
-        .get("usagePercent")
-        .or_else(|| quota.get("usage_percent"))
-        .and_then(Value::as_f64)
-        .unwrap_or(0.0)
-        .clamp(0.0, 100.0);
-    let countdown = quota
-        .get("refreshCountdownSeconds")
-        .or_else(|| quota.get("refresh_countdown_seconds"))
-        .and_then(Value::as_f64);
-    let remain = (100.0 - usage_percent).max(0.0);
+    let wallet = quota_wallet(&quota)?;
 
     // ── 订阅（可选，失败不影响额度的展示）──────────────────────
     let subscription = match auth::get_with_token(
@@ -85,17 +76,6 @@ pub async fn query(
         _ => Value::Null,
     };
 
-    let mut wallet = json!({
-        "type": "entitlement",
-        "displayName": "额度余量",
-        "balance": remain,
-        "unit": "%",
-        "usedPercent": usage_percent,
-    });
-    if let Some(seconds) = countdown.filter(|value| *value > 0.0) {
-        wallet["detail"] = Value::String(format!("{} 后重置", humanize_seconds(seconds)));
-    }
-
     Ok(json!({
         // 上游只有百分比，没有绝对剩余量：按契约给 null（见模块头）
         "available": Value::Null,
@@ -108,6 +88,32 @@ pub async fn query(
             "account": credentials.user_id,
         },
     }))
+}
+
+/// 百分比额度桶；不以 0 补缺失字段，否则未知额度会变成「剩余 100%」。
+fn quota_wallet(quota: &Value) -> Result<Value, GatewayError> {
+    let usage_percent = ["usagePercent", "usage_percent"]
+        .iter()
+        .find_map(|key| quota.get(*key).and_then(Value::as_f64))
+        .filter(|value| value.is_finite())
+        .ok_or_else(|| GatewayError::with_status(502, "Accio 额度查询未返回有效的已用百分比"))?
+        .clamp(0.0, 100.0);
+    let remain = 100.0 - usage_percent;
+    let mut wallet = json!({
+        "type": "entitlement",
+        "displayName": "额度余量",
+        "balance": remain,
+        "unit": "%",
+        "usedPercent": usage_percent,
+        "remainingPercent": remain,
+    });
+    let countdown = ["refreshCountdownSeconds", "refresh_countdown_seconds"]
+        .iter()
+        .find_map(|key| quota.get(*key).and_then(Value::as_f64));
+    if let Some(seconds) = countdown.filter(|value| value.is_finite() && *value > 0.0) {
+        wallet["detail"] = Value::String(format!("{} 后重置", humanize_seconds(seconds)));
+    }
+    Ok(wallet)
 }
 
 /// 订阅响应 → 契约里的 `subscription` 形状（字段名宽口径）。
@@ -153,5 +159,51 @@ fn humanize_seconds(seconds: f64) -> String {
         format!("{minutes} 分")
     } else {
         format!("{total} 秒")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn quota_remaining_percent_preserves_zero_full_and_fractional_values() {
+        for (used, remaining) in [(0.0, 100.0), (100.0, 0.0), (37.5, 62.5)] {
+            let wallet = quota_wallet(&json!({"usagePercent": used})).unwrap();
+            assert_eq!(wallet["balance"], json!(remaining));
+            assert_eq!(wallet["remainingPercent"], json!(remaining));
+            assert_eq!(wallet["usedPercent"], json!(used));
+        }
+    }
+
+    #[test]
+    fn quota_missing_or_invalid_percent_does_not_become_full() {
+        for quota in [
+            json!({}),
+            json!({"usagePercent": null}),
+            json!({"usagePercent": "unknown"}),
+            json!({"usagePercent": false}),
+        ] {
+            assert!(quota_wallet(&quota).is_err());
+        }
+    }
+
+    #[test]
+    fn quota_alias_countdown_and_out_of_range_values() {
+        let wallet = quota_wallet(&json!({
+            "usage_percent": 25.0,
+            "refresh_countdown_seconds": 86400,
+        }))
+        .unwrap();
+        assert_eq!(wallet["remainingPercent"], json!(75.0));
+        assert_eq!(wallet["detail"], "1 天 0 小时 后重置");
+        assert_eq!(
+            quota_wallet(&json!({"usagePercent": 120})).unwrap()["remainingPercent"],
+            json!(0.0),
+        );
+        assert_eq!(
+            quota_wallet(&json!({"usagePercent": -1})).unwrap()["remainingPercent"],
+            json!(100.0),
+        );
     }
 }

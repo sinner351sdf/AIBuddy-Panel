@@ -434,7 +434,8 @@ export function usageSummary(entry: UsageEntry): { text: string; kind: string; t
     // 上游给的展示串优先（带千分位 / 单位的格式化），没有才按数值拼
     const detail = wallets
       .map(wallet => `${wallet?.displayName || wallet?.type || t('明细')} `
-        + `${wallet?.balanceView ? String(wallet.balanceView) : numberText(wallet?.balance)}`)
+        + `${wallet?.balanceView ? String(wallet.balanceView) : numberText(wallet?.balance)}`
+        + (wallet?.detail ? ` · ${String(wallet.detail)}` : ''))
       .join(' · ')
     const subscription = subscriptionText(data.subscription)
     // ── 没有额度桶时的口径说明（两档，判据都是**结构**不是文案）───────
@@ -456,8 +457,13 @@ export function usageSummary(entry: UsageEntry): { text: string; kind: string; t
     // 展示串优先：ZCode 的额度单位是 token（1 亿 = 9 位数字），而余额列只有几十
     // 像素宽 —— 后端因此给了 `availableView`（`1亿 token` 这类紧凑串）。没有这个
     // 字段的家（其余全部）走的仍是「数值 + 单位」那条老路，行为一字未变。
+    // Accio 只有周期百分比，available=null 是「没有积分绝对数」。从额度桶
+    // 取剩余比例，不能拼成「可用 — %」，也不能把未知值伪装成 0%。
+    const percentageOnly = unit === '%' && numberOrNull(data.available) === null
+    const percentagePool = percentageOnly ? usagePool(entry) : null
     const available = data.availableView
       ? String(data.availableView)
+      : percentageOnly ? (percentagePool?.text || t('无数据'))
       : t('可用 {value} {unit}', { value: numberText(data.available), unit })
     // ── 部分失败：一份账读到了、另一份没读到 ────────────────────
     // CodeArts 的余额是**两台网关**（订阅统计 + 福利网关，见后端
@@ -480,7 +486,7 @@ export function usageSummary(entry: UsageEntry): { text: string; kind: string; t
       : []
     return {
       text: available + (missing.length ? ' ⚠' : ''),
-      kind: missing.length ? 'warn' : 'ok',
+      kind: missing.length ? 'warn' : percentageOnly && !percentagePool && !data.availableView ? 'muted' : 'ok',
       title: [available, detail, subscription, ...notes, ...absent, ...missing].filter(Boolean).join(' · '),
     }
   }
@@ -586,7 +592,7 @@ export function usagePool(entry: UsageEntry): { planName: string; text: string; 
     // ② 只有比例的窗口（监控通道）：取剩余最少的那个
     let tightest: { wallet: Record<string, unknown>; percent: number } | null = null
     for (const wallet of wallets) {
-      const percent = numberOrNull(wallet?.remainingPercent)
+      const percent = walletRemainingPercent(wallet)
       if (percent === null) continue
       if (!tightest || percent < tightest.percent) tightest = { wallet, percent }
     }
@@ -634,7 +640,7 @@ export function usagePool(entry: UsageEntry): { planName: string; text: string; 
   // 套餐名优先取这个桶自己的（`wallet.planName`），退回账号级那份 ——
   // 桶认不出归属时（上游没给 plan_id）至少还有订阅里的名字可显示
   const planName = String(lead.planName || subscription.planName || '')
-  const percent = numberOrNull(lead.remainingPercent)
+  const percent = walletRemainingPercent(lead)
   return {
     planName,
     text: String(lead.balanceView || numberText(lead.balance)),
@@ -650,9 +656,21 @@ export function usagePool(entry: UsageEntry): { planName: string; text: string; 
  * 读起来一模一样，而那是两件事（见 `usagePool` 的缺失口径）。
  */
 function numberOrNull(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') return null
+  if (typeof value !== 'number' && typeof value !== 'string') return null
+  if (typeof value === 'string' && !value.trim()) return null
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
+}
+
+/** 兼容旧 Accio 快照：% 桶的 balance / usedPercent 已是比例，其他单位不能这样推导。 */
+function walletRemainingPercent(wallet: Record<string, unknown>): number | null {
+  const remaining = numberOrNull(wallet?.remainingPercent)
+  if (remaining !== null) return remaining
+  if (wallet?.unit !== '%') return null
+  const balance = numberOrNull(wallet.balance)
+  if (balance !== null) return balance
+  const used = numberOrNull(wallet.usedPercent)
+  return used === null ? null : 100 - used
 }
 
 /* ─── 余额明细弹层（usageDetail 能力位的那几家，现役只有 CodeArts）─── */
