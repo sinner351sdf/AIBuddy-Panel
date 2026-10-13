@@ -105,6 +105,7 @@ type KeyQuota = {
   enabled?: boolean
   /** 配额总量；null = 不限额 */
   quotaTokens?: number | null
+  meteringError?: string | null
   usedTokens?: number | null
   remainingTokens?: number | null
   /** 到期时刻（毫秒）；null = 永久 */
@@ -1164,6 +1165,7 @@ function KeyQuotaArea({ entry, quota }: { entry: KeyEntry; quota: KeyQuota | und
       className='flex min-w-0 flex-col gap-[3px] text-[11.5px] leading-[1.5]'
       title='配额按 Key 维度累计转发 Token 用量，用尽后这把 Key 的请求会被拒绝；到期后 Key 立即失效。'
     >
+      {read?.meteringError && <div role='alert' className='text-[var(--danger)]'>用量账本读取失败；受额度限制的新请求已暂停。</div>}
       {quotaTokens === null ? (
         // 未设配额：不限额也要写出来；已用读数在手时顺带展示（one-api 不限额度也显示已用）
         <div className='text-[var(--text-3)]'>
@@ -1299,6 +1301,7 @@ function QuotaModal({ target, quota, onClose, onSaved }: QuotaModalProps) {
           <DialogTitle>额度管理 · {target.name || '未命名'}</DialogTitle>
         </DialogHeader>
         <DialogBody>
+          {quota?.meteringError && <p role='alert' className='text-[var(--danger)]'>用量账本读取失败，请修复或恢复有效备份后再调整额度。{quota.meteringError}</p>}
           <DialogSection>
             <div className='flex flex-wrap items-center gap-2.5'>
               <Label htmlFor='key-quota-input' className='text-[12.5px] whitespace-nowrap text-subtle'>配额 Token 数</Label>

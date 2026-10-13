@@ -96,16 +96,22 @@
 </g>`,
     // 状态灯圆点：实心小圆（例外，不走描边体系；root fill="currentColor" 着色）
     pulse: '<circle cx="12" cy="12" r="5"/>',
-
     /**
-     * 设置页左栏的分类图标（九个一组，随岛渲染进 .settings-nav-item .ico）。
+     * 设置页左栏的分类图标（2026-09 新增，九个一组）。
      *
-     * 与主侧栏导航**同一套**官方 Lucide 线性体系（stroke 2 + 圆头圆角 +
-     * currentColor），不再单独一套粗细约定 —— 全站图标只有一种语言，
-     * 换到哪个页面都不会出现风格断层。视觉上由 page-settings.css 给
-     * 图标槽垫一枚浅紫圆角小方块，线性图形在小底块上比填充块更透气。
+     * ── 为什么单独一组（不复用上面那些导航图标）──────────────
+     * 上面那组是主侧栏的**填充式**导航图标；设置页分类项的文字是 12.5px、
+     * 图标盒 17px，填充块在这个尺寸下比文字重。这九个统一用**描边**画
+     * （粗细 1.8 + 圆头圆角，与 arrowDown / eye 同一套约定，17px 下约 1.2px），
+     * 几何取自 Feather / Lucide 的成熟图形（与 eye / eyeOff 借 Feather 同理），
+     * 小尺寸下笔画不糊、形状可辨。九个图标同一风格，设置页内自成一套。
      */
-    // 通用：sliders-horizontal（三条轨道 + 三个把手）
+    // 通用：调节滑杆（三条轨道 + 三个把手）
+    route: '<g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+      + '<path d="M4 12h5"/><circle cx="3.5" cy="12" r="1.5"/>'
+      + '<path d="M9 12c3 0 3-6 6-6h4"/><path d="m17 3 3 3-3 3"/>'
+      + '<path d="M9 12c3 0 3 6 6 6h4"/><path d="m17 15 3 3-3 3"/></g>',
+    // 重试：环形箭头
     sliders: `<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
   <path d="M10 5H3" />
   <path d="M12 19H3" />
@@ -190,6 +196,19 @@
       + '<path d="M12 5v14"/><path d="m6 13 6 6 6-6"/></g>',
     arrowUp: '<g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
       + '<path d="M12 19V5"/><path d="m6 11 6-6 6 6"/></g>',
+
+    /**
+     * 拖动把手（账号页分组模式：分组的组顺位、组内的行顺序都靠它）。
+     * 六个圆点两列排布，是「这一处可以拖」的通用意象。光标态交给 CSS
+     * （默认 grab、拖动中 grabbing），图标本身不带状态。
+     */
+    gripVertical: '<g fill="currentColor">'
+      + '<circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/>'
+      + '<circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/>'
+      + '<circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></g>',
+    /** 折叠箭头（分组带的展开 / 收起）：向下 = 已展开；收起态由 CSS 旋转 -90° */
+    chevronDown: '<g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+      + '<path d="m6 9 6 6 6-6"/></g>',
 
     /**
      * 账号名隐私开关的两枚眼睛（账号表「账号」表头的显隐按钮）。

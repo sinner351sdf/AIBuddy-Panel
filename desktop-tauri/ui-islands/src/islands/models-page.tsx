@@ -133,6 +133,7 @@ import {
   openAddCustomProvider, openCapability, openCustomModel, openMapping, providerLabelOf, providerOptions,
   refreshAll,
   refreshModels, registerColumnSettings, removeCustomProvider, render, resolveProvider, restoreSavedFilters,
+  pruneForeignTableNodes,
   rowEnabled, rowKeyOf, runRowAction, same, selectProvider, setSearch, setStateFilter, setTableEl,
   shared, subscribe, syncHead, toast, upstreamOptions, viewData, visibleColumns, writeAddModel,
   writeBinding, writeRemoveMapping, writeRemoveModel,
@@ -337,6 +338,14 @@ function ModelsPage() {
    * 跟着渲染读实时数据 —— 弹窗开着期间目录刷新、搜索词变化都不该改写已经展示给用户的配置。
    */
   const [config, setConfig] = React.useState<{ firstModel: string; total: number } | null>(null)
+  /**
+   * 表格结构的自愈（修复 #195）：每次提交后摘掉不属于 React 树的表格节点
+   *（外部插进 table 的 tbody / 游离 tr、以及混进 tbody#models 的异己行）。
+   * 判据与完整理由见 `pruneForeignTableNodes` 的说明。
+   */
+  React.useEffect(() => {
+    pruneForeignTableNodes()
+  })
 
   const view = viewData()
   const all = Array.isArray(view.models) ? view.models : []
