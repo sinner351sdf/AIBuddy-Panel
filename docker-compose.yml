@@ -31,6 +31,9 @@ services:
       AGENT2API_ADMIN_PASSWORD: ${AGENT2API_ADMIN_PASSWORD:-}
       # 可选：面板分端口（见文件头说明）。不设则面板与网关同在 3065。
       AGENT2API_PANEL_PORT: ${AGENT2API_PANEL_PORT:-}
+      # 反向代理 / 面板分端口部署时，Codex 应使用的网关外部地址。
+      AGENT2API_PUBLIC_API_URL: ${AGENT2API_PUBLIC_API_URL:-}
+      WORKBUDDY_UPDATE_REPO: ${WORKBUDDY_UPDATE_REPO:-sinner351sdf/AIBuddy-Panel}
       # 登录页人机验证组件环境变量，默认为1开启，0为关闭
       AGENT2API_CAPTCHA_ENABLED: ${AGENT2API_CAPTCHA_ENABLED:-1}
       # Antigravity OAuth（仅使用此提供商时需要；值由本机 .env 或进程环境注入）。

@@ -2953,7 +2953,7 @@ function BackupSettingsPanel() {
     <section className='panel'>
       <PanelHead
         title='定时备份'
-        tip='每天自动对 SQLite 主库执行一次 VACUUM INTO，把整库压缩成一个全新快照文件写入备份目录。快照是独立的单文件数据库，拷走即备份、改名替换主库即恢复；运行中的库直接复制可能得到损坏的半个文件，VACUUM INTO 生成的是完整一致的副本。'
+        tip='每天自动生成完整、一致的 SQLite 备份文件，保存账号、设置、日志和请求统计。恢复 .db 文件时应先停止服务并保留当前数据副本；桌面端也可使用整库 SQL 备份与恢复入口。'
         badge={badge}
         actions={<RefreshButton id='btn-backup-refresh' disabled={busy !== null} onClick={() => void refresh()} />}
       />

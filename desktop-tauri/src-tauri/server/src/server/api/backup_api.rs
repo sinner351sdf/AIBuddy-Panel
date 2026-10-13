@@ -18,7 +18,7 @@
 //!     配置（apiKeys / modelRules…）、桌面设置、管理员（panelAdmin）、
 //!     刷新令牌（panelTokens）、本切片的维护开关与备份设置，都是 kv 的行；
 //!     「设置」不另立小节，就是这些行的子集。
-//!   - **整库快照文件（`core::backup`）**：`VACUUM INTO` 的 .db 文件，服务
+//!   - **整库快照文件（`core::backup`）**：SQLite Backup API 生成的 .db 文件，服务
 //!     本机定时兜底与灾难恢复（连日志统计一起带上）。两者互不替代。
 //!
 //! ── 导入的覆盖语义 ──────────────────────────────────────────
@@ -318,7 +318,14 @@ fn parse_account_rows(snapshot: &Value) -> Result<Vec<AccountRow>, String> {
         let added_at = item.get("addedAt").and_then(Value::as_i64).unwrap_or(0);
         let data = match item.get("data") {
             Some(data) if data.is_object() => data.to_string(),
-            Some(Value::String(text)) => text.clone(),
+            Some(Value::String(text)) => {
+                let parsed: Value = serde_json::from_str(text)
+                    .map_err(|_| format!("accounts[{index}].data 不是有效 JSON"))?;
+                if !parsed.is_object() {
+                    return Err(format!("accounts[{index}].data 必须是 JSON 对象"));
+                }
+                text.clone()
+            },
             _ => {
                 return Err(format!(
                     "accounts[{index}] 缺少 data 字段（账号记录的 JSON 原文）"

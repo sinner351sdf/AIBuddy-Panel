@@ -53,6 +53,11 @@ with tempfile.TemporaryDirectory(prefix='agent2api-review-') as tmp:
             assert expired_v1==403 and export_status==403 and reset_status==403
             assert req(qp,'PUT',{'expiresAt':None},token=token)[0]==200
             assert req('/api/keys',key=key)[0]==403
+            # Invalid embedded account JSON must fail before changing the database or sessions.
+            invalid=req('/api/backup/export',token=token)[1]['data']
+            invalid['accounts']=[{'id':'invalid-fixture','provider':'workbuddy','data':'{broken'}]
+            assert req('/api/backup/import','POST',{'data':invalid,'confirm':True},token=token)[0]==400
+            assert req('/api/keys',token=token)[0]==200
             # A valid snapshot with no persisted refresh-token row must replace old memory too.
             snap=req('/api/backup/export',token=token)[1]['data']
             snap['kv']=[x for x in snap['kv'] if x['key']!='panelTokens']
@@ -101,6 +106,9 @@ with tempfile.TemporaryDirectory(prefix='agent2api-review-') as tmp:
                 assert req(path)[0]==401,path
                 assert req(path,key=key)[0]==403,path
                 assert req(path,token=token)[0]==200,path
+            status,routing=req('/api/routing','PUT',{'routingStrategy':'rotate','routingSticky':'session'},token=token)
+            assert status==200 and routing['data']['routingStrategy']=='rotate'
+            assert req('/api/routing',token=token)[1]['data']['routingSticky']=='session'
             for path in ('/api/backup/sql/export','/api/backup/sql/import'):
                 assert req(path,'POST',{'filePath':'/tmp/must-not-be-written.sql'},token=token)[0]==403
             assert req('/api/checkin-keepalive','POST',{'models':['fixture-first','fixture-second']},token=token)[0]==200

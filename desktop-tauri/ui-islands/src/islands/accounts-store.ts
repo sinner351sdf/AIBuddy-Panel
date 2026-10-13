@@ -209,8 +209,9 @@ export function seats(): Map<string, { position: number; total: number }> {
 /* ─── 筛选 ─────────────────────────────────── */
 
 function persistFilter(): void {
-  // 只落 enabled / limit：搜索词（q）是一次性的动作，不跨次启动（见 loadFilter）
+  // 持久化提供商与状态筛选；搜索词（q）不跨次启动（见 loadFilter）
   shared().wbFilterMemory?.save(FILTERS_KEY, {
+    provider: store.filter.provider || 'all',
     enabled: store.filter.enabled,
     limit: store.filter.limit,
   })

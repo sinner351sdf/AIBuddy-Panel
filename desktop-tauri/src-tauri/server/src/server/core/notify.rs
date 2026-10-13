@@ -11,8 +11,8 @@
 //! 也不需要在 `db::schema::RESERVED_KV_KEYS` 里另立门户。
 //!
 //! ── 分发模型：一次事件 → 并发打全部启用渠道 ──────────────────
-//! [`dispatch`] 把消息**同时**发给所有启用渠道（`tokio::task::JoinSet` 并发
-//! spawn）：一条渠道挂了 / 慢了不该拖住别的渠道，更不该拖住调用方 ——
+//! [`dispatch`] 在最多 64 条待发/在途投递、4 路并发的上界内发送给启用渠道；
+//! 满载时记录丢弃，不等待主请求。通用 Webhook 的暂时错误最多重试一次。
 //! dispatch 本身立刻返回，发送全部在后台任务里做；每个渠道各自记成功 /
 //! 失败日志（`[Notify]`），失败只记日志、绝不向上抛。渠道的失败概率天然
 //! 偏高（webhook 地址是用户手填的），通知系统自己的故障不允许传染主链路。
@@ -538,16 +538,23 @@ fn with_query(url: &str, key: &str, value: &str) -> String {
 /// 发送并返回 2xx 响应正文（HTTP 层校验与 [`send`] 相同；响应体里带业务
 /// 成败字段的渠道 —— SMS 网关普遍如此 —— 用它拿正文再做业务校验）
 async fn send_and_read(request: reqwest::RequestBuilder) -> Result<String, String> {
-    let response = request
+    let mut response = request
         .send()
         .await
         .map_err(|error| format!("请求失败: {error}"))?;
     let status = response.status();
-    let text = response.text().await.unwrap_or_default();
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|error| format!("读取通知响应失败: {error}"))? {
+        if bytes.len() + chunk.len() > 65_536 {
+            return Err("通知响应超过 64 KiB 上限".to_string());
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    let text = String::from_utf8_lossy(&bytes);
     if !status.is_success() {
         return Err(format!("远端返回 {status}: {}", truncate_text(&text, 200)));
     }
-    Ok(text)
+    Ok(text.into_owned())
 }
 
 /// 解析响应 JSON（失败给 `None`，调用方按「业务校验失败」报错）
@@ -595,16 +602,26 @@ fn http_client() -> &'static reqwest::Client {
 
 /// 发送并校验 2xx；非 2xx 时带上（截断后的）响应正文，方便排障
 async fn send(request: reqwest::RequestBuilder) -> Result<(), String> {
-    let response = request
+    let mut response = request
         .send()
         .await
         .map_err(|error| format!("请求失败: {error}"))?;
     let status = response.status();
-    let text = response.text().await.unwrap_or_default();
-    if !status.is_success() {
-        return Err(format!("远端返回 {status}: {}", truncate_text(&text, 200)));
+    if status.is_success() {
+        return Ok(());
     }
-    Ok(())
+    // 先限制读取量再截断展示；不能先把任意大的远端正文读进内存。
+    let mut body = Vec::new();
+    while body.len() < 8192 {
+        match response.chunk().await {
+            Ok(Some(chunk)) => {
+                let take = (8192 - body.len()).min(chunk.len());
+                body.extend_from_slice(&chunk[..take]);
+            }
+            _ => break,
+        }
+    }
+    Err(format!("远端返回 {status}: {}", truncate_text(&String::from_utf8_lossy(&body), 200)))
 }
 
 // ─── 各渠道的发送实现（每种 type 一个函数；字段清单写在各自注释里）──
@@ -622,11 +639,8 @@ async fn send_webhook(config: &Value, title: &str, body: &str) -> Result<(), Str
     let mut request = http_client().post(&url).json(&payload);
     let secret = cfg_string(config, "secret");
     if !secret.is_empty() {
-        // 头值不合法（如含非 ASCII）时静默省略：secret 本来就是可选的，
-        // 一个填错的 secret 不该让整条通知发不出去
-        if let Some(value) = header_value(&secret) {
-            request = request.header("X-Webhook-Secret", value);
-        }
+        let value = header_value(&secret).ok_or("Webhook secret 不是有效 HTTP 头值")?;
+        request = request.header("X-Webhook-Secret", value);
     }
     send(request).await
 }
@@ -3802,62 +3816,61 @@ async fn send_channel(channel: &NotifyChannel, title: &str, body: &str) -> Resul
     }
 }
 
-/// 把一条事件**并发**发给所有启用渠道（`JoinSet` 并发、各自记日志、失败不抛）。
-///
-/// `event` 是事件的机器名（如 `account_offline` / `test`），只用于日志定位；
-/// 标题与正文才是渠道真正收到的东西。立即返回，发送在后台任务里完成。
-pub fn dispatch(event: &str, title: &str, body: &str) {
-    let targets: Vec<NotifyChannel> = channels().into_iter().filter(|channel| channel.enabled).collect();
-    if targets.is_empty() {
-        return;
-    }
-    let event = event.to_string();
-    let title = title.to_string();
-    let body = body.to_string();
-    crate::spawn_task(async move {
-        let mut set = tokio::task::JoinSet::new();
-        for channel in targets {
-            let event = event.clone();
-            let title = title.clone();
-            let body = body.clone();
-            set.spawn(async move {
-                let label = channel.label();
-                if !is_known_kind(&channel.kind) {
-                    logging::log(
-                        "[Notify]",
-                        &format!("⚠️ 跳过未知类型的通知渠道「{label}」: {}", channel.kind),
-                    );
-                    return;
-                }
-                match send_channel(&channel, &title, &body).await {
-                    Ok(()) => logging::log("[Notify]", &format!("✅ 通知已发送[{event}]: {label}")),
-                    Err(error) => {
-                        logging::log("[Notify]", &format!("❌ 通知发送失败[{event}]: {label}: {error}"))
-                    }
-                }
-            });
-        }
-        // 只回收 JoinError（任务 panic / 被取消）；发送成败已在上面各记各的
-        while let Some(joined) = set.join_next().await {
-            if let Err(error) = joined {
-                logging::log("[Notify]", &format!("❌ 通知任务异常: {error}"));
-            }
-        }
-    });
+/// 共享资源上界：最多 64 条待发/在途投递，4 条实际发送。
+fn pending_deliveries() -> &'static std::sync::Arc<tokio::sync::Semaphore> {
+    static LIMIT: std::sync::OnceLock<std::sync::Arc<tokio::sync::Semaphore>> = std::sync::OnceLock::new();
+    LIMIT.get_or_init(|| std::sync::Arc::new(tokio::sync::Semaphore::new(64)))
+}
+fn sending_deliveries() -> &'static tokio::sync::Semaphore {
+    static LIMIT: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(4);
+    &LIMIT
 }
 
-/// 发一条测试通知到**指定渠道**（`POST /api/notify/test` 的执行体）：
-/// 同步等待结果，成败与错误文案直接回给界面。
-pub async fn test_channel(channel: &NotifyChannel) -> Result<(), String> {
+async fn deliver(channel: &NotifyChannel, title: &str, body: &str) -> Result<(), String> {
     if !is_known_kind(&channel.kind) {
         return Err(format!("未知的通知渠道类型: {}", channel.kind));
     }
-    send_channel(
-        channel,
-        "Agent2API 测试通知",
-        "收到这条消息即说明该通知渠道配置正确。",
-    )
-    .await
+    tokio::time::timeout(Duration::from_secs(25), async {
+        let result = send_channel(channel, title, body).await;
+        // 通用 Webhook 只对网络错误、429、5xx 重试一次；接收端仍应容忍重复投递。
+        let retry = matches!(channel.kind.as_str(), KIND_WEBHOOK | KIND_WEBHOOK_CUSTOM)
+            && result.as_ref().err().is_some_and(|error| error.starts_with("请求失败:")
+                || error.starts_with("远端返回 429") || error.starts_with("远端返回 5"));
+        if retry {
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            send_channel(channel, title, body).await
+        } else {
+            result
+        }
+    }).await.map_err(|_| "通知投递超过 25 秒".to_string())?
+}
+
+/// 异步投递；满载时丢弃并记录，不阻塞转发，也不创建无界等待任务。
+pub fn dispatch(event: &str, title: &str, body: &str) {
+    for channel in channels().into_iter().filter(|channel| channel.enabled) {
+        let Ok(pending) = pending_deliveries().clone().try_acquire_owned() else {
+            logging::log("[Notify]", "通知队列已满，跳过本次投递");
+            continue;
+        };
+        let event = truncate_text(event, 100);
+        let title = truncate_text(title, 500);
+        let body = truncate_text(body, 16_384);
+        crate::spawn_task(async move {
+            let _pending = pending;
+            let Ok(_sending) = sending_deliveries().acquire().await else { return; };
+            let label = channel.label();
+            match deliver(&channel, &title, &body).await {
+                Ok(()) => logging::log("[Notify]", &format!("✅ 通知已发送[{event}]: {label}")),
+                Err(error) => logging::log("[Notify]", &format!("❌ 通知发送失败[{event}]: {label}: {error}")),
+            }
+        });
+    }
+}
+
+/// 手动测试共享并发上界；忙时立即提示重试，不额外堆积后台任务。
+pub async fn test_channel(channel: &NotifyChannel) -> Result<(), String> {
+    let _sending = sending_deliveries().try_acquire().map_err(|_| "通知发送繁忙，请稍后重试")?;
+    deliver(channel, "Agent2API 测试通知", "收到这条消息即说明该通知渠道配置正确。").await
 }
 
 // ─── 账号异常告警（功能三的公共入口）────────────────────────────
@@ -4032,5 +4045,37 @@ pub fn normalize_channel(kind: &str, name: &str, enabled: bool, config: Value) -
             Value::Null => Value::Object(Map::new()),
             other => other,
         },
+    }
+}
+
+#[cfg(test)]
+mod delivery_tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    #[tokio::test]
+    async fn error_response_read_is_bounded_before_remote_finishes() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let peer = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut buf = [0; 4096];
+            let _ = stream.read(&mut buf).await.unwrap();
+            stream.write_all(b"HTTP/1.1 500 Internal Server Error\r\nContent-Length: 999999999\r\n\r\n").await.unwrap();
+            stream.write_all(&vec![b'x'; 16384]).await.unwrap();
+            tokio::time::sleep(Duration::from_secs(10)).await;
+        });
+        let request = reqwest::Client::builder().no_proxy().build().unwrap().get(url);
+        let result = tokio::time::timeout(Duration::from_secs(2), send(request)).await;
+        peer.abort();
+        let message = result.expect("must stop after bounded prefix").unwrap_err();
+        assert!(message.starts_with("远端返回 500"));
+        assert!(message.len() < 300);
+    }
+
+    #[tokio::test]
+    async fn invalid_webhook_secret_is_rejected_before_sending() {
+        let result = send_webhook(&json!({"url":"http://127.0.0.1:9", "secret":"bad\r\nheader"}), "test", "test").await;
+        assert!(result.unwrap_err().contains("secret 不是有效 HTTP 头值"));
     }
 }
