@@ -220,6 +220,7 @@ pub async fn embeddings(
         &client_model,
         &client_model,
         "",
+        false,
     );
     telemetry.set_live_sink(live_row_sink(
         state.request_stats(),
@@ -247,6 +248,7 @@ pub async fn embeddings(
             let raw_response = Some(outcome.body_text.clone());
             record_entry(
                 &RecordContext {
+                    is_test: false,
                     stats: state.request_stats(),
                     telemetry,
                     started_at,
@@ -275,6 +277,7 @@ pub async fn embeddings(
             let message = error.message.clone();
             record_entry(
                 &RecordContext {
+                    is_test: false,
                     stats: state.request_stats(),
                     telemetry,
                     started_at,
@@ -466,6 +469,7 @@ async fn forward_embeddings(
             }
         };
         let transport = TransportRequest {
+            system_proxy_when_unset: false,
             url,
             headers: plan.headers,
             payload: payload_text,

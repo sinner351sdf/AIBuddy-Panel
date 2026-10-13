@@ -1,4 +1,4 @@
-// AIBuddy Panel logo generator — violet theme (#8654f0 = oklch 0.585 0.221 293)
+// Agent2API logo generator — violet theme (#8654f0 = oklch 0.585 0.221 293)
 const opentype = require('opentype.js');
 const fs = require('fs');
 

@@ -1,4 +1,4 @@
-/* AIBuddy Panel · 顶栏用户菜单（账号名 + 修改账号密码 + 退出登录） */
+/* Agent2API · 顶栏用户菜单（账号名 + 修改账号密码 + 退出登录） */
 /* global wbIcons, wbToast */
 
 /**
@@ -42,14 +42,14 @@
 
   function currentUser() {
     try {
-      var raw = localStorage.getItem('aibuddy-panel-user');
+      var raw = localStorage.getItem('agent2api-user');
       return raw ? String(raw) : '';
     } catch (e) { return ''; }
   }
 
   function rememberUser(name) {
     try {
-      if (name) localStorage.setItem('aibuddy-panel-user', String(name));
+      if (name) localStorage.setItem('agent2api-user', String(name));
     } catch (e) { /* 存不了就下次还显示默认 */ }
   }
 
@@ -152,12 +152,12 @@
       method: method,
       headers: body === undefined ? { 'Accept': 'application/json' } : { 'Accept': 'application/json', 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
-    }).then(function (r) { return r.text(); }).then(function (text) {
+    }).then(function (r) { return r.text().then(function (text) {
       var payload = null;
       try { payload = text ? JSON.parse(text) : null; } catch (e) { /* 非 JSON */ }
       var ok = r.ok !== false;
       return { httpOk: ok, payload: payload, text: text };
-    }).then(function (result) {
+    }); }).then(function (result) {
       var payload = result.payload || {};
       if (!result.httpOk || payload.success === false) {
         var detail = payload.error || payload.message || payload.msg || ('HTTP ' + (result.payload ? 200 : 0));

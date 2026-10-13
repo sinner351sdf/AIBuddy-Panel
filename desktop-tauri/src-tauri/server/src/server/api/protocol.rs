@@ -95,6 +95,11 @@ async fn forward_chat(
             client_headers: client_headers.clone(),
             telemetry: telemetry.clone(),
             allowed_providers: scope,
+            // 两个协议入口都不是模型测试：不钉账号，走全局优先级队列
+            pinned_account: None,
+            // 关闭的模型对生产请求保持「模型已在网关中关闭」（`ignore_model_gate`
+            // 是模型测试的直达跳，见 `ForwardRequest` 的说明）
+            ignore_model_gate: false,
         })
         .await;
     outcome
@@ -193,6 +198,8 @@ pub async fn responses_endpoint(
         &requested_model,
         &client_model,
         &client_reasoning,
+        // 真实流量：不是模型测试（见 `RecordContext::is_test`）
+        false,
     );
     // 在途回写（与 /v1/chat/completions 同一处时点与理由，见
     // `pipeline::live_row_sink`）
@@ -231,6 +238,8 @@ pub async fn responses_endpoint(
         // 在聚合完成后补，流式由 RecordingStream 在流结束时定稿
         raw_request: pipeline::raw_body_text(&body),
         raw_response: None,
+        // 真实流量：不是模型测试（见 `RecordContext::is_test`）
+        is_test: false,
         // Key 额度计量的记账键（入口在 scope 被 move 前抄好，见上面）
         key_id,
     };
@@ -374,6 +383,8 @@ pub async fn messages_endpoint(
         &requested_model,
         &client_model,
         &client_reasoning,
+        // 真实流量：不是模型测试（见 `RecordContext::is_test`）
+        false,
     );
     // 在途回写（与 /v1/chat/completions 同一处时点与理由，见
     // `pipeline::live_row_sink`）
@@ -412,6 +423,8 @@ pub async fn messages_endpoint(
         // 在聚合完成后补，流式由 RecordingStream 在流结束时定稿
         raw_request: pipeline::raw_body_text(&body),
         raw_response: None,
+        // 真实流量：不是模型测试（见 `RecordContext::is_test`）
+        is_test: false,
         // Key 额度计量的记账键（入口在 scope 被 move 前抄好，见上面）
         key_id,
     };

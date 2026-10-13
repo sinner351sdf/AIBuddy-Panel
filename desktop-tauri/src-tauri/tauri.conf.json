@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "AIBuddy Panel",
-  "version": "2.14.0",
+  "productName": "Agent2API",
+  "version": "3.0.1",
   "identifier": "com.workbuddy.local-proxy",
   "build": {
     "frontendDist": "../ui"
@@ -15,10 +15,13 @@
   },
   "bundle": {
     "active": true,
-    "publisher": "LzxkJ04",
-    "copyright": "Copyright (c) 2026 LzxkJ04 · 基于 aimod-cc/agent2api",
+    "publisher": "aimod-cc",
+    "copyright": "Copyright (c) 2026 aimod-cc",
     "targets": [
       "nsis"
+    ],
+    "resources": [
+      "../ui"
     ],
     "icon": [
       "icons/32x32.png",
@@ -36,7 +39,7 @@
         ]
       }
     },
-    "shortDescription": "AIBuddy Panel · 多提供商 AI 网关",
+    "shortDescription": "Agent2API · 多提供商本地网关",
     "longDescription": "把多家 AI 客户端登录态（WorkBuddy、小浣熊等）包装成本地 OpenAI 兼容接口，并集中管理多账号、出网代理与内容脱敏。网关已整体由 Rust 实现并运行在应用进程内，不再随包分发任何外部运行时，安装体积小、启动即用。"
   }
 }

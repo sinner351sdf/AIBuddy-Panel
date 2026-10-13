@@ -1,4 +1,4 @@
-/* AIBuddy Panel · 内联 SVG 图标集（全站统一：官方 Lucide 线性图形） */
+/* Agent2API · 内联 SVG 图标集（全站统一：官方 Lucide 线性图形） */
 
 /**
  * 全站一套图标语言：官方 Lucide 的 24×24 线性图形（几何原样取自
@@ -25,6 +25,11 @@
 (() => {
   const ICONS = {
     // ── 主侧栏导航（几何 = 官方 Lucide 同名图标）──────────────
+    // 签到中心：日历 + 对勾。与 proxies 同款用描边（填充块在 17px 下会糊成一团，
+    // 见上面 proxies 那条的说明），粗细同一套约定（1.8 + 圆头圆角）。
+    checkin: '<g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+      + '<rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 2.5v4m8-4v4"/>'
+      + '<path d="m9.2 14.7 2 2 3.6-4.1"/></g>',
 
     // 概览：layout-dashboard（四块仪表砖）
     overview: `<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

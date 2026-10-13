@@ -8,7 +8,7 @@
 //! 条件），写入侧冲突一律 409，详见 `priority.rs` 模块头。
 //!
 //! ── 持久化：`accounts.json` → SQLite `accounts` 表（本切片的改造）────
-//! 数据从 `{config_dir}/accounts.json` 换到 `{config_dir}/aibuddy-panel.db` 的
+//! 数据从 `{config_dir}/accounts.json` 换到 `{config_dir}/agent2api.db` 的
 //! `accounts` 表（表结构见 `server/db/schema.rs`）。**对外契约一字未改**：
 //! 本文件的 `pub fn` 签名、返回值、错误码全部与改造前相同，调用方
 //! （`api::accounts`、`auth`、`routing`、各 provider 适配器）零改动。
@@ -112,7 +112,7 @@ struct Inner {
     /// 与之相对，`Db::open` 失败**不阻断启动**（网关仍能跑转发、日志、模型）——
     /// 这是 `ServerState::bootstrap` 已有的决定，本层只是如实承接它的后果。
     db: Option<Db>,
-    /// 库文件的**约定路径**（`{config_dir}/aibuddy-panel.db`）。
+    /// 库文件的**约定路径**（`{config_dir}/agent2api.db`）。
     ///
     /// 为什么单独存一份：`file()` / `file_string()` 的契约是「给出账号数据所在的
     /// 文件位置」，而它有两个消费方都要求这个值非空 —— `/api/session` 的
@@ -552,6 +552,32 @@ impl AccountStore {
                 ] {
                     if !value.trim().is_empty() {
                         object.insert(key.to_string(), Value::String(value));
+                    }
+                }
+            }
+        }
+        // ── Antigravity 的两个附加键（`antigravity::adapter` 用）──────
+        // 与上面 ZCode 同一手法、同一理由：适配器只能看到会话，而这两个字段
+        // 在记录里（`antigravity_accounts.rs` 的落盘形态）：
+        //   - `projectId`：cloudaicompanionProject —— 信封的 `project` 字段
+        //     （规格 §3.3），OAuth 刷新 / 添加账号 / 目录刷新三处发现后回写；
+        //   - `email`：决定信封的 `userAgent` 标记（非 gmail/googlemail →
+        //     `jetski`，Manager 的判定逐字）。会话里的 `account.uid` 对
+        //     Antigravity 也是 email，但那是「展示身份」的通用字段，别让
+        //     协议层去依赖通用字段的取值约定。
+        // 条件判据是 provider id（与 ZCode 的 Region 同一性质），对别家的会话
+        // 是逐字空操作（连键都不会多）。
+        if record.provider() == super::ANTIGRAVITY_PROVIDER_ID {
+            if let Some(object) = session.as_object_mut() {
+                for key in ["projectId", "email"] {
+                    let value = record
+                        .fields()
+                        .get(key)
+                        .and_then(Value::as_str)
+                        .map(str::trim)
+                        .unwrap_or("");
+                    if !value.is_empty() {
+                        object.insert(key.to_string(), Value::String(value.to_string()));
                     }
                 }
             }

@@ -224,11 +224,11 @@
       const onLoad = () => {
         cleanup();
         if (getInitAliyunCaptcha()) resolve();
-        else fail(new CaptchaError('验证码组件加载异常，请重试'));
+        else fail(new CaptchaError(wbI18n.t('验证码组件加载异常，请重试')));
       };
-      const onError = () => fail(new CaptchaError('验证码组件加载失败，请检查网络后重试'));
+      const onError = () => fail(new CaptchaError(wbI18n.t('验证码组件加载失败，请检查网络后重试')));
       timer = window.setTimeout(
-        () => fail(new CaptchaError('验证码组件加载超时，请检查网络后重试')),
+        () => fail(new CaptchaError(wbI18n.t('验证码组件加载超时，请检查网络后重试'))),
         SCRIPT_LOAD_TIMEOUT_MS,
       );
       script.addEventListener('load', onLoad);
@@ -269,7 +269,7 @@
     }
     if (typeof captchaVerifyParam !== 'string' || captchaVerifyParam.length === 0) {
       settlePending(pending, {
-        error: new CaptchaError('验证码校验失败，请重试'),
+        error: new CaptchaError(wbI18n.t('验证码校验失败，请重试')),
       });
       return { captchaResult: false, bizResult: false };
     }
@@ -316,14 +316,14 @@
       await loadAliyunCaptchaScript(config);
       ensureCaptchaElements();
       const initAliyunCaptcha = getInitAliyunCaptcha();
-      if (!initAliyunCaptcha) throw new CaptchaError('验证码组件不可用，请重试');
+      if (!initAliyunCaptcha) throw new CaptchaError(wbI18n.t('验证码组件不可用，请重试'));
       await new Promise((resolve, reject) => {
         let settled = false;
         let boundInstance = null;
         const timer = window.setTimeout(() => {
           if (settled) return;
           settled = true;
-          reject(new CaptchaError('验证码组件初始化超时，请重试'));
+          reject(new CaptchaError(wbI18n.t('验证码组件初始化超时，请重试')));
         }, INIT_TIMEOUT_MS);
         const settle = callback => {
           if (settled) return false;
@@ -363,7 +363,7 @@
               if (pending && pending.generation === generation && pending.instance === boundInstance) {
                 settlePending(pending, {
                   error: new CaptchaError(
-                    (error && error.message) || '验证码校验失败，请重试',
+                    (error && error.message) || wbI18n.t('验证码校验失败，请重试'),
                   ),
                 });
                 return;
@@ -376,17 +376,17 @@
                 return;
               }
               settle(() => reject(new CaptchaError(
-                (error && error.message) || '验证码组件不可用，请重试',
+                (error && error.message) || wbI18n.t('验证码组件不可用，请重试'),
               )));
             },
           });
         } catch (error) {
           settle(() => reject(new CaptchaError(
-            (error && error.message) || '验证码组件不可用，请重试',
+            (error && error.message) || wbI18n.t('验证码组件不可用，请重试'),
           )));
         }
       });
-      if (!captchaInstance) throw new CaptchaError('验证码组件不可用，请重试');
+      if (!captchaInstance) throw new CaptchaError(wbI18n.t('验证码组件不可用，请重试'));
     })();
     return initializationPromise;
   }
@@ -420,7 +420,7 @@
     await waitForWarmup();
     const button = ensureCaptchaElements();
     const instance = captchaInstance;
-    if (!instance) throw new CaptchaError('验证码组件不可用，请重试');
+    if (!instance) throw new CaptchaError(wbI18n.t('验证码组件不可用，请重试'));
     const generation = initializationGeneration;
     return new Promise((resolve, reject) => {
       const pending = {
@@ -434,7 +434,7 @@
       };
       pending.timer = window.setTimeout(() => {
         settlePending(pending, {
-          error: new CaptchaError('验证码校验超时，请重试'),
+          error: new CaptchaError(wbI18n.t('验证码校验超时，请重试')),
         });
       }, VERIFY_TIMEOUT_MS);
       pendingVerification = pending;
@@ -471,6 +471,39 @@
   /** 正在等结果的那一次铸造 */
   let mintWaiter = null;
   let mintGeneration = 0;
+  let mintInitializedAt = 0;
+
+  /**
+   * 模拟真实用户行为事件（激活状态、鼠标移动），提升阿里云无痕风控通过率，
+   * 并防止后台窗口被判断为完全无交互的 headless 环境。
+   */
+  function simulateHumanActivity() {
+    try {
+      if (document.hidden) {
+        Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+      }
+      if (document.visibilityState !== 'visible') {
+        Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+      }
+    } catch { /* 忽略只读拦截 */ }
+
+    try {
+      for (let i = 0; i < 3; i++) {
+        const x = Math.floor(100 + Math.random() * 300);
+        const y = Math.floor(100 + Math.random() * 200);
+        const event = new MouseEvent('mousemove', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          clientX: x,
+          clientY: y,
+          screenX: x + 50,
+          screenY: y + 50,
+        });
+        window.dispatchEvent(event);
+      }
+    } catch { /* 忽略事件派发失败 */ }
+  }
 
   /**
    * 备好铸造用的容器与触发按钮。
@@ -514,6 +547,7 @@
     mintInstancePromise = null;
     mintInstanceKey = '';
     mintInstanceRef = null;
+    mintInitializedAt = 0;
     try { instance?.destroy?.(); } catch { /* 忽略：实例已不可用 */ }
     // 容器一起清掉：同一个容器在 destroy 之后再 init 会卡住（见 mintIds 的说明）
     try { document.getElementById(mintElementId)?.remove(); } catch { /* 忽略 */ }
@@ -609,6 +643,15 @@
    */
   async function mintTraceless(config) {
     const instance = await ensureMintInstance(config);
+    // ── SDK 预热等待 ───────────────────────────────────────────
+    // 阿里云 SDK 初始化后必须收集足够的设备环境与指纹数据（至少等 2.1 秒），
+    // 否则直接调用 startTracelessVerification 会触发 fail/onError。
+    const elapsed = Date.now() - mintInitializedAt;
+    if (elapsed < MINIMUM_WARMUP_MS) {
+      await sleep(MINIMUM_WARMUP_MS - elapsed);
+    }
+    simulateHumanActivity();
+
     const generation = ++mintGeneration;
     return new Promise((resolve, reject) => {
       const timer = window.setTimeout(() => {
@@ -676,6 +719,7 @@
               settled = true;
               window.clearTimeout(timer);
               mintInstanceRef = instance;
+              mintInitializedAt = Date.now();
               resolve(instance);
             },
             success: result => deliverMintResult(result),
@@ -722,6 +766,7 @@
     isBusy,
     // 静默铸串（活动套餐转发通道的令牌来源，见 mintTraceless）
     mintTraceless,
+    resetMint: invalidateMintInstance,
     CaptchaError,
     CaptchaCancelledError,
   };

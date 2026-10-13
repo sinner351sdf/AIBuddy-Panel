@@ -585,7 +585,7 @@ fn http_client() -> &'static reqwest::Client {
     CLIENT.get_or_init(|| {
         reqwest::Client::builder()
             .timeout(Duration::from_secs(10))
-            .user_agent("AIBuddy-Panel")
+            .user_agent("agent2api")
             .build()
             // 构造失败只可能是 TLS 后端初始化失败（与 egress 的兜底同判据）：
             // 没有别的退路，退到「请求时才报错」的裸 Client
@@ -1085,7 +1085,7 @@ async fn send_alerta(config: &Value, title: &str, body: &str) -> Result<(), Stri
         "value": "Timeout",
         "tags": ["uptimekuma"],
         "attributes": {},
-        "origin": "aibuddy-panel",
+        "origin": "agent2api",
         "type": "exceptionAlert",
         "event": "msg",
         "text": message_text(title, body),
@@ -1280,11 +1280,11 @@ async fn send_brevo(config: &Value, _title: &str, body: &str) -> Result<(), Stri
     };
     let from_name = {
         let given = cfg_string(config, "brevoFromName");
-        if given.is_empty() { "AIBuddy Panel".to_string() } else { given }
+        if given.is_empty() { "Agent2API".to_string() } else { given }
     };
     let subject = {
         let given = cfg_string(config, "brevoSubject");
-        if given.is_empty() { "AIBuddy Panel 通知".to_string() } else { given }
+        if given.is_empty() { "Agent2API 通知".to_string() } else { given }
     };
     let html = format!(
         "<html><head></head><body><p>{}</p></body></html>",
@@ -1383,7 +1383,7 @@ async fn send_clicksendsms(config: &Value, title: &str, body: &str) -> Result<()
         "messages": [{
             "body": message,
             "to": to,
-            "source": "aibuddy-panel",
+            "source": "agent2api",
             "from": cfg_string(config, "clicksendsmsSenderName"),
         }],
     });
@@ -1521,7 +1521,7 @@ async fn send_flashduty(config: &Value, title: &str, body: &str) -> Result<(), S
         "title": title,
         "event_status": severity,
         "alert_key": generate_id(),
-        "labels": { "resource": "aibuddy-panel", "check": title },
+        "labels": { "resource": "agent2api", "check": title },
     });
     send(http_client().post(&url).json(&payload)).await
 }
@@ -1531,7 +1531,7 @@ async fn send_flashduty(config: &Value, title: &str, body: &str) -> Result<(), S
 async fn send_flowtriq(config: &Value, title: &str, body: &str) -> Result<(), String> {
     let url = require_url(config, &["flowtriqWebhookUrl"], "flowtriq", "flowtriqWebhookUrl")?;
     let payload = json!({
-        "source": "aibuddy-panel",
+        "source": "agent2api",
         "status": "info",
         "monitor": title,
         "msg": message_text(title, body),
@@ -1553,7 +1553,7 @@ async fn send_fluxer(config: &Value, title: &str, body: &str) -> Result<(), Stri
     let url = require_url(config, &["fluxerWebhookUrl"], "fluxer", "fluxerWebhookUrl")?;
     let username = {
         let given = cfg_string(config, "fluxerUsername");
-        if given.is_empty() { "AIBuddy Panel".to_string() } else { given }
+        if given.is_empty() { "Agent2API".to_string() } else { given }
     };
     let prefix = cfg_string(config, "fluxerPrefixMessage");
     let mut content = message_text(title, body);
@@ -1755,14 +1755,14 @@ async fn send_homeassistant(config: &Value, title: &str, body: &str) -> Result<(
         return Err("homeassistant 渠道的 token 含非法字符".to_string());
     };
     let mut payload = json!({
-        "title": "AIBuddy Panel",
+        "title": "Agent2API",
         "message": message_text(title, body),
     });
     if service != "persistent_notification" {
         if let Some(map) = payload.as_object_mut() {
             map.insert(
                 "data".to_string(),
-                json!({ "channel": "AIBuddy Panel" }),
+                json!({ "channel": "Agent2API" }),
             );
         }
     }
@@ -1796,7 +1796,7 @@ async fn send_indigo(config: &Value, title: &str, body: &str) -> Result<(), Stri
     let mut commands: Vec<Value> = Vec::new();
     if let Some(object_id) = variable_id {
         commands.push(json!({
-            "id": "aibuddy-panel",
+            "id": "agent2api",
             "message": "indigo.variable.updateValue",
             "objectId": object_id,
             "parameters": { "value": message_text(title, body) },
@@ -1804,7 +1804,7 @@ async fn send_indigo(config: &Value, title: &str, body: &str) -> Result<(), Stri
     }
     if let Some(object_id) = action_group_id {
         commands.push(json!({
-            "id": "aibuddy-panel",
+            "id": "agent2api",
             "message": "indigo.actionGroup.execute",
             "objectId": object_id,
         }));
@@ -1840,10 +1840,10 @@ async fn send_jirasm(config: &Value, title: &str, body: &str) -> Result<(), Stri
     let priority = format!("P{}", cfg_int(config, "jsmPriority").unwrap_or(5));
     let payload = json!({
         "message": message_text(title, body),
-        "alias": "aibuddy-panel-notification",
-        "source": "AIBuddy Panel",
+        "alias": "agent2api-notification",
+        "source": "Agent2API",
         "priority": priority,
-        "tags": ["AIBuddy Panel"],
+        "tags": ["Agent2API"],
     });
     send(
         http_client()
@@ -1952,7 +1952,7 @@ async fn send_mattermost(config: &Value, title: &str, body: &str) -> Result<(), 
     let url = require_url(config, &["mattermostWebhookUrl"], "mattermost", "mattermostWebhookUrl")?;
     let username = {
         let given = cfg_string(config, "mattermostusername");
-        if given.is_empty() { "AIBuddy Panel".to_string() } else { given }
+        if given.is_empty() { "Agent2API".to_string() } else { given }
     };
     let mut payload = json!({
         "username": username,
@@ -2394,8 +2394,8 @@ async fn send_opsgenie(config: &Value, title: &str, body: &str) -> Result<(), St
     };
     let payload = json!({
         "message": message_text(title, body),
-        "alias": "aibuddy-panel",
-        "source": "AIBuddy Panel",
+        "alias": "agent2api",
+        "source": "Agent2API",
         "priority": format!("P{}", cfg_int(config, "opsgeniePriority").unwrap_or(3)),
     });
     send(
@@ -2422,11 +2422,11 @@ async fn send_pagerduty(config: &Value, title: &str, body: &str) -> Result<(), S
         "payload": {
             "summary": format!("[{title}] {body}"),
             "severity": severity,
-            "source": "aibuddy-panel",
+            "source": "agent2api",
         },
         "routing_key": key,
         "event_action": "trigger",
-        "dedup_key": "aibuddy-panel/test",
+        "dedup_key": "agent2api/test",
     });
     send(http_client().post(&url).json(&payload)).await
 }
@@ -2438,7 +2438,7 @@ async fn send_pagertree(config: &Value, title: &str, body: &str) -> Result<(), S
     let url = require_url(config, &["pagertreeIntegrationUrl"], "pagertree", "pagertreeIntegrationUrl")?;
     let mut payload = json!({
         "event_type": "create",
-        "id": "aibuddy-panel",
+        "id": "agent2api",
         "title": title,
         "heartbeat": Value::Null,
         "monitor": Value::Null,
@@ -2637,7 +2637,7 @@ async fn send_pushy(config: &Value, title: &str, body: &str) -> Result<(), Strin
     let token = require_field(config, &["pushyToken"], KIND, "pushyToken")?;
     let payload = json!({
         "to": token,
-        "data": { "message": "AIBuddy-Panel" },
+        "data": { "message": "agent2api" },
         "notification": {
             "body": message_text(title, body),
             "badge": 1,
@@ -2665,11 +2665,11 @@ async fn send_resend(config: &Value, title: &str, body: &str) -> Result<(), Stri
     };
     let from_name = {
         let given = cfg_string(config, "resendFromName");
-        if given.is_empty() { "AIBuddy Panel".to_string() } else { given }
+        if given.is_empty() { "Agent2API".to_string() } else { given }
     };
     let subject = {
         let given = cfg_string(config, "resendSubject");
-        if given.is_empty() { "AIBuddy Panel 通知".to_string() } else { given }
+        if given.is_empty() { "Agent2API 通知".to_string() } else { given }
     };
     let payload = json!({
         "from": format!("{from_name} <{from}>"),
@@ -2738,7 +2738,7 @@ async fn send_sendgrid(config: &Value, title: &str, body: &str) -> Result<(), St
     }
     let subject = {
         let given = cfg_string(config, "sendgridSubject");
-        if given.is_empty() { "AIBuddy Panel 通知".to_string() } else { given }
+        if given.is_empty() { "Agent2API 通知".to_string() } else { given }
     };
     let payload = json!({
         "personalizations": [personalization],
@@ -2802,7 +2802,7 @@ async fn send_sevenio(config: &Value, title: &str, body: &str) -> Result<(), Str
     };
     let from = {
         let given = cfg_string(config, "sevenioSender");
-        if given.is_empty() { "AIBuddy Panel".to_string() } else { given }
+        if given.is_empty() { "Agent2API".to_string() } else { given }
     };
     let payload = json!({ "to": to, "from": from, "text": message_text(title, body) });
     send(
@@ -3187,8 +3187,8 @@ async fn send_splunk(config: &Value, title: &str, body: &str) -> Result<(), Stri
     let mut payload = json!({
         "message_type": message_type,
         "state_message": format!("[{title}] {body}"),
-        "entity_display_name": format!("AIBuddy Panel: {title}"),
-        "entity_id": "aibuddy-panel/test",
+        "entity_display_name": format!("Agent2API: {title}"),
+        "entity_id": "agent2api/test",
     });
     if let Some(map) = payload.as_object_mut() {
         let routing_key = cfg_string(config, "pagerdutyIntegrationKey");
@@ -3222,7 +3222,7 @@ async fn send_squadcast(config: &Value, title: &str, body: &str) -> Result<(), S
         "description": "",
         "tags": {},
         "heartbeat": Value::Null,
-        "source": "aibuddy-panel",
+        "source": "agent2api",
     });
     send(http_client().post(&url).json(&payload)).await
 }
@@ -3244,7 +3244,7 @@ async fn send_techuluspush(config: &Value, title: &str, body: &str) -> Result<()
     let key = require_field(config, &["pushAPIKey"], KIND, "pushAPIKey")?;
     let notify_title = {
         let given = cfg_string(config, "pushTitle");
-        if given.is_empty() { "AIBuddy-Panel".to_string() } else { given }
+        if given.is_empty() { "agent2api".to_string() } else { given }
     };
     let mut payload = json!({
         "title": notify_title,
@@ -3410,7 +3410,7 @@ async fn send_turbosmtp(config: &Value, title: &str, body: &str) -> Result<(), S
     };
     let subject = {
         let given = cfg_string(config, "turbosmtpSubject");
-        if given.is_empty() { "AIBuddy Panel 通知".to_string() } else { given }
+        if given.is_empty() { "Agent2API 通知".to_string() } else { given }
     };
     let mut payload = json!({
         "from": from,
@@ -3854,7 +3854,7 @@ pub async fn test_channel(channel: &NotifyChannel) -> Result<(), String> {
     }
     send_channel(
         channel,
-        "AIBuddy Panel 测试通知",
+        "Agent2API 测试通知",
         "收到这条消息即说明该通知渠道配置正确。",
     )
     .await
@@ -4016,7 +4016,7 @@ pub fn notify_account_event(provider: &str, account: &str, kind: &str, detail: &
         return;
     }
     logging::log("[Notify]", &format!("🔔 告警[{title}]: {text}，正在推送通知渠道"));
-    dispatch(kind, &format!("AIBuddy Panel {title}"), &text);
+    dispatch(kind, &format!("Agent2API {title}"), &text);
 }
 
 /// 归一 API 传入的一条渠道（保存侧）：补 id、归一 kind、保底 config。

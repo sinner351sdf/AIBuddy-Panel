@@ -15,7 +15,8 @@ use crate::server::core::models::{model_id, ModelCatalog};
 use crate::server::core::providers::adapter::adapter_for;
 use crate::server::core::providers::{kind_from_id, kind_id, ProviderKind, PROVIDERS};
 
-use super::autoclaw::region::Region;
+use super::autoclaw::region::Region as AutoclawRegion;
+use super::workbuddy::Region as WorkBuddyRegion;
 
 pub use routing::{
     default_model_catalog, default_model_usable, forwarding_providers, model_blocked_everywhere,
@@ -50,11 +51,11 @@ fn advertised_manifest_for(store: &AccountStore, kind: ProviderKind) -> Vec<Valu
     adapter_for(kind).advertise_models(store, manifest_for(kind))
 }
 
-fn workbuddy_catalog() -> ModelCatalog {
-    crate::server::core::models::global_catalog()
+fn workbuddy_catalog(region: WorkBuddyRegion) -> ModelCatalog {
+    crate::server::core::models::global_catalog(region)
 }
 
-fn autoclaw_catalog_state(region: Region) -> (bool, i64) {
+fn autoclaw_catalog_state(region: AutoclawRegion) -> (bool, i64) {
     (
         !super::autoclaw::catalog::remote_models(region).is_empty(),
         super::autoclaw::catalog::last_refreshed_at(region),
@@ -66,23 +67,35 @@ fn autoclaw_catalog_state(region: Region) -> (bool, i64) {
 /// 两个消费方：本模块的对外视图（`meta.source` / 管理页的「来源」列）与
 /// **适配器层的手动刷新结果**（`adapter::refresh_implemented_forced` 的
 /// `refreshedAt`，界面「更新日期」列读它）—— 后者必须走这里而不是自己按
-/// kind 拼一遍：十家的取值路径（workbuddy 的全局目录、按地区分格的三家、
+/// kind 拼一遍：十家的取值路径（workbuddy 按地区分格、按地区分格的三家、
 /// Cline 的池）各不相同，抄一份就是一处会漂移的知识。
 pub(crate) fn refresh_meta(kind: ProviderKind) -> (bool, i64) {
     match kind {
-        ProviderKind::WorkBuddy => (
-            workbuddy_catalog().remote_refreshed(),
-            workbuddy_catalog().last_refreshed_at(),
-        ),
+        // WorkBuddy 的两个地区各有自己的目录实例与缓存槽（见
+        // `providers::workbuddy::region` 的模块头）：这一处也是两家分开的
+        // 语义来源之一 —— 界面「更新日期」列因此如实显示各自那次拉取。
+        ProviderKind::WorkBuddy => {
+            let catalog = workbuddy_catalog(WorkBuddyRegion::Cn);
+            (catalog.remote_refreshed(), catalog.last_refreshed_at())
+        }
+        ProviderKind::WorkBuddyIntl => {
+            let catalog = workbuddy_catalog(WorkBuddyRegion::Intl);
+            (catalog.remote_refreshed(), catalog.last_refreshed_at())
+        }
         ProviderKind::Raccoon => (
             super::raccoon::models::remote_refreshed(),
             super::raccoon::models::last_refreshed_at(),
         ),
-        ProviderKind::Qoder => (
-            super::qoder::models::remote_refreshed(super::qoder::endpoints::Region::Global)
-                || super::qoder::models::remote_refreshed(super::qoder::endpoints::Region::Cn),
-            super::qoder::models::last_refreshed_at(),
-        ),
+        // 拆家后两个地区各查**自己那一格**缓存（「来源 / 更新日期」列如实分开，
+        // 不再取两地区的最大值 —— 那会让两家显示同一次拉取时刻）
+        ProviderKind::Qoder | ProviderKind::QoderIntl => {
+            let region = super::qoder::endpoints::Region::from_kind(kind)
+                .unwrap_or(super::qoder::endpoints::Region::Cn);
+            (
+                super::qoder::models::remote_refreshed(region),
+                super::qoder::models::last_refreshed_at(region),
+            )
+        }
         ProviderKind::CodeArts => (
             super::codearts::models::remote_refreshed(),
             super::codearts::models::last_refreshed_at(),
@@ -91,8 +104,8 @@ pub(crate) fn refresh_meta(kind: ProviderKind) -> (bool, i64) {
             !super::catpaw::catalog::remote_models().is_empty(),
             super::catpaw::catalog::last_refreshed_at(),
         ),
-        ProviderKind::AutoClaw => autoclaw_catalog_state(Region::Cn),
-        ProviderKind::AutoClawIntl => autoclaw_catalog_state(Region::Intl),
+        ProviderKind::AutoClaw => autoclaw_catalog_state(AutoclawRegion::Cn),
+        ProviderKind::AutoClawIntl => autoclaw_catalog_state(AutoclawRegion::Intl),
         ProviderKind::ClineFree | ProviderKind::ClinePass => (
             super::cline::models::remote_refreshed(),
             super::cline::models::last_refreshed_at(),
@@ -118,6 +131,42 @@ pub(crate) fn refresh_meta(kind: ProviderKind) -> (bool, i64) {
         ProviderKind::Trae => (
             super::trae::models::remote_refreshed(),
             super::trae::models::last_refreshed_at(),
+        ),
+        // Loomy 的清单来自 `GET {集成网关}/api/v1/models`（OpenAI 格式）。
+        // 上游**没有**内置兜底清单，所以「有内容」就等于「远程拉到过」。
+        ProviderKind::Loomy => (
+            super::loomy::models::remote_refreshed(),
+            super::loomy::models::last_refreshed_at(),
+        ),
+        // KukuAI 的清单来自远程目录（`/wenchain/genflowpro/model_list`）；
+        // 静态兜底只是离线保底，「有内容」才算远程来源（与 raccoon 同判据）。
+        ProviderKind::Kuku => (
+            super::kuku::models::remote_refreshed(),
+            super::kuku::models::last_refreshed_at(),
+        ),
+        // MonkeyCode 的两个站点各有一份独立清单（缓存按地区分格，见
+        // `monkeycode::models` 的模块头）：这里如实各查**自己那一格**。
+        ProviderKind::MonkeyCode | ProviderKind::MonkeyCodeIntl => {
+            let region = super::monkeycode::Region::from_kind(kind)
+                .unwrap_or(super::monkeycode::Region::Cn);
+            (
+                super::monkeycode::models::remote_refreshed(region),
+                super::monkeycode::models::last_refreshed_at(region),
+            )
+        }
+        // Command Code：清单来自 `GET /provider/v1/models`（单一域名、无地区），
+        // 拉不到时回落内置 26 项 —— 「有远程内容」才算远程来源（`remote_refreshed`
+        // 只看落地的那些，不看兜底表）。
+        ProviderKind::CommandCode => (
+            super::commandcode::models::remote_refreshed(),
+            super::commandcode::models::last_refreshed_at(),
+        ),
+        // Antigravity：清单来自 `POST {base}:fetchAvailableModels`（三个环境
+        // 轮流打，但只有**一格**缓存 —— 环境不是地区）。拉不到时回落内置的
+        // Gemini 兜底清单，所以同样「有远程内容」才算远程来源。
+        ProviderKind::Antigravity => (
+            super::antigravity::models::remote_refreshed(),
+            super::antigravity::models::last_refreshed_at(),
         ),
     }
 }

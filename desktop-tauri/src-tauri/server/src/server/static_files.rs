@@ -106,14 +106,6 @@ async fn read_response(file_path: &PathBuf) -> AxumResponse {
     let body = match page {
         // index：web_shim（含品牌引导）+ 岛脚本；login：只要品牌引导
         "index.html" => inject_web_shim(&bytes),
-        "login.html" => match std::str::from_utf8(&bytes) {
-            Ok(text) => match text.replacen("<head>", &format!("<head>{BRAND_SCRIPT}"), 1) {
-                replaced if replaced != text => replaced.into_bytes(),
-                _ => format!("{text}{BRAND_SCRIPT}").into_bytes(),
-            },
-            // 非法 UTF-8（结构被改坏）：原样透出，别让登录页 500
-            Err(_) => bytes.to_vec(),
-        },
         _ => bytes,
     };
     let mime = mime_of(file_path);
@@ -132,68 +124,14 @@ fn inject_web_shim(html: &[u8]) -> Vec<u8> {
     let Ok(text) = std::str::from_utf8(html) else {
         return html.to_vec();
     };
-    let shim = format!("<script>{}</script>{BRAND_SCRIPT}", crate::web_shim::shim_js());
+    let shim = format!("<script>{}</script>", crate::web_shim::shim_js());
     match text.replacen("<head>", &format!("<head>{shim}"), 1) {
         replaced if replaced != text => replaced.into_bytes(),
         // 没有 <head>（结构被改坏）也别让面板整页失效：追加到末尾兜底
-        _ => format!("{text}<script>{}</script>{BRAND_SCRIPT}", crate::web_shim::shim_js())
+        _ => format!("{text}<script>{}</script>", crate::web_shim::shim_js())
             .into_bytes(),
     }
 }
-
-/// 品牌引导脚本：拉一次 /api/panel/branding（public，登录页也拉得到），
-/// 把标题 / Logo 应用到页面 —— document.title、favicon、侧栏品牌区、
-/// 登录页 h1 与图标。岛是 React 渲染的，元素出现有先后：用短轮询等它们
-/// 就位（最多 ~4 秒），全部命中或超时即停。读不到（401 / 桌面壳未登录 /
-/// 未设置品牌）就保持内置默认，一切行为与改版前一致。
-const BRAND_SCRIPT: &str = r#"<script>(function(){
-  try{
-    fetch('/api/panel/branding').then(function(r){return r.ok?r.json():null}).then(function(env){
-      var b=env&&env.data;if(!b)return;
-      var title=b.title||null,logo=b.logo||null;
-      if(!title&&!logo)return;
-      if(logo){
-        var link=document.querySelector('link[rel*="icon"]')||document.createElement('link');
-        link.rel='icon';link.href=logo;document.head.appendChild(link);
-      }
-      var tries=0;
-      var tick=setInterval(function(){
-        tries++;var pending=false;
-        if(title){
-          document.title=title;
-          var bh=document.querySelector('.brand-text h1');
-          if(bh){bh.textContent=title}else{pending=true}
-          var crumb=document.querySelector('.crumb > span');
-          if(crumb&&crumb.nextElementSibling&&crumb.nextElementSibling.classList&&crumb.nextElementSibling.classList.contains('sep')){crumb.textContent=title}
-          var lh=document.querySelector('#login-app h1');
-          if(lh){lh.textContent=title}else if(document.getElementById('login-app')){pending=true}
-        }
-        if(logo){
-          var slots=document.querySelectorAll('.brand-logo');
-          if(slots.length){
-            slots.forEach(function(el){
-              if(el.getAttribute('data-brand-applied'))return;
-              el.setAttribute('data-brand-applied','1');
-              el.textContent='';
-              var img=document.createElement('img');
-              img.src=logo;img.alt='logo';
-              img.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block';
-              el.appendChild(img);
-            });
-          }else{pending=true}
-          var lsvg=document.querySelector('#login-app svg[role="img"]');
-          if(lsvg){
-            var img=document.createElement('img');
-            img.src=logo;img.alt='';
-            img.style.cssText='width:52px;height:52px;border-radius:12px;display:block;box-shadow:0 6px 18px rgba(0,0,0,0.35)';
-            lsvg.replaceWith(img);
-          }else if(document.getElementById('login-app')){pending=true}
-        }
-        if(!pending||tries>20){clearInterval(tick)}
-      },200);
-    }).catch(function(){});
-  }catch(e){}
-})()</script>"#;
 
 /// 扩展名 → content-type（界面用到的固定集合，其余按二进制流处理）
 fn mime_of(file_path: &PathBuf) -> String {

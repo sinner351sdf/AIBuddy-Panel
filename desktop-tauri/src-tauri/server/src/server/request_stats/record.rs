@@ -272,6 +272,23 @@ pub struct RequestEntry {
     /// 浏览器时钟偏了也不会算出离谱的读数。
     #[serde(rename = "phaseStartedAt", default)]
     pub phase_started_at: Option<i64>,
+    /// **这条请求是不是模型测试发起的**（schema v7 加的列；旧行 `default` 读成
+    /// false = 真实流量）。
+    ///
+    /// ── 为什么不是「猜出来」的 ─────────────────────────────────
+    /// 测试请求与真实请求走的是同一条转发链路，明细里的一切读数（模型、账号、
+    /// 状态码、用量）都真实且同形 —— 唯一的分野是「谁发起的」，而那只有入口
+    /// （`api::model_test`）知道，所以它必须作为一列存下来。
+    ///
+    /// 用途只有两处，且方向相反：报表聚合**排除**它（人工反复发起的样本混进
+    /// 趋势图会把真实流量读歪），请求日志**照常显示**并给它一枚「测试」标记
+    /// （要能对照、要能翻查）。任何别的地方都不该读这一列 —— 尤其不要用它
+    /// 来过滤转发或选路：它描述的是一次请求的来源，不是账号或模型的状态。
+    ///
+    /// 与 `phase` 同一位置纪律：新加的列排在结构体末尾，不牵动前面所有
+    /// `row.get(n)` 的序号。
+    #[serde(rename = "isTest", default)]
+    pub is_test: bool,
 }
 
 /// 一个被命中的敏感词及其次数（存储契约）。
@@ -320,6 +337,10 @@ pub struct AttemptDetail {
     /// 这一轮的提示（目前只有代理回退直连）
     #[serde(default)]
     pub notice: Option<String>,
+    /// 这一轮实际发给上游的体字节数（None = 没发出去过）。采集侧的来由与
+    /// 「只记体积不记内容」的口径见 `core::upstream::usage::AttemptDetail::body_bytes`。
+    #[serde(rename = "bodyBytes", default)]
+    pub body_bytes: Option<i64>,
 }
 
 /// 一次尝试内部的退避重试（存储契约，与采集侧同形各自定义）。
@@ -429,6 +450,8 @@ pub struct NewRequestEntry {
     pub attempt_details: Vec<AttemptDetail>,
     /// 本次请求命中的敏感词（见 `RequestEntry::sensitive_hits`）。空表 = 没命中。
     pub sensitive_hits: Vec<SensitiveHit>,
+    /// 这条请求是不是模型测试发起的（见 `RequestEntry::is_test`；默认 false）。
+    pub is_test: bool,
 }
 
 impl NewRequestEntry {
@@ -460,6 +483,9 @@ impl NewRequestEntry {
             // 没命中过词」—— 而不是留一个需要读侧再判一次的 None
             attempt_details: Vec::new(),
             sensitive_hits: Vec::new(),
+            // 默认是真实流量；模型测试那一条由 `api::model_test` 显式改成 true
+            // （`RecordContext::is_test` 一路带过来）
+            is_test: false,
         }
     }
 
@@ -549,6 +575,8 @@ impl NewRequestEntry {
                         .collect(),
                     // notice 空串收敛成 None，理由同 error
                     notice: item.notice.filter(|text| !text.is_empty()),
+                    // 体字节数原样透传（None = 这一轮没发出去；采集侧的理由见 usage 的字段说明）
+                    body_bytes: item.body_bytes,
                 })
                 .collect(),
             sensitive_hits: self
@@ -565,6 +593,9 @@ impl NewRequestEntry {
             // 写入侧不给值，读侧也就不必为「终态行带着阶段」写分支
             phase: String::new(),
             phase_started_at: None,
+            // 来源标记原样透传（不做任何推导）：它是调用方（入口 handler）
+            // 才知道的事实，存储层只负责把它带进库里
+            is_test: self.is_test,
         }
     }
 }

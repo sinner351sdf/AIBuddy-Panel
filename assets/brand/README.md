@@ -1,4 +1,4 @@
-# AIBuddy Panel · 品牌 Logo
+# Agent2API · 品牌 Logo
 
 紫罗兰主题品牌资产，主色取自面板主题 `oklch(0.585 0.221 293)` ≈ **#8654F0**。
 

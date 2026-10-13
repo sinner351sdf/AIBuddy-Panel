@@ -11,6 +11,8 @@
  * （见 add-account-modal.tsx 末尾）。
  */
 
+import { t } from '../i18n'
+
 /* ─── window 上的共享桥（窄类型 + 转型读取）────────────── */
 
 /** 账号记录里本子系统用到的字段（其余不关心） */
@@ -29,6 +31,8 @@ export type CustomProviderRecord = {
   protocol?: string
   baseUrl?: string
   accountCount?: number
+  /** 客户端形态伪装（预置卡写入的记录字段）：'opencode' = 按官方 CLI 形状补齐请求 */
+  clientEmulation?: string
   quirks?: {
     urlSuffix?: string
     headers?: Record<string, string>
@@ -43,6 +47,10 @@ export type PresetRecord = {
   baseUrl?: string
   hint?: string
   quirks?: CustomProviderRecord['quirks']
+  /** 客户端形态伪装：随创建写进提供商记录（OpenCode Zen 用它过免费档的三道校验） */
+  clientEmulation?: string
+  /** 该家账号的默认取值（表单初始勾选态）：noAuth = 预勾「该上游无需鉴权」 */
+  account?: { noAuth?: boolean }
 }
 
 /** web-login.js 的控制器（只列本子系统用到的成员） */
@@ -154,7 +162,7 @@ export function toast(message: string, kind?: 'err' | 'ok' | 'warn'): void {
 export function describeError(error: unknown): string {
   if (error instanceof Error && error.message) return error.message
   const text = String(error ?? '').trim()
-  return text || '未知错误'
+  return text || t('未知错误')
 }
 
 /** 该提供商此刻名下的账号数（读主状态的全量列表，不跟筛选走） */
@@ -169,7 +177,7 @@ export function accountCountOf(providerId: string): number {
 export async function postAccount(payload: Record<string, unknown>): Promise<unknown> {
   const internals = shared().__TAURI_INTERNALS__
   if (!internals || typeof internals.invoke !== 'function') {
-    throw new Error('桌面运行时不可用（Tauri 未初始化）')
+    throw new Error(t('桌面运行时不可用（Tauri 未初始化）'))
   }
   return internals.invoke('api_request', {
     request: { method: 'POST', path: '/api/accounts', body: payload },
@@ -194,7 +202,7 @@ export function closeAddModals(): void {
 export async function afterAdd(name: string, label: string): Promise<void> {
   closeAddModals()
   await shared().wbApp?.refresh?.()
-  toast(`✅ ${label}账号已添加${name ? `：${name}` : ''}`)
+  toast(t('✅ {label}账号已添加{name}', { label, name: name ? `：${name}` : '' }))
 }
 
 /* ─── 表单草稿（非受控输入的「关掉再打开还在」）──────────────

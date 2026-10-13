@@ -174,6 +174,8 @@ pub async fn chat_completions(
             &requested_model,
             &client_model,
             &client_reasoning,
+            // 真实流量：不是模型测试（见 `RecordContext::is_test`）
+            false,
         );
     // ── 手动终止的取消令牌（本次新增）────────────────────────────
     // 登记在进程级注册表里（键 = 上面这个 id），详情页的「终止请求」按它
@@ -210,6 +212,11 @@ pub async fn chat_completions(
             // 提供商白名单进转发层（选路时按承载家过滤）；模型白名单已经在
             // `resolve_model` 里判过（见那里的说明，两者分工不同）
             allowed_providers: scope,
+            // 转发主链路不钉账号：谁承载由全局优先级队列决定
+            pinned_account: None,
+            // 关闭的模型对生产请求保持「模型已在网关中关闭」（`ignore_model_gate`
+            // 是模型测试的直达跳，见 `ForwardRequest` 的说明）
+            ignore_model_gate: false,
         })
         .await;
     let stats = state.request_stats();
@@ -230,6 +237,8 @@ pub async fn chat_completions(
                 // 请求侧正文已抄好；响应侧由 RecordingStream 在流结束时定稿
                 raw_request,
                 raw_response: None,
+                // 转发主链路：不是模型测试（见 `RecordContext::is_test`）
+                is_test: false,
                 key_id: key_id.clone(),
             };
             // 收尾帧特征取 Chat 的：客户端读到 `data: [DONE]` 就停是常态写法，
@@ -262,6 +271,8 @@ pub async fn chat_completions(
                     status: 200,
                     raw_request,
                     raw_response,
+                    // 转发主链路：不是模型测试
+                    is_test: false,
                     key_id: key_id.clone(),
                 },
                 None,
@@ -292,6 +303,8 @@ pub async fn chat_completions(
                     // 响应体由网关自己生成（error 摘要已在明细里），不另存
                     raw_request,
                     raw_response: None,
+                    // 转发主链路：不是模型测试
+                    is_test: false,
                     // 最后一个使用点：直接 move，不再 clone
                     key_id,
                 },

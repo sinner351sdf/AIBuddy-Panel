@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────────
-   AIBuddy Panel · TagsView 页签栏（vue-next-admin 式）
+   Agent2API · TagsView 页签栏（vue-next-admin 式）
    内容区顶部一条页签栏：当前页高亮（主色文字 + 主色软底 + 主色描边）、
    每个页签可单独关闭（×）、右侧「全部关闭」；首页（overview）固定
    不可关（但可以拖拽挪位置）。页签清单持久化在 localStorage

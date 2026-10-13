@@ -1,0 +1,35 @@
+13fee59fa520416a641809027d47ababa1de0a7c 2026-10-01T10:22:35+08:00 AIBuddy Panel v2.10.0 · 多提供商 AI 网关（首个发布版）
+1a1d898ba8e91ff58e2fdabc2ebf46e554f71862 2026-10-01T10:28:36+08:00 docs: PITFALLS 新增 GHCR 镜像发布小节（owner 小写笔误的隐晦报错、Actions 推包默认公开、VM 无 curl 用 docker exec 验证）
+3da6e05d0f6b6899c1584302c18584790cb8f72f 2026-10-01T10:30:21+08:00 docs: CHANGELOG 修正 GHCR 可见性描述——Actions 从公开仓库推送的包实测自动公开
+2c4aa842730401cef3c9458f935371b90c20250f 2026-10-01T11:21:37+08:00 v2.11.0（预览版）：偏好设置抽屉 / 全站主题切换 / 登录页主题化 / 品牌 Logo 接入 / 手机端抽屉式适配
+bb7f40b0072e01da85d4f298c5216371a54bb6d4 2026-10-01T11:25:00+08:00 style: 按 vue-next-admin 规范对齐外壳（侧栏 220px / 菜单行高 / 深色底色 #1f1f1f 系）
+bf4e7d07a8a9e2557489f602ad6d0ae413e1aefe 2026-10-01T12:30:13+08:00 feat(ui): vue-next-admin 化外壳二期——偏好抽屉完整版 / TagsView 页签栏 / 通知中心 / 登录页增强 / 手机端抽屉化
+e15ed433f8871b465a512ed1d4efbc05751cde42 2026-10-01T12:53:12+08:00 feat(ui): TagsView 右键菜单 v2（刷新/当前页全屏/关闭其它/全部关闭）+ 内容区全屏模式
+00503b31cdbea48d321b64d36b598cb6b047a8a0 2026-10-01T12:59:18+08:00 feat(prefs): 补完 vue-next-admin themeConfig 全部偏好功能——锁屏/面包屑/页脚/Logo/渐变/高亮
+244cda230c841e8479da2e232d39c16a58272ecc 2026-10-01T13:02:07+08:00 docs: CHANGELOG 2.11.0 小节对齐最终形态（偏好四页签/锁屏/右键菜单/通知中心/侧栏折叠）
+7d54ce90a58e4459c0d66833527e974b9fe073a1 2026-10-01T13:37:48+08:00 feat(ui): 设置页接入偏好/通知/页签后台项 + 全站图标排版审计优化
+16dac3b1f927c07eea7aa4b8ab8b8b563d795eb6 2026-10-01T13:47:00+08:00 feat(icons): 全站图标换代 Lucide 现代圆角风格
+656f191514c523ef2ce2955fc370ca9eedd68e0a 2026-10-01T14:36:49+08:00 feat: v2.11.0 最终集成——账号池状态条 / 网关健康面板 / 报表自动刷新 / Key 快速接入 / 日志级别 chips / 任务倒计时 / 页签拖拽+密码显隐 / 深色与可访问性审计
+49eefd677b1756464656aadada7eb37b550fd348 2026-10-01T15:33:53+08:00 fix: health.rs 运行时长函数路径修正（本模块内调用，v2.11.0 标签构建失败的根因）
+31628bc0827ec2f4a322b33bf49078fdf8b1be76 2026-10-01T15:46:33+08:00 fix: 桌面 crate 残留 agent2api_server 引用改名收尾（bridge/state/commands 等）
+bf0959580f78c428f2934edc999151101edacdca 2026-10-01T17:05:17+08:00 fix(web): 登录授权窗口改为带尺寸的独立弹出小窗（对齐桌面端内置窗口形态）
+0fbe36cba8b0d5344a4149423d74586c148d07b5 2026-10-01T17:14:58+08:00 docs: 新增开源参考项目与文档全清单（功能设计依据与待做路线）
+49634a9b181c0d795a9c2853d304af8c6edb2b2f 2026-10-01T17:34:54+08:00 feat(wave1): 报表 CSV 导出 / 界面密度三档 / 凭据临期预警 / Key 接入二维码
+af138f99e0c500f5009988db77be77a4a068cee0 2026-10-01T17:50:47+08:00 feat(update): 检查更新指向本仓库 Releases + 网页端真实版本比对
+48e4ca4e25a1034f927d3803006334c7331ef87f 2026-10-01T18:56:33+08:00 feat(wave2-5): 后端功能集成——连通性测试/探活/审计/会话/维护/备份 + 通知中心管理界面（N2）
+27a0ec559e40fadc412263f37e46170f4a125d3b 2026-10-01T19:11:15+08:00 fix(spike): 通知埋点变量名对齐实际作用域（provider/attempt_account/provider_id/model）
+adc8f95e02f179eb724ca86a035bcaa7f78ca52e 2026-10-01T19:30:40+08:00 docs: 参考清单补 WorkBuddy 签到工具两仓库
+fb525460a41b4555a18dd9411929a0d250fbc8a6 2026-10-01T20:33:04+08:00 feat: 审计埋点（登录成功/失败）+ shutdown 路由接线 + api/mod 声明收尾
+6f7caba46fb234781402e915b975312fb40e6cd5 2026-10-01T20:38:31+08:00 feat(brand): 数据文件改名 aibuddy-panel.db（自动迁移旧文件）+ 全品牌清扫
+17dad0fe6997fdd63dbb1020f4f54f6312cf3a1a 2026-10-01T21:09:36+08:00 fix(db): LEGACY_FILE_NAME 恢复为 agent2api.db（品牌清扫误伤迁移源常量，已修复并实测迁移成功）
+b5cdefb7dc7341b4579b49fe5b59378a45f4a792 2026-10-01T21:19:28+08:00 v2.12.0: 签到 UX 优化（已签到不再显示为失败）+ 后端新功能全量（探活/审计/会话/维护/备份/Key额度/16渠道通知/告警）+ 版本 2.11.0 → 2.12.0
+5de16704e04a1dd75f0ee973fa00d4de97844f8e 2026-10-01T21:59:19+08:00 fix: 移除未使用的 delete 路由助手导入（消除构建警告）
+89ecde500d9fe564f171090fcd64b489f268691d 2026-10-01T22:42:51+08:00 fix(checkin): 「今日已签到」全链路归类为正常状态（后端 billing HTTP 400 分支 + 前端 outcome 归一）
+4a922cb17c5198ad0aa969f770e0d262b0314a05 2026-10-01T23:15:24+08:00 feat(ui): 侧栏分组手风琴——点击分组标题折叠/展开子菜单，状态持久化
+c10400362d594cc261ac0e6a1b0d133ccd267bc9 2026-10-01T23:25:40+08:00 fix(icons): 补充 bell 图标（通知中心分类用）
+2fa0a3d8b9cd2fdce757278aaee745e7da8925cf 2026-10-02T01:17:19+08:00 feat: v2.13.0 一键绑定远程面板 + 积分构成页 + 通知渠道收口
+4fc88627aaafc05a11499fa3235618c4cacf2a9d 2026-10-02T01:31:54+08:00 fix(notify): send_brevo 未使用参数改 _title，消掉最后一个编译警告
+9d53912ab48ee2eaa543de37f1ebda675fe1f8f1 2026-10-02T07:29:09+08:00 feat: v2.13.1 顶栏用户菜单（改账号密码+退出登录）+ 积分包专用端点修复积分构成页
+8511cd10a262396eb3e5378999b7f6e13bea4c52 2026-10-02T07:44:58+08:00 docs(providers): 余额接入核查后的文档修正（catpaw 适配器注释对齐实测端点；zcode 凭证落盘位置注释修正、去重复 Accept 头）
+e5aa3e4df224a5d86b5fb8fd5c4ee93bfec7a2df 2026-10-02T10:37:41+08:00 feat: v2.14.0 成长任务一键完成 + Cline API Key 管理 + /v1/embeddings + 积分构成对照美化
+31ec0379c827963330b4d8b58b729804fdae715c 2026-10-02T12:07:49+08:00 fix: v2.14.0 编译修复（growth_actions/queue/travel/workbuddy/embeddings 共 27 处）+ 零警告收敛

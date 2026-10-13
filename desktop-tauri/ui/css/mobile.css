@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────────
-   AIBuddy Panel · 移动端适配（≤768px / ≤480px 两档）
+   Agent2API · 移动端适配（≤768px / ≤480px 两档）
    职责边界（与其他文件的分工，改前先读）：
    · ≤1000px 侧栏抽屉化（汉堡键 + 遮罩）、≤768px 面包屑隐藏、
      ≤640px 抽屉全宽兜底与字号收敛 —— prefs.css 已覆盖，这里不重复、不冲突；
@@ -69,4 +69,13 @@
     align-items: stretch;
   }
   .ab-steps { margin-left: 0; }
+}
+
+/* Quota controls add width beyond the upstream column minimums. Keep the
+   table readable inside its scroll container, including saved narrow widths. */
+@media (max-width: 768px) {
+  .models-table-wrap:has(.keys-table) { overflow-x: auto; }
+  .keys-table { min-width: 900px !important; }
+  .keys-table .cell-key { min-width: 240px; }
+  #topbar-status { display: none; }
 }

@@ -60,7 +60,7 @@ use crate::server::core::providers::adapter::adapter_for;
 use crate::server::core::providers::zcode;
 use crate::server::core::providers::ProviderKind;
 use crate::server::errors::management_error;
-use crate::server::http::{ok_json, parse_body};
+use crate::server::http::{ok_json, parse_body, query_param};
 use crate::server::logging;
 use crate::server::ServerState;
 
@@ -130,7 +130,7 @@ pub async fn accounts_entry(State(state): State<ServerState>, request: axum::ext
     let full_path = request.uri().path().to_string();
     // 原始查询串（未解码的原文，由用到它的分支自行 `query_param` 解码）。
     // 目前只有 `GET /api/accounts/usage?id=<id>` 用它 —— 那一支是「用户手点某一行
-    // 的积分按钮」，与批量的区别见 `core::usage_query::query_all` 的说明。
+    // 的余额按钮」，与批量的区别见 `core::usage_query::query_all` 的说明。
     let query = request.uri().query().unwrap_or("").to_string();
     let body = match axum::body::to_bytes(request.into_body(), crate::server::http::MAX_BODY_SIZE)
         .await
@@ -239,7 +239,7 @@ pub async fn dispatch(
         }
         // 定时查询那一轮的结果快照（形状同 usage，多一个 `at`）
         ("GET", "usage/snapshot") => {
-            return super::accounts_usage::accounts_usage_snapshot().await
+            return super::accounts_usage::accounts_usage_snapshot(&state).await
         }
         // 积分包构成（仅 WorkBuddy）：逐启用账号走 get-user-resource 的逐包明细，
         // 供「积分构成」页使用（/api/accounts/usage 的本家形状是积分简报，无逐包数据）
@@ -303,6 +303,28 @@ pub async fn dispatch(
                 return super::zcode_claim::claim_plan(&state, &id, body).await;
             }
         }
+        // 新手任务一键领取（执行体按账号的提供商分派：Loomy 任务表 / 小浣熊
+        // 首次登录奖励，见 `api::onboarding`；幂等，重复点不会重复加分）。
+        if let Some(id) = rest.strip_suffix("/onboarding/claim") {
+            let id = decode_segment(id);
+            if !id.is_empty() {
+                return super::onboarding::claim(&state, &id).await;
+            }
+        }
+    }
+
+    // ③' GET + /onboarding 结尾 → 新手任务状态（只读，签到后弹窗的查询口）。
+    // 与上面 POST 段同一写法：后缀互不包含，先后不影响命中。
+    // `?refresh=1` 强制实查上游（手点「查询任务」）；不带则吃结算记忆（一次性
+    // 福利领完就不再问上游，见 `api::onboarding` 的模块说明）。
+    if method == Method::GET {
+        if let Some(id) = rest.strip_suffix("/onboarding") {
+            let id = decode_segment(id);
+            if !id.is_empty() {
+                let refresh = query_param(query, "refresh").as_deref() == Some("1");
+                return super::onboarding::status(&state, &id, refresh).await;
+            }
+        }
     }
 
     // ④ PATCH / DELETE → 把剩余段当账号 id。
@@ -336,8 +358,9 @@ pub async fn dispatch(
 ///   ③ `AutoClaw` → AutoClaw 路径（W4b-T-c2）：`importDesktop === true` 导入
 ///      桌面端实时登录态（`%APPDATA%/AutoClaw/auth.json`，DPAPI 解密）；
 ///      否则手动添加（token/refreshToken + deviceId，`enc:` 密文自动解密）；
-///   ④ `WorkBuddy` 或**字段缺失** → 既有 workbuddy 路径（`store.add_account`
-///      不读 payload 里的 provider，见该函数的说明）。
+///   ④ `WorkBuddy` / `WorkBuddyIntl` 或**字段缺失** → 既有 workbuddy 路径
+///      （`store.add_account`，归属由这里的 provider id 给出：国际版与国内版
+///      共用同一套凭证形态与落账号路径，差别只在落进哪一家）。
 ///
 /// ── AutoClaw 曾经在这里显式 400（历史，别改回去）─────────────────
 /// W4a–W4b 之间它的凭证链路还没落地，那时这里对它的 payload 报 400：若让它落进
@@ -430,9 +453,16 @@ pub async fn add_account(state: &ServerState, body: &Bytes) -> Response {
                 Err(reason) => Err(AccountStoreError::new(reason, 400)),
             }
         }
-        Some(crate::server::core::providers::ProviderKind::Qoder) => {
-            match crate::server::core::providers::qoder::auth::prepare_account(&payload).await {
-                Ok(credentials) => store.add_qoder_account(&credentials, import_name, "manual"),
+        // Qoder（两个地区走同一份实现、按地区参数化，与 AutoClaw 同款）：
+        // 粘贴 PAT / 凭证 → 手动添加。拆家后界面上是两张卡片（`qoder` /
+        // `qoder-intl`），地区由 kind 反查（provider 身份是权威，payload 里
+        // 的 `mode` 只是兼容字段）。
+        Some(kind @ (crate::server::core::providers::ProviderKind::Qoder
+            | crate::server::core::providers::ProviderKind::QoderIntl)) => {
+            let region = crate::server::core::providers::qoder::endpoints::Region::from_kind(kind)
+                .unwrap_or(crate::server::core::providers::qoder::endpoints::Region::Cn);
+            match crate::server::core::providers::qoder::auth::prepare_account(&payload, region).await {
+                Ok(credentials) => store.add_qoder_account(region, &credentials, import_name, "manual"),
                 Err(error) => Err(AccountStoreError::new(error.message, error.status_code)),
             }
         }
@@ -574,8 +604,176 @@ pub async fn add_account(state: &ServerState, body: &Bytes) -> Response {
             }
             store.add_trae_account(&credential, import_name, "manual")
         }
-        Some(crate::server::core::providers::ProviderKind::WorkBuddy) | None => {
-            store.add_account(&payload, None)
+        // Loomy（讯飞）：**粘贴 session** → 手动添加（短信登录是另一条链路，
+        // `POST /api/session/login/loomy/sms/verify` → 同一个落账号入口
+        // `add_loomy_account`）。
+        //
+        // `importDesktop` 不提供：Loomy 的登录态在客户端自己的加密存储里，
+        // 没有 auth.json 那种稳定可读的文件形态 —— 给了入口只会稳定失败
+        // （与 Accio / ZCode 同一处境）。
+        Some(crate::server::core::providers::ProviderKind::Loomy) => {
+            if import_desktop {
+                return management_error(
+                    400,
+                    "Loomy 不支持导入桌面端登录态，请用「手机号验证码登录」或粘贴 session 添加账号",
+                );
+            }
+            store.add_loomy_account(&payload, import_name)
+        }
+        // KukuAI（百度文库库库 AI）：**粘贴 Cookie**（Cookie 头 / Cookie 编辑器
+        // JSON / `{BDUSS, STOKEN}` 对象）→ 解析并向上游验证（userreport 换
+        // 会话三件套 + uk）→ 落账号。
+        //
+        // `importDesktop: true` → 读本机客户端登录态（`%APPDATA%\baidugenflowpro\
+        // Network\Cookies`，明文 SQLite 无需解密，见 `kuku::credentials` 模块头）
+        // → 同样验证 → 落账号。
+        //
+        // 验证失败（凭证无效 / 客户端占用 Cookies 文件）→ 400，不落空记录。
+        Some(crate::server::core::providers::ProviderKind::Kuku) => {
+            let parsed = if import_desktop {
+                match crate::server::core::providers::kuku::credentials::read_desktop_credentials()
+                {
+                    Ok(credentials) => credentials,
+                    Err(reason) => return management_error(400, reason),
+                }
+            } else {
+                match crate::server::core::providers::kuku::credentials::credentials_from_payload(
+                    &payload,
+                ) {
+                    Ok(credentials) => credentials,
+                    Err(reason) => return management_error(400, reason),
+                }
+            };
+            let verified = match crate::server::core::providers::kuku::credentials::enrich_identity(
+                &parsed,
+                None,
+                true,
+            )
+            .await
+            {
+                Ok(credentials) => credentials,
+                Err(error) => return management_error(error.status_code, error.message),
+            };
+            store.add_kuku_account(
+                &verified,
+                import_name,
+                if import_desktop { "desktop" } else { "manual" },
+            )
+        }
+        // MonkeyCode（长亭科技）：**粘贴 session**（`monkeycode_ai_session` cookie）
+        // → 先向上游 `GET /api/v1/users/status` 校验并归一化，再落账号（`login.rs`
+        // 里顺带 best-effort 发现 image_id）。两个站点走同一份实现、按地区参数化
+        // （provider id 是权威，见 `monkeycode::region`）。
+        //
+        // `importDesktop` 不提供：本家的登录态就是浏览器 cookie，没有客户端
+        // 「auth.json」那种可读文件（与 Accio / ZCode 同一处境）。
+        Some(kind @ (crate::server::core::providers::ProviderKind::MonkeyCode
+            | crate::server::core::providers::ProviderKind::MonkeyCodeIntl)) => {
+            let region = crate::server::core::providers::monkeycode::Region::from_kind(kind)
+                .unwrap_or(crate::server::core::providers::monkeycode::Region::Cn);
+            if import_desktop {
+                return management_error(
+                    400,
+                    format!(
+                        "MonkeyCode {}不支持导入桌面端登录态，请粘贴 session（monkeycode_ai_session）添加账号",
+                        region.label()
+                    ),
+                );
+            }
+            let session = payload
+                .get("session")
+                .or_else(|| payload.get("accessToken"))
+                .or_else(|| payload.get("token"))
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .unwrap_or("")
+                .to_string();
+            if session.is_empty() {
+                return management_error(400, "请粘贴 MonkeyCode 的 session cookie（monkeycode_ai_session）");
+            }
+            let provided_image = payload
+                .get("imageId")
+                .or_else(|| payload.get("image_id"))
+                .and_then(Value::as_str);
+            match crate::server::core::providers::monkeycode::login::verify_session(
+                region,
+                &session,
+                provided_image,
+            )
+            .await
+            {
+                Ok(credentials) => {
+                    store.add_monkeycode_account(region, &credentials, import_name, "manual")
+                }
+                Err(error) => return management_error(error.status_code, error.message),
+            }
+        }
+        // Command Code（`api.commandcode.ai`）：**粘贴 API Key**（`user_` 开头）
+        // → 本地归一化（剥引号 / `Authorization: Bearer …` 整行 / 尾部杂字段）
+        // + 形态检查，随后一次 best-effort 探活（`GET /alpha/billing/credits`
+        // 的 401/403 才判无效）→ 落账号。key 本身也是上游的账号身份
+        // （没有 userId 可解析，账号 id 由 key 摘要派生，见
+        // `commandcode_accounts.rs` 的模块头）。
+        //
+        // `importDesktop` 不提供：本家的凭证就是一枚 API Key，没有客户端
+        // 「auth.json」那种可读登录态（与 Loomy / MonkeyCode 同一处境）。
+        Some(crate::server::core::providers::ProviderKind::CommandCode) => {
+            if import_desktop {
+                return management_error(
+                    400,
+                    "Command Code 不支持导入桌面端登录态，请粘贴 API Key（user_ 开头）添加账号",
+                );
+            }
+            let raw = payload
+                .get("apiKey")
+                .or_else(|| payload.get("accessToken"))
+                .or_else(|| payload.get("token"))
+                .or_else(|| payload.get("key"))
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            let credentials =
+                match crate::server::core::providers::commandcode::login::verify_key(raw).await {
+                    Ok(credentials) => credentials,
+                    Err(error) => return management_error(error.status_code, error.message),
+                };
+            store.add_commandcode_account(&credentials, import_name, "manual")
+        }
+        // Antigravity（Google 的 AI IDE）：**粘贴 Google refresh token**
+        // → 本地归一化（剥引号 / `refresh_token=` 整行 / 空白；`1//` 是令牌本体，
+        // 不剥）→ 打一次 Google token 端点做**真实校验**（refresh_token 没有可判
+        // 的本地形态，不像 `user_` 那种有前缀可查），顺带拿到 access_token /
+        // 到期时间 → best-effort 发现 `cloudaicompanionProject` → 落账号
+        // （见 `providers::antigravity::login` 的模块头）。
+        //
+        // `importDesktop` 不提供：本家的登录态在 Antigravity IDE 自己的存储里
+        // （与 Accio / ZCode / Loomy 同一处境）—— 给了入口只会稳定失败。
+        Some(crate::server::core::providers::ProviderKind::Antigravity) => {
+            if import_desktop {
+                return management_error(
+                    400,
+                    "Antigravity 不支持导入桌面端登录态，请粘贴 Google refresh token（1// 开头）添加账号",
+                );
+            }
+            let credentials = match crate::server::core::providers::antigravity::login::verify_paste(
+                &payload, None,
+            )
+            .await
+            {
+                Ok(credentials) => credentials,
+                Err(error) => return management_error(error.status_code, error.message),
+            };
+            store.add_antigravity_account(&credentials, import_name, "manual")
+        }
+        // WorkBuddy 系的两家（国内版 / 国际版）：同一套凭证形态与落账号路径，
+        // 差别只有归属 —— provider id 自己就是归属（拆家后不再从 payload 里的
+        // `edition` 反推：那是账号的属性，而落哪一家是身份问题）。
+        // `None`（老客户端不带 provider 字段）按国内版，历史契约不变。
+        Some(crate::server::core::providers::ProviderKind::WorkBuddy)
+        | Some(crate::server::core::providers::ProviderKind::WorkBuddyIntl)
+        | None => {
+            let provider = crate::server::core::providers::kind_from_id(provider)
+                .map(crate::server::core::providers::kind_id);
+            store.add_account(&payload, None, provider)
         }
     };
     match result {
@@ -725,11 +923,20 @@ pub async fn batch_accounts(state: &ServerState, body: &Bytes) -> Response {
 
 /// 刷新账号 token（**按账号所属 provider 分派**）。
 ///
-/// workbuddy 账号走既有的 `AuthService::refresh_account`；小浣熊与 AutoClaw 账号
-/// 各走自家适配器的 `refresh_access_token`；**CatPaw 账号没有可刷新的东西**
-/// （§9.1：`X-Passport-Token` 过期只能在桌面端重新登录，没有 refreshToken），
-/// 因此这里明确报 400 并说明做法 —— 静默走 workbuddy 的刷新会拿 CatPaw 的凭证
+/// workbuddy 账号走既有的 `AuthService::refresh_account`；小浣熊、AutoClaw、
+/// CodeArts、**Trae / ZCode**、Accio、Cline 账号各走自家适配器的
+/// `refresh_access_token`；**CatPaw / MonkeyCode / Command Code 账号没有可刷新的
+/// 东西**（§9.1：`X-Passport-Token` 过期只能在桌面端重新登录，没有 refreshToken；
+/// 后两家是静态 session / API Key，上游根本没有续期接口），
+/// 因此这里明确报 400 并说明做法 —— 静默走 workbuddy 的刷新会拿别家的凭证
 /// 去打腾讯的鉴权接口。
+///
+/// 漏登记的实际代价（两条都是生产抓到的）：CodeArts 漏的时候用户点「刷新 Token」
+/// 得到 `client key [] not found`；Trae 漏的时候得到
+/// `12153:refresh token failed:10000:token format error`（2026-10-02 15:47:57 实测）——
+/// 两条都长得像"这把凭据坏了"，其实是发错了家的端点。所以**加一家带 refreshToken
+/// 的提供商时，这张分派表必须一起加** —— 它在 `PROVIDERS` 与各 adapter 注册点之外，
+/// 编译器不会提醒，漏了只在用户点按钮时才暴露。
 ///
 /// 为什么不统一到一个抽象：四家的刷新协议毫无共同点，而「刷新」是**管理动作**、
 /// 不是转发链路上的 provider 契约（那条契约的 `refresh_access_token` 是转发时的
@@ -762,8 +969,16 @@ pub async fn refresh_account(state: &ServerState, body: &Bytes) -> Response {
             "自定义提供商账号的凭证由用户直接提供，无需刷新（更换凭证请重新添加或直接编辑）",
         );
     }
-    if state.store().qoder_account_record(&id).is_some() {
-        return refresh_provider_account(state, &id, ProviderKind::Qoder).await;
+    // Qoder（两个地区各查一次 —— 账号集合按 provider 隔离，同一 id 不可能
+    // 同时属于两家，与 Accio / AutoClaw 同一条遍历）
+    for region in crate::server::core::providers::qoder::endpoints::Region::ALL {
+        if state
+            .store()
+            .qoder_account_record(region, &id)
+            .is_some()
+        {
+            return refresh_provider_account(state, &id, region.kind()).await;
+        }
     }
     // CodeArts：一次性 refresh token + 写回，必须走适配器。
     // **这条不能省**：漏了就会落到下面的 workbuddy 兜底链路，用户得到一条与
@@ -771,6 +986,19 @@ pub async fn refresh_account(state: &ServerState, body: &Bytes) -> Response {
     // `auth/token/refresh 失败: client key [] not found`）。
     if state.store().codearts_account_record(&id).is_some() {
         return refresh_provider_account(state, &id, ProviderKind::CodeArts).await;
+    }
+    // Trae：一次性 refreshToken + 每次换发都轮换，必须走它自己的适配器
+    // （`ExchangeToken`）。**这条也不能省**：漏了就落到下面的 workbuddy 兜底，
+    // 用户点「刷新 Token」收到的是腾讯那侧的错 —— 生产实测（2026-10-02 15:47:57）
+    // 原文是 `auth/token/refresh 失败: 12153:refresh token failed:10000:token format
+    // error`，"token format error" 其实就是**把 Trae 的续期串发给了 workbuddy 的
+    // 鉴权端点**，与账号本身好不好没有任何关系。
+    if state.store().trae_account_record(&id).is_some() {
+        return refresh_provider_account(state, &id, ProviderKind::Trae).await;
+    }
+    // ZCode：同一条理由（它的续期是自家 OAuth 那套，不是 workbuddy 的链）
+    if state.store().zcode_account_record(&id).is_some() {
+        return refresh_provider_account(state, &id, ProviderKind::Zcode).await;
     }
     // Accio（两个地区）：走适配器的强制刷新（`POST /api/auth/refresh_token`，
     // 结果按「比较再写」回写）。两个地区各查一次 —— 账号集合按 provider 隔离，
@@ -841,6 +1069,46 @@ pub async fn refresh_account(state: &ServerState, body: &Bytes) -> Response {
              然后在本页重新导入桌面端登录态（或重新粘贴新的登录凭证）",
         );
     }
+    // MonkeyCode 的两个站点：同样**没有刷新机制**（session 30 天硬限制，
+    // 上游无 refresh 接口，见 `providers::monkeycode::credentials` 的模块头）。
+    // 不显式拦下的话会落到下面的 workbuddy 兜底链路，用户会收到一条与腾讯
+    // 鉴权端点相关的错误 —— 与 CatPaw 漏登记时的症状同一性质。
+    for region in crate::server::core::providers::monkeycode::Region::ALL {
+        if state
+            .store()
+            .monkeycode_account_record(region, &id)
+            .is_some()
+        {
+            return management_error(
+                400,
+                "MonkeyCode 登录态没有刷新机制（会话 30 天、上游无续期接口）：\
+                 请在浏览器重新取一次 session cookie 后在本页重新粘贴",
+            );
+        }
+    }
+    // Command Code：同样**没有刷新机制**（单枚静态 API Key、上游无 refresh
+    // 接口，见 `providers::commandcode::credentials` 的模块头）。不显式拦下的
+    // 话会落到下面的 workbuddy 兜底链路，用户会收到一条与腾讯鉴权端点相关的
+    // 错误 —— 与 CatPaw / MonkeyCode 漏登记时的症状同一性质。
+    if state.store().commandcode_account_record(&id).is_some() {
+        return management_error(
+            400,
+            "Command Code 的 API Key 没有刷新机制（静态 key、上游无续期接口）：\
+             请在 commandcode.ai/studio 重新获取后在本页重新粘贴",
+        );
+    }
+    // Antigravity：**有**可刷新的 refreshToken（Google OAuth），走自家适配器的
+    // 强制刷新（`grant_type=refresh_token` 打 `oauth2.googleapis.com/token`）。
+    // 这条分派不能省：漏了就落到下面的 workbuddy 兜底链路，用户点「刷新 Token」
+    // 收到的是腾讯鉴权端点的错 —— 与 Command Code / Trae 漏登记时同一性质
+    // （`refresh_account` 的文档里把这条列为「加带 refreshToken 的家时必须一起加」）。
+    if state.store().antigravity_account_record(&id).is_some() {
+        return refresh_provider_account(state, &id, ProviderKind::Antigravity).await;
+    }
+    // WorkBuddy 系（国内版 / 国际版）的兜底：两条链路都按**账号自己的**
+    // endpoint / prefixPath / platform / edition 续期
+    // （`AuthService::refresh_account_inner` 从记录里读，见那里的说明），
+    // 因此拆家后不必按地区分派 —— 国际版账号自然打国际站的 refresh 端点。
     match state.auth().refresh_account(&id).await {
         Ok(_) => ok_json(json!({
             "refreshedId": id,
@@ -891,7 +1159,7 @@ pub async fn refresh_expiring_accounts(state: &ServerState) -> Response {
 
 /// ── 两条路径的目标解析都不在本文件了 ─────────────────────
 /// · 余额查询的目标集合：`core::usage_query::resolve_batch_targets`
-///   （它跟着查询逻辑一起下沉 —— 「定时查询积分」要用同一份口径）；
+///   （它跟着查询逻辑一起下沉 —— 每账号自动查询与手动批量共用同一份口径）；
 /// · 签到的目标集合：`core::billing::checkin::resolve_checkin_targets`
 ///   （定时签到与手动签到必须共用同一段逻辑）。
 /// 本文件只剩 `accounts_checkin` 一个转发壳。
@@ -899,9 +1167,10 @@ pub async fn refresh_expiring_accounts(state: &ServerState) -> Response {
 
 /// POST /api/accounts/checkin
 ///
-/// 串行签到：避免多账号同时打上游触发 11128 风控。
+/// 串行签到：避免多账号同时打上游触发 11-128 风控。
 /// id 为空时签全部符合条件的账号，给了 id 则只签该账号；
-/// 返回 `{results, succeeded, total, skipped}`。
+/// 返回 `{results, succeeded, active, total, skipped}`；`active` 是 WorkBuddy
+/// 国际版完成免费模型保活的数量，不等同于普通签到领取成功数。
 ///
 /// 执行体是 `core::billing::checkin::run_checkin` —— 与定时签到共用同一段逻辑
 /// （Node 版也是 `createAutoCheckin({ runCheckin: accountRoutes.runCheckin })`）。
@@ -921,8 +1190,17 @@ pub async fn accounts_checkin(state: &ServerState, body: &Bytes) -> Response {
     // 批量路径的提供商范围取自动签到的同一份配置（两处入口一个口径）；
     // 指定 id 的单签不受范围限制（见 resolve_checkin_targets 的说明）
     let providers = state.auto_checkin().configured_providers();
-    match checkin::run_checkin(state.store(), state.billing(), providers.as_slice(), id.as_deref())
-        .await
+    // reason 进签到历史台账（仅批量轮次记账，见 checkin_history 的说明）：
+    // 账号页「全部签到」与签到中心的批量动作都从这条路由走，与定时触发的
+    // 「到点触发 / 启动补签」在时间线上区分开。
+    match checkin::run_checkin(
+        state.store(),
+        state.billing(),
+        providers.as_slice(),
+        id.as_deref(),
+        "手动签到",
+    )
+    .await
     {
         Ok(result) => ok_json(result),
         Err(error) => management_error(error.status_code, error.message),
@@ -1023,6 +1301,46 @@ pub async fn patch_account(state: &ServerState, id: &str, body: &Bytes) -> Respo
             };
         }
         match state.store().update_zcode_plan(&id, value) {
+            Ok(changes) => balance_changes.extend(changes),
+            Err(error) => return store_error(error),
+        }
+    }
+    // 自定义账号的凭证（`apiKey` / `noAuth`）：与上面两段同一处境 —— 只有自定义
+    // 家认这两个键，所以不进通用 `apply_patch`。**账号 id 由 HTTP 路径给定，
+    // 改凭证不改 id**（id 是身份：限额冷却、请求日志、导出文件都按它关联），
+    // 于是这里不需要「同 key 合并」那条添加侧的逻辑。
+    if patch.get("apiKey").is_some() || patch.get("noAuth").is_some() {
+        // `custom_account_provider` 一次回答两件事：账号在不在、属不属于自定义家
+        // （判据是记录里的 `provider` 前缀，不要求提供商本身还在配置里，
+        // 见那个函数的说明）—— 与 balanceToken / zcodePlan 的两次查询同口径
+        if state.store().custom_account_provider(&id).is_none() {
+            let known = state
+                .store()
+                .list_accounts()
+                .get("accounts")
+                .and_then(Value::as_array)
+                .map(|accounts| {
+                    accounts
+                        .iter()
+                        .any(|item| item.get("id").and_then(Value::as_str) == Some(id))
+                })
+                .unwrap_or(false);
+            return if known {
+                management_error(400, "只有自定义提供商的账号有 API Key / 无需鉴权这两项")
+            } else {
+                store_error(AccountStoreError::new("账号不存在", 404))
+            };
+        }
+        // 只把请求里**真的带了**的键递下去（`apiKey: null` 是有意义的取值：
+        // 清除凭证），其余字段由下面的通用 `update_account` 处理 —— 两者各守
+        // 各的字段集，互不干扰
+        let mut scoped = Map::new();
+        for key in ["apiKey", "noAuth"] {
+            if let Some(value) = patch.get(key) {
+                scoped.insert(key.to_string(), value.clone());
+            }
+        }
+        match state.store().update_custom_credentials(&id, &Value::Object(scoped)) {
             Ok(changes) => balance_changes.extend(changes),
             Err(error) => return store_error(error),
         }

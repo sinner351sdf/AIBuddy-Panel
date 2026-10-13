@@ -14,7 +14,7 @@
 //! Codex CLI（OpenAI 的本机编码客户端）的供应商与凭证配置就在这两个文件里：
 //!   · `config.toml` —— `model_provider = "aibuddy"` +
 //!     `[model_providers.aibuddy]`（name / base_url=`{baseUrl}/v1` /
-//!     wire_api="chat"）：把 Codex 的对话请求整体指到本网关的 OpenAI 兼容端点。
+//!     wire_api="responses"）：把 Codex 的对话请求整体指到本网关的 OpenAI 兼容端点。
 //!     整文件重写而不是原地改键：混着改会说不清「这份配置里哪些是用户的、哪些
 //!     是本面板写的」，重写之前先备份（下条），旧配置永远找得回来；
 //!   · `auth.json` —— `{"OPENAI_API_KEY": <apiKey>}`。apiKey 缺失时跳过这个
@@ -93,7 +93,7 @@ fn panel_origin(state: &ServerState, headers: &HeaderMap) -> String {
 
 /// base_url 的归一：trim、去结尾斜杠，再剥掉已带的 `/v1` 后缀。
 ///
-/// 写进 config.toml 的永远是 `{base}/v1`（Codex 在其后自己拼 /chat/completions，
+/// 写进 config.toml 的永远是 `{base}/v1`（Codex 在其后自己拼 /responses，
 /// 与 OpenAI SDK 同一约定）。用户从别处粘贴的地址常带结尾斜杠、甚至已经带了
 /// /v1（照着快速接入片段整行复制是常态），先剥掉再拼，重复粘贴也幂等。
 fn normalize_base(text: &str) -> String {
@@ -108,9 +108,10 @@ fn normalize_base(text: &str) -> String {
 fn config_toml_text(base_url: &str) -> Result<String, String> {
     use toml::{Table as TomlTable, Value as TomlValue};
     let mut provider = TomlTable::new();
-    provider.insert("name".to_string(), TomlValue::String("AIBuddy Panel".to_string()));
+    provider.insert("name".to_string(), TomlValue::String("Agent2API".to_string()));
     provider.insert("base_url".to_string(), TomlValue::String(base_url.to_string()));
-    provider.insert("wire_api".to_string(), TomlValue::String("chat".to_string()));
+    provider.insert("wire_api".to_string(), TomlValue::String("responses".to_string()));
+    provider.insert("requires_openai_auth".to_string(), TomlValue::Boolean(true));
     let mut providers = TomlTable::new();
     providers.insert("aibuddy".to_string(), TomlValue::Table(provider));
     let mut doc = TomlTable::new();
@@ -204,7 +205,7 @@ pub async fn post_setup(
     let mut skipped: Vec<Value> = Vec::new();
     let mut backups: Vec<String> = Vec::new();
 
-    // ① config.toml：model_provider 指向本网关（OpenAI 兼容，wire_api="chat"）
+    // ① config.toml：model_provider 指向本网关（OpenAI 兼容，wire_api="responses"）
     let text = match config_toml_text(&base_url) {
         Ok(text) => text,
         Err(message) => return errors::management_error(500, message),
@@ -246,4 +247,26 @@ pub async fn post_setup(
         "codexDir": dir.to_string_lossy().to_string(),
         "baseUrl": base_url,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{config_toml_text, normalize_base};
+
+    #[test]
+    fn generated_config_uses_responses_and_api_key_auth_without_toml_injection() {
+        let url = "http://127.0.0.1:3065/v1?label=\"quoted\"";
+        let text = config_toml_text(url).expect("serialize fixture");
+        let parsed: toml::Value = toml::from_str(&text).expect("valid TOML");
+        let provider = &parsed["model_providers"]["aibuddy"];
+        assert_eq!(provider["wire_api"].as_str(), Some("responses"));
+        assert_eq!(provider["requires_openai_auth"].as_bool(), Some(true));
+        assert_eq!(provider["base_url"].as_str(), Some(url));
+    }
+
+    #[test]
+    fn copied_base_url_gets_exactly_one_v1_suffix() {
+        assert_eq!(normalize_base(" https://gateway.example/v1/ "), "https://gateway.example");
+        assert_eq!(normalize_base("https://gateway.example/"), "https://gateway.example");
+    }
 }

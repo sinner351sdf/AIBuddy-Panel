@@ -243,11 +243,11 @@ pub async fn post_import(State(state): State<ServerState>, body: Bytes) -> Respo
 
 /// 快照定位：顶层（与 confirm 并列）或导出信封的 `data` 字段里
 fn extract_snapshot(payload: &Value) -> Option<&Value> {
-    if payload.get("kind").and_then(Value::as_str) == Some(SNAPSHOT_KIND) {
+    if matches!(payload.get("kind").and_then(Value::as_str), Some(SNAPSHOT_KIND | "aibuddy-panel-backup")) {
         return Some(payload);
     }
     let inner = payload.get("data")?;
-    if inner.get("kind").and_then(Value::as_str) == Some(SNAPSHOT_KIND) {
+    if matches!(inner.get("kind").and_then(Value::as_str), Some(SNAPSHOT_KIND | "aibuddy-panel-backup")) {
         return Some(inner);
     }
     None

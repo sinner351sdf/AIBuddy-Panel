@@ -131,6 +131,17 @@ pub async fn put_schedule(State(_state): State<ServerState>, body: Bytes) -> Res
     }
 }
 
+// Provider identity is mandatory: other providers can also have edition="intl".
+// Never send their credentials to WorkBuddy billing endpoints.
+fn is_workbuddy_account(state: &ServerState, id: &str) -> bool {
+    state.store().list_accounts().get("accounts").and_then(Value::as_array)
+        .is_some_and(|accounts| accounts.iter().any(|account| {
+            account.get("id").and_then(Value::as_str) == Some(id)
+                && matches!(account.get("provider").and_then(Value::as_str),
+                    Some("workbuddy" | "workbuddy-intl"))
+        }))
+}
+
 /// POST /api/growth-tasks/trial —— 国际版一次性 trial 加油包（{accountId}）
 pub async fn trial(State(state): State<ServerState>, body: Bytes) -> Response {
     let payload = match parse_object(&body) {
@@ -145,6 +156,9 @@ pub async fn trial(State(state): State<ServerState>, body: Bytes) -> Response {
     else {
         return errors::management_error(400, "accountId 必填");
     };
+    if !is_workbuddy_account(&state, &account_id) {
+        return errors::management_error(400, "该动作仅限 WorkBuddy 账号");
+    }
     let Some(entry) = state.store().get_session_by_id(&account_id) else {
         return errors::management_error(404, "账号不存在或没有可用凭证");
     };
@@ -188,6 +202,9 @@ pub async fn gift(State(state): State<ServerState>, body: Bytes) -> Response {
     else {
         return errors::management_error(400, "kind 必须是 gift 或 compensation");
     };
+    if !is_workbuddy_account(&state, &account_id) {
+        return errors::management_error(400, "该动作仅限 WorkBuddy 账号");
+    }
     let Some(entry) = state.store().get_session_by_id(&account_id) else {
         return errors::management_error(404, "账号不存在或没有可用凭证");
     };

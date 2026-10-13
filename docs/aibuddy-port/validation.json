@@ -1,0 +1,43 @@
+{
+  "upstream": "fd869a4610859f4690c307ad9e8b0e16d51e1058",
+  "fork": "31ec0379c827963330b4d8b58b729804fdae715c",
+  "inferred_baseline": "ea1cc0387edca31d5729cc9303c04cfe6bb1daa8",
+  "fork_delta_paths": 226,
+  "head_tree_differences": 671,
+  "fork_commits": 35,
+  "rust_unit_tests": {
+    "passed": 397,
+    "failed": 0,
+    "ignored": 6
+  },
+  "rust_doc_tests": {
+    "passed": 0,
+    "failed": 0,
+    "ignored": 1
+  },
+  "http_assertions": 111,
+  "typescript_and_vite": "passed",
+  "desktop_cargo_check": "passed",
+  "headless_cargo_build": "passed",
+  "js_syntax": "passed",
+  "git_diff_check": "passed",
+  "notification_types_frontend_backend": 105,
+  "inventory_hashes": "verified",
+  "upstream_tracked_paths_deleted": 0,
+  "external_provider_or_notification_integration": "not run",
+  "release_or_push": "not performed",
+  "clean_release": {
+    "branch": "codex/aibuddy-release",
+    "parent": "31ec0379c827963330b4d8b58b729804fdae715c",
+    "rust_tests_passed": 401,
+    "rust_tests_failed": 0,
+    "rust_tests_ignored": 6,
+    "rust_doc_tests_ignored": 1,
+    "oauth_http_assertions": 37,
+    "original_http_assertions": 111,
+    "headless_build": "passed",
+    "desktop_check": "passed",
+    "known_blocked_credentials_in_files_and_gzip": "absent",
+    "real_google_requests": "not performed"
+  }
+}

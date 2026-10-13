@@ -1,87 +1,140 @@
 name: docker
 
-# 构建服务端 Docker 镜像并发布到 GHCR（ghcr.io），别人 docker pull 即用。
-#
-# ── 为什么是 GHCR 而不是 Docker Hub ───────────────────────────
-# 上游的 docker.yml 推 Docker Hub 需要仓库 secret（DOCKERHUB_USERNAME /
-# DOCKERHUB_TOKEN），fork 仓库读不到上游 secret，推了必失败，所以删除后改推
-# GHCR：用内置 GITHUB_TOKEN 即可推送，零 secret 配置，公开仓库免费，包页与
-# 仓库互相跳转。
+# 构建网关镜像（amd64 + arm64）并推送到镜像仓库。
 #
 # ── 触发方式 ──────────────────────────────────────────────────
-#   · 推 v* tag：一次打 tag，桌面安装包（build.yml）与 Docker 镜像同时出；
-#     首次冷构建约 15~25 分钟，后续命中 GHA 层缓存约 5 分钟
-#   · workflow_dispatch：手动补发旧版本镜像（输入版本号，如 2.10.0）
+#   · 推送 v* tag：产出 <版本号>、v<版本号> 与 :latest
+#   · 手动 workflow_dispatch：留空产出 :dev；填写匹配 Cargo 的版本号则产出正式标签
+#   推 v* tag 时与 build.yml 同时触发 —— 一次打 tag，安装包与镜像一起出来
 #
-# ── 首次发布的一次性动作 ──────────────────────────────────────
-# 第一个镜像推上去后，GHCR 包默认是 **private**（免登录拉取会 401），需要在
-# 包设置页改一次 Public：
-#   https://github.com/users/LzxkJ04/packages/container/aibuddy-panel/settings
-# 改完之后所有历史/未来 tag 都自动公开，无需再动。
+# ── 推到哪里：两个仓库各自独立 ────────────────────────────────
+#   · **GHCR（恒推，无需任何 secret）**：ghcr.io/<owner>/<repo>
+#     （本仓库 → ghcr.io/coulsontl/agent2api）。用 Actions 自带的
+#     GITHUB_TOKEN 登录，只要顶层 permissions 里给了 packages: write。
+#     ⚠️ GHCR 的**新包默认私有**：首次推送后要到包的设置里手动改成 Public，
+#     否则别人 docker pull 会 401（这一步只能人工点，API 改不了默认值）。
+#   · **Docker Hub（配了凭据才推）**：<DOCKERHUB_USERNAME>/agent2api。
+#     镜像名**跟着凭据的用户名走**，不在文件里写死 —— 上游那份写的是
+#     aimodcc/agent2api（上游作者的命名空间），在 fork 上照搬只会把镜像往
+#     别人家的仓库推（且必然 403）。两个 secret 都没配时，这一步整体跳过，
+#     工作流照常绿（只推 GHCR）。
 #
-# ── 多架构为什么便宜 ─────────────────────────────────────────
-# Dockerfile 的 builder 固定跑原生架构、arm64 走 rustup 交叉编译（不进 QEMU），
-# 所以 platforms 直接写双架构，增量成本只有 arm64 依赖树再编一遍的几分钟。
+# ── 为什么 runner 上不用装 QEMU ───────────────────────────────
+# Dockerfile 的 builder 固定跑在 $BUILDPLATFORM：runner 是 amd64，arm64
+# 走 aarch64 工具链交叉编译。本地与 CI 同一套交叉编译路径，无需
+# setup-qemu-action，也没有 QEMU 模拟下 Rust 编译慢几十倍的问题。
+#
+# ── 缓存 ─────────────────────────────────────────────────────
+# type=gha 把 BuildKit 缓存挂到 Actions cache：Dockerfile 的「桩依赖层」
+# 首次编完整棵依赖树后落缓存，之后每次构建直接命中，只剩源码层重编。
+# 两个 registry 在**同一次构建**里推送（不是构建两遍）：镜像目标是一份
+# 清单，build-push 一次构建、给每个目标打同一套 tag。
+#
+# ── action 版本 ──────────────────────────────────────────────
+# 与 build.yml 同一标准：直接钉最新大版本。截至本次编写：
+# setup-buildx v4 / login v4 / metadata v6 / build-push v7，
+# login v4 起已默认 Node 24 运行时，无 Node 20 弃用问题。
+#
+# ── secrets ──────────────────────────────────────────────────
+#   DOCKERHUB_USERNAME / DOCKERHUB_TOKEN（Read & Write 权限的 Access Token）
+#   两者都配齐才推 Docker Hub；GHCR 不需要任何 secret。
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: '镜像版本号（不带 v 前缀，如 2.10.0；会同时打 <版本> / v<版本> / latest 三个 tag）'
-        required: true
+        description: '可选：发布版本号（必须与当前 Cargo 版本一致）；留空仅发布 dev'
+        required: false
+        type: string
   push:
     tags:
       - 'v*'
 
-env:
-  REGISTRY: ghcr.io
-  # GHCR 镜像路径必须全小写（用户名 LzxkJ04 的小写形式 lzxkj04 —— 注意第 5 个
-  # 字母是 j 不是 l，写错 owner 会报 denied: not_found: owner not found）
-  IMAGE: ghcr.io/lzxkj04/aibuddy-panel
+permissions:
+  contents: read
+  # 推 GHCR 需要（GITHUB_TOKEN 往本仓库所属的包命名空间写）
+  packages: write
 
 jobs:
-  build-push:
+  image:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    # 两个 Docker Hub 凭据放在 **job 级 env**：`steps.if` 读不到 secrets 上下文
+    # （GitHub 的 context 可用性表里没有它），但读得到 env —— 于是「配没配」
+    # 只判定一次，组装镜像目标与登录两步共用同一份值。没配就是空串。
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7
 
-      # tag 触发取 GITHUB_REF_NAME（v2.10.0）去 v 前缀；手动触发取输入框。
-      # 版本从 env 走而不内插 ${{ }}，避免把用户输入拼进 shell 命令（注入面）。
-      - name: 计算版本号
-        id: ver
+      - name: 校验手动发布版本
+        id: release
         env:
-          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          if [ -n "$INPUT_VERSION" ]; then version="$INPUT_VERSION"; fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ -n "$INPUT_VERSION" ]; then
+            actual=$(sed -n 's/^version = "\(.*\)"/\1/p' desktop-tauri/src-tauri/server/Cargo.toml | head -1)
+            [[ "$INPUT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && [ "$INPUT_VERSION" = "$actual" ] || { echo '版本号必须与检出的服务端版本一致'; exit 1; }
+            echo "version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: 安装 buildx
-        uses: docker/setup-buildx-action@v3
+      - name: 设置 buildx
+        uses: docker/setup-buildx-action@v4
+
+      # 镜像目标是一份**新行分隔**的清单：GHCR 恒在，Docker Hub 看凭据。
+      # 组装成 step output 再交给 metadata-action（它的 images 本来就是这个形状），
+      # 于是 tag 规则（semver / latest / dev）只写一份、两个 registry 共用。
+      - name: 组装镜像目标
+        id: images
+        run: |
+          images=("ghcr.io/${GITHUB_REPOSITORY,,}")
+          if [ -n "$DOCKERHUB_USERNAME" ] && [ -n "$DOCKERHUB_TOKEN" ]; then
+            images+=("${DOCKERHUB_USERNAME}/agent2api")
+          fi
+          {
+            echo "list<<IMAGES"
+            printf '%s\n' "${images[@]}"
+            echo "IMAGES"
+          } >> "$GITHUB_OUTPUT"
+          echo "本次镜像目标："
+          printf '  %s\n' "${images[@]}"
 
       - name: 登录 GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ github.token }}
 
-      - name: 构建并推送镜像
-        uses: docker/build-push-action@v6
+      # 没配 Docker Hub 凭据时整步跳过（工作流不会因此变红）
+      - name: 登录 Docker Hub
+        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
+        uses: docker/login-action@v4
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ env.DOCKERHUB_TOKEN }}
+
+      # tag 推送：v2.7.1 → 2.7.1 + latest；手动触发：只出 dev
+      - name: 生成镜像 tag
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ steps.images.outputs.list }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=${{ steps.release.outputs.version }},enable=${{ steps.release.outputs.version != '' }}
+            type=raw,value=v${{ steps.release.outputs.version }},enable=${{ steps.release.outputs.version != '' }}
+            type=semver,pattern=v{{version}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') || steps.release.outputs.version != '' }}
+            type=raw,value=dev,enable=${{ !startsWith(github.ref, 'refs/tags/v') && steps.release.outputs.version == '' }}
+
+      - name: 构建并推送
+        uses: docker/build-push-action@v7
         with:
           context: .
-          push: true
-          # arm64 走 Dockerfile 内置的交叉编译路线（不进 QEMU），见文件头注释
           platforms: linux/amd64,linux/arm64
-          tags: |
-            ${{ env.IMAGE }}:${{ steps.ver.outputs.version }}
-            ${{ env.IMAGE }}:v${{ steps.ver.outputs.version }}
-            ${{ env.IMAGE }}:latest
-          # 这个 label 让 GHCR 包自动关联本仓库（包页出现仓库入口）
-          labels: |
-            org.opencontainers.image.source=https://github.com/LzxkJ04/AIBuddy-Panel
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

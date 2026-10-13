@@ -36,9 +36,10 @@
 //! （`core::task_state` 的 claim / finish / reschedule / schedule_now）自己起
 //! 循环 —— 排期状态同样落库（`backgroundTaskState` 的保留键内，配置写入不会
 //! 动它），于是「重启不重置节奏」「在途占位」「失败冷却」与注册表任务同款。
-//! 代价是调度循环要由第一个 API 调用惰性拉起（[`ensure_loop`]，幂等；
+//! 调度循环在 ServerState::start 启动时拉起，API 调用也可幂等确保启动。
+//! 原分支仅由第一个 API 调用惰性拉起（[`ensure_loop`]，幂等；
 //! `api::account_test` 的账号入口与 `api::probe_api` 的两条都会调它）——
-//! 重启后到第一次有人触账号 / 探活接口之间，定时那一轮不会起跑。
+//! 移植后重启不再需要先打开面板才开始调度。
 //!
 //! ── 设置与连败计数存哪里 ─────────────────────────────────────
 //! 都在 `core::task_state` 的 kv 值里（**不新造表、不动 schema**）：
@@ -408,6 +409,8 @@ pub async fn probe_account(store: &AccountStore, account: &Value) -> ProbeOutcom
     let adapter = adapter_for(kind);
     if adapter.supports_model_refresh() && adapter.refresh_uses_account() {
         probe_via_catalog(store, &id, adapter).await
+    } else if adapter.is_stateful() {
+        ProbeOutcome::skipped("该提供商需要完整会话，暂不支持最小对话探活")
     } else {
         probe_via_chat(&id, adapter, store).await
     }
@@ -487,6 +490,7 @@ async fn probe_via_chat(id: &str, adapter: &'static dyn ProviderAdapter, store: 
         _ => None,
     };
     let transport = TransportRequest {
+        system_proxy_when_unset: adapter.system_proxy_when_unset(),
         url: plan.url,
         headers: plan.headers,
         payload,

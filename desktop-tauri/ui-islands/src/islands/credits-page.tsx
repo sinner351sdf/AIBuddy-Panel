@@ -1,5 +1,5 @@
 /**
- * AIBuddy Panel · 积分构成页（对照 workbuddy2api-panel 的同名页三段结构）。
+ * Agent2API · 积分构成页（对照 workbuddy2api-panel 的同名页三段结构）。
  *
  * 本岛接管 `<section class="page" data-page="credits">`，清空子节点后把 React root 直接建在
  * 这个 section 上（不套宿主 div，与 settings-page / report-page 同一手法）。

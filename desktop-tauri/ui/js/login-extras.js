@@ -1,5 +1,5 @@
 /**
- * AIBuddy Panel · 登录页增强（ui/login.html 专属脚本）
+ * Agent2API · 登录页增强（ui/login.html 专属脚本）
  *
  * 由主会话统一接线引入（建议：<script src="js/login-extras.js" defer></script>），
  * 配套样式 ui/css/login-extras.css。职责只有三件：

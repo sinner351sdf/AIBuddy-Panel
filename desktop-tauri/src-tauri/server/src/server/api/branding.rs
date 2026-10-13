@@ -5,12 +5,10 @@
 //!
 //! 存储在 kv 表的单个键 `branding`（JSON `{title?, logo?}`），与 panelAdmin 同一张
 //! 表、同一套「启动 attach、运行期 with / with_mut」的访问模式（见 access.rs）。
-//! title / logo 都是**可空**的：null = 回到内置默认（AIBuddy Panel / 内置图标）。
+//! title / logo 都是**可空**的：null = 回到内置默认（Agent2API / 内置图标）。
 //!
-//! 注入：静态页（index.html / login.html）由 static_files 在 `<head>` 后插一段品牌
-//! 引导脚本 —— 它拉一次本端点，把 document.title、侧栏品牌区、登录页 h1、favicon
-//! 与 .brand-logo 换成自定义值。桌面壳同样吃这段注入；保存通道目前只有网页端桥
-//! （桌面桥没有对应命令，设置页在桌面端会如实提示）。
+//! 应用：ui/js/branding.js 在网页登录页、面板和桌面壳共用。
+//! 桌面通过 bridge.rs 的 getBranding/saveBranding 调用本地网关。
 
 use axum::body::Bytes;
 use axum::response::Response;

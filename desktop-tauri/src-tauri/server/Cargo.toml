@@ -1,14 +1,14 @@
 [package]
-name = "aibuddy-panel-server"
-version = "2.14.0"
-description = "AIBuddy Panel 网关本体 — 多提供商本地网关（桌面端与 headless 服务器共用）"
+name = "agent2api-server"
+version = "3.0.1"
+description = "Agent2API 网关本体 — 多提供商本地网关（桌面端与 headless 服务器共用）"
 authors = ["aimod-cc"]
 edition = "2021"
 # MSRV 与桌面 crate 保持一致（rusqlite 0.40 → libsqlite3-sys 0.38 声明 1.88）
 rust-version = "1.88"
 license-file = "../../../LICENSE"
-repository = "https://github.com/LzxkJ04/AIBuddy-Panel"
-homepage = "https://github.com/LzxkJ04/AIBuddy-Panel"
+repository = "https://github.com/aimod-cc/agent2api"
+homepage = "https://github.com/aimod-cc/agent2api"
 
 # ── 为什么拆成独立 crate ──────────────────────────────────────
 # 网关本体（原桌面 crate 的 src/server 模块）要同时服务两种形态：
@@ -25,12 +25,12 @@ homepage = "https://github.com/LzxkJ04/AIBuddy-Panel"
 # `crate::server::…` 也原样可用。
 
 [lib]
-name = "aibuddy_panel_server"
+name = "agent2api_server"
 path = "src/lib.rs"
 
 [[bin]]
-name = "aibuddy-panel-server"
-path = "src/bin/aibuddy-panel-server.rs"
+name = "agent2api-server"
+path = "src/bin/agent2api-server.rs"
 
 # ── 依赖清单 ─────────────────────────────────────────────────
 # 从桌面 crate 的依赖里摘出网关本体真正用到的部分（逐条理由见桌面
@@ -41,14 +41,34 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # rt-multi-thread/macros 起运行时，net 监听端口，sync 传停机信号，
 # fs/io-util 读写配置与日志文件；signal 供 headless 二进制接 SIGTERM
-# （容器 stop 的优雅停机路径）
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "net", "io-util", "fs", "signal"] }
+# （容器 stop 的优雅停机路径）；process 供 Qoder 国际版签到的 UMID 组件
+# 子进程调用（providers/qoder/risk.rs，runtime-info 的 stdout 要异步读）
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "net", "io-util", "fs", "signal", "process"] }
+# Qoder 国际版签到的 UMID 组件安装（providers/qoder/risk.rs）：官方 qodercli
+# npm 包是 .tgz（gzip + tar），解出内嵌的 runtime-info 二进制。flate2 已在
+# 依赖树里（image 拉的），声明出来直接复用；tar 解析手写（几十行，见 risk.rs）
+flate2 = "1"
 url = "2"
 axum = "0.8"
-# 出站请求：rustls（纯 Rust，不依赖系统 openssl）+ socks5 出网代理
-reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls", "socks"] }
+# 出站请求：rustls（纯 Rust，不依赖系统 openssl）+ socks5 出网代理。
+# `system-proxy` 打开 hyper-util 的系统代理匹配器（Windows / macOS 系统设置 +
+# 环境变量）：只有「跟随系统代理」那条出口（`egress::client_for_system_proxy`，
+# 供登录链路与 Antigravity 未配代理的账号使用）依赖它 —— 显式出口（直连 /
+# 指定代理）都显式关掉了自动探测（见 `egress::build_client`），转发链路的
+# 「直连就是直连」语义不受影响。
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls", "socks", "system-proxy"] }
+# MonkeyCode 会话转发的 WebSocket 任务流（providers/monkeycode/stream.rs）：
+# 上游是 `wss://…/api/v1/users/tasks/stream`，TLS 走 rustls —— 与 reqwest 的
+# `rustls-tls` 同一条栈（rustls + tokio-rustls 各一份；根证书同为 webpki-roots
+# 的 Mozilla 根集，只是两家依赖锁在 0.26 / 1.x 两个版本上，属同一套数据，
+# 不是第二套 TLS 栈；刻意不用 native-roots，免得再拉平台证书库那一串依赖）。
+tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
 serde_yaml = "0.9"
 sha2 = "0.10"
+# Loomy 账号（CAccount）请求签名的 HMAC-SHA1（复刻客户端指纹，不是安全边界，
+# 见 providers/loomy/sign.rs）。与 sha2/md-5/hmac 同属 RustCrypto digest 0.10
+# 那条链，不引入新的哈希依赖树。
+sha1 = "0.10"
 # 「从其他工具导入」：解析 cc-switch 里 Codex 供应商的 config.toml 字符串
 # （提取激活 model_provider 的 base_url，见 core/import_ccswitch.rs）
 toml = "0.9"
@@ -95,4 +115,18 @@ bcrypt = "0.15"
 # AutoClaw 凭证解密的 DPAPI（providers/autoclaw/crypto.rs）。仅 Windows
 # 目标生效；其它平台该适配器的「导入桌面端登录态」是桩实现。
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.61", features = ["Win32_Security_Cryptography"] }
+windows = { version = "0.61", features = [
+    "Win32_Security_Cryptography",
+    # KukuAI 会话换发（providers/kuku/engine.rs）：LoadLibrary 引擎 DLL +
+    # 枚举注册表卸载项定位客户端安装目录
+    "Win32_System_LibraryLoader",
+    "Win32_System_Registry",
+] }
+
+[dev-dependencies]
+# 路由级测试用 `ServiceExt::oneshot` 直接打 Router（不占端口、不跑 serve），
+# 见 `server/http.rs` 的 CORS 用例。util 是 oneshot 所在的那个 feature。
+tower = { version = "0.5", features = ["util"] }
+# 尺寸墙探针要给同一个请求体做 gzip 对照（`codearts/chat.rs` 的 size_wall 用例）。
+# 只在测试目标里链，不进 release 产物；锁文件里本来就有这个包，没有新增解析结果。
+flate2 = "1"

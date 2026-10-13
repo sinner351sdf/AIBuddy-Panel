@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────────
-   AIBuddy Panel · 顶栏通知中心（vue-next-admin 风格）
+   Agent2API · 顶栏通知中心（vue-next-admin 风格）
    铃铛图标钮 + 未读红点角标（error / warn）+ 右对齐下拉面板
    （最近 8 条网关运行事件：时间 HH:mm:ss / 级别圆点 / 分类 / 两行消息）。
 
@@ -201,11 +201,14 @@
         opts.signal = ac.signal;
       }
     } catch (e) { /* 老环境没有 AbortController 就不设超时 */ }
-    fetch('/api/logs?limit=' + FETCH_N + '&offset=0', opts)
-      .then(function (res) {
-        if (!res.ok) throw new Error('HTTP ' + res.status); // 401 / 5xx 都走静默分支
-        return res.json();
-      })
+    var internals = window.__TAURI_INTERNALS__;
+    var request = internals && typeof internals.invoke === 'function'
+      ? internals.invoke('api_request', { request: { method: 'GET', path: '/api/logs?limit=' + FETCH_N + '&offset=0' } })
+      : fetch('/api/logs?limit=' + FETCH_N + '&offset=0', opts).then(function (res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        });
+    request
       .then(function (json) {
         items = pickList(json).map(normItem);
         items.sort(function (a, b) { return (b.ts - a.ts) || (b.id - a.id); });

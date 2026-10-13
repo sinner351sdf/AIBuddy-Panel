@@ -1,0 +1,2287 @@
+{
+  "upstream": "fd869a4610859f4690c307ad9e8b0e16d51e1058",
+  "baseline": "ea1cc0387edca31d5729cc9303c04cfe6bb1daa8",
+  "fork": "31ec0379c827963330b4d8b58b729804fdae715c",
+  "files": [
+    {
+      "path": ".github/workflows/docker.yml",
+      "fork_status": "M",
+      "resolution": "adapted-version-tags-and-lowercase-owner",
+      "target": ".github/workflows/docker.yml",
+      "baseline_blob": "01c527b39f7dd9e8cea8bce602396a9cab793a8b",
+      "upstream_blob": "911c565eee514a9cd9034c7509b257395db43b02",
+      "fork_blob": "f68167e6793210b8b2617a712095f0bd3693fd0d",
+      "applied_sha256": "b6514e81895a051cc34d844d273312049c1b6cb36943675464a5a55def7b5e70"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "fork_status": "A",
+      "resolution": "archived-source-documentation",
+      "target": "docs/aibuddy-port/AIBUDDY-CHANGELOG.md",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "8acbb324317300e59a574d09edaa2911eb5caedb",
+      "applied_sha256": "18d7efd076d794e3710068b4cfbb2166ebe2ac5b38cca930c945ab8a59fa63c8"
+    },
+    {
+      "path": "Dockerfile",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "Dockerfile",
+      "baseline_blob": "79873c9fddb07f47d3902b96b6333761ec5b15c9",
+      "upstream_blob": "79873c9fddb07f47d3902b96b6333761ec5b15c9",
+      "fork_blob": "e24a234dadcddc73ed7426a6e92953a084358738",
+      "applied_sha256": "f582da6a84e16fc253332f3830d6f6dd77c0ce357bd8b70c23ad1431b4c71bbb"
+    },
+    {
+      "path": "PITFALLS.md",
+      "fork_status": "A",
+      "resolution": "archived-source-documentation",
+      "target": "docs/aibuddy-port/AIBUDDY-PITFALLS.md",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "ec9a494d68c32818cb1a29aaabb5629a4fdf3823",
+      "applied_sha256": "cf28ffbda50d81060a3365b6685d18167caa6db185b65741a117fbf34371fbb8"
+    },
+    {
+      "path": "README.en.md",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-identity-and-newer-version",
+      "target": "README.en.md",
+      "baseline_blob": "8ae4d31dd803378833f50dec0400a081fff309f2",
+      "upstream_blob": "87c429605cee07f329e0f7f85601daaceef51f7e",
+      "fork_blob": "50095b5ac737b94de92fbe69f8e1af8cb50fe884",
+      "applied_sha256": "6afbcbbe32d4e461b7f9e2f16cb8b51c2f5206fee89879a50d8be754e00eb751"
+    },
+    {
+      "path": "README.md",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-identity-and-newer-version",
+      "target": "README.md",
+      "baseline_blob": "1ccbc9518b10957c199fd7122c87b3570c2ea203",
+      "upstream_blob": "d61e696f01fe91c5acc333457d8f2f73f78f4eb2",
+      "fork_blob": "93fa2bf54adac63df2bac0470287abc54222b444",
+      "applied_sha256": "346b03191c4a9a1c08a1010990567e07053712a1967bd3be9fb0be791b90d8ed"
+    },
+    {
+      "path": "assets/brand/README.md",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "assets/brand/README.md",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "a2ab84fc13eb73e777c849c30eb5df557c32c271",
+      "applied_sha256": "e66655f385ffb6194e83f2b2d45a0d5d93528b3658260695a8a5dacb2964c6dc"
+    },
+    {
+      "path": "assets/brand/favicon.ico",
+      "fork_status": "A",
+      "resolution": "imported-binary",
+      "target": "assets/brand/favicon.ico",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "49d9f7e089d58b8651c8ace5751cb64fa0e366fd",
+      "applied_sha256": "737a2e935de3aba62ccf1c98f40b435efb21eeab076239faab5827fa43d85bac"
+    },
+    {
+      "path": "assets/brand/generator/gen.js",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "assets/brand/generator/gen.js",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "29e430303649303779083db63f492a8d2aa27496",
+      "applied_sha256": "bfa0ac6d4cb44b1edd45629c04271bf48922f4f68f96fb9a25eee9b2d534a8ef"
+    },
+    {
+      "path": "assets/brand/generator/package.json",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "assets/brand/generator/package.json",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "27481049c2e23ebbc1cb006c4e69a25a10422f9d",
+      "applied_sha256": "9c0a2eddb219c0df0dca61f7261d5645835335b9f940259aeb866b4fa673e440"
+    },
+    {
+      "path": "assets/brand/generator/render.js",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "assets/brand/generator/render.js",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "ef5c793b3b491fa12029baa400028710d3bc1090",
+      "applied_sha256": "b79e6e9784e68dab85e5628fc7fa3f1ec89b6067773b62d2cf7856bc4fbaee3a"
+    },
+    {
+      "path": "assets/brand/logo-horizontal-dark.svg",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "assets/brand/logo-horizontal-dark.svg",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "f9091b0fe331c9bc2dc34a4c8e16abd4f53033b3",
+      "applied_sha256": "e7b9bcad1bb84d1a7af98adf1641a4365fabaf90a9273d1d93223986d17ff2de"
+    },
+    {
+      "path": "assets/brand/logo-horizontal.svg",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "assets/brand/logo-horizontal.svg",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "b92c16146fdccbe8191c71dcda1c23bfc19113c0",
+      "applied_sha256": "05142748f38e85e2913335844a73b0369ad1e55b8fe045a1f5fee6f64f9ca2af"
+    },
+    {
+      "path": "assets/brand/logo-icon.svg",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "assets/brand/logo-icon.svg",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "2fce99684fb38005495a6164a1d0339f98ebfeac",
+      "applied_sha256": "b9df4d2b90a66e551db49e7d78e90d6762f39b6404e8333d155537b8073fa86f"
+    },
+    {
+      "path": "assets/brand/logo-stacked-dark.svg",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "assets/brand/logo-stacked-dark.svg",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "b65b8a9a3448d9a81c528d9acc54e2aed3b8e741",
+      "applied_sha256": "e47310b2b4caad2d3c22b30b30c6903e1488eb94ffe06d53aaff2c6b7ea6c1d2"
+    },
+    {
+      "path": "assets/brand/logo-stacked.svg",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "assets/brand/logo-stacked.svg",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "82cd689d71245681289385e71cbefb4d6eda851c",
+      "applied_sha256": "d403790d314793aed67e2d0ba747593bf677af1a5d9b1709d31a8f73fafaf909"
+    },
+    {
+      "path": "assets/brand/png/logo-horizontal-dark@2x.png",
+      "fork_status": "A",
+      "resolution": "imported-binary",
+      "target": "assets/brand/png/logo-horizontal-dark@2x.png",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "facfb3ef04b4c151b1b19b93194c7d80c321f9e3",
+      "applied_sha256": "332e7f105059ac7b48a70025b6a78a1acbf976f241087fd35f851d55d85ea893"
+    },
+    {
+      "path": "assets/brand/png/logo-horizontal@2x.png",
+      "fork_status": "A",
+      "resolution": "imported-binary",
+      "target": "assets/brand/png/logo-horizontal@2x.png",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "6325a0327a3bb3fe168021c08acd4687422452b9",
+      "applied_sha256": "fb203bd6844574a48df92784cf0fbc19fd687bdfe5ee2e7568bec623015b1351"
+    },
+    {
+      "path": "assets/brand/png/logo-icon-128.png",
+      "fork_status": "A",
+      "resolution": "imported-binary",
+      "target": "assets/brand/png/logo-icon-128.png",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "9120f9d6e33c43e125fa288faaa0a04aac976078",
+      "applied_sha256": "7092a1b3f8bdab6d648aa86232802da521623a94756d9d2ba8e3bd4fd3c0163d"
+    },
+    {
+      "path": "assets/brand/png/logo-icon-192.png",
+      "fork_status": "A",
+      "resolution": "imported-binary",
+      "target": "assets/brand/png/logo-icon-192.png",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "5839f06d510f406877f068f3f76db3711ce779ef",
+      "applied_sha256": "47ecf5d98abcd64872cfa0e31be7b4cdc33d5272e644e456b8611739d712f041"
+    },
+    {
+      "path": "assets/brand/png/logo-icon-32.png",
+      "fork_status": "A",
+      "resolution": "imported-binary",
+      "target": "assets/brand/png/logo-icon-32.png",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "9877397d2b6a538d7f394ed680a7d1dab9a602b1",
+      "applied_sha256": "42ce071f077bdb0fabbdd6f523179780e836c71eae2d478d978cbda962f52f8a"
+    },
+    {
+      "path": "assets/brand/png/logo-icon-512.png",
+      "fork_status": "A",
+      "resolution": "imported-binary",
+      "target": "assets/brand/png/logo-icon-512.png",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "ca81bb0f52c082dfcc541f07aef66040a9531dac",
+      "applied_sha256": "53f3fcc900c688f2dee336fbb60daef91b733f1f9eb09991a7f1c3f0507a2417"
+    },
+    {
+      "path": "assets/brand/png/logo-icon-64.png",
+      "fork_status": "A",
+      "resolution": "imported-binary",
+      "target": "assets/brand/png/logo-icon-64.png",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "95b9e177343d4bd1e9b83435fc222ac002b6b068",
+      "applied_sha256": "c11ba2350b3f3edafd3f19abd79eea8ef1357a46ca8d4bd71601d73a8267c78c"
+    },
+    {
+      "path": "assets/brand/png/logo-stacked-dark@2x.png",
+      "fork_status": "A",
+      "resolution": "imported-binary",
+      "target": "assets/brand/png/logo-stacked-dark@2x.png",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "5db8af43e47046ebe6491914d49e329ee07114d3",
+      "applied_sha256": "ee3de01a2f98b058e89be20f081679466fd483150ecfc93cd881ae706557c0ec"
+    },
+    {
+      "path": "assets/brand/png/logo-stacked@2x.png",
+      "fork_status": "A",
+      "resolution": "imported-binary",
+      "target": "assets/brand/png/logo-stacked@2x.png",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "774b8be2b20ec8778cffc28ebcedd5e491baca4b",
+      "applied_sha256": "d54efc22463cdc4e228d84608c2eee2706e7f599539321215518a54f0f5c9aff"
+    },
+    {
+      "path": "assets/brand/preview.html",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "assets/brand/preview.html",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "8ed39148631dcb126873f0cdecc2ac5578c981bb",
+      "applied_sha256": "54598542fb69b49dc38f4a886c79f79eaebe2386266bea42524d9f5fcbfa33f6"
+    },
+    {
+      "path": "assets/screenshots/accounts.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "assets/screenshots/accounts.png",
+      "baseline_blob": "71f88e88f8142bd006d85aa74cadc17b7717ffe1",
+      "upstream_blob": "71f88e88f8142bd006d85aa74cadc17b7717ffe1",
+      "fork_blob": "a2e6c499eed16279446524455c457d4f80a4bf42",
+      "applied_sha256": "5cd031d008396b6a7608efa858ee12c0d4effa4783da98d1a4e52d237c1fad79"
+    },
+    {
+      "path": "assets/screenshots/add-account.png",
+      "fork_status": "D",
+      "resolution": "preserve-upstream-artwork",
+      "target": "assets/screenshots/add-account.png",
+      "baseline_blob": "35625fed9cac2189a88e7cbd227cdd44a0788b64",
+      "upstream_blob": "35625fed9cac2189a88e7cbd227cdd44a0788b64",
+      "fork_blob": null,
+      "applied_sha256": "2f3d63671673193b16ebdc4b12a2f2c0e75476c78486a2803ea4d691c193a886"
+    },
+    {
+      "path": "assets/screenshots/docs.png",
+      "fork_status": "A",
+      "resolution": "preserve-upstream-artwork",
+      "target": "assets/screenshots/docs.png",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "59c1f61da3892efd0b189ca714e75c25c9564c11",
+      "applied_sha256": null
+    },
+    {
+      "path": "assets/screenshots/keys.png",
+      "fork_status": "A",
+      "resolution": "preserve-upstream-artwork",
+      "target": "assets/screenshots/keys.png",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "0a0924b3e97c5ff1b1549b45771789cd3ed25f40",
+      "applied_sha256": null
+    },
+    {
+      "path": "assets/screenshots/overview.png",
+      "fork_status": "A",
+      "resolution": "preserve-upstream-artwork",
+      "target": "assets/screenshots/overview.png",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "8fe911c21a8838f01c9c6e05babfa251c98308c5",
+      "applied_sha256": null
+    },
+    {
+      "path": "assets/screenshots/report-overview.png",
+      "fork_status": "D",
+      "resolution": "preserve-upstream-artwork",
+      "target": "assets/screenshots/report-overview.png",
+      "baseline_blob": "18723ddf5fc40a838294d53c8e97fba85182d7f2",
+      "upstream_blob": "18723ddf5fc40a838294d53c8e97fba85182d7f2",
+      "fork_blob": null,
+      "applied_sha256": "68807fdba78d3c0194243e1427603f55f801b1d83b4eddfd4b0750922b32820e"
+    },
+    {
+      "path": "assets/screenshots/report-trends.png",
+      "fork_status": "D",
+      "resolution": "preserve-upstream-artwork",
+      "target": "assets/screenshots/report-trends.png",
+      "baseline_blob": "13324ab0f3175a6544496b376fbb301684930507",
+      "upstream_blob": "13324ab0f3175a6544496b376fbb301684930507",
+      "fork_blob": null,
+      "applied_sha256": "6760dc6f19a6b7fd82af8218a3bebd3f5fe4b5eb648106f0d3bffd46786f523e"
+    },
+    {
+      "path": "assets/screenshots/scheduled-tasks.png",
+      "fork_status": "D",
+      "resolution": "preserve-upstream-artwork",
+      "target": "assets/screenshots/scheduled-tasks.png",
+      "baseline_blob": "891877731baaeb84a55bd26300463cfe3b686092",
+      "upstream_blob": "891877731baaeb84a55bd26300463cfe3b686092",
+      "fork_blob": null,
+      "applied_sha256": "6123343d62c33a1d6fb326a270444ae4a8fd523803042e3e82c2bac1047d4936"
+    },
+    {
+      "path": "assets/screenshots/settings-brand.png",
+      "fork_status": "A",
+      "resolution": "preserve-upstream-artwork",
+      "target": "assets/screenshots/settings-brand.png",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "47082b634a8ed46f45ba47e43bb5352d2f410fc4",
+      "applied_sha256": null
+    },
+    {
+      "path": "desktop-tauri/package.json",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-identity-and-newer-version",
+      "target": "desktop-tauri/package.json",
+      "baseline_blob": "8a211128843aeea91036028875cd3c649bb14ad6",
+      "upstream_blob": "b5ca007c07419c6d04f3b7e747b7330090040f71",
+      "fork_blob": "13e2368c824c46ffd3c1f810eaeceaa864e1aed8",
+      "applied_sha256": "54e7c013c9af0e6fb013acc520c8b01d0eec38920cafff1a42146dd3d241d977"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/Cargo.lock",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-identity-and-newer-version",
+      "target": "desktop-tauri/src-tauri/Cargo.lock",
+      "baseline_blob": "23635ebb984a403e2f2156be5c516b45c42b51fa",
+      "upstream_blob": "6d279837e5009b9978049dbb4a2ccb8605f92c4b",
+      "fork_blob": "7cccba89a2cc0ab53b3e996f7544f6076a026aea",
+      "applied_sha256": "0b5d9944fa44fcd223321be1b2ccabcd4f4ece72ea20c0c976604d1d94922421"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/Cargo.toml",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-identity-and-newer-version",
+      "target": "desktop-tauri/src-tauri/Cargo.toml",
+      "baseline_blob": "eab16615cc2aa509d9556c05852b2fa82f93f776",
+      "upstream_blob": "9c958c8f1d2e76f7f1a2a0b398ab52be2ac1ef0e",
+      "fork_blob": "283e6e6a97dfc03d87c650b781fa34d5ab001369",
+      "applied_sha256": "e3ea3763239bbd7397b3a438e7239da3b6243efe1fdfaf62e7fa5c30582e4e3e"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/128x128.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/128x128.png",
+      "baseline_blob": "144096d015a6578e6c8f0d1554d3409cac57663a",
+      "upstream_blob": "144096d015a6578e6c8f0d1554d3409cac57663a",
+      "fork_blob": "7c74337ec190a3fbe3523ff01317cacf5a1dfeb1",
+      "applied_sha256": "5879849ebfed0614abff918fb18f1dd44e74ba3ab0162004a6421de54368ed9e"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/128x128@2x.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/128x128@2x.png",
+      "baseline_blob": "fb1a526acb43b7ad460b51e2775bd0ee91e8b635",
+      "upstream_blob": "fb1a526acb43b7ad460b51e2775bd0ee91e8b635",
+      "fork_blob": "a471f659d4a3578ed3617774e91fa273b7fd6ca5",
+      "applied_sha256": "a178a75122221eddf197c200aba945d34280c236d7b1b41ba8b50db39a377e5f"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/32x32.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/32x32.png",
+      "baseline_blob": "c82f50f88747340c054a009d71250b01e2285c0d",
+      "upstream_blob": "c82f50f88747340c054a009d71250b01e2285c0d",
+      "fork_blob": "5a07eaac6ef47183ebb14714fc4672f64c530a94",
+      "applied_sha256": "f4d9db79d6620fe7577f4e4f38f5042b7bda31890be20d477d511d2120ee83ff"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/64x64.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/64x64.png",
+      "baseline_blob": "0cae5899aeea28d6af943019bc68189c7e822062",
+      "upstream_blob": "0cae5899aeea28d6af943019bc68189c7e822062",
+      "fork_blob": "ccd055e51a3470b7ae60e02e7255a369fba85b97",
+      "applied_sha256": "a951237ae185f71ef9ce979e230988c58b16683d909fef574cf095b796d9cb04"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/Square107x107Logo.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/Square107x107Logo.png",
+      "baseline_blob": "08b02dbb5f09aab1e8f65dec47677b39d9497b0b",
+      "upstream_blob": "08b02dbb5f09aab1e8f65dec47677b39d9497b0b",
+      "fork_blob": "b57375b591ddc867e44c31bb02696a36c80a3b7d",
+      "applied_sha256": "e108c95b631596c1c5064f1a9dcaeb0d8bd2bbd1f8aa6cb8b6e8e4a552dbda7a"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/Square142x142Logo.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/Square142x142Logo.png",
+      "baseline_blob": "fdf5ef349c6f6ba0d48c1afb7bb9acf1909eee48",
+      "upstream_blob": "fdf5ef349c6f6ba0d48c1afb7bb9acf1909eee48",
+      "fork_blob": "851f41a3ee7c6d4af2fe992febec280f5ce3fafc",
+      "applied_sha256": "91ede9050f820d378737dd4e7cd8c86d407c179ce36e2cea1d875542135c3f70"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/Square150x150Logo.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/Square150x150Logo.png",
+      "baseline_blob": "f4437dd564b48311359e59d33064a861268c41f4",
+      "upstream_blob": "f4437dd564b48311359e59d33064a861268c41f4",
+      "fork_blob": "fd54ac14a038873bd8e62ffe85f23819f1f1ab71",
+      "applied_sha256": "cae3c82d3803279ce2ee1b6a5b3891ca0c08c7ad6891575a61af4357e3036910"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/Square284x284Logo.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/Square284x284Logo.png",
+      "baseline_blob": "3dc514497c44acae419613795372a7e1d6510492",
+      "upstream_blob": "3dc514497c44acae419613795372a7e1d6510492",
+      "fork_blob": "8f8f0929d998fd1dbd50f3f546d5a6e15d440520",
+      "applied_sha256": "c617517a18c3e44cb0103120482b2da73e919a1936a5a060008d20a260f9e7f0"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/Square30x30Logo.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/Square30x30Logo.png",
+      "baseline_blob": "43b5d0d22a6295393aac97f67b8a5a273badb1d8",
+      "upstream_blob": "43b5d0d22a6295393aac97f67b8a5a273badb1d8",
+      "fork_blob": "d33bbf986aa7db438a71f719ec65922f44ea4061",
+      "applied_sha256": "ed31d41bc4473b937076702b25dfe992913a9c5e521d0c5d8b65815a5c5c34f2"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/Square310x310Logo.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/Square310x310Logo.png",
+      "baseline_blob": "67d4f12101d57efd0c69ce3d164db82e329bb7c8",
+      "upstream_blob": "67d4f12101d57efd0c69ce3d164db82e329bb7c8",
+      "fork_blob": "f6a139ed73502cc863037b594d0707b289be7929",
+      "applied_sha256": "9240a169ab21aa45bbfe570e1d7a07fc5476a621525218b3a6f9a4d205617979"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/Square44x44Logo.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/Square44x44Logo.png",
+      "baseline_blob": "b0b21b29d323652c3548aeae08160026e7a8d707",
+      "upstream_blob": "b0b21b29d323652c3548aeae08160026e7a8d707",
+      "fork_blob": "89d385fe93a8160cc1fc7d42cf7804a85e889fb2",
+      "applied_sha256": "349639ff7538f00a8b001f84f18006e7e71a87f0188059561efe4e700c150f10"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/Square71x71Logo.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/Square71x71Logo.png",
+      "baseline_blob": "506ee97b71f3347e8d13c3cb0c64699ce69532f4",
+      "upstream_blob": "506ee97b71f3347e8d13c3cb0c64699ce69532f4",
+      "fork_blob": "5239b959c9bd8148f047f277cb2253bc8a76dec5",
+      "applied_sha256": "e664b084bc6ab8e52554b9baf8bd65563243a7f86d3ba2dd5287361fa3201b54"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/Square89x89Logo.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/Square89x89Logo.png",
+      "baseline_blob": "5c53dc79eadb0b63b52f7eac9a313885111b5fde",
+      "upstream_blob": "5c53dc79eadb0b63b52f7eac9a313885111b5fde",
+      "fork_blob": "5d107ade0196ecc1e9e0054a0d4dde4b8ee04b40",
+      "applied_sha256": "fdaee1b0f7717762c441903b26cdd0a055a9a72063bb9326e9395dcc3defe308"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/StoreLogo.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/StoreLogo.png",
+      "baseline_blob": "3d0be45e1c80ec2b77bf9496758799eff8f9a6e8",
+      "upstream_blob": "3d0be45e1c80ec2b77bf9496758799eff8f9a6e8",
+      "fork_blob": "931e2fc8a92f47404fa0b0ae2f539e40a7135dcd",
+      "applied_sha256": "940775821ec1fb178b3961807adbb47ca13dfd2b00497f91bdc8fbdb3105a65b"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/android/mipmap-hdpi/ic_launcher.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/android/mipmap-hdpi/ic_launcher.png",
+      "baseline_blob": "e11dc06558f6a6ddd388b71b7aa2be136db12d40",
+      "upstream_blob": "e11dc06558f6a6ddd388b71b7aa2be136db12d40",
+      "fork_blob": "9bc29551a0c005bc7b959683d64580caa631b151",
+      "applied_sha256": "42c6320db03003e1f33a899af79e1d7b0dc22313bfe153e91c75ccb304598965"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/android/mipmap-hdpi/ic_launcher_foreground.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/android/mipmap-hdpi/ic_launcher_foreground.png",
+      "baseline_blob": "8d52b6dfd6b5f641883f0f5e34b0557f00d49955",
+      "upstream_blob": "8d52b6dfd6b5f641883f0f5e34b0557f00d49955",
+      "fork_blob": "78ed8a50ca45158e912e5a849247460862c88f91",
+      "applied_sha256": "1af8fe08f8ddbb35e7adfcdcaa9afd2653872b72fdf54e397a432191f8a1a77c"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/android/mipmap-hdpi/ic_launcher_round.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/android/mipmap-hdpi/ic_launcher_round.png",
+      "baseline_blob": "f800dfff95263ae46664e298ca2ece739ac7643b",
+      "upstream_blob": "f800dfff95263ae46664e298ca2ece739ac7643b",
+      "fork_blob": "c74016b96c5dc68c29dfc8efd4af5f08ab2a615b",
+      "applied_sha256": "aa48c476a7bfa863e470a7966ac233ae9f293919653359f9b7a7d186fea08e08"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/android/mipmap-mdpi/ic_launcher.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/android/mipmap-mdpi/ic_launcher.png",
+      "baseline_blob": "9b7240bbd0ad9f069e345a6d9a508989a7353105",
+      "upstream_blob": "9b7240bbd0ad9f069e345a6d9a508989a7353105",
+      "fork_blob": "821cdb09774f57a16792e3e29790923dad3990ea",
+      "applied_sha256": "9af474157ddc8c27bbde3f24fc65e3799dfac77b2314f4e8baea8cebde8a55bf"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/android/mipmap-mdpi/ic_launcher_foreground.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/android/mipmap-mdpi/ic_launcher_foreground.png",
+      "baseline_blob": "275c823aa4d773b34708cf8f4415f616576c296b",
+      "upstream_blob": "275c823aa4d773b34708cf8f4415f616576c296b",
+      "fork_blob": "ccac7ba2e1cf7830626effdc702e0c9747b96d49",
+      "applied_sha256": "f64034e211c1f7ec071d15f6f75ce3b0630180e259e0ba9004030a3592768c66"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/android/mipmap-mdpi/ic_launcher_round.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/android/mipmap-mdpi/ic_launcher_round.png",
+      "baseline_blob": "715b82fc2c38598c2c3e2db7514032ee744ec389",
+      "upstream_blob": "715b82fc2c38598c2c3e2db7514032ee744ec389",
+      "fork_blob": "23b5fdd708e8ae3d7798d4f7af6d7a7376b31e1c",
+      "applied_sha256": "ff7711b7f61f6c9c0252e2a268ee161d2eebb215621c3ffb86e45c6a5058eab2"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/android/mipmap-xhdpi/ic_launcher.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/android/mipmap-xhdpi/ic_launcher.png",
+      "baseline_blob": "af04300a2025ce7c3ddafcb21cc0d94ba7965e9f",
+      "upstream_blob": "af04300a2025ce7c3ddafcb21cc0d94ba7965e9f",
+      "fork_blob": "cd6c1a718c633c707a2aece241521317eea84b79",
+      "applied_sha256": "4af5ed373143c883cae5877d76bba41885a26f546efffa8e9a2388e779742886"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/android/mipmap-xhdpi/ic_launcher_foreground.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/android/mipmap-xhdpi/ic_launcher_foreground.png",
+      "baseline_blob": "12c6d7b22043fbf5f679db36e61f4a445d08a633",
+      "upstream_blob": "12c6d7b22043fbf5f679db36e61f4a445d08a633",
+      "fork_blob": "c98c1e19c19cb111a08b148a07b17891c87a0801",
+      "applied_sha256": "fe70b7abc87f08c887e28d62a2b3f22b6eac9b974cff17bafb356a6c074a8175"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/android/mipmap-xhdpi/ic_launcher_round.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/android/mipmap-xhdpi/ic_launcher_round.png",
+      "baseline_blob": "c111764b3f5f23c6ea6fe371b7e48261996dc28e",
+      "upstream_blob": "c111764b3f5f23c6ea6fe371b7e48261996dc28e",
+      "fork_blob": "f26856ae755782108000ed5028d81c3a3ff074ca",
+      "applied_sha256": "89d6aa7640d48812801d50131ab5745fdc469c98e35d49c13526d9186935883b"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/android/mipmap-xxhdpi/ic_launcher.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/android/mipmap-xxhdpi/ic_launcher.png",
+      "baseline_blob": "13f3c4801a5769b447269fa76425f9230297c6c8",
+      "upstream_blob": "13f3c4801a5769b447269fa76425f9230297c6c8",
+      "fork_blob": "2b1b0d481f7c071a39321a93c00ac50d87982db6",
+      "applied_sha256": "a72340928b1a4faf7039eab9651559c3b13c4f3ab1b5c37a3127611e152bcf43"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/android/mipmap-xxhdpi/ic_launcher_foreground.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/android/mipmap-xxhdpi/ic_launcher_foreground.png",
+      "baseline_blob": "7191e2034fc32d0261db4d21147e0c38c4c80047",
+      "upstream_blob": "7191e2034fc32d0261db4d21147e0c38c4c80047",
+      "fork_blob": "037f11919011062bc7852b7094db46a95f358c61",
+      "applied_sha256": "ddb8dee19edb3d66432a84120fc171f9b50c98f4a9648ef21887d7f4c139c9c2"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/android/mipmap-xxhdpi/ic_launcher_round.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/android/mipmap-xxhdpi/ic_launcher_round.png",
+      "baseline_blob": "13d082bd661e313a2725c4f0149057257d1346fe",
+      "upstream_blob": "13d082bd661e313a2725c4f0149057257d1346fe",
+      "fork_blob": "ad2d761d457522ef83db799a9d4a0be4cb4d90e9",
+      "applied_sha256": "9b920ce5f2773f8fc551d92fce1148550b43c98140e3c9c177e324e2e0cba0ab"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher.png",
+      "baseline_blob": "5d94f25603189ca7706787f1f827a253df27ea2e",
+      "upstream_blob": "5d94f25603189ca7706787f1f827a253df27ea2e",
+      "fork_blob": "8650bde097ae37dfc707ef6150ecc9aede449464",
+      "applied_sha256": "f96d5eed8313b57ef2e1a8b7ffad47682a7e4eddac9bcdf6380624abcaf24744"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher_foreground.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher_foreground.png",
+      "baseline_blob": "4cb39e34ae86b862788376d32f1acf879a659bdf",
+      "upstream_blob": "4cb39e34ae86b862788376d32f1acf879a659bdf",
+      "fork_blob": "9d1ee43af448ad9f52836d1f5aa6b3d79c686a85",
+      "applied_sha256": "2ccd0d4a8c7d4cb125f127461233d491ce34c3e582ad3130c04d3e1a615f47c9"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher_round.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher_round.png",
+      "baseline_blob": "f82202a8e1d1d686a9f4651e7caf7ea4cff3b464",
+      "upstream_blob": "f82202a8e1d1d686a9f4651e7caf7ea4cff3b464",
+      "fork_blob": "ad526055c73d48c2e28ef8092ed1dc3d18aa6b2b",
+      "applied_sha256": "99ddcfc51b8da74dcd9eb7619af32c0e35bf45715247001a265cbb44337cd4bc"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/android/values/ic_launcher_background.xml",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/android/values/ic_launcher_background.xml",
+      "baseline_blob": "ea9c223a6cbab0465000584a9d5dd052adffe3c2",
+      "upstream_blob": "ea9c223a6cbab0465000584a9d5dd052adffe3c2",
+      "fork_blob": "16cdd5aab85549c6464236aa56e2ec77f8fcc4c3",
+      "applied_sha256": "0687336f0ccc6f7ee09c7c95110667c63b75931238df779a21af401fb864cd34"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/icon.icns",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/icon.icns",
+      "baseline_blob": "ebf1124830a000e17e86b915cab099cd67dd3ac5",
+      "upstream_blob": "ebf1124830a000e17e86b915cab099cd67dd3ac5",
+      "fork_blob": "76b589cea8c1c240c3d84312d59ecd2b37795743",
+      "applied_sha256": "532dadffc999f86f284c2f3210238d5cf454cd418f268b5ac820047e06dc2d36"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/icon.ico",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/icon.ico",
+      "baseline_blob": "51ddad32cc1fa3d71c7be684daae149c7fd9ba4f",
+      "upstream_blob": "51ddad32cc1fa3d71c7be684daae149c7fd9ba4f",
+      "fork_blob": "581d0e016aadad45811af030a0dbeb15feb1dd92",
+      "applied_sha256": "914ffa34820385f3f99d89763b4d4960e507891d197b840e8401a90a5219518b"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/icon.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/icon.png",
+      "baseline_blob": "da065ab54d3009c4ddcaedbeab050746076dd427",
+      "upstream_blob": "da065ab54d3009c4ddcaedbeab050746076dd427",
+      "fork_blob": "10ca1fd2c6c68993c99489be72c09368cb06d07f",
+      "applied_sha256": "e0f9b91e693c6a5c903897149f572b7f06cd6a7b2bb31dca2239bf4a551291cf"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/ios/AppIcon-20x20@1x.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/ios/AppIcon-20x20@1x.png",
+      "baseline_blob": "29f8b9fc4eb8808b6249e9e8de045e8b02cd30ef",
+      "upstream_blob": "29f8b9fc4eb8808b6249e9e8de045e8b02cd30ef",
+      "fork_blob": "cd186be55c4d6d4c97618b59226999b5572d8178",
+      "applied_sha256": "29b104f9b7b79cfd12acb4a9545048fa4f252d68cc7ec8112190d79610d90a52"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/ios/AppIcon-20x20@2x-1.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/ios/AppIcon-20x20@2x-1.png",
+      "baseline_blob": "0522e9ce31bf4428850cd9c3d8d3f57f3949e8f3",
+      "upstream_blob": "0522e9ce31bf4428850cd9c3d8d3f57f3949e8f3",
+      "fork_blob": "9af1c0cd9e4bc7e5dcdcb8f8597e4194270e14da",
+      "applied_sha256": "7608e603d6d5409757deeebda170322780a23e98572a7fcff21e46d261613265"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/ios/AppIcon-20x20@2x.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/ios/AppIcon-20x20@2x.png",
+      "baseline_blob": "0522e9ce31bf4428850cd9c3d8d3f57f3949e8f3",
+      "upstream_blob": "0522e9ce31bf4428850cd9c3d8d3f57f3949e8f3",
+      "fork_blob": "9af1c0cd9e4bc7e5dcdcb8f8597e4194270e14da",
+      "applied_sha256": "7608e603d6d5409757deeebda170322780a23e98572a7fcff21e46d261613265"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/ios/AppIcon-20x20@3x.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/ios/AppIcon-20x20@3x.png",
+      "baseline_blob": "1fbda168c05a151656d4639015ff86e10ce2060e",
+      "upstream_blob": "1fbda168c05a151656d4639015ff86e10ce2060e",
+      "fork_blob": "35116c883a36f97af0fc43c49cac3115f8deca27",
+      "applied_sha256": "811939886025eb9accf5a691897aed162a16ed20728888a8196c6fa0b1f6af28"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/ios/AppIcon-29x29@1x.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/ios/AppIcon-29x29@1x.png",
+      "baseline_blob": "8dd2edcd37ae8fe25229d2d99b3083d075812192",
+      "upstream_blob": "8dd2edcd37ae8fe25229d2d99b3083d075812192",
+      "fork_blob": "3277b170932cf5b21b1b69c9cdfac7e90be82129",
+      "applied_sha256": "e3d3e44ddffdd06d0bba29e211b7a6f0b5766cf50759d7824c5566b9a07df4b8"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/ios/AppIcon-29x29@2x-1.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/ios/AppIcon-29x29@2x-1.png",
+      "baseline_blob": "7b62e9dc10618c81b0a0cb54a4226bed32b11ec7",
+      "upstream_blob": "7b62e9dc10618c81b0a0cb54a4226bed32b11ec7",
+      "fork_blob": "562f91f35551004a26217ab2457dc968a3a5f244",
+      "applied_sha256": "8a382ba8bd977e399eb641044deb9e49ec6920fdccf67e911765316539538ec9"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/ios/AppIcon-29x29@2x.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/ios/AppIcon-29x29@2x.png",
+      "baseline_blob": "7b62e9dc10618c81b0a0cb54a4226bed32b11ec7",
+      "upstream_blob": "7b62e9dc10618c81b0a0cb54a4226bed32b11ec7",
+      "fork_blob": "562f91f35551004a26217ab2457dc968a3a5f244",
+      "applied_sha256": "8a382ba8bd977e399eb641044deb9e49ec6920fdccf67e911765316539538ec9"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/ios/AppIcon-29x29@3x.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/ios/AppIcon-29x29@3x.png",
+      "baseline_blob": "26354d1997c3850908e87017507c06a1879b11ec",
+      "upstream_blob": "26354d1997c3850908e87017507c06a1879b11ec",
+      "fork_blob": "fd6b8776f57082487a9489ef208d85bc95696d5b",
+      "applied_sha256": "e8e76dbaba5cb82b546b8087e448ca9edd90a196f088cbdda414e8f64ccd99f5"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/ios/AppIcon-40x40@1x.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/ios/AppIcon-40x40@1x.png",
+      "baseline_blob": "0522e9ce31bf4428850cd9c3d8d3f57f3949e8f3",
+      "upstream_blob": "0522e9ce31bf4428850cd9c3d8d3f57f3949e8f3",
+      "fork_blob": "9af1c0cd9e4bc7e5dcdcb8f8597e4194270e14da",
+      "applied_sha256": "7608e603d6d5409757deeebda170322780a23e98572a7fcff21e46d261613265"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/ios/AppIcon-40x40@2x-1.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/ios/AppIcon-40x40@2x-1.png",
+      "baseline_blob": "478cb8b2ec3ed118434e6a57061150791c5e1365",
+      "upstream_blob": "478cb8b2ec3ed118434e6a57061150791c5e1365",
+      "fork_blob": "60af78231d74aaf91d3d831e067356923e18f35a",
+      "applied_sha256": "f5066912d037f6acb059f264e26ed7d98b455f5798ab53bf9b6494226b68e0e1"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/ios/AppIcon-40x40@2x.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/ios/AppIcon-40x40@2x.png",
+      "baseline_blob": "478cb8b2ec3ed118434e6a57061150791c5e1365",
+      "upstream_blob": "478cb8b2ec3ed118434e6a57061150791c5e1365",
+      "fork_blob": "60af78231d74aaf91d3d831e067356923e18f35a",
+      "applied_sha256": "f5066912d037f6acb059f264e26ed7d98b455f5798ab53bf9b6494226b68e0e1"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/ios/AppIcon-40x40@3x.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/ios/AppIcon-40x40@3x.png",
+      "baseline_blob": "fc81dcf053da03f9a82c9d2f4418296bf4d24b94",
+      "upstream_blob": "fc81dcf053da03f9a82c9d2f4418296bf4d24b94",
+      "fork_blob": "944541598552449ee27e3fb5d64850a3ef4e0235",
+      "applied_sha256": "7e7dcd6b66c8d5269f925e7c9e5153e8d1806ce47b8871e5e2e16a7f903bdaf3"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/ios/AppIcon-512@2x.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/ios/AppIcon-512@2x.png",
+      "baseline_blob": "71b992a970f84af0ea7ec31e65dd570e3a59631c",
+      "upstream_blob": "71b992a970f84af0ea7ec31e65dd570e3a59631c",
+      "fork_blob": "5c15541dc60d45f99c09c3d6fd69021d45d447db",
+      "applied_sha256": "5965518da46cd91461c4dde025c0f35eadc3b2b6b25e95b07c20fc26a9bb456d"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/ios/AppIcon-60x60@2x.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/ios/AppIcon-60x60@2x.png",
+      "baseline_blob": "fc81dcf053da03f9a82c9d2f4418296bf4d24b94",
+      "upstream_blob": "fc81dcf053da03f9a82c9d2f4418296bf4d24b94",
+      "fork_blob": "944541598552449ee27e3fb5d64850a3ef4e0235",
+      "applied_sha256": "7e7dcd6b66c8d5269f925e7c9e5153e8d1806ce47b8871e5e2e16a7f903bdaf3"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/ios/AppIcon-60x60@3x.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/ios/AppIcon-60x60@3x.png",
+      "baseline_blob": "30a53f2e54f2698fa233ecef8d532042aecd874e",
+      "upstream_blob": "30a53f2e54f2698fa233ecef8d532042aecd874e",
+      "fork_blob": "835e410bcbbe9e1fbcd9ae3578220c48ef757297",
+      "applied_sha256": "055a9b4ae159ed529c5e4cd91e4bb51e3838123653ee6bc63de0eaf0c349bae0"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/ios/AppIcon-76x76@1x.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/ios/AppIcon-76x76@1x.png",
+      "baseline_blob": "7f1a431cf26c9611020c34191293850867d49716",
+      "upstream_blob": "7f1a431cf26c9611020c34191293850867d49716",
+      "fork_blob": "6d6fec4fc8aa3b0d735d075579ee8651203cd040",
+      "applied_sha256": "15e43c6af427ac0e8a6922da7c25e44fce2f9940cfa249b13bf3b6f458919a22"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/ios/AppIcon-76x76@2x.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/ios/AppIcon-76x76@2x.png",
+      "baseline_blob": "f86b263928ef29877ddb40b6d6f38172453d8714",
+      "upstream_blob": "f86b263928ef29877ddb40b6d6f38172453d8714",
+      "fork_blob": "772306f92fa8d4e40ef0f9e978c2018119f09dd5",
+      "applied_sha256": "5eea389166da939923e0f5b754dd4d557ff9ab95da5a876079a650d7b26e4c16"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/icons/ios/AppIcon-83.5x83.5@2x.png",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-artwork",
+      "target": "desktop-tauri/src-tauri/icons/ios/AppIcon-83.5x83.5@2x.png",
+      "baseline_blob": "aa90eb94a89cc128c9485ab284eb3fd35386a42b",
+      "upstream_blob": "aa90eb94a89cc128c9485ab284eb3fd35386a42b",
+      "fork_blob": "f5e412540a147baa00437d2711711983bb3c578d",
+      "applied_sha256": "9ebaeb0f7cb73be954d9ca1ae6390cbace6718418fc30689c9d5865d991447a6"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/Cargo.toml",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-identity-and-newer-version",
+      "target": "desktop-tauri/src-tauri/server/Cargo.toml",
+      "baseline_blob": "d69b86b2603851a59104324e88432e3e68dab5b6",
+      "upstream_blob": "636c3d0133a8548124a6d84e53c7fb1aaa38ee52",
+      "fork_blob": "787bebe27df336834602aea23bf01f0c1bc8030c",
+      "applied_sha256": "a32c7de4626f4cb7961d183aa3b9bbe5ab1a33178a519f37a6a4daad474b01aa"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/bin/agent2api-server.rs",
+      "fork_status": "D",
+      "resolution": "preserve-compatible-binary-name",
+      "target": "desktop-tauri/src-tauri/server/src/bin/agent2api-server.rs",
+      "baseline_blob": "a9edbc3489d2d10e097e5ca1a62d58d6ceb52538",
+      "upstream_blob": "a9edbc3489d2d10e097e5ca1a62d58d6ceb52538",
+      "fork_blob": null,
+      "applied_sha256": "5a4aadb022a121e9b9429692da915431aa762ff921dce60adb10befb93767df4"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/bin/aibuddy-panel-server.rs",
+      "fork_status": "A",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/server/src/bin/aibuddy-panel-server.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "9344f1cead1175c80c8e0a3b2ab5ca9b25992b85",
+      "applied_sha256": null
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/lib.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/server/src/lib.rs",
+      "baseline_blob": "e770cd123012e2731d399ca928e3971fa17b5fc4",
+      "upstream_blob": "e770cd123012e2731d399ca928e3971fa17b5fc4",
+      "fork_blob": "99c526da905b3ed9be0435b9064b2073e13c9832",
+      "applied_sha256": "0e7ebe2b0eb435a68697853c17dd41c25d444c2af9318efc6b1876d121ab0c16"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/access.rs",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/src-tauri/server/src/server/access.rs",
+      "baseline_blob": "e9f61d29dc18cb3d9bee82466047d27a0ba65a51",
+      "upstream_blob": "46f5008ea317a8fb8e801ab868f471ed83d680a5",
+      "fork_blob": "ac5a40a220e2a1164556dbf1c10dd63d3187e941",
+      "applied_sha256": "0b72d34e8650d2f522323420350199dd0dd90c018e6677635b1d61ae00c1a90b"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/account_test.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/account_test.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "203a3237b9dcb164da7672fdf05e0a18bc997195",
+      "applied_sha256": "7087e1c8a0f5a7143b99991c154c6a101d40f412667b88961e54f4de96c323aa"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/accounts.rs",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/accounts.rs",
+      "baseline_blob": "20f6b4cbeb7dc860b3e137e4a2e195d10bd1076f",
+      "upstream_blob": "d2a31090997d70a4129251b4c850702a1c211ccd",
+      "fork_blob": "06992aeddbb2d90650974c1b8fcadebbcb1f53de",
+      "applied_sha256": "1014e35abc0aa0f8706e5935306c543c822947c0f71f7e9e777a0807516682fc"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/accounts_usage.rs",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/accounts_usage.rs",
+      "baseline_blob": "1df23f1f40e1d7d2bcd86b8b5dea1de0f4a3c094",
+      "upstream_blob": "ebf469bfec753245ce0c701af171e81bb9e07eaf",
+      "fork_blob": "0823d99ec99e66caec147387a62c2225d74c6d81",
+      "applied_sha256": "703d57b109240a3a6ffa2b7d3f4415d283f3e5aa0f183ce5e497849417d435ab"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/audit_api.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/audit_api.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "fc380befca88f1d95484fa670a2d134cc6db644d",
+      "applied_sha256": "f22c35d466a81af5c61e8cb09a491eeac6270defd67e53ca75b8e5cc50963400"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/backup_api.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/backup_api.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "33051b411514bd1dc595f52d6c7a1ddb69deb96b",
+      "applied_sha256": "7de01225a99260e1ceb0b9fabcbbae7e982b408b117f2444ca40c551050da5b5"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/branding.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/branding.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "fcda72827290577ddcd77d88f1e7a71a5f23757c",
+      "applied_sha256": "420626120d4d2848c1599b6f6572a70150a197a5e45abce359e955c4925daec6"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/chat.rs",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/chat.rs",
+      "baseline_blob": "a28cd79dd7a1f1722291c6032cd1c0f0313cc065",
+      "upstream_blob": "acf0d356d77a72940b3f193cdb5116c6e514f566",
+      "fork_blob": "ae89089e3aebf4e4bc0a5797858301453311d53d",
+      "applied_sha256": "4129b3b02fdc161474c995e6de0ee4675daeee3c9d6f0e3dd89709692b45c863"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/codex_api.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/codex_api.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "b818d6136810127670e55b52c9b8acdd0b71b12f",
+      "applied_sha256": "085ad12ffdfff062559ae3f4360c652d5577d1e2f0268476f2c7ccac8f1a8c95"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/debug_api.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/debug_api.rs",
+      "baseline_blob": "8607e6b7cd5a9ff61743f2826663dace987f9089",
+      "upstream_blob": "8607e6b7cd5a9ff61743f2826663dace987f9089",
+      "fork_blob": "bb749cb6ae70ea755e2c8964e699f4cd194324f4",
+      "applied_sha256": "f22adc32dc97163eab4671a557ec9eb9bd04d4e7b451c020658c315e3e718f80"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/embeddings.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/embeddings.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "f958e746f1210a593f95e1933653b9ee996727e5",
+      "applied_sha256": "cbc03c434d192ee7a1904bfe447d27ae445f0cf5ff198ce5b8b77ee32afb981f"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/growth_tasks.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/growth_tasks.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "8050d7516fe64920c26f98e7ae275c5aeb023852",
+      "applied_sha256": "0612bd07a4608a10a3e6aa257039a793b2e44ec371946660a40ae53d57a28660"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/health.rs",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/health.rs",
+      "baseline_blob": "ccfab3685ed3a1fc365f2fd3c0022526678d3ed9",
+      "upstream_blob": "f842f5eba54018fad503baa16e8c5df0f2801694",
+      "fork_blob": "a360b019a0567085a27ceb34d4e6ea23819b995f",
+      "applied_sha256": "d18bcad48096abbccd26fabf1060b29a42985650245c18ed80d963c9f2a98999"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/key_quota_api.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/key_quota_api.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "20a203770149bb7327b05527d24ce7f9a217effc",
+      "applied_sha256": "6ce7606bee24fb4b24514470d63c40d5bc9e8edf4f268353409143e1d24b95e7"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/keys_api.rs",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/keys_api.rs",
+      "baseline_blob": "e63d1e0fe30bbe4ed0837509d8281a9682aae598",
+      "upstream_blob": "72a51cace60adbc99ac8a59a9999df30d2c9fd1c",
+      "fork_blob": "93afd73e44b8f776ef8d083bd42393903748a853",
+      "applied_sha256": "9f4dd88fcd4ac2ab0eab96a75b608d6c4c498ca9c1e634d49fc5c9cd2cb5f584"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/maintenance_api.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/maintenance_api.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "f3395760d52f4a503da7e0a1d90abd8254c2714b",
+      "applied_sha256": "a78e1c6d72b34afec876750f1623a92e1970c119b3a30a9969af98b4b9aa9b72"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/mod.rs",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/mod.rs",
+      "baseline_blob": "0943e242b17a385a8626264c7913216128455083",
+      "upstream_blob": "56ba775e0e431bd1124f1ecb89006b8905d8abc3",
+      "fork_blob": "2ede25936d341269b85a4427d691ff8ddc6f7350",
+      "applied_sha256": "1904073a41ff5958866aaa1bcdf3d3b3c9181e58a2908cb972af01f1e6431779"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/notify_api.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/notify_api.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "fdee44414a3ad89e94e1f0961e3d2f57004b2d56",
+      "applied_sha256": "2a80d5c8c02d90f7a08d3eb9f48184a8ea2d70574f7931d5eb6a565deeba3502"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/panel.rs",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/panel.rs",
+      "baseline_blob": "2c3a61fe8dc156c406dfed6ee2b2fdcd83d75096",
+      "upstream_blob": "9c6802a8eb918345a54f2e9732312867ba228ce9",
+      "fork_blob": "cc0a67afbce0fbd372ac597f965b5d156169022a",
+      "applied_sha256": "e3bde3e5ba3eeda39fa1874faef83385796f01daf4c459b094b05e0891065c53"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/pipeline.rs",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/pipeline.rs",
+      "baseline_blob": "edeebd28c551734e393b435be0bfedb67cb3fc09",
+      "upstream_blob": "edf02be55a88a2b524fdb0c64d26f40b79033165",
+      "fork_blob": "3a910a1e5e6aa1d7e835afac60a549ad903dd3d1",
+      "applied_sha256": "abed127838696b497f3393e4f2c3127727919a95648395e7a28ae25dc728e6c8"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/probe_api.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/probe_api.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "46f22efae237792c684fc602005c83020c30e98c",
+      "applied_sha256": "0245b9cf9c7ded43a35ac8367d3039ba3bbb8f56ba49481d161aaf8ba38e74a2"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/protocol.rs",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/protocol.rs",
+      "baseline_blob": "ae520e7040cc168bbaa58ecb8832ffb2dc9f9bd3",
+      "upstream_blob": "ba3b42c398580018de24312fc3b4a7f67b5edfcd",
+      "fork_blob": "9d5b6da1cfdb4330a568696e3b91632818a23e8c",
+      "applied_sha256": "43e3209b58836862057d7f6088167f3434a5066f0b7f7fae576dc709470cb172"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/sessions_api.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/sessions_api.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "907844b65037574488c2df6418f402f79adcbde1",
+      "applied_sha256": "b8b9da211e274929a321cdf5a94a9bce12dfa79d8086d1314d04faf3d9ded91a"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/shutdown_api.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/shutdown_api.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "32af899170697c1ecc20f69aaff041f96edb2f4c",
+      "applied_sha256": "9e926c56bbbed9be573a7db025b9638feb3aad0feee1416e1b8d22f52689e459"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/storage_api.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/server/src/server/api/storage_api.rs",
+      "baseline_blob": "738bbffd68446706c25403b516cab8ed90782be3",
+      "upstream_blob": "738bbffd68446706c25403b516cab8ed90782be3",
+      "fork_blob": "328b0b5ba801dadcf5a078ef39f7cbb34cd9bff3",
+      "applied_sha256": "3318a521513b6d343ef34cd4ad9dd832c1a27957d26dd46fed301818a40a0034"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/config/mod.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/server/src/server/config/mod.rs",
+      "baseline_blob": "56bec30fc38eed457dbd08ebec4796b1af209fd1",
+      "upstream_blob": "1483cae807acacefaa63c71b9cb51e94b7d4556b",
+      "fork_blob": "d69d4acd25dc3ad4474e34d35c36d378fe134cca",
+      "applied_sha256": "fe60a51fd852cea938acc5bfcf6445fe9576c6d07217dff3f62155ce15df4f5e"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/codearts_accounts.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/account_store/codearts_accounts.rs",
+      "baseline_blob": "ff668be05d8cafa43c28be6fd6d30b7232176462",
+      "upstream_blob": "5db45395413254d12d8100f75ad77d85ad85c7fa",
+      "fork_blob": "33b29b59a3158e4a4574f06cc289079bf78103fb",
+      "applied_sha256": "a3cca6b8c06035b9bfdff562473d81240aabf0a62b35889ddaf5d18fe6328bbb"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/mod.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/account_store/mod.rs",
+      "baseline_blob": "cb54a7ea9a955e140e516591333e1c03eb5ed836",
+      "upstream_blob": "8046c0a3817b7d647e1f5dea10c7238f9d18e7c5",
+      "fork_blob": "ca21c34c4af4cdc48c264dc518c60eb7196fb664",
+      "applied_sha256": "f0c8ec464f7ac06d13c145a43916cd61cef31965743878c60fc25646938bad9f"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/store.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/account_store/store.rs",
+      "baseline_blob": "8e8dc5262f36c21c67c19adc436e3cadf67ee2e7",
+      "upstream_blob": "c26e454a78c7b5b6ce4e37bbf40f7eba394b538e",
+      "fork_blob": "4e0bfb8cd26730ef067e93afeeff8978cce99b85",
+      "applied_sha256": "c7920e9854ec9842ba6976e36b1d9e4329ba4767f6e735785d1da0c533f48868"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/api_keys.rs",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/api_keys.rs",
+      "baseline_blob": "08dfa1cd917a33c2378b4764690b216803a4988c",
+      "upstream_blob": "ed9c20a371bc934c30da6bb35303d319f4cbae90",
+      "fork_blob": "9c9d34b7b4601b3ea3dc9d8311930e7d1df8f8e9",
+      "applied_sha256": "20e7c95261cae90be74b2b5ee1c71e05f92d84e64688a60329cff794f1972f27"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/auth.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/auth.rs",
+      "baseline_blob": "26c9b5c07ca52ebee864465724f7ff249144c687",
+      "upstream_blob": "26c9b5c07ca52ebee864465724f7ff249144c687",
+      "fork_blob": "800275ca34ef529c18a2c62e6ca6c548d7415159",
+      "applied_sha256": "51712f7ef5d0c671a3361c7cb4ea8485688035331c44c33bea2addfddeb7e540"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/auto_checkin.rs",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/auto_checkin.rs",
+      "baseline_blob": "605f52a0fbbaa9c8602fc03287778edaae99317d",
+      "upstream_blob": "26a6eedb83a6ee7a6d497af753012d426ceb1236",
+      "fork_blob": "165ea7222dca563f79e7e28261d001e938c755a0",
+      "applied_sha256": "838df58f39e56e9be536dc7a595c9fc96308dc85c96016ca249d2df3bfb9469f"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/backup.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/backup.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "1f1dc32b7c2922aaed73ab7f677a275c202498b7",
+      "applied_sha256": "348e183dad1f041a19e44c5516a45f8d258b9d9227394844a3fa22fb6b6d8cab"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/billing/checkin.rs",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/billing/checkin.rs",
+      "baseline_blob": "954876b75675f4354720008ce902c7ee671cb33a",
+      "upstream_blob": "05135157b2bf30428557c9d4722d2ee74a3767d1",
+      "fork_blob": "d022cd9c9193859ff3f2de435962a39cbd29eda6",
+      "applied_sha256": "aa7cf4f3e020bf768cdc6b0ae22ef6fa657fb1b44fe83716f845fd93f98289f0"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/billing/expert.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/billing/expert.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "30497c8dd89d98adba76b31518e2c467ec2efffd",
+      "applied_sha256": "8cba51c2744bc1efe7383375dec39b0530aeb60402ebc2c5ce17185e2bc51430"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/billing/gift.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/billing/gift.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "17979eaecf98748dfdfd4054253ff1992a4c62a3",
+      "applied_sha256": "c0f7c7127605b3e806ad8d4168bda3521f3e4fdf9db77cbcfacf0da815e08e7f"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/billing/growth.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/billing/growth.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "59f0ceb7ce225fd929c207808b91e7c4db4b6a4d",
+      "applied_sha256": "4d8d4606e6affb8c1bdd2b8851479104ed51776fc726d8ebea9d17da15dfb542"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/billing/mod.rs",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/billing/mod.rs",
+      "baseline_blob": "9e772f22611ad7425663e5f3fbec3d35a0b36ecb",
+      "upstream_blob": "f25c2c607197a5e1d679d47c27c63ecd285b5460",
+      "fork_blob": "f0b62b7645d5ecb3c817120d168e4bb9e30a64a1",
+      "applied_sha256": "3a1dc2b334a89664004e9840c35a2eca9e9b601bda89d3f08b1e1105c360b8d8"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/billing/report.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/billing/report.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "44f3fee3988533344c26488fdf6c7f5d53b4099d",
+      "applied_sha256": "ae055cc1063ee50ba85833ae64b0f11d72bd799c3095bbd917001fd11f95f8a1"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/billing/request.rs",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/billing/request.rs",
+      "baseline_blob": "16822bfd4d2a6053bacece805dc409a98fab2741",
+      "upstream_blob": "81f6664f5501f616fe4a33b342f6a1e051c9d9e5",
+      "fork_blob": "ddb83675569bd631fcdc55515448b5364b6a3aec",
+      "applied_sha256": "96242f471431c0dd511bc263cf2669bb7cf6592bee4bf9c2bcbdbe5f53827dd8"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/billing/streak.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/billing/streak.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "ee7993037a0e60817fcbd4f24e8c07b067a9f4a4",
+      "applied_sha256": "758448e551683ea260368391cc80a149e722161e6b0d447b0b4c2a0cc99d3c95"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/billing/travel.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/billing/travel.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "f53304cb437ccf6420fe011b274f9ad95983f474",
+      "applied_sha256": "b0d2fcc4b231a9fae60fe09f6e32198ae5183e39e2b8c0c4ddb6ab2fa0e2cff5"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/billing/trial.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/billing/trial.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "02b0f053048b8ad54fffc282c3ad543c257fee62",
+      "applied_sha256": "02a0b2d964348124c5f0bf07276a5f9334939f072687f5a1b98a4e2caac50239"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/growth_actions.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/growth_actions.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "c1498d78d10c65aabd087cce5fb33954611b67ae",
+      "applied_sha256": "9859359e78b0c8f353b697ad7e268edb34e8707dafbc64aad3a977621e9ca1dd"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/growth_queue.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/growth_queue.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "d480db456cc23fc75a4cc46e739eda83ce2251a4",
+      "applied_sha256": "00d0e0955f334e3ae87713c2f2abdda13f983affe487f8d92db6044d188b0e98"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/growth_schedule.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/growth_schedule.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "2c9dfb6492db027280cf0406f79b3c370d06f08a",
+      "applied_sha256": "10ac920a457e3c89dbb30c07c6086b766133d8d4b9fa642a694a1a85f5b2d529"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/key_quota.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/key_quota.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "9c02525d8f02530c0cd7a311c40ca830cfde5e60",
+      "applied_sha256": "a9d38052595a181095cecdbde9f409d3ee32047e5298bd64a8a4153c72987cdb"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/key_scope.rs",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/key_scope.rs",
+      "baseline_blob": "6755318030f2528b5b14a6de4763c356ca17b840",
+      "upstream_blob": "299f3c30015ef7b729f87549906c395a3e5a89fb",
+      "fork_blob": "1995117bb40e829fed53abac3c158200afb0343d",
+      "applied_sha256": "39f5d808ed830655ef765482320a5ef1a377786e348fea1f96799a2cc1830dad"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/login/codearts.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/login/codearts.rs",
+      "baseline_blob": "8d6239c3a28c9a2d293e2bc9084002fd2599dba6",
+      "upstream_blob": "8d6239c3a28c9a2d293e2bc9084002fd2599dba6",
+      "fork_blob": "7a03d1b5dd65ca4101c554c8e67f52c36685ded7",
+      "applied_sha256": "8e8d854b285cb5d597cf5503f05707ebe3830825e9f3303f525dad6fa3f5aef7"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/mod.rs",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/mod.rs",
+      "baseline_blob": "c47289b0a3b9aea6b5bf9aff9e0b3bdf61035b98",
+      "upstream_blob": "206838ff278e0ec01c38e4a5e46466a7a1c88ca4",
+      "fork_blob": "1eea5a81d9925665878aec9bb606a8cedaab9363",
+      "applied_sha256": "7cf1bbec1a6c9b73f2774cfc574722d61bd338b1ce40d6aaee2045bae21170f2"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/notify.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/notify.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "4889156fb62dd218aba62359d897202523b8ea0a",
+      "applied_sha256": "fde2fc1fa72d492a1e026a17cea0f7f3d89bc2be45444eb5546967a8314aedb4"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/probe.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/probe.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "b2dc517305dd071412643440e93725f05bbf2015",
+      "applied_sha256": "76c98e4272c57bd3f3909fd76370aafd98f8e459c4cb86755fcfdc3d57c41eff"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/catpaw/adapter.rs",
+      "fork_status": "M",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/providers/catpaw/adapter.rs",
+      "baseline_blob": "2ddbedfb3b32989e1935454b02171e3a02244d2e",
+      "upstream_blob": "2ddbedfb3b32989e1935454b02171e3a02244d2e",
+      "fork_blob": "b1d4582b2319a16ae8b20e90b9f2f2c881142c65",
+      "applied_sha256": "9d82f79ac0650baf33fb2679c6181422e7af7b9b95f4d32ed212fb75d69def00"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/cline/keys.rs",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/providers/cline/keys.rs",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "3e67ead3a02d7e2f2ba5cd92d11d946105bb5289",
+      "applied_sha256": "60443d4015586683e4d87b2d06e3e8611ce51aa1d47a2bec5e3ba765c579e36e"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/cline/mod.rs",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/providers/cline/mod.rs",
+      "baseline_blob": "671880d3a7f19c762114a3fd0bdeeff04dab27d6",
+      "upstream_blob": "05882d350521e6661b8cf15ad7930a3efd9619f7",
+      "fork_blob": "6d628324cc3a513077aad00bb6f87d48c60a29f1",
+      "applied_sha256": "1f1f9babe18afdde8b3df7d2f4787f86c48a0e56d92c72766250a0804f7ed628"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/codearts/mod.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/providers/codearts/mod.rs",
+      "baseline_blob": "167eb807233bf21f5c54dfa64fcf4808f0aed67d",
+      "upstream_blob": "ed3ab5c0963a04229d0f91a4b16f6742578a100e",
+      "fork_blob": "6fb95248d65015c0a441197fe6c711b03a05d3b5",
+      "applied_sha256": "b7d2c71437018d2621f6f4ffcd53b5d2eb80026ab4e849cd11db7952bf29c88b"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/codearts/models.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/providers/codearts/models.rs",
+      "baseline_blob": "379ebaafe7c13944c363f21f439b2142ea401810",
+      "upstream_blob": "4cb8e10378874fdf264a2e1bd63b3b922d295edd",
+      "fork_blob": "e8b55c46bf6a37426683264a792f3ef95f09c79d",
+      "applied_sha256": "14745194b8fbcd0c4832e1eba2b60fdb0e5790a7fd1bcf9038ad3b71c239c65e"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/codearts/welfare.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/providers/codearts/welfare.rs",
+      "baseline_blob": "5efa24c4bf2b5c9478b08f9e59d7e8a2b2acd0b3",
+      "upstream_blob": "ca551ea47fdd85ef1a5088816fd44d0f75c89120",
+      "fork_blob": "83cc092056d593125dd10e6ad75dbdc54aa8cc92",
+      "applied_sha256": "85d40dd5854a286d35f1afa30b92b5090e22c49feed52751dcc74653b02f4975"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/workbuddy.rs",
+      "fork_status": "M",
+      "resolution": "adapted-new-module-layout",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/providers/workbuddy/growth.rs",
+      "baseline_blob": "e78e6f94dbf3bfb3aeb912abb4604363100c973d",
+      "upstream_blob": null,
+      "fork_blob": "d486870a245c52cc709043d698ccc428119e98c5",
+      "applied_sha256": "70eef5c05e17549dc374312ead8239a5eecda7c46531e88fae9a73acc65711b5"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/balance.rs",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/balance.rs",
+      "baseline_blob": "ff1e5b7dfebffbc529f5a3d8132e3fd77f0983e3",
+      "upstream_blob": "694433c5194c8a59461adc823c8f7701d90bd4fd",
+      "fork_blob": "02f8eb214757104fb34770b9018c984452ec4f4d",
+      "applied_sha256": "0bc5ee47efa7cc696d01d44b932ab435a189c74e360066c26c6a8162867dbaca"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/credentials.rs",
+      "fork_status": "M",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/credentials.rs",
+      "baseline_blob": "24f87bc2c592bf61c7e8d204d07f18b6d6a9cf6b",
+      "upstream_blob": "24f87bc2c592bf61c7e8d204d07f18b6d6a9cf6b",
+      "fork_blob": "6ceb15924a4e927a32cef3cf5f20f359b32ab9ca",
+      "applied_sha256": "d26c2788be8823062c825199441e9cbbe9f6b6f0e4335b2adb6ebb43956a3fc6"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/update/token.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/update/token.rs",
+      "baseline_blob": "d8f3b04a94582b27937368135c2f502078edc008",
+      "upstream_blob": "d8f3b04a94582b27937368135c2f502078edc008",
+      "fork_blob": "c9249d63673e3948dcd8a12621ea03d4e6331ce9",
+      "applied_sha256": "2a351bbfbe3c40bd6c49f4f77984d7da68d0eb300db87b118a15a07477bd6dbd"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/update/version.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/update/version.rs",
+      "baseline_blob": "a23114adaa5527499b776c3a2c5a05248d771a39",
+      "upstream_blob": "a23114adaa5527499b776c3a2c5a05248d771a39",
+      "fork_blob": "b8969f2372ac792d9b3806ed0c4c7e4452463e4c",
+      "applied_sha256": "a03cc0e23417340d159ee079a63f6a2ce6cece4ad4238328fb89e2c2a6c19a60"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/provider_loop.rs",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/upstream/provider_loop.rs",
+      "baseline_blob": "da21c5275920741d567f570c540f632ad6378599",
+      "upstream_blob": "92485093ab75e7ba2da1493c48629596791457da",
+      "fork_blob": "58ea6c0a87c47feeccb26c2441ffb539360a55b7",
+      "applied_sha256": "3591405787948dbba207575d4b340fd30b28f9da0df1373697c5a942376317e4"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/usage_query.rs",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/src-tauri/server/src/server/core/usage_query.rs",
+      "baseline_blob": "e6908e2264800fe6f1b650704c1d4c6c950f44af",
+      "upstream_blob": "1bfee268943c4284fdec0a5b13bb7703986a7250",
+      "fork_blob": "82f5275a8f3201969227724ae8c5c8da162a632d",
+      "applied_sha256": "421319464aa8992341cac75e079f49041b0987d3c3f1179e49b4f9ec1a9404d2"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/db/mod.rs",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-identity-and-newer-version",
+      "target": "desktop-tauri/src-tauri/server/src/server/db/mod.rs",
+      "baseline_blob": "b0b6492667048f2d4dfdc6dbd1ebfb4f0d727ff3",
+      "upstream_blob": "b0b6492667048f2d4dfdc6dbd1ebfb4f0d727ff3",
+      "fork_blob": "3771d3bd93cae0dfb6d350d6e93ce48042e50248",
+      "applied_sha256": "baebbe80f65910364b578fae12c15e0a87f9fb610edcd7cb495c1cfd740d9501"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/db/schema.rs",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/src-tauri/server/src/server/db/schema.rs",
+      "baseline_blob": "54292cf65328ae1664f639c29a30e73e09c6f6cc",
+      "upstream_blob": "24635877d5a341bca28635818158591d700e517b",
+      "fork_blob": "51cfd66c26ef65702aec86a7a695b279f20fba54",
+      "applied_sha256": "16fea86115019517a213550be57b0168af76bd92d2066b83981ef34d91d51170"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/http.rs",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/src-tauri/server/src/server/http.rs",
+      "baseline_blob": "762d64e3ae76851201c96443c189ab3d21012dff",
+      "upstream_blob": "762114c38fc9180358864fe9ac061ade452dfd4c",
+      "fork_blob": "4f056ac751fe1a0beed1e958ff99f8cc00387e69",
+      "applied_sha256": "117bb95215572287cd99077e97ba5d5b17f574c2708c3882cff6f167dcefa20e"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/logs_store/mod.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/server/src/server/logs_store/mod.rs",
+      "baseline_blob": "8580ed4e633b284af28a6154195b14b50e8af865",
+      "upstream_blob": "8580ed4e633b284af28a6154195b14b50e8af865",
+      "fork_blob": "ea323fba9da3fc7756f29f3f2e355d5d8d8f8107",
+      "applied_sha256": "cc96f3fdc1454f6cc5c215b9423c3cb848e6076dd55cbd070278c95fbc8869c2"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/mod.rs",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/src-tauri/server/src/server/mod.rs",
+      "baseline_blob": "b7ed8e197c8ed1c1191e60184b9a91a95184bcb6",
+      "upstream_blob": "841d2e6ff9211c7168b60d7b3ce3b2d8dc2b0cdc",
+      "fork_blob": "ae64863204d137dac4cda63641fd633c9dbc3d8a",
+      "applied_sha256": "d054b2dc9b69429e4b6540c4d9813ac5ce4d7499289ba5be4eae6fc6f166d9fc"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/request_stats.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/server/src/server/request_stats.rs",
+      "baseline_blob": "a5a230ec4b4307fc7e7211c6998567755f9b9ffd",
+      "upstream_blob": "f04b631f706c0bfbfd7af4208889b1729c32fdf1",
+      "fork_blob": "ff7c5e256fee4e25a86caa559c4a7caaa32cf89f",
+      "applied_sha256": "7394bfe1fd4a0747cf82b86dec41a384a748d1a62dbde63002b53389a108b09b"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/static_files.rs",
+      "fork_status": "M",
+      "resolution": "applied",
+      "target": "desktop-tauri/src-tauri/server/src/server/static_files.rs",
+      "baseline_blob": "451fff7ccc5d599d6ec1571c6b36617a8ba24d8b",
+      "upstream_blob": "451fff7ccc5d599d6ec1571c6b36617a8ba24d8b",
+      "fork_blob": "df9cef5d72206a2f657485cf192e218a5b09979b",
+      "applied_sha256": "e127a754b4a9950a442920201e1d9c52aa0442add313b18d1fe605b0c531bf9a"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/web_shim.rs",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/src-tauri/server/src/web_shim.rs",
+      "baseline_blob": "0a0827d3e6eeacda9b26927e7162204c442f2b61",
+      "upstream_blob": "dae60cb4b8318df7e3046e12ab5cfef28cf3afc9",
+      "fork_blob": "ab6bf20469bd6fad169b2b224da16aec893edd19",
+      "applied_sha256": "a912119c75048c34728f85dba924bd17a49e90015fc9bca62f8fb0111f848bac"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/src/bridge.rs",
+      "fork_status": "M",
+      "resolution": "adapted-native-branding-bridge",
+      "target": "desktop-tauri/src-tauri/src/bridge.rs",
+      "baseline_blob": "a5d1cc1bbf340e57dc093b8c5d6c921db47be5a9",
+      "upstream_blob": "3fdb7e42e23f94f91a024a8535da58d82493dd9b",
+      "fork_blob": "043fc921b6d0351cd217fd4a38a09cd44a6ab835",
+      "applied_sha256": "7b1309b131279be57e7fd960beedc1253b49a3843e6449bd6951135351ed0a40"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/src/gateway.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/src/gateway.rs",
+      "baseline_blob": "3d09b5aae28d6f052caad5563c0d9f2a1e21a20f",
+      "upstream_blob": "3d09b5aae28d6f052caad5563c0d9f2a1e21a20f",
+      "fork_blob": "ab2cdcac9dfe5f3f537e14a491af9dfea89e5c62",
+      "applied_sha256": "a12fc28bf99e740ab8289dbfca9b95ba01b66116ee3583ecee942aefef22d44b"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/src/lib.rs",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/src-tauri/src/lib.rs",
+      "baseline_blob": "ed8a99466ead5b2726b31a69171ceb3289f04e88",
+      "upstream_blob": "6c8bf4fea306ab903b7ef88f40b3de7675b7536c",
+      "fork_blob": "8da7c93d10c2ae21cf3fab1317bcd44653e6d806",
+      "applied_sha256": "c4902a14a75029b274e981ba6e19ceffecc8ca177954a53c3be2f40d61f0ac0b"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/src/login.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/src/login.rs",
+      "baseline_blob": "150110569cd032db55a4fd9dd6508876373d0b53",
+      "upstream_blob": "0bf4f80fa7e863a906091aa8b437682c2201d84f",
+      "fork_blob": "cb5ca2e348565a0bf83855ea3b3ce56aa466f532",
+      "applied_sha256": "176ac096adf0ce7fa6dfe319ceff311825dc7652fba726220ccca70388d57fd1"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/src/settings/mod.rs",
+      "fork_status": "M",
+      "resolution": "identity-only",
+      "target": "desktop-tauri/src-tauri/src/settings/mod.rs",
+      "baseline_blob": "1a2d340ec43562a744d8ff9967259abe3bf31aaa",
+      "upstream_blob": "d8142f30ac380b0795d40ac8ad75adf040f5d987",
+      "fork_blob": "f5d2b032ace8c04032f082def4ce11a3946a7bd8",
+      "applied_sha256": "ff6780f320aca15f9c744d8f19890114f767c14e72a28eef35f9d9f2686ad472"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/tauri.conf.json",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-identity-and-newer-version",
+      "target": "desktop-tauri/src-tauri/tauri.conf.json",
+      "baseline_blob": "5a11949a36dd7353bf8cd583149048b368bde68b",
+      "upstream_blob": "6bff96ab21333789132476296909dfa5c400ade3",
+      "fork_blob": "e17409442e9e7e42d8cf05611452785339c1d1dc",
+      "applied_sha256": "3d573af4e63d3050b88c4ce331cdee6828d8f01574ce736c70f9ecd76b7f57f3"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/package-lock.json",
+      "fork_status": "M",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui-islands/package-lock.json",
+      "baseline_blob": "c2a225db7612c424fdecef488ac218190e41aab7",
+      "upstream_blob": "c2a225db7612c424fdecef488ac218190e41aab7",
+      "fork_blob": "e0be2819478f5b5a8aa3715251aff5a77cc43e5a",
+      "applied_sha256": "395776bf0be39549ce2619d841f9dd2b222a8c7d8bab35d452f1f3800d688d61"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/package.json",
+      "fork_status": "M",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui-islands/package.json",
+      "baseline_blob": "c64457f33725460145d31ca9728cc8daeb32ffd5",
+      "upstream_blob": "c64457f33725460145d31ca9728cc8daeb32ffd5",
+      "fork_blob": "706b903f68fe19fc2a48e64e487cdb8041e4a657",
+      "applied_sha256": "d64a88870f75fd7804636af926a6d6d63808ed66e7cfd3f8b8dfb56dbbbe1d01"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-data.ts",
+      "fork_status": "M",
+      "resolution": "upstream-already-covers-change",
+      "target": "desktop-tauri/ui-islands/src/islands/accounts-data.ts",
+      "baseline_blob": "6cb4fd126552b5d11ed2c5a3b144c55bf0a1a9da",
+      "upstream_blob": "c65b5d20d6eff9d4de633952b6e2b5f178ec308b",
+      "fork_blob": "95e97c9273b6a6cfd1879fd9aa983a6514b3637e",
+      "applied_sha256": "6dab9e0740a4e364a9d0cdb5e4e94cb36b49d8488f47aa70b3e04a3570e0f73f"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-domain.ts",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/ui-islands/src/islands/accounts-domain.ts",
+      "baseline_blob": "f8549c806f9775346865348b31f6d62b796c2301",
+      "upstream_blob": "ad5051d7abcf17aa6e485bd8a8c026aa7472e874",
+      "fork_blob": "e68048b08ff0d241d6b3a8adb012d07335b43918",
+      "applied_sha256": "455e112a2d414e74621a981c758978022e1c6f657cc44b50a07f52cc94c6802e"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-page.tsx",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/ui-islands/src/islands/accounts-page.tsx",
+      "baseline_blob": "ed85e7b5923280826be140d3fb1f4fa11d2efd2a",
+      "upstream_blob": "2cc48883bb6c69943085e2ebe64d4fba8c1113bc",
+      "fork_blob": "18523cc02f6f5abea4b4b9189650fe4d5c405688",
+      "applied_sha256": "6804e61af0fa46d226bc4297374e121f0c558d1f85165fad448511042c24f483"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-panels.tsx",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/ui-islands/src/islands/accounts-panels.tsx",
+      "baseline_blob": "97f3b2c6e1f9140ac955acd67f7d363fa7e7a4af",
+      "upstream_blob": "64b1d19b786fba71bc8c026dbdb36268a88e5e28",
+      "fork_blob": "a51b7a27deaffa9bb955714999ff38d474c2a6e2",
+      "applied_sha256": "998729f871dc39de158089b95cac31db9c5b9c320386ac00a677073420c40221"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/credits-page.tsx",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui-islands/src/islands/credits-page.tsx",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "d9ee563844ed39f9a9fed609d0538aa957505aaf",
+      "applied_sha256": "499c9bbc7696651d2ca0775852eeaa6ebb698964e7d70b3b2f8766ec3d2401ca"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/docs-page.tsx",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/ui-islands/src/islands/docs-page.tsx",
+      "baseline_blob": "1e93df8c2572ddefac0e5016a76f79f79ca0db6f",
+      "upstream_blob": "f5ee6ce58de90f04c1249124c30744f99efd05a1",
+      "fork_blob": "5793292ee8e76214ae8bd589833fd9deaf510cf5",
+      "applied_sha256": "2066d37c4edd043a8ccc64c9a58dff7e5ec29bcf556fafed8c31dd7760c958fd"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/keys-page.tsx",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/ui-islands/src/islands/keys-page.tsx",
+      "baseline_blob": "a8aeff448e61a75bce4770c800c37a4009b2c6e8",
+      "upstream_blob": "5bfb2d80cc5589c7621f794f3c16dc600a61a1dd",
+      "fork_blob": "d896b00a613ba5935250e6ca9ba4cf9a59680e2a",
+      "applied_sha256": "0e1610f157812572062ef4a23253527bbc1ec886aa0f0711c24dec4cade3a729"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/login-page.tsx",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/ui-islands/src/islands/login-page.tsx",
+      "baseline_blob": "7ea3f22b436d7e4b0aca5cbd55213697eae3d7c1",
+      "upstream_blob": "02b257dfb77cf8bf5843cd5a6e92e8f4870bf0fe",
+      "fork_blob": "abed87c502a94e874bbae2255d4f2f1d868407de",
+      "applied_sha256": "6411a55e9eb3839524cb26fa88130edc7bbeb804ee6fc1f3340d29eefaa47e3c"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/logs-panel.tsx",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/ui-islands/src/islands/logs-panel.tsx",
+      "baseline_blob": "409f611992640e2fd36c643124c09da052fa9268",
+      "upstream_blob": "d8cbd3e574e4f7fb6d812b0bc2490b2a3c29cc49",
+      "fork_blob": "967c541209997b7aa79fed355418150a3040985d",
+      "applied_sha256": "00a11a0fab111d9904e3abb01bc6b566eb545a0938866bb05ca93b8bf022ef35"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/models-page.tsx",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/ui-islands/src/islands/models-page.tsx",
+      "baseline_blob": "246e6796580e6aa1623a7cc48a633748a03960e1",
+      "upstream_blob": "1ce543a8cddd338d0cc71292b83da41eaea8fe83",
+      "fork_blob": "4eff5c852f479581e1174282d9a1b122e9405d82",
+      "applied_sha256": "a38e080aa09a087608c7762d0196cec1810c343e8a48067a0e4285dd6a538aef"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/port-panel.tsx",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/ui-islands/src/islands/port-panel.tsx",
+      "baseline_blob": "d9b24b762cab4e5681979422d8aea949db7a49df",
+      "upstream_blob": "cd177598b7ccfbf4c1567efdf0010085dce1d3e1",
+      "fork_blob": "a91c5612ee28c31525d36e72c979e6d3baf433cf",
+      "applied_sha256": "312e48d8ca89c80f1dff255fb99eaa00a7c7875f90636eca1985385222c45023"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/report-page.tsx",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/ui-islands/src/islands/report-page.tsx",
+      "baseline_blob": "302a5937d62cc83bf4d48cff14c430ec4bf20c18",
+      "upstream_blob": "e79c17a2456a33d235c62a02a14117dcb48c6934",
+      "fork_blob": "871264ca766ca005a403c0099df0402ecfbd511f",
+      "applied_sha256": "844ced3594c3c580b833debef11107a6db2f9943544a82098778461718ec7526"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/settings-model.ts",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/ui-islands/src/islands/settings-model.ts",
+      "baseline_blob": "26f12114a0cc49fbb7b03d85b5dcfe99445aede7",
+      "upstream_blob": "4c11fd0834ce9c0fd87af60d232a9073cba99965",
+      "fork_blob": "06b033692f2e85b68c3c6ac6faccba850450c760",
+      "applied_sha256": "c38ef88d8c8e2a2bd7d57522053ed0a2178a662d2c20709800464e4ac99c647a"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/settings-page.tsx",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/ui-islands/src/islands/settings-page.tsx",
+      "baseline_blob": "aa1663317515e94ca97946b3c361d5c05e5abc27",
+      "upstream_blob": "ad09c48c27a98c037e05a2c270bd5f76f11e2cc9",
+      "fork_blob": "b2c911346f1c2e40b111ffb8ce35149851a7f0e9",
+      "applied_sha256": "28dd2fa6f2b81303aed00d75cb465e509e8eb843cadf00bff9eb206efd5c34d2"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/settings-remote-sync.tsx",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui-islands/src/islands/settings-remote-sync.tsx",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "971f75c824dcfafcc775acae0fef6e8d51aad2d9",
+      "applied_sha256": "17b3a21f52fc9445d718e0c2e5102d692b11f44e1c710eaad0874ecd2a2e515f"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/settings-state.ts",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/ui-islands/src/islands/settings-state.ts",
+      "baseline_blob": "9fa570a71393cf0bbd81b5526a76469722885239",
+      "upstream_blob": "54a96d4b7b586b037efbcbab925a5fe8a053eda2",
+      "fork_blob": "2cfcda4f5452f9c4c87789da16f4528e8a32643d",
+      "applied_sha256": "20533e30c8c7412b19af46f7e48063067d0beaf70bae96ddbc4d198082f1d2fd"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/tasks-panel.tsx",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/ui-islands/src/islands/tasks-panel.tsx",
+      "baseline_blob": "872b3ba2600458f17ff61aac0d0371fa690afc6a",
+      "upstream_blob": "bb62cfd13a734ef43f8e9f403d85d36e8600e516",
+      "fork_blob": "8f7b64ba448eae1d7f1a7d9cf5a345eaadc321d9",
+      "applied_sha256": "2a6fd3cc12f429da204e3116958dea0992c7405d853d156b8f09e0c08b94b1d8"
+    },
+    {
+      "path": "desktop-tauri/ui-kit/styles/theme.css",
+      "fork_status": "M",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui-kit/styles/theme.css",
+      "baseline_blob": "6d07639ad18d7a01d07bdc98ed979d5ab3f27fca",
+      "upstream_blob": "6d07639ad18d7a01d07bdc98ed979d5ab3f27fca",
+      "fork_blob": "0c60fe9aa7c0efb22a6c44f2363fba0de679a4d4",
+      "applied_sha256": "de3c0111e8cb10620d0da0a6f83ec9041a6a0a2691c763fff82ee4f72de05f61"
+    },
+    {
+      "path": "desktop-tauri/ui/app.js",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/ui/app.js",
+      "baseline_blob": "ba0aa60d1241999be79e0b2dfaf43e1dacda75c1",
+      "upstream_blob": "86eac26e8c14d927694dd748450a2a93c355e402",
+      "fork_blob": "e0c9407915bd76cc598d22081a31ee55b578e60f",
+      "applied_sha256": "dab50f3cf2ea66996e5f7417cf340531b13a6968e610f8bd37b9b49782fe313a"
+    },
+    {
+      "path": "desktop-tauri/ui/brand/favicon.ico",
+      "fork_status": "A",
+      "resolution": "imported-binary",
+      "target": "desktop-tauri/ui/brand/favicon.ico",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "49d9f7e089d58b8651c8ace5751cb64fa0e366fd",
+      "applied_sha256": "737a2e935de3aba62ccf1c98f40b435efb21eeab076239faab5827fa43d85bac"
+    },
+    {
+      "path": "desktop-tauri/ui/brand/logo-horizontal.svg",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui/brand/logo-horizontal.svg",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "b92c16146fdccbe8191c71dcda1c23bfc19113c0",
+      "applied_sha256": "05142748f38e85e2913335844a73b0369ad1e55b8fe045a1f5fee6f64f9ca2af"
+    },
+    {
+      "path": "desktop-tauri/ui/brand/logo-icon-128.png",
+      "fork_status": "A",
+      "resolution": "imported-binary",
+      "target": "desktop-tauri/ui/brand/logo-icon-128.png",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "9120f9d6e33c43e125fa288faaa0a04aac976078",
+      "applied_sha256": "7092a1b3f8bdab6d648aa86232802da521623a94756d9d2ba8e3bd4fd3c0163d"
+    },
+    {
+      "path": "desktop-tauri/ui/brand/logo-icon-64.png",
+      "fork_status": "A",
+      "resolution": "imported-binary",
+      "target": "desktop-tauri/ui/brand/logo-icon-64.png",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "95b9e177343d4bd1e9b83435fc222ac002b6b068",
+      "applied_sha256": "c11ba2350b3f3edafd3f19abd79eea8ef1357a46ca8d4bd71601d73a8267c78c"
+    },
+    {
+      "path": "desktop-tauri/ui/css/components.css",
+      "fork_status": "M",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui/css/components.css",
+      "baseline_blob": "4a1735048a6655d447389776058122d5c972c7ae",
+      "upstream_blob": "4a1735048a6655d447389776058122d5c972c7ae",
+      "fork_blob": "abb82552155ea8630d89708968f08f627f370156",
+      "applied_sha256": "6152854bdfd0229757c1169d07c14a614e2c14c29e3a0aa6a1fac4aa5927191e"
+    },
+    {
+      "path": "desktop-tauri/ui/css/layout.css",
+      "fork_status": "M",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui/css/layout.css",
+      "baseline_blob": "b85088ab4f2f6418c6f3bf8fb20851fce71ad831",
+      "upstream_blob": "b85088ab4f2f6418c6f3bf8fb20851fce71ad831",
+      "fork_blob": "f0efac5b47460e1a1c9959cfd1724faa74fe2586",
+      "applied_sha256": "b83cf7feac814e52c47614c2fb29ca694dc768bf92f172feb3ecea00ac61a745"
+    },
+    {
+      "path": "desktop-tauri/ui/css/login-extras.css",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui/css/login-extras.css",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "e24a430658a21161418832c8448164fd32980338",
+      "applied_sha256": "fdfd8018b4b6efedc03db87ecb138df07a52be08113f66e4d8096352ef7596d2"
+    },
+    {
+      "path": "desktop-tauri/ui/css/mobile.css",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui/css/mobile.css",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "6414b13e1f8ed0fe2a08bcb57f72d75b5f9a83df",
+      "applied_sha256": "4b957c13eb45ee148c83e2b0629fc8d7b4952370b23b3148bb4efd8d6fa51566"
+    },
+    {
+      "path": "desktop-tauri/ui/css/notify-center.css",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui/css/notify-center.css",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "78c9e1a2b76898fc1701c15c3b9c095e0c1afd3c",
+      "applied_sha256": "317e6f6b04726f1f082e932dcd7c9d60a46b2ef056ad8c69cd71b42e917d5bc2"
+    },
+    {
+      "path": "desktop-tauri/ui/css/page-accounts-providers.css",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/ui/css/page-accounts-providers.css",
+      "baseline_blob": "fc5dce77bc14a82c65150b21894f2113730f337e",
+      "upstream_blob": "881faad62afaa22e21f0765b21f63f3c3be9694f",
+      "fork_blob": "98f96ff1d01d07d8e5d8c81c727ebd816a5bc795",
+      "applied_sha256": "40cf83c5a4d418b9f6a008965ad813f572cc6cdf49d26176b5b8d74083be8b88"
+    },
+    {
+      "path": "desktop-tauri/ui/css/page-accounts-table.css",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/ui/css/page-accounts-table.css",
+      "baseline_blob": "8bae5169531b9fc06d1a94c447cfef0732e244ed",
+      "upstream_blob": "1fc14c6524f7ad13147ccdd30906a1b75048ff5c",
+      "fork_blob": "b488b8db81c8001656ef19fe6f5f6b253a72394e",
+      "applied_sha256": "184421f9f5af514bf1d4c99dc346e9bc0fca2d720b1730adf3a25e88afc06fea"
+    },
+    {
+      "path": "desktop-tauri/ui/css/page-accounts.css",
+      "fork_status": "M",
+      "resolution": "upstream-already-covers-change",
+      "target": "desktop-tauri/ui/css/page-accounts.css",
+      "baseline_blob": "5a5b64a80d325c1036ac77304bfb9c361449d7ce",
+      "upstream_blob": "5c647d91d3a9ecc38a145a769142cfcb6f638bba",
+      "fork_blob": "6d85d558bdf22e559d2182a359f4be24e9d0b50a",
+      "applied_sha256": "75706a0d86da2fc6e27c1ff229eee25f89ca2232dbea66dcffcaec791cab3faa"
+    },
+    {
+      "path": "desktop-tauri/ui/css/page-gateway.css",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/ui/css/page-gateway.css",
+      "baseline_blob": "53cbf2b42dbb453613b358b17515248a6f2d41c6",
+      "upstream_blob": "9756e593fdf67ab7a5797c87a034dae75063ea4f",
+      "fork_blob": "54633812cc1bc9b9e445bf52e5f5b424969aad4f",
+      "applied_sha256": "ec454b88e1af7dfec814301419579e883a425302992f23584a94a83953ef4b72"
+    },
+    {
+      "path": "desktop-tauri/ui/css/page-report.css",
+      "fork_status": "M",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui/css/page-report.css",
+      "baseline_blob": "501486a092fdf2b7d9b0d24f0f4b1867da5da68a",
+      "upstream_blob": "501486a092fdf2b7d9b0d24f0f4b1867da5da68a",
+      "fork_blob": "ffe34658ae815f8c322acf85bc9ef75db1f3c4dc",
+      "applied_sha256": "de8af0bca5f45d1b3935558b95c6183b3179a8248d3bab43d7095130ef04835b"
+    },
+    {
+      "path": "desktop-tauri/ui/css/page-requests.css",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/ui/css/page-requests.css",
+      "baseline_blob": "a178a9847ce4ae15b91a95a1176d7f8df8d83af5",
+      "upstream_blob": "7bcdd62e0e6fa9b276452ef132685794ba7429a4",
+      "fork_blob": "a6a844c90a320d9ac79330c0d14bc44afcea58fb",
+      "applied_sha256": "efc507064f57cd590caee9248c237a1c40f46c91ec3b17ec9b3cfaa35d1e3263"
+    },
+    {
+      "path": "desktop-tauri/ui/css/page-settings.css",
+      "fork_status": "M",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui/css/page-settings.css",
+      "baseline_blob": "18aaea15921c7c117967433e2ef99fdc86cddaae",
+      "upstream_blob": "18aaea15921c7c117967433e2ef99fdc86cddaae",
+      "fork_blob": "495688681b8b976ce634818206d5d1a0493eac2a",
+      "applied_sha256": "83ee3a90887d10791cebf28e4df509b2c4c1e32da026571208c0aa0a59c0b71f"
+    },
+    {
+      "path": "desktop-tauri/ui/css/prefs.css",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui/css/prefs.css",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "b6f5693df3060aefd4a71d7c093cf673bf6860b0",
+      "applied_sha256": "72c1461ffc30b7bf3311a773c236e59e6216a7afd2d8fb150a7a8ed7a90c47ca"
+    },
+    {
+      "path": "desktop-tauri/ui/css/shell.css",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui/css/shell.css",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "e85856ba7fefab4ad0d18869a816754a1d1ee158",
+      "applied_sha256": "4b1c78db56a8647951b39d1b87db507f18dba89318b836a58ba2ddf2fa397279"
+    },
+    {
+      "path": "desktop-tauri/ui/css/tags-view.css",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui/css/tags-view.css",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "27c2d9b932102cdb93807e1afa4df2ccec3fa68d",
+      "applied_sha256": "721a6e3e9c57ff7cf5551d6b797338a3afb7379d2c7f8d12a0bb3324558c173e"
+    },
+    {
+      "path": "desktop-tauri/ui/css/tokens.css",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/ui/css/tokens.css",
+      "baseline_blob": "54c64f6ed5f41d35239853170baeada715490501",
+      "upstream_blob": "d8ff21d8af98fff058033a345b46b5b379672e62",
+      "fork_blob": "8a3bae75f99c9b5d9d93d8a6505b1afcff7113e3",
+      "applied_sha256": "3891c95c46c1e774b2e7a33119d1ef815db091e3553d33d1871a5aaa404bd5ab"
+    },
+    {
+      "path": "desktop-tauri/ui/icons.js",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/ui/icons.js",
+      "baseline_blob": "e6a195c07fb33281b0830149f319fd291c0fa2a6",
+      "upstream_blob": "0b1c76d7e1c88e8c3df210334bcaf74dc121b7f3",
+      "fork_blob": "1c3f038c5b8a389619349f1b3919d25d666e3313",
+      "applied_sha256": "1161020a35ec3097d37980d605f1a0feed0aaafef69d403b9db016940aa71f7e"
+    },
+    {
+      "path": "desktop-tauri/ui/index.html",
+      "fork_status": "M",
+      "resolution": "merged-resolved",
+      "target": "desktop-tauri/ui/index.html",
+      "baseline_blob": "a1e1e1989c6d1e68244051183ebfd6f15ac76108",
+      "upstream_blob": "fa29a9f9a41fd15efe4a5ad05921d0a6730f05ad",
+      "fork_blob": "b30e558781492bbd303f4c105efaa2678a0f9ebc",
+      "applied_sha256": "21be3c669ec4d8ae916e1b48a35626d9f83e5da18b02421a8d3709afc1dfc41b"
+    },
+    {
+      "path": "desktop-tauri/ui/islands/ui.css",
+      "fork_status": "M",
+      "resolution": "rebuilt-from-merged-source",
+      "target": "desktop-tauri/ui/islands/ui.css",
+      "baseline_blob": "7d2dcf776b6859cb90669079e010e53687d3b745",
+      "upstream_blob": "db863f070a75a7cfadc6718d4e67fc7daed58e25",
+      "fork_blob": "e90819325828e5d965d99f1d05ef15331a75ec15",
+      "applied_sha256": "9b8178a1c8df4303abfdf8d89e843ccf59fdedbc67e20c34526115f6ca70a8ff"
+    },
+    {
+      "path": "desktop-tauri/ui/islands/ui.js",
+      "fork_status": "M",
+      "resolution": "rebuilt-from-merged-source",
+      "target": "desktop-tauri/ui/islands/ui.js",
+      "baseline_blob": "14ca7b0ea2b8997a9a97b2e19b90230ebac71d53",
+      "upstream_blob": "e574545e863e34a0fbec1f4aee97d37d3059b915",
+      "fork_blob": "9b9e0da81b4c29dba8738f0a81b61a8b0ef76244",
+      "applied_sha256": "de44e39eb04f8446e90e46aae12dea1a2c2132a1eb3ea15a4cf99c7b1670e97d"
+    },
+    {
+      "path": "desktop-tauri/ui/js/login-extras.js",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui/js/login-extras.js",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "1568c736273886426c0e61c5bfc6da1f7e79f845",
+      "applied_sha256": "79e4c1f94136046404c1e5c066e74de7fdfb1fa6330e3bdce8a724fff0b6f993"
+    },
+    {
+      "path": "desktop-tauri/ui/js/notify-center.js",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui/js/notify-center.js",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "d82498954bb371bd342f8c43a66fe4e3be7926c5",
+      "applied_sha256": "dd923774c292b1cedc94d0f37766d67ca75c8bf05825d6a769d935a75ab0ded0"
+    },
+    {
+      "path": "desktop-tauri/ui/js/prefs.js",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui/js/prefs.js",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "f58bd2561757c199d080ed6d5d2572ac9bc309d4",
+      "applied_sha256": "d6fa1ecc65d84b9f9c90c34d722f03aaa7431bd9e701cfe10f48ae016572857d"
+    },
+    {
+      "path": "desktop-tauri/ui/js/shell.js",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui/js/shell.js",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "a65b6353f7f5ab5695dddc1c9f101463e64a87e6",
+      "applied_sha256": "f8234f0d705b859ae58174697724ef8c1244b5b2352e908864980b408f0a73f3"
+    },
+    {
+      "path": "desktop-tauri/ui/js/tags-view.js",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui/js/tags-view.js",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "54b2992d1770acca07097911b0314a5eed779e43",
+      "applied_sha256": "218af7a01cd1d2fc72bea9dc480bfbcc08c461735956d45c03c737390f679297"
+    },
+    {
+      "path": "desktop-tauri/ui/js/user-menu.js",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "desktop-tauri/ui/js/user-menu.js",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "434527498894a83d38a58114cdbafd93841f5cad",
+      "applied_sha256": "97067d08cafd7a91a554edec7c7b02ac4dcc4e8f0e1d0c14ecacc671e915881b"
+    },
+    {
+      "path": "desktop-tauri/ui/login.html",
+      "fork_status": "M",
+      "resolution": "merged-three-way",
+      "target": "desktop-tauri/ui/login.html",
+      "baseline_blob": "8c61ba3cd73ec0efe17a9db08368af6065e2b0de",
+      "upstream_blob": "6f2dd18ca73cf9aac4195225a395072ca4b39cd2",
+      "fork_blob": "961709be6a0ec1b0b02f9e6686c7d73a85e30276",
+      "applied_sha256": "2eb729d078130a3cdfd280ab8b3efcb7d4602e4e5593ca1b687519b249677c25"
+    },
+    {
+      "path": "docs/OPEN-SOURCE-REFERENCES.md",
+      "fork_status": "A",
+      "resolution": "applied",
+      "target": "docs/OPEN-SOURCE-REFERENCES.md",
+      "baseline_blob": null,
+      "upstream_blob": null,
+      "fork_blob": "9c4ca093130362fca953bbf2fd0943ffd7db7b05",
+      "applied_sha256": "2d9970c5e3d75311c2da0c20eade453c5e2bbf5a5b53bb3f05a415431afc3b63"
+    },
+    {
+      "path": "package.json",
+      "fork_status": "M",
+      "resolution": "preserve-upstream-identity-and-newer-version",
+      "target": "package.json",
+      "baseline_blob": "80e3909c7bc66b77ffe205cea285149cb21a7a60",
+      "upstream_blob": "1507d44f47a3c031612bcaefebeacd16a56a3649",
+      "fork_blob": "31625ac4f1365cdcd92c577539fbc824ad943fa3",
+      "applied_sha256": "21b1c98a712ef937625684d6ef9d70c17eb15ff69a4076b40c5274a0dae6d5a3"
+    }
+  ],
+  "method": "Synthetic three-way baseline inferred from matching file blobs; not a Git merge-base. Identity-only edits and old binary artwork are recorded, not blindly applied.",
+  "resolution_counts": {
+    "adapted-version-tags-and-lowercase-owner": 1,
+    "archived-source-documentation": 2,
+    "identity-only": 21,
+    "preserve-upstream-identity-and-newer-version": 9,
+    "applied": 64,
+    "imported-binary": 13,
+    "preserve-upstream-artwork": 60,
+    "preserve-compatible-binary-name": 1,
+    "merged-resolved": 29,
+    "merged-three-way": 20,
+    "adapted-new-module-layout": 1,
+    "adapted-native-branding-bridge": 1,
+    "upstream-already-covers-change": 2,
+    "rebuilt-from-merged-source": 2
+  },
+  "release_branch": "codex/aibuddy-release",
+  "release_parent": "31ec0379c827963330b4d8b58b729804fdae715c",
+  "release_adjustments": "See RELEASE.zh-CN.md for subsequent environment-only Antigravity credentials, tests and clean lineage. The 226 rows cover the original fork delta; hashes refer to the final release files."
+}

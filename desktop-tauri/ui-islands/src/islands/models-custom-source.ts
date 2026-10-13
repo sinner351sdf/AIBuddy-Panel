@@ -29,6 +29,7 @@
  */
 
 import { CAPABILITY_KEYS, normalizeCapabilities } from './model-capability'
+import { t } from '../i18n'
 
 /* ─── 对外数据类型（表格同形数据，models-page.tsx 也读这几个类型）────── */
 
@@ -54,6 +55,15 @@ export type ManageModel = {
   capabilities?: unknown
   /** 被用户覆盖过的能力键（只有内置家给；自定义家的一切都是用户填的，恒空） */
   capOverrides?: unknown
+  /**
+   * 模型**自己能配哪些思考档位**（可选键：只有给过依据的家才有 —— 目前是
+   * ZCode 的 GLM-5.3 家族，数据来自该家官方目录）。**只读**，不参与保存：
+   * 用户能改的是「某条映射用哪一档」（`ManageMapping.reasoning`），
+   * 改不了上游认哪几个档位。
+   */
+  reasoningLevels?: unknown
+  /** 默认思考档位（与 `reasoningLevels` 同源；缺失 = 未声明） */
+  reasoningDefaultLevel?: unknown
 }
 
 /** 一条映射（含表格现造的默认绑定：alias == target） */
@@ -265,9 +275,9 @@ export function buildView(id: string): { models: ManageModel[]; mappings: Manage
  */
 async function submit<T>(id: string, mutate: (draft: ReturnType<typeof draftOf>) => T): Promise<T> {
   const providers = shared().wbProviders
-  if (!providers?.customRequest) throw new Error('目录模块未就绪')
+  if (!providers?.customRequest) throw new Error(t('目录模块未就绪'))
   const provider = record(id)
-  if (!provider) throw new Error('该自定义提供商已不存在（可能已被删除），请刷新后重试')
+  if (!provider) throw new Error(t('该自定义提供商已不存在（可能已被删除），请刷新后重试'))
   const draft = draftOf(provider)
   const result = mutate(draft)
   await providers.customRequest('POST', '/api/custom-providers/models', {
@@ -294,7 +304,7 @@ export async function setBinding(id: string, alias: string, target: string, patc
   await submit(id, draft => {
     if (same(alias, target)) {
       const model = draft.models.find(item => same(item.id, target))
-      if (!model) throw new Error(`该提供商的清单里没有模型「${target}」`)
+      if (!model) throw new Error(t('该提供商的清单里没有模型「{name}」', { name: target }))
       if (enabled !== undefined) model.enabled = Boolean(enabled)
       if (reasoning !== undefined) model.reasoning = String(reasoning ?? '')
       return null
@@ -305,7 +315,7 @@ export async function setBinding(id: string, alias: string, target: string, patc
       if (reasoning !== undefined) existing.reasoning = String(reasoning ?? '')
       return null
     }
-    if (enabled === false) throw new Error(`映射「${alias} → ${target}」不存在`)
+    if (enabled === false) throw new Error(t('映射「{alias} → {target}」不存在', { alias, target }))
     draft.mappings.push({
       alias,
       target,
@@ -322,7 +332,7 @@ export async function removeMapping(id: string, alias: string, target: string): 
   await submit(id, draft => {
     const before = draft.mappings.length
     draft.mappings = draft.mappings.filter(item => !(same(item.alias, alias) && same(item.target, target)))
-    if (draft.mappings.length === before) throw new Error(`映射「${alias} → ${target}」不存在`)
+    if (draft.mappings.length === before) throw new Error(t('映射「{alias} → {target}」不存在', { alias, target }))
     return null
   })
 }
@@ -330,10 +340,10 @@ export async function removeMapping(id: string, alias: string, target: string): 
 /** 登记一个模型（手动添加走它，判重口径与内置家一致） */
 export async function addModel(id: string, modelId: string): Promise<void> {
   const value = String(modelId ?? '').trim()
-  if (!value) throw new Error('请填写模型 ID')
+  if (!value) throw new Error(t('请填写模型 ID'))
   await submit(id, draft => {
     if (draft.models.some(model => same(model.id, value))) {
-      throw new Error(`模型「${value}」已存在（忽略大小写判重）`)
+      throw new Error(t('模型「{name}」已存在（忽略大小写判重）', { name: value }))
     }
     draft.models.push({ id: value, enabled: true, reasoning: '' })
     return null
@@ -349,7 +359,7 @@ export async function addModels(id: string, modelIds: readonly unknown[]): Promi
   const values = (Array.isArray(modelIds) ? modelIds : [])
     .map(value => String(value ?? '').trim())
     .filter(Boolean)
-  if (!values.length) throw new Error('没有选中任何模型')
+  if (!values.length) throw new Error(t('没有选中任何模型'))
   return submit(id, draft => {
     let added = 0
     for (const value of values) {
@@ -377,7 +387,7 @@ export async function setCapabilities(
 ): Promise<void> {
   await submit(id, draft => {
     const model = draft.models.find(item => same(item.id, modelId))
-    if (!model) throw new Error(`该提供商的清单里没有模型「${modelId}」`)
+    if (!model) throw new Error(t('该提供商的清单里没有模型「{name}」', { name: modelId }))
     const next: Record<string, number | boolean> = { ...(model.capabilities || {}) }
     for (const [key, value] of Object.entries(patch)) {
       if (value === null || value === undefined) delete next[key]
@@ -405,7 +415,7 @@ export async function removeModel(id: string, modelId: string): Promise<{ remove
  */
 export async function fetchModels(id: string): Promise<{ total: number; added: number }> {
   const providers = shared().wbProviders
-  if (!providers?.customRequest) throw new Error('目录模块未就绪')
+  if (!providers?.customRequest) throw new Error(t('目录模块未就绪'))
   const data = await providers.customRequest('POST', '/api/custom-providers/fetch-models', { providerId: id })
   const ids = (Array.isArray(data?.models) ? data.models : [])
     .map(value => String(value ?? '').trim())

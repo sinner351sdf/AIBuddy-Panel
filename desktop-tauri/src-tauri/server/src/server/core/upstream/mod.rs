@@ -17,7 +17,8 @@
 //!   request.rs      传输层：请求发送、上游错误解析、追踪 id（**不认识 provider**）
 //!   sse.rs          SSE reasoning 帧合并（跨 chunk 半行缓冲）+ usage 旁路提取
 //!   aggregate.rs    非流式聚合（SSE → 完整 chat.completion）+ usage 旁路提取
-//!   translate.rs    上游响应协议翻译（Anthropic SSE → chat SSE；ZCode 活动套餐）
+//!   translate.rs    上游响应协议翻译（Anthropic / NDJSON / Gemini 三条翻译流）
+//!                    ——ZCode 活动套餐、Command Code、Antigravity 三家各一台
 //!   usage.rs        usage 旁路槽：token 用量 / 承载 provider+账号 / 尝试次数
 //!
 //! ── provider 差异去哪了（Agent2API 改造 W2b-T3）───────────────
@@ -26,7 +27,7 @@
 //! 本目录只通过 `ProviderAdapter` 契约（`providers::adapter`）使用它们。
 //! 这里出现的 `ProviderKind` 只作**身份标识**使用（候选链的元素、
 //! 日志里的 provider id、记账槽里的 provider 字段），没有任何
-//! 「如果 provider 是 X 就怎么做」的分支 —— 四家 provider 在 `adapter_for`
+//! 「如果 provider 是 X 就怎么做」的分支 —— 各家 provider 在 `adapter_for`
 //! 里都已接上真身适配器（那个 match 是穷举的，加新 kind 会在编译期被拦住），
 //! 编排层不需要为任何一家写特判。
 //!
@@ -75,6 +76,9 @@ use crate::server::logging;
 
 use self::connections::{ConnectionGuard, Connections};
 use self::sse::{ModelRewrite, ReasoningCoalescer};
+
+#[cfg(test)]
+mod capture_tests;
 
 /// 去重等待上限（对照 Node 的 INFLIGHT_WAIT_MS）
 const INFLIGHT_WAIT_MS: u64 = 45_000;
@@ -200,6 +204,34 @@ pub struct ForwardRequest {
     /// 本文件在 `server::core::upstream` 下，`super::key_scope` 指的是
     /// `server::core::upstream::key_scope`（不存在）—— 这里跨了一层模块。
     pub allowed_providers: Option<crate::server::core::key_scope::KeyScope>,
+    /// **只准用这个账号**转发（`None` = 走正常的全局优先级队列）。
+    ///
+    /// 目前唯一的调用方是模型测试（`api::model_test`）：它问的是「这一行的这个
+    /// 模型、用这个账号，现在到底行不行」，所以必须把选路收窄到一个账号上，
+    /// 并且**不顺延**（`pick_next_account` 在同池里找不到第二个候选）。
+    /// 生产链路一律传 `None` —— 这条字段不是「指定账号」的通用入口，
+    /// 它没有「账号被禁用 / 已被删除时换一个」的兜底语义（见
+    /// `rotate::accounts_in_providers` 的说明）。
+    pub pinned_account: Option<String>,
+    /// **跳过按模型路由的启停门禁**，候选提供商直接取 [`Self::allowed_providers`]
+    /// 白名单（目前也是模型测试的专用开关，与 `pinned_account` 同一调用方）。
+    ///
+    /// ── 为什么要有它 ─────────────────────────────────────────
+    /// 模型管理页那颗「测试」的用法是「先测通、再决定要不要启用」：被测的行
+    /// 往往就是关着的。生产链路上「承载家全被关闭」的模型以 404
+    /// 「模型已在网关中关闭」拒之门外（`route_for_forward` 不回落默认家），
+    /// 那道门对测试是把被测对象挡在门外 —— 测试已经把家与账号都钉死了，
+    /// 它问的正是「这一家、这个账号、这个名字现在通不通」，路由门禁在语义上
+    /// 不参与这个问题。
+    ///
+    /// 发送侧的按家改写**照常生效**：关闭的默认绑定解析不出目标（
+    /// `builtin_target` 要求启用），回落成「名字原样直发」—— 这正是测试要的
+    /// 形态（目录里的原始 ID 发给被钉住的那家），思考等级也因此不注入，
+    /// 与「映射关闭 = 这条别名不存在」的生产语义一致。
+    ///
+    /// 生产链路一律传 `false`；白名单为空（未限制）时本标记给不出候选链，
+    /// 会走「没有可用的提供商」—— 唯一调用方恒带 `provider_only`，不会触发。
+    pub ignore_model_gate: bool,
 }
 
 /// 转发结果：要么是可直接下发的流，要么是聚合好的 JSON
@@ -324,6 +356,9 @@ impl UpstreamService {
         // 会因为「同时持有 request 的可变借用（上面改过 body）」而借不过 ——
         // 移出后所有权清晰，也不必再多一次克隆。
         let key_scope = request.allowed_providers;
+        // 钉住的账号与它同样处理：ownership 移出来、借给 context，
+        // 于是 `request` 在下面不再被借用（理由同上一条）
+        let pinned_account = request.pinned_account;
         let context = payload::ProviderContext {
             body: &upstream_body,
             stream: request.stream,
@@ -332,6 +367,9 @@ impl UpstreamService {
             sanitize_fingerprints,
             prompt,
             key_scope: key_scope.as_ref(),
+            pinned_account: pinned_account.as_deref(),
+            // bool 是 Copy，直接读：不存在上面那两条的借用问题
+            ignore_model_gate: request.ignore_model_gate,
         };
         provider_loop::forward_with_providers(self, context, &mut slot, &mut connections).await
     }
@@ -495,7 +533,10 @@ impl ForwardStream {
                 crate::server::config::timeout_settings().stream_idle_ms(),
             ),
         );
-        Self::from_translated(guarded, slot, connection, telemetry, model_rewrite)
+        let capture = telemetry.capture();
+        let mut stream = Self::from_translated(guarded, slot, connection, telemetry, model_rewrite);
+        stream.capture = capture;
+        stream
     }
 
     /// 翻译协议的构造入口：`inner` 已经是**标准 chat SSE** 帧流。
@@ -525,8 +566,6 @@ impl ForwardStream {
         // 于是本流的 `poll_next` 拿不到 `Ready(None)` —— 客户端收全帧后
         // 连接不关闭、一直等在那里（详见 `cancellable` 的说明）。
         let inner = cancellation::cancellable(inner, telemetry.cancel_token());
-        // 采集器在构造时取一次（见字段说明）
-        let capture = telemetry.capture();
         Self {
             inner,
             coalescer: ReasoningCoalescer::with_telemetry(telemetry.clone())
@@ -536,7 +575,8 @@ impl ForwardStream {
             _slot: slot,
             _connection: connection,
             telemetry,
-            capture,
+            // 原始字节已由翻译流采集，不能把生成的 chat 帧再次混入报文。
+            capture: None,
         }
     }
 }

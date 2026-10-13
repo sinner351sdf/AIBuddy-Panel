@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────────
-   AIBuddy Panel · 偏好设置系统（照 vue-next-admin 偏好抽屉复刻）
+   Agent2API · 偏好设置系统（照 vue-next-admin 偏好抽屉复刻）
    右侧抽屉 · 四个页签：
      外观  主题三卡（真 SVG 图标）/ 深色侧栏 / 深色顶栏 / 顶栏渐变 /
            灰色模式 / 色弱模式 / 12 色主题板（圆点 + 名称）/ 自定义主题色
@@ -19,6 +19,15 @@
 
 (function () {
   'use strict';
+
+  // Return a fetch-like envelope while letting both runtimes handle credentials.
+  function gatewayFetch(path, options) {
+    var internals = window.__TAURI_INTERNALS__;
+    if (!internals || typeof internals.invoke !== 'function') return fetch(path, options);
+    return internals.invoke('api_request', { request: { method: 'GET', path: path } })
+      .then(function(data) { return {ok:true, json:function(){return Promise.resolve({success:true,data:data});}}; });
+  }
+
 
   /* ── 偏好存取 ─────────────────────────────── */
   var KEY = 'aibuddy-prefs';
@@ -219,7 +228,7 @@
     if (!prefs.isFooter) { if (old && old.parentNode) old.parentNode.removeChild(old); return; }
     var host = document.querySelector('.content-inner');
     if (!host) return;
-    var brand = 'AIBuddy Panel';
+    var brand = 'Agent2API';
     var h1 = document.querySelector('.brand-text h1');
     if (h1 && h1.textContent.trim()) brand = h1.textContent.trim();
     var copy = '© ' + new Date().getFullYear() + ' ' + brand + ' · 基于 agent2api';
@@ -253,7 +262,7 @@
       if (m) current = m[1];
     }
     var ask = function () {
-      fetch('/api/update/check' + (current ? '?current=' + encodeURIComponent(current) : ''),
+      gatewayFetch('/api/update/check' + (current ? '?current=' + encodeURIComponent(current) : ''),
         { headers: { 'Accept': 'application/json' } })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (env) {
@@ -273,7 +282,7 @@
     };
     if (current) { ask(); return; }
     // 品牌区没有版本号（未登录或后端没返回）：退而求其次问 /api/update/status
-    fetch('/api/update/status', { headers: { 'Accept': 'application/json' } })
+    gatewayFetch('/api/update/status', { headers: { 'Accept': 'application/json' } })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (env) {
         var v = env && env.data && env.data.currentVersion;
@@ -412,7 +421,7 @@
   function applyWatermark() {
     var old = document.getElementById('pref-watermark');
     if (!prefs.watermark) { if (old && old.parentNode) old.parentNode.removeChild(old); return; }
-    var brand = 'AIBuddy Panel';
+    var brand = 'Agent2API';
     var h1 = document.querySelector('.brand-text h1');
     if (h1 && h1.textContent.trim()) brand = h1.textContent.trim();
     var d = new Date();
@@ -849,7 +858,7 @@
         body.appendChild(section('浏览体验'));
         body.appendChild(row('动态标题', toggle(function () { return prefs.dynamicTitle; },
           function (v) { prefs.dynamicTitle = v; save(prefs); apply(); }),
-          '把当前页面名写进标签页标题（如「报表 · AIBuddy Panel」）'));
+          '把当前页面名写进标签页标题（如「报表 · Agent2API」）'));
         body.appendChild(row('页面切换进度条', toggle(function () { return prefs.progressbar; },
           function (v) { prefs.progressbar = v; save(prefs); apply(); }), '切换页面时顶部显示细进度条'));
         body.appendChild(section('界面显示'));
@@ -858,7 +867,7 @@
           '顶栏显示当前页面位置（如「首页 / 报表」）；手机窄屏下始终隐藏'));
         body.appendChild(row('页脚版权', toggle(function () { return prefs.isFooter; },
           function (v) { prefs.isFooter = v; save(prefs); apply(); }),
-          '在内容区底部显示固定版权行「© 2026 AIBuddy Panel · 基于 agent2api」，右侧附带「检查更新」小按钮'));
+          '在内容区底部显示固定版权行「© 2026 Agent2API · 基于 agent2api」，右侧附带「检查更新」小按钮'));
         body.appendChild(row('页签栏', toggle(function () { return prefs.isTagsview; },
           function (v) { prefs.isTagsview = v; save(prefs); apply(); }),
           '内容区顶部显示已打开页面的页签条，可单独关闭页签（vue-next-admin isTagsview）'));
@@ -1035,7 +1044,7 @@
     var retry = function () {
       if (!retried && banner.parentNode) setTimeout(function () { fetchPool(banner, true); }, 8000);
     };
-    fetch('/api/storage', { headers: { 'Accept': 'application/json' } })
+    gatewayFetch('/api/storage', { headers: { 'Accept': 'application/json' } })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (env) {
         var d = env && env.data && env.data.database;
@@ -1076,7 +1085,7 @@
     // 品牌名与页面名给动态标题 / 水印用
     var brandEl = document.querySelector('.brand-text h1');
     window.__aibuddyTitleBase = {
-      brand: (brandEl ? brandEl.textContent.trim() : 'AIBuddy Panel') || 'AIBuddy Panel',
+      brand: (brandEl ? brandEl.textContent.trim() : 'Agent2API') || 'Agent2API',
       currentPage: ''
     };
     // 侧栏品牌区换用新 Logo（assets/brand 的图标）
@@ -1095,7 +1104,7 @@
       var ver = document.createElement('div');
       ver.className = 'brand-version';
       brandText.appendChild(ver);
-      fetch('/api/update/status').then(function (r) { return r.ok ? r.json() : null; }).then(function (env) {
+      gatewayFetch('/api/update/status').then(function (r) { return r.ok ? r.json() : null; }).then(function (env) {
         var v = env && env.data && env.data.currentVersion;
         if (v && v !== 'web' && ver.parentNode) ver.textContent = 'v' + v;
         else if (ver.parentNode) ver.remove();
