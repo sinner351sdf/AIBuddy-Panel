@@ -173,24 +173,9 @@ pub fn run_backup() -> Result<PathBuf, String> {
     if path.exists() {
         return Err("同名备份文件已存在，请稍后重试".to_string());
     }
-    // VACUUM 是纯词法语句，不支持绑定参数 —— 路径以字面量拼进 SQL。
-    // 路径来自本进程的 config_dir + 时间戳，把单引号翻倍防拼坏（Windows
-    // 用户名 / 自定义 HOME 里都可能出现引号类字符）。
-    let escaped = path.to_string_lossy().replace('\'', "''");
-    let executed = db.with(|conn| {
-        conn.execute_batch(&format!("VACUUM INTO '{escaped}';"))
-            .map_err(|error| format!("备份数据库失败: {error}"))
-    });
-    match executed {
-        Some(Ok(())) => {}
-        Some(Err(message)) => {
-            let _ = std::fs::remove_file(&path);
-            return Err(message);
-        }
-        None => {
-            let _ = std::fs::remove_file(&path);
-            return Err("数据库不可用，备份未执行".to_string());
-        }
+    if let Err(error) = crate::server::db::backup::snapshot_to_file(db, &path) {
+        let _ = std::fs::remove_file(&path);
+        return Err(error);
     }
     prune_old_backups();
     Ok(path)

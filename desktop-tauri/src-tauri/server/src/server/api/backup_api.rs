@@ -26,9 +26,7 @@
 //! —— 是「恢复到快照那一刻」，不是合并。请求体必须带 `"confirm": true`
 //! 才执行（缺省一律 400），这是需求明确的覆盖确认护栏。导入完成后：
 //!   - `config::reload()` 重读配置快照（内存里的生效配置立刻与库对齐）；
-//!   - `access::load_refresh_tokens()` 重载会话链表（panelTokens 被替换了
-//!     —— **调用方的刷新令牌可能已不在其中**，access 过期后要用快照里的
-//!     管理员账号重新登录；响应里的 `warning` 字段会说明这一点）；
+//!   - 撤销全部 access/refresh 会话，使用恢复后的管理员凭据重新登录。
 //!   - `maintenance_api::refresh_from_config()` 对齐维护开关的内存标志。
 //!
 //! ── 导入为什么直写 SQL 而不走 AccountStore ──────────────────
@@ -185,6 +183,9 @@ pub async fn post_import(State(state): State<ServerState>, body: Bytes) -> Respo
     let Some(db) = state.db() else {
         return errors::management_error(503, "数据库不可用，导入未执行");
     };
+    if let Err(error) = backup::run_backup() {
+        return errors::management_error(500, format!("恢复前备份失败，未修改数据: {error}"));
+    }
     let outcome = db.with_mut(|conn| -> Result<(usize, usize), String> {
         // IMMEDIATE：与 task_state 同一理由 —— 双实例共用库时先拿写锁，
         // 避免「清空 → 重插」中途被另一个进程的写入插进半套状态
@@ -210,6 +211,8 @@ pub async fn post_import(State(state): State<ServerState>, body: Bytes) -> Respo
             )
             .map_err(|error| format!("写入账号行失败: {error}"))?;
         }
+        tx.execute("DELETE FROM kv WHERE key = 'panelTokens'", params![])
+            .map_err(|error| format!("清除备份会话失败: {error}"))?;
         tx.commit().map_err(|error| format!("提交导入事务失败: {error}"))?;
         Ok((kv_rows.len(), account_rows.len()))
     });
@@ -282,6 +285,7 @@ fn parse_kv_rows(snapshot: &Value) -> Result<Vec<(String, String)>, String> {
             .and_then(Value::as_str)
             .ok_or_else(|| format!("kv[{index}] 缺少 value 字段（应为落库的 JSON 原文）"))?
             .to_string();
+        serde_json::from_str::<Value>(&value).map_err(|_| format!("kv[{index}] 不是有效 JSON，恢复未执行"))?;
         rows.push((key, value));
     }
     Ok(rows)

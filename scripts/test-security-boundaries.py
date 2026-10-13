@@ -96,6 +96,21 @@ with tempfile.TemporaryDirectory(prefix='agent2api-review-') as tmp:
                 assert status==200,entry.get('error')
                 assert req('/api/backup/export',key=child)[0]==403
             print('PASS: model/provider whitelist keys cannot export administrative data')
+            # New beta management APIs remain protected and custom JSON backups stay compatible.
+            for path in ('/api/routing','/api/routing/queue','/api/checkin-schedules','/api/checkin-records','/api/zcode/captcha-pool'):
+                assert req(path)[0]==401,path
+                assert req(path,key=key)[0]==403,path
+                assert req(path,token=token)[0]==200,path
+            for path in ('/api/backup/sql/export','/api/backup/sql/import'):
+                assert req(path,'POST',{'filePath':'/tmp/must-not-be-written.sql'},token=token)[0]==403
+            assert req('/api/checkin-keepalive','POST',{'models':['fixture-first','fixture-second']},token=token)[0]==200
+            assert req('/api/checkin-keepalive',token=token)[1]['data']['models']==['fixture-first','fixture-second']
+            status,schedules=req('/api/checkin-schedules','POST',{'label':'fixture-schedule','time':'23:59','enabled':False,'providers':['workbuddy']},token=token)
+            assert status==200,schedules.get('error')
+            matches=[x for x in schedules['data']['schedules'] if x.get('label')=='fixture-schedule']
+            assert len(matches)==1
+            assert req('/api/checkin-schedules/'+matches[0]['id'],'DELETE',token=token)[0]==200
+            print('PASS: beta route authorization, native-only SQL paths, keepalive persistence and schedule CRUD')
         finally:
             proc.terminate()
             try:proc.wait(timeout=10)
