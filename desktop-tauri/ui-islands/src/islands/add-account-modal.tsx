@@ -185,7 +185,12 @@ function AddAccountModal({
     }
   }
 
-  const backToPick = (): void => setState(prev => ({ ...prev, step: 'pick' }))
+  const backToPick = (): void => {
+    // 表单层是 keepMounted：只退回列表不会卸载引擎，必须显式取消本家的登录。
+    void shared().wbWebLogin?.cancelIfActive?.(state.provider)
+    if (state.provider === 'autoclaw-intl') shared().wbAutoclawOauth?.cancel?.()
+    setState(prev => ({ ...prev, step: 'pick' }))
+  }
   const importing = state.accountType === TYPE_IMPORT
 
   return (

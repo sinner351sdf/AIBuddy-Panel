@@ -195,15 +195,15 @@ pub fn shim_js() -> &'static str {
     return authorizeUrl.toString();
   }
 
-  async function waitForManualCallback(provider, state, authUrl) {
+  async function waitForManualCallback(provider, state, authUrl, flow) {
     var label = provider === 'raccoon' ? '小浣熊'
       : provider === 'trae' ? 'Trae'
       : provider.indexOf('accio') === 0 ? 'Accio'
       : provider === 'codearts' ? 'CodeArts' : 'AutoClaw';
     var callbackInstruction = '授权完成后，复制授权页浏览器地址栏中的<strong>完整地址</strong>，'
         + '粘贴到下面提交。不要复制授权页原始地址，也不要改动参数。';
-    while (true) {
-      var callbackUrl = await ensureOverlay(
+    while (!flow.finished && !flow.canceled) {
+      var callbackUrl = await Promise.race([ensureOverlay(
         label + '需要粘贴回调地址',
         '<div style="margin-bottom:10px;">' + callbackInstruction + '</div>'
         + '<div style="margin-bottom:10px;">如果授权页没有打开，请先点击：<a href="'
@@ -213,7 +213,8 @@ pub fn shim_js() -> &'static str {
         + 'style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #3a3b3f;'
         + 'border-radius:6px;background:#26272b;color:#e8e8e8;">',
         '提交回调地址'
-      );
+      ), flow.stop]);
+      if (flow.finished || flow.canceled) return { canceled: true };
       callbackUrl = String(callbackUrl || '').trim();
       if (!callbackUrl) continue;
       try {
@@ -221,6 +222,7 @@ pub fn shim_js() -> &'static str {
           state: state,
           callbackUrl: callbackUrl,
         });
+        if (flow.finished || flow.canceled) return { canceled: true };
         if (submitted && submitted.nextUrl) {
           // CodeArts 第一跳只有 secret，需要先打开 portal 的下一跳；下一轮
           // 再粘贴浏览器最终回调地址即可完成换码。
@@ -229,14 +231,15 @@ pub fn shim_js() -> &'static str {
         }
         // Trae 是把 query 注入现有 listener 后异步换证；其它几家也统一
         // 以 /wait 的最终状态为准，避免把“已收到回调”误报成“已登录”。
-        return await pollWait(state);
+        return await pollWait(state, flow);
       } catch (error) {
-        await ensureOverlay(
+        if (flow.finished || flow.canceled) return { canceled: true };
+        await Promise.race([ensureOverlay(
           '回调提交失败',
           '<div style="margin-bottom:4px;">' + escapeHtml(error && error.message ? error.message : error)
           + '</div><div>请确认复制的是授权完成后的完整地址，再重新提交。</div>',
           '重新填写'
-        );
+        ), flow.stop]);
       }
     }
   }
@@ -386,6 +389,7 @@ pub fn shim_js() -> &'static str {
   var loginActive = false;
   var loginProvider = '';
   var loginListeners = new Set();
+  var activeLoginFlow = null;
   function emitLogin() {
     var payload = { active: loginActive, provider: loginProvider };
     loginListeners.forEach(function (cb) { try { cb(payload); } catch (e) { console.warn(e); } });
@@ -393,11 +397,13 @@ pub fn shim_js() -> &'static str {
 
   var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
 
-  async function pollWait(state) {
+  async function pollWait(state, flow) {
     var deadline = Date.now() + 5 * 60 * 1000;
     while (Date.now() < deadline) {
-      await sleep(3000);
+      await Promise.race([sleep(3000), flow.stop]);
+      if (flow.finished || flow.canceled) return { canceled: true };
       var wait = await call('GET', '/api/session/login/wait?state=' + encodeURIComponent(state));
+      if (flow.finished || flow.canceled) return { canceled: true };
       if (wait && wait.done) {
         if (wait.error) throw new Error(wait.error);
         return wait.session == null ? {} : wait.session;
@@ -406,8 +412,29 @@ pub fn shim_js() -> &'static str {
     throw new Error('登录等待超时（5 分钟）');
   }
 
+  function cancelBackendLogin(flow) {
+    if (!flow.state || flow.cancelSent) return;
+    flow.cancelSent = true;
+    // 只取消这一轮的 state。慢 /start 在取消后返回时也走这里，避免遗留任务。
+    call('POST', '/api/session/login/cancel', { state: flow.state })
+      .catch(function () { console.warn('登录任务取消请求未完成'); });
+  }
+
+  function cancelLoginFlow(flow) {
+    if (!flow || flow.finished || flow.canceled) return false;
+    flow.canceled = true;
+    flow.stopWaiting({ canceled: true });
+    cancelBackendLogin(flow);
+    return true;
+  }
+
   /** 发起一次登录流程：先开窗口（用户手势还在时占位成功率高），再拿地址导航。 */
   async function runLoginFlow(provider, startRequest) {
+    if (activeLoginFlow) throw new Error('已有登录流程正在进行，请先取消');
+    var flow = { state: '', popup: null, canceled: false, finished: false, cancelSent: false };
+    flow.stop = new Promise(function (resolve) { flow.stopWaiting = resolve; });
+    flow.closed = new Promise(function (resolve) { flow.finish = resolve; });
+    activeLoginFlow = flow;
     loginActive = true;
     loginProvider = provider;
     emitLogin();
@@ -416,35 +443,60 @@ pub fn shim_js() -> &'static str {
     // 浏览器标签页），也不能用 iframe（各家登录页普遍带 X-Frame-Options 禁嵌）。
     // 名称 'a2a-login' 保证同一次登录的预开窗口与后续导航落在同一个小窗里。
     var POPUP_FEATURES = 'width=520,height=720,menubar=no,toolbar=no,location=yes,status=no';
-    var popup = null;
-    try { popup = window.open('about:blank', 'a2a-login', POPUP_FEATURES); } catch (e) { /* 拦截时走兜底 */ }
+    try { flow.popup = window.open('about:blank', 'a2a-login', POPUP_FEATURES); } catch (e) { /* 拦截时走兜底 */ }
+    // 关授权窗口等同取消等待，立即释放界面 busy，而不是继续等到 5 分钟超时。
+    var closeTimer = setInterval(function () {
+      if (flow.popup && flow.popup.closed) cancelLoginFlow(flow);
+    }, 500);
     try {
-      var started = await startRequest;
+      var request = Promise.resolve(typeof startRequest === 'function' ? startRequest() : startRequest)
+        .then(function (started) {
+          flow.state = started && started.state || '';
+          if (flow.canceled || flow.finished) cancelBackendLogin(flow);
+          return started;
+        });
+      var started = await Promise.race([request, flow.stop]);
+      if (flow.canceled) return { canceled: true };
       var authUrl = started && started.authUrl;
       if (!authUrl) throw new Error('网关未返回授权地址');
       authUrl = buildRaccoonWebAuthUrl(provider, started.state, authUrl);
-      if (popup && !popup.closed) {
-        popup.location.href = authUrl;
+      if (flow.popup && !flow.popup.closed) {
+        flow.popup.location.href = authUrl;
       } else {
         var second = null;
         try { second = window.open(authUrl, 'a2a-login', POPUP_FEATURES); } catch (e) { /* 落到链接兜底 */ }
-        if (!second) showLinkFallback(authUrl);
+        if (second) flow.popup = second;
+        else showLinkFallback(authUrl);
       }
+      var result;
       if (needsManualCallback(provider)) {
         // 同时保留自动轮询：同机部署仍会自动完成，远程 Docker 则由用户
         // 粘贴地址；先完成的一方结束流程，finally 会关闭残留覆盖层。
-        return await Promise.race([
-          pollWait(started.state),
-          waitForManualCallback(provider, started.state, authUrl),
+        result = await Promise.race([
+          pollWait(started.state, flow),
+          waitForManualCallback(provider, started.state, authUrl, flow),
+          flow.stop,
         ]);
+      } else {
+        result = await Promise.race([pollWait(started.state, flow), flow.stop]);
       }
-      return await pollWait(started.state);
+      flow.completed = !flow.canceled && !(result && result.canceled);
+      return result;
     } finally {
-      if (popup && !popup.closed) { try { popup.close(); } catch (e) { /* 无害 */ } }
-      closeWebOverlay();
-      loginActive = false;
-      loginProvider = '';
-      emitLogin();
+      flow.finished = true;
+      flow.stopWaiting({ canceled: true });
+      clearInterval(closeTimer);
+      if (!flow.completed) cancelBackendLogin(flow);
+      if (flow.popup && !flow.popup.closed) { try { flow.popup.close(); } catch (e) { /* 无害 */ } }
+      // 网络响应晚到时只处理它自己的 flow，不能关掉后续一轮的窗口或覆盖层。
+      if (activeLoginFlow === flow) {
+        closeWebOverlay();
+        activeLoginFlow = null;
+        loginActive = false;
+        loginProvider = '';
+        emitLogin();
+      }
+      flow.finish();
     }
   }
 
@@ -606,10 +658,10 @@ pub fn shim_js() -> &'static str {
     getState: function () { return call('GET', '/api/session'); },
     startLogin: function (edition, mode, provider) {
       var target = provider || 'workbuddy';
-      return runLoginFlow(target, call('POST', '/api/session/login/start', {
+      return runLoginFlow(target, function () { return call('POST', '/api/session/login/start', {
         edition: edition || 'cn',
         provider: target,
-      }));
+      }); });
     },
     submitLoginCallback: function (state, callbackUrl) {
       return call('POST', '/api/session/login/callback', {
@@ -621,20 +673,19 @@ pub fn shim_js() -> &'static str {
       return Promise.resolve({ active: loginActive, provider: loginProvider });
     },
     cancelLogin: async function () {
-      // 桌面壳只记一个活动登录；网页端由本状态机驱动，直接清状态。
-      // 上游任务本身会因无人轮询而在超时后落定，不需要额外请求。
-      var wasActive = loginActive;
-      loginActive = false;
-      loginProvider = '';
-      emitLogin();
-      return wasActive;
+      var flow = activeLoginFlow;
+      var canceled = cancelLoginFlow(flow);
+      if (flow) await flow.closed;
+      return canceled;
     },
     startAutoclawOauthLogin: function (state, authUrl, mode) {
       if (!state || !authUrl) return Promise.reject(new Error('缺少授权参数（state / authUrl）'));
       // AutoClaw OAuth 控制器与桌面 bridge 共用 `{ok, session}` 契约。
       // 网页端轮询拿到的是原始 session，直接返回会被前端误判为取消。
       return runLoginFlow('autoclaw-intl', Promise.resolve({ state: state, authUrl: authUrl }))
-        .then(function (session) { return { ok: true, session: session }; });
+        .then(function (session) {
+          return session && session.canceled ? { ok: false, canceled: true } : { ok: true, session: session };
+        });
     },
     getAutoclawOauthCaptchaConfig: function (provider) {
       return call('POST', '/api/session/login/oauth/captcha-config',
