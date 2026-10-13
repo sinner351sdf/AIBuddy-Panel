@@ -11,6 +11,9 @@ import urllib.request
 
 def request_json(url, token=None):
     headers = {"User-Agent": "AIBuddy-Panel-private-release", "Accept": "application/json"}
+    if url.startswith("https://api.github.com/"):
+        headers["Accept"] = "application/vnd.github+json"
+        headers["X-GitHub-Api-Version"] = "2022-11-28"
     if token:
         headers["Authorization"] = "Bearer " + token
     try:
