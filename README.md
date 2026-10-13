@@ -1,6 +1,6 @@
 # Agent2API · 多提供商本地网关
 
-> 此仓库为 AIBuddy-Panel 定制版本，代码上游为 agent2api。已按批次整合 beta `e50abff`，保留原面板定制；升级前请阅读[已应用改动、验证与兼容性说明](docs/aibuddy-port/BETA-INTEGRATION-2026-10-13.zh-CN.md)。
+> 此仓库为 AIBuddy-Panel 定制版本，代码上游为 agent2api。已跟进上游 **3.0.2**（`221e552`），保留原面板定制；升级前请阅读[3.0.2 核对与代码审查](docs/aibuddy-port/REVIEW-3.0.2.zh-CN.md)及[完整移植清单与兼容性说明](docs/aibuddy-port/BETA-INTEGRATION-2026-10-13.zh-CN.md)。
 
 **简体中文** | [English](./README.en.md) | [繁體中文](./README.zh-Hant.md) | [日本語](./README.ja.md) | [한국어](./README.ko.md) | [Português (BR)](./README.pt-BR.md)
 

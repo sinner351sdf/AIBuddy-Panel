@@ -58,6 +58,18 @@ with tempfile.TemporaryDirectory(prefix='agent2api-review-') as tmp:
             invalid['accounts']=[{'id':'invalid-fixture','provider':'workbuddy','data':'{broken'}]
             assert req('/api/backup/import','POST',{'data':invalid,'confirm':True},token=token)[0]==400
             assert req('/api/keys',token=token)[0]==200
+            # Restoring malformed admin state must not reopen setup or lock out the owner.
+            source=req('/api/backup/export',token=token)[1]['data']
+            for admin_value in (None, {}, {'username':'audit-fixture','hash':'invalid'}, {'username':'','hash':'invalid'}):
+                invalid=json.loads(json.dumps(source))
+                invalid['kv']=[x for x in invalid['kv'] if x['key']!='panelAdmin']
+                if admin_value is not None:
+                    invalid['kv'].append({'key':'panelAdmin','value':json.dumps(admin_value)})
+                status,_=req('/api/backup/import','POST',{'data':invalid,'confirm':True},token=token)
+                assert status==400, f'invalid administrator restore returned {status}, expected 400'
+                assert req('/api/keys',token=token)[0]==200
+                assert req('/api/panel/setup','POST',{'username':'must-not-register','password':password})[0]==409
+            print('PASS: missing or malformed administrator snapshots preserve owner and sessions')
             # A valid snapshot with no persisted refresh-token row must replace old memory too.
             snap=req('/api/backup/export',token=token)[1]['data']
             snap['kv']=[x for x in snap['kv'] if x['key']!='panelTokens']

@@ -470,11 +470,11 @@ pub fn shim_js() -> &'static str {
             latestVersion: d.latestVersion || '',
             hasUpdate: !!d.hasUpdate,
             notes: d.hasUpdate
-              ? '发现新版本 ' + (d.latestVersion || '') + '。更新方式：docker pull '
-                + 'ghcr.io/aimod-cc/agent2api:latest 后重启容器（或使用 Release 附带的镜像包）'
-              : (d.notes || '已是最新版本。网页端更新走 Docker 镜像：拉取新镜像后重启容器即可。'),
+              ? '发现新版本 ' + (d.latestVersion || '') + '。请在 AIBuddy-Panel 源码目录执行 git pull --ff-only，'
+                + '再执行 docker compose up -d --build；使用预构建镜像的部署请更新自己的镜像。'
+              : (d.notes || '已是最新版本。源码部署更新后需重新构建容器；预构建镜像部署请更新自己的镜像。'),
             publishedAt: d.publishedAt || '',
-            pageUrl: d.pageUrl || 'https://github.com/aimod-cc/agent2api/releases',
+            pageUrl: d.pageUrl || 'https://github.com/sinner351sdf/AIBuddy-Panel/releases',
             installerKind: 'none',
           };
         })

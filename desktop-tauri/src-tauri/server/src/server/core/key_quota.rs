@@ -99,7 +99,7 @@ pub fn used_tokens(key_id: &str) -> Result<i64, String> {
 /// 由调用方打一行日志即可。
 pub fn add_usage(key_id: &str, tokens: i64) -> Result<i64, String> {
     if key_id.is_empty() || tokens <= 0 {
-        return used_tokens(key_id);
+        return Ok(0);
     }
     let db = database()?;
     let now = logging::now_ms();
@@ -217,5 +217,15 @@ mod ledger_tests {
         assert!(used_of(Some(&serde_json::json!({"usedTokens": -1}))).is_err());
         assert!(used_of(Some(&serde_json::json!({}))).is_err());
         assert_eq!(used_of(None).unwrap(), 0);
+    }
+}
+
+#[cfg(test)]
+mod no_usage_tests {
+    #[test]
+    fn requests_without_metered_usage_do_not_require_a_ledger() {
+        assert_eq!(super::add_usage("", 5).unwrap(), 0);
+        assert_eq!(super::add_usage("fixture", 0).unwrap(), 0);
+        assert_eq!(super::add_usage("fixture", -1).unwrap(), 0);
     }
 }

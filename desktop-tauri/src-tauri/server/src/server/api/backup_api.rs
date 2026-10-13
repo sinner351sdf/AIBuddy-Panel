@@ -175,6 +175,12 @@ pub async fn post_import(State(state): State<ServerState>, body: Bytes) -> Respo
         Ok(rows) => rows,
         Err(message) => return errors::management_error(400, message),
     };
+    if let Err(message) = access::validate_restored_admin(
+        kv_rows.iter().find(|(key, _)| key == "panelAdmin").map(|(_, value)| value.as_str()),
+        access::admin_registered(),
+    ) {
+        return errors::management_error(400, message);
+    }
     let account_rows = match parse_account_rows(snapshot) {
         Ok(rows) => rows,
         Err(message) => return errors::management_error(400, message),

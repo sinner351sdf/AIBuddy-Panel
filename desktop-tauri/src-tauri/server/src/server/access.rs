@@ -161,6 +161,36 @@ fn store_admin() -> Option<(String, String)> {
     })
 }
 
+/// Restore must not erase the owner or install an unusable password record.
+/// Validate encoding only: running bcrypt verification here would trust the imported cost.
+pub fn validate_restored_admin(record: Option<&str>, require_admin: bool) -> Result<(), String> {
+    use base64::Engine as _;
+    let Some(record) = record else {
+        return if require_admin {
+            Err("备份缺少 panelAdmin，恢复会移除现有管理员，已拒绝导入".to_string())
+        } else { Ok(()) };
+    };
+    let admin: serde_json::Value = serde_json::from_str(record)
+        .map_err(|_| "备份管理员记录不是有效 JSON".to_string())?;
+    if !admin.get("username").and_then(serde_json::Value::as_str)
+        .is_some_and(|name| !name.trim().is_empty()) {
+        return Err("备份管理员账号名缺失或为空".to_string());
+    }
+    let hash = admin.get("hash").and_then(serde_json::Value::as_str).unwrap_or("");
+    if hash.len() != 60 || !hash.is_ascii() || !hash.starts_with("$2")
+        || hash.as_bytes()[3] != b'$' || hash.as_bytes()[6] != b'$' {
+        return Err("备份管理员密码哈希格式无效".to_string());
+    }
+    let parts = hash.parse::<bcrypt::HashParts>()
+        .map_err(|_| "备份管理员密码哈希格式无效".to_string())?;
+    if !(4..=31).contains(&parts.get_cost())
+        || bcrypt::BASE_64.decode(&hash[7..29]).ok().map(|x| x.len()) != Some(16)
+        || bcrypt::BASE_64.decode(&hash[29..]).ok().map(|x| x.len()) != Some(23) {
+        return Err("备份管理员密码哈希编码无效".to_string());
+    }
+    Ok(())
+}
+
 /// 面板认证是否启用（注册过或预置过管理员）。
 pub fn panel_auth_enabled() -> bool {
     env_admin().is_some() || store_admin().is_some()
@@ -1350,4 +1380,32 @@ pub fn invalidate_restored_sessions() {
     let mut table = refresh_tokens().lock().unwrap_or_else(|p| p.into_inner());
     table.clear();
     persist_refresh_tokens(&mut table);
+}
+
+#[cfg(test)]
+mod restored_admin_tests {
+    use super::validate_restored_admin;
+
+    #[test]
+    fn restore_preserves_registered_boundary_but_accepts_unregistered_desktop() {
+        assert!(validate_restored_admin(None, true).is_err());
+        assert!(validate_restored_admin(None, false).is_ok());
+        let hash = bcrypt::hash("fixture-only-password", 4).unwrap();
+        let valid = serde_json::json!({"username":"fixture", "hash":hash}).to_string();
+        assert!(validate_restored_admin(Some(&valid), true).is_ok());
+    }
+
+    #[test]
+    fn restore_rejects_broken_admin_records_without_verifying_passwords() {
+        for raw in ["null", "{}", r#"{"username":"fixture","hash":"bad"}"#] {
+            assert!(validate_restored_admin(Some(raw), false).is_err());
+        }
+        let hash = bcrypt::hash("fixture-only-password", 4).unwrap();
+        let bad_cost = hash.replacen("$04$", "$32$", 1);
+        let bad_encoding = format!("{}!", &hash[..59]);
+        for invalid in [bad_cost, bad_encoding] {
+            let raw = serde_json::json!({"username":"fixture","hash":invalid}).to_string();
+            assert!(validate_restored_admin(Some(&raw), true).is_err());
+        }
+    }
 }

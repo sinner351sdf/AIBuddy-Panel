@@ -57,7 +57,7 @@ use std::sync::Mutex;
 use chrono::Local;
 use rusqlite::backup::{Backup, StepResult};
 use rusqlite::hooks::{AuthAction, Authorization, AuthContext};
-use rusqlite::{Connection, OpenFlags};
+use rusqlite::{Connection, OpenFlags, OptionalExtension};
 use serde_json::{json, Value};
 
 use super::schema;
@@ -473,6 +473,12 @@ pub fn import_from_file(db: &Db, source: &Path, config_dir: &Path) -> Result<Val
         ));
     }
     validate_required_tables(conn)?;
+    let admin: Option<String> = conn.query_row(
+        "SELECT value FROM kv WHERE key = 'panelAdmin'", [], |row| row.get(0),
+    ).optional().map_err(|error| format!("读取备份管理员记录失败: {error}"))?;
+    crate::server::access::validate_restored_admin(
+        admin.as_deref(), crate::server::access::admin_registered(),
+    )?;
     // 补齐缺失表（精简备份的日志表）并把版本升到当前
     schema::migrate(conn).map_err(|e| format!("对齐备份库 schema 失败: {e}"))?;
 

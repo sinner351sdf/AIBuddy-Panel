@@ -564,10 +564,10 @@ pub fn record_entry(context: &RecordContext, fallback_error: Option<String>) {
     // 已用数，转发前的准入判定（`check_scope`）按它判「配额是否用尽」。放在
     // 快照取出的紧接着：这里 total_tokens 还没被 entry 的逐字段搬运 move 走。
     // key_id 为空 / tokens ≤ 0 时 add_usage 自己是 no-op；记账失败只打一行
-    // verbose —— 收尾路径，计量故障不允许反过来影响已经结束的请求（与
+    // 错误日志 —— 收尾路径，计量故障不允许反过来影响已经结束的请求（与
     // `RequestStats::record` 的口径一致）。
     if let Err(account_error) = key_quota::add_usage(&context.key_id, snapshot.total_tokens) {
-        logging::verbose("[Quota]", &format!("❌ Key 用量记账失败: {account_error}"));
+        logging::log_with_level("[Quota]", &format!("❌ Key 用量记账失败: {account_error}"), "error");
     }
     // 收尾时刻只取一次：明细里的 durationMs 与日志里打的那一个是同一个值
     let finished_at = logging::now_ms();
