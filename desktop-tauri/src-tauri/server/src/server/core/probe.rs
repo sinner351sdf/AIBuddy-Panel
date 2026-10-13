@@ -27,8 +27,7 @@
 //!     与 ZCode（静态清单，`refresh_models` 是空操作）。它们的转发是
 //!     非会话式的（`is_stateful() = false`），因此按转发链路同一形态构造：
 //!     会话形态（`store.get_session_by_id`）+ 家目录里的第一个模型 id +
-//!     `stream:true` 的一条 1 token 消息，只看响应头状态码（SSE 建立即到达，
-//!     不读流、不等生成完成）。
+//!     `stream:true` 的一条 1 token 消息，检查最多 64 KiB / 10 秒的首个有效推理结果，识别流内错误。
 //!
 //! ── 为什么不用 scheduled_tasks 注册表 ─────────────────────────
 //! 那份注册表是 `core::scheduled_tasks::TASKS` 里的**定长静态数组**，增删任务
@@ -101,6 +100,7 @@ pub const CATEGORY_OK: &str = "ok";
 pub const CATEGORY_SKIPPED: &str = "skipped";
 pub const CATEGORY_NETWORK: &str = "network";
 pub const CATEGORY_HTTP: &str = "http";
+pub const CATEGORY_AUTH: &str = "authentication";
 pub const CATEGORY_UPSTREAM: &str = "upstream";
 
 // ─── 设置 ────────────────────────────────────────────────────
@@ -441,8 +441,7 @@ async fn probe_via_catalog(
 }
 
 /// 最小对话探活（Cline / ZCode）：按转发链路的同一形态发一条 1 token 的
-/// 流式请求，**只等响应头**——2xx 即通（SSE 在响应头阶段就建立，流不读、
-/// 随 future 丢弃，与转发「恒带 stream:true」的口径一致）。
+/// 流式请求；读取有界的首个有效推理结果，2xx 本身不算成功。
 async fn probe_via_chat(id: &str, adapter: &'static dyn ProviderAdapter, store: &AccountStore) -> ProbeOutcome {
     let started = Instant::now();
     // 会话形态（含 auth.accessToken 与代理），与转发链路取的是同一份
@@ -500,18 +499,76 @@ async fn probe_via_chat(id: &str, adapter: &'static dyn ProviderAdapter, store: 
         Ok(response) => {
             let status = response.status().as_u16();
             if (200..300).contains(&status) {
-                return ProbeOutcome::success(elapsed_ms(started));
+                return match tokio::time::timeout(Duration::from_secs(10), inspect_probe_stream(response)).await {
+                    Ok(Ok(())) => ProbeOutcome::success(elapsed_ms(started)),
+                    Ok(Err(error)) => ProbeOutcome::failed(CATEGORY_UPSTREAM, error, elapsed_ms(started)),
+                    Err(_) => ProbeOutcome::failed(CATEGORY_NETWORK, "等待有效推理结果超时", elapsed_ms(started)),
+                };
             }
             // 非 2xx：归一化读一次错误体（HTTP 状态 + 上游业务码 / 文案），
             // 响应体在此被读掉，不透传给任何下游
             let detail = read_upstream_error(response, None).await;
             ProbeOutcome::failed(
-                CATEGORY_HTTP,
+                if status == 401 { CATEGORY_AUTH } else { CATEGORY_HTTP },
                 format!("上游返回 {status}: {}", detail.message),
                 elapsed_ms(started),
             )
         }
         Err(error) => ProbeOutcome::failed(CATEGORY_NETWORK, error.message, elapsed_ms(started)),
+    }
+}
+
+/// Bounded first-result inspection: HTTP 200 alone is not evidence of inference.
+async fn inspect_probe_stream(mut response: reqwest::Response) -> Result<(), String> {
+    let mut pending = Vec::new();
+    let mut total = 0usize;
+    while let Some(chunk) = response.chunk().await.map_err(|_| "读取探活响应失败".to_string())? {
+        total += chunk.len();
+        if total > 64 * 1024 { return Err("探活响应超过 64 KiB 且未发现有效结果".to_string()); }
+        pending.extend_from_slice(&chunk);
+        while let Some(end) = pending.iter().position(|b| *b == b'\n') {
+            let line: Vec<u8> = pending.drain(..=end).collect();
+            let text = String::from_utf8_lossy(&line);
+            if let Some(result) = probe_frame(text.trim()) { return result; }
+        }
+    }
+    if let Some(result) = probe_frame(String::from_utf8_lossy(&pending).trim()) { return result; }
+    Err("上游未返回可验证的推理结果".to_string())
+}
+fn probe_frame(line: &str) -> Option<Result<(), String>> {
+    let data = line.strip_prefix("data:").unwrap_or(line).trim();
+    let value: Value = serde_json::from_str(data).ok()?;
+    if value.get("error").is_some() || value.get("type").and_then(Value::as_str) == Some("error") {
+        return Some(Err("上游返回流内错误".to_string()));
+    }
+    let choices = value.get("choices")?.as_array()?;
+    for choice in choices {
+        if matches!(choice.get("finish_reason").and_then(Value::as_str), Some("error" | "content_filter")) {
+            return Some(Err("上游拒绝生成内容".to_string()));
+        }
+        for key in ["delta", "message"] {
+            if let Some(delta) = choice.get(key) {
+                if delta.get("content").and_then(Value::as_str).is_some_and(|s| !s.is_empty())
+                    || delta.get("reasoning_content").and_then(Value::as_str).is_some_and(|s| !s.is_empty())
+                    || delta.get("tool_calls").and_then(Value::as_array).is_some_and(|v| !v.is_empty()) {
+                    return Some(Ok(()));
+                }
+            }
+        }
+    }
+    None
+}
+
+#[cfg(test)]
+mod probe_response_tests {
+    use super::*;
+    #[test]
+    fn role_only_done_or_empty_never_proves_success() {
+        assert!(probe_frame("data: [DONE]").is_none());
+        assert!(probe_frame(r#"data: {"choices":[{"delta":{"role":"assistant"}}]}"#).is_none());
+        assert!(probe_frame(r#"data: {"error":{"message":"quota"}}"#).unwrap().is_err());
+        assert!(probe_frame(r#"data: {"choices":[{"delta":{"content":"ok"}}]}"#).unwrap().is_ok());
+        assert!(probe_frame(r#"data: {"choices":[{"finish_reason":"content_filter"}]}"#).unwrap().is_err());
     }
 }
 
@@ -712,8 +769,10 @@ async fn run_round(store: &AccountStore, settings: &ProbeSettings, trigger: &str
                 }
             } else {
                 failed_count += 1;
-                let count = count + 1;
-                if count >= settings.threshold.max(1) {
+                // Rate limits, server failures and ambiguous catalog errors remain eligible
+                // for the next scheduled probe. Only consecutive HTTP 401s disable.
+                let count = if outcome.category == CATEGORY_AUTH { count + 1 } else { 0 };
+                if outcome.category == CATEGORY_AUTH && count >= settings.threshold.max(1) {
                     // 达到阈值：走既有禁用路径（与界面「批量禁用」同一条
                     // store 路径），并把计数清零 —— 用户排查后重新启用时
                     // 从头计起，不会因旧计数一次失败就再被停用

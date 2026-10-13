@@ -76,6 +76,26 @@ with tempfile.TemporaryDirectory(prefix='agent2api-review-') as tmp:
             used=req(qp,token=token)[1]['data']['usedTokens']
             print(json.dumps({'finding':'corrupt_quota_ledger_fails_open','before_status':before[0],'after_status':after[0],'reported_used':used,'after_error':after[1].get('error')}))
             assert before[0]==403 and after[0]==403 and used is None
+            # Split-port Codex setup must use the inference port and preserve existing settings.
+            codex=home/'.codex';codex.mkdir(exist_ok=True)
+            (codex/'config.toml').write_text('model = "fixture-model"\n[projects."/fixture"]\ntrust_level = "trusted"\n')
+            status,setup=req('/api/codex/setup','POST',{'apiKey':key},token=token)
+            assert status==200
+            assert setup['data']['baseUrl']==f'http://127.0.0.1:{gateway}/v1'
+            assert 'fixture-model' in (codex/'config.toml').read_text()
+            assert 'trust_level' in (codex/'config.toml').read_text()
+            first_backup=(codex/'config.toml.bak').read_text()
+            assert req('/api/codex/setup','POST',{'baseUrl':'https://gateway.example/api/v1'},token=token)[0]==200
+            assert (codex/'config.toml.bak').read_text()==first_backup
+            assert req('/api/codex/setup','POST',{'baseUrl':'file:///tmp/invalid'},token=token)[0]==400
+            print('PASS: split-port Codex URL, config preservation, backup retention and invalid URL rejection')
+            # Whitelist-only keys are restricted even without expiry or quota.
+            for field in ('allowedModels','allowedProviders'):
+                child='sk-scope-'+secrets.token_hex(16)
+                status,entry=req('/api/keys','POST',{'name':field,'key':child,field:['workbuddy' if field=='allowedProviders' else 'fixture']},token=token)
+                assert status==200,entry.get('error')
+                assert req('/api/backup/export',key=child)[0]==403
+            print('PASS: model/provider whitelist keys cannot export administrative data')
         finally:
             proc.terminate()
             try:proc.wait(timeout=10)

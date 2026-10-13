@@ -4,9 +4,7 @@ set -eu
 
 PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 SERVER_BIN="$PROJECT_DIR/desktop-tauri/src-tauri/target/debug/agent2api-server"
-if [ ! -x "$SERVER_BIN" ]; then
-  cargo build --manifest-path "$PROJECT_DIR/desktop-tauri/src-tauri/server/Cargo.toml"
-fi
+cargo build --manifest-path "$PROJECT_DIR/desktop-tauri/src-tauri/server/Cargo.toml"
 mkdir -p "$PROJECT_DIR/data/local"
 chmod 700 "$PROJECT_DIR/data/local"
 export AGENT2API_HOST=127.0.0.1

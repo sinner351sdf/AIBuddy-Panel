@@ -907,6 +907,7 @@ function CodexWriteSection({ keyValue }: { keyValue: string }) {
   const [phase, setPhase] = React.useState<CodexPhase>('idle')
   const [status, setStatus] = React.useState<CodexStatus | null>(null)
   const [apiKey, setApiKey] = React.useState('')
+  const [baseUrl, setBaseUrl] = React.useState('')
   /** 掩码显示开关（默认掩码；眼睛按钮切明文，与 Key 行同一意图） */
   const [shown, setShown] = React.useState(false)
   const [result, setResult] = React.useState<CodexSetupResult | null>(null)
@@ -921,6 +922,7 @@ function CodexWriteSection({ keyValue }: { keyValue: string }) {
     try {
       const next = await codexApi<CodexStatus>('GET', '/api/codex/status')
       setStatus(next)
+      setBaseUrl(next.serverUrl || window.location.origin)
       // Key 默认预填本把 Key 的明文（快速接入的意义就是免替换）；已填过的不覆盖
       setApiKey(current => current || keyValue)
       setPhase('ready')
@@ -940,7 +942,7 @@ function CodexWriteSection({ keyValue }: { keyValue: string }) {
     try {
       const key = apiKey.trim()
       const next = await codexApi<CodexSetupResult>('POST', '/api/codex/setup', {
-        // baseUrl 不带：后端按请求 origin 兜底（与 status 的 serverUrl 同口径）
+        baseUrl,
         ...(key ? { apiKey: key } : {}),
       })
       setResult(next)
@@ -980,9 +982,11 @@ function CodexWriteSection({ keyValue }: { keyValue: string }) {
       {phase === 'ready' && status ? (
         <>
           <p>
-            写入位置：<code>{dir}</code>；base_url 将写为 <code>{serverUrl}/v1</code>
-            （跨机访问时 Codex 连不上这里，请改用网关所在主机的地址）。
+            写入位置：<code>{dir}</code>；base_url 将写为 <code>{baseUrl || serverUrl}/v1</code>
+            （写入的是网关服务所在电脑的配置；远程浏览器不会修改自己的电脑）。
           </p>
+          <Label htmlFor='codex-base-url'>网关地址（反向代理请填写外部 API 地址）</Label>
+          <Input id='codex-base-url' value={baseUrl} disabled={busy} onChange={event => setBaseUrl(event.currentTarget.value)} />
           <ul className='m-0 list-disc pl-5 text-[12px] leading-[1.7]'>
             <li>
               config.toml：
@@ -993,7 +997,7 @@ function CodexWriteSection({ keyValue }: { keyValue: string }) {
               {status.authExists ? '已存在 —— 写入前会先备份为 auth.json.bak' : '不存在 —— 将新建'}
             </li>
             {status.backupExists ? (
-              <li>已存在 .bak 备份 —— 本次写入会用当前内容覆盖旧备份（.bak 保留的是最近一次写入前的状态）</li>
+              <li>已有备份将保留，本次另存一份独立备份</li>
             ) : null}
           </ul>
           <div className='keycell'>
@@ -1024,6 +1028,8 @@ function CodexWriteSection({ keyValue }: { keyValue: string }) {
       {phase === 'done' && result ? (
         <>
           <p>写入完成：</p>
+          <Label htmlFor='codex-base-url'>网关地址（反向代理请填写外部 API 地址）</Label>
+          <Input id='codex-base-url' value={baseUrl} disabled={busy} onChange={event => setBaseUrl(event.currentTarget.value)} />
           <ul className='m-0 list-disc pl-5 text-[12px] leading-[1.7]'>
             {(result.written ?? []).map(name => (
               <li key={`w-${name}`}>✅ 已写入 <code>{name}</code></li>

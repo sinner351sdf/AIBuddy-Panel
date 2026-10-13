@@ -1,39 +1,8 @@
-//! Codex CLI 一键接入（照 Buddy2API 的 /admin/codex/setup 形态）。
-//!
-//! - `GET  /api/codex/status` → `{configExists, authExists, backupExists,
-//!   serverUrl, codexDir}`：探测本机 Codex CLI 的配置目录 `~/.codex/` 里
-//!   `config.toml` / `auth.json` 是否已存在、有没有 `.bak` 备份。`serverUrl`
-//!   是当前面板的 origin（Host 头还原），前端拿它展示「base_url 将写为
-//!   {serverUrl}/v1」。
-//! - `POST /api/codex/setup`  `{baseUrl?, apiKey?}` → 写两个文件，返回
-//!   `{written, skipped, backups, codexDir, baseUrl}`。
-//!   `baseUrl` 缺省 = 请求的 origin（与 status 的 serverUrl 同一口径）；
-//!   `apiKey` 缺失时**只写 config、跳过 auth**（见下）。
-//!
-//! ── 写的是什么 ──────────────────────────────────────────────
-//! Codex CLI（OpenAI 的本机编码客户端）的供应商与凭证配置就在这两个文件里：
-//!   · `config.toml` —— `model_provider = "aibuddy"` +
-//!     `[model_providers.aibuddy]`（name / base_url=`{baseUrl}/v1` /
-//!     wire_api="responses"）：把 Codex 的对话请求整体指到本网关的 OpenAI 兼容端点。
-//!     整文件重写而不是原地改键：混着改会说不清「这份配置里哪些是用户的、哪些
-//!     是本面板写的」，重写之前先备份（下条），旧配置永远找得回来；
-//!   · `auth.json` —— `{"OPENAI_API_KEY": <apiKey>}`。apiKey 缺失时跳过这个
-//!     文件（只写 config）：没有 Key 的 auth.json 等于给 Codex 配了空凭证，
-//!     反而会打断它现有的登录方式。
-//!
-//! ── .bak 备份（绝不覆盖丢失）─────────────────────────────────
-//! 目标文件**已存在**时，写入前先复制成 `<原名>.bak`（config.toml.bak /
-//! auth.json.bak）。备份失败时 setup 立刻中止：宁可什么都不写，也不冒
-//! 「覆盖了旧配置、又没留备份」的险（可能出现的部分成功 —— 第一个文件已写、
-//! 第二个备份失败 —— 响应如实报错，重跑一遍 setup 即可补齐）。`.bak` 已存在时
-//! 被本次备份覆盖：它的语义是「上一次写入前的状态」，保留最新一份才最有恢复
-//! 价值；更旧的版本交给用户自己的备份习惯。
-//!
-//! ── 敏感度与挂载 ───────────────────────────────────────────
-//! 写的是**另一个本机应用**（Codex CLI）的配置文件，apiKey 明文落盘 —— 与
-//! 「从其他工具导入」读别人凭证（`api::import_sources`）、/api/keys 写网关
-//! 凭证同一档敏感，挂 protected（见 `http::panel_router`）。明文只在
-//! 面板表单 → 本机网关 → 本机文件之间流转，不出机器。
+//! Codex CLI server-side configuration. CODEX_HOME takes precedence over ~/.codex.
+//! Existing TOML settings and providers are preserved; every write keeps a distinct backup.
+//! In split-port deployments the fallback is the local inference port, never the panel port.
+//! AGENT2API_PUBLIC_API_URL or an explicit baseUrl supports reverse proxies and remote clients.
+//! The UI asks for confirmation and explains that files belong to the gateway host.
 
 use std::path::{Path, PathBuf};
 
@@ -61,7 +30,8 @@ fn home_dir() -> Option<PathBuf> {
 
 /// Codex CLI 的配置目录（`~/.codex`）。
 fn codex_dir() -> Option<PathBuf> {
-    home_dir().map(|home| home.join(".codex"))
+    std::env::var("CODEX_HOME").ok().filter(|v| !v.trim().is_empty())
+        .map(PathBuf::from).or_else(|| home_dir().map(|home| home.join(".codex")))
 }
 
 /// 当前面板的 origin：从请求的 Host 头还原（HTTP/1.1 必带），反向代理形态读
@@ -72,6 +42,11 @@ fn codex_dir() -> Option<PathBuf> {
 /// 端口，而经反向代理访问时外部地址与监听地址本来就不一致 —— 请求头里的 Host
 /// 才是「用户此刻访问面板用的地址」，Codex 用同一个地址才连得上。
 fn panel_origin(state: &ServerState, headers: &HeaderMap) -> String {
+    if let Ok(value) = std::env::var("AGENT2API_PUBLIC_API_URL") {
+        if valid_base(&value).is_ok() { return normalize_base(&value); }
+    }
+    // A split panel origin does not serve /v1; the generated config lives on this server.
+    if state.panel_port.is_some() { return format!("http://127.0.0.1:{}", state.port); }
     let host = headers
         .get(header::HOST)
         .and_then(|value| value.to_str().ok())
@@ -101,6 +76,15 @@ fn normalize_base(text: &str) -> String {
         .trim_end_matches('/')
         .trim_end_matches("/v1")
         .to_string()
+}
+
+fn valid_base(text: &str) -> Result<(), String> {
+    let url = url::Url::parse(text.trim()).map_err(|_| "网关地址必须是完整 HTTP(S) URL".to_string())?;
+    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none()
+        || !url.username().is_empty() || url.password().is_some() || url.query().is_some() || url.fragment().is_some() {
+        return Err("网关地址仅支持不含凭据、查询参数或片段的 HTTP(S) URL".to_string());
+    }
+    Ok(())
 }
 
 /// 生成 config.toml 的内容。经 toml crate 序列化：base_url 来自请求体，
@@ -136,9 +120,10 @@ fn write_with_backup(
         .unwrap_or_else(|| path.to_string_lossy().to_string());
     if path.is_file() {
         let bak_path = path.with_file_name(format!("{name}.bak"));
+        let bak_path = if bak_path.exists() { path.with_file_name(format!("{name}.{}.bak", crate::server::access::random_hex(8))) } else { bak_path };
         std::fs::copy(path, &bak_path)
             .map_err(|error| format!("备份 {name} 失败（已中止写入，原文件未动）: {error}"))?;
-        backups.push(format!("{name}.bak"));
+        backups.push(bak_path.file_name().unwrap_or_default().to_string_lossy().to_string());
     }
     std::fs::write(path, text).map_err(|error| format!("写入 {name} 失败: {error}"))?;
     written.push(name);
@@ -188,6 +173,7 @@ pub async fn post_setup(
         .map(normalize_base)
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| normalize_base(&panel_origin(&state, &headers)));
+    if let Err(error) = valid_base(&base) { return errors::management_error(400, error); }
     let base_url = format!("{base}/v1");
 
     // 目标目录：主目录定位不到 / 建不出来都不写任何文件（数据安全优先）
@@ -206,7 +192,18 @@ pub async fn post_setup(
     let mut backups: Vec<String> = Vec::new();
 
     // ① config.toml：model_provider 指向本网关（OpenAI 兼容，wire_api="responses"）
-    let text = match config_toml_text(&base_url) {
+    let text = match config_toml_text(&base_url).and_then(|generated| {
+        let path = dir.join("config.toml");
+        if !path.exists() { return Ok(generated); }
+        let old = std::fs::read_to_string(&path).map_err(|e| format!("读取已有配置失败: {e}"))?;
+        let mut old: toml::Table = toml::from_str(&old).map_err(|e| format!("已有配置不是有效 TOML，未覆盖: {e}"))?;
+        let new: toml::Table = toml::from_str(&generated).map_err(|e| format!("解析新配置失败: {e}"))?;
+        old.insert("model_provider".into(), new["model_provider"].clone());
+        let providers = old.entry("model_providers".to_string()).or_insert_with(|| toml::Value::Table(toml::Table::new()));
+        let providers = providers.as_table_mut().ok_or_else(|| "已有 model_providers 不是表，未覆盖".to_string())?;
+        providers.insert("aibuddy".into(), new["model_providers"]["aibuddy"].clone());
+        toml::to_string_pretty(&old).map_err(|e| e.to_string())
+    }) {
         Ok(text) => text,
         Err(message) => return errors::management_error(500, message),
     };
