@@ -16,7 +16,7 @@ import urllib.error
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-BINARY = ROOT / 'desktop-tauri/src-tauri/target/debug/agent2api-server'
+BINARY = ROOT / 'target/debug/agent2api-server'
 checks = 0
 
 def check(condition, message):

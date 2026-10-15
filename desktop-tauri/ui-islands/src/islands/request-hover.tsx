@@ -107,8 +107,7 @@ const SHELL_CLASS = [
   'fixed z-[35] pointer-events-none',
   'max-h-[min(360px,60vh)] overflow-x-hidden overflow-y-auto',
   'rounded-md p-[10px_12px] text-[12px] leading-[1.6] break-normal',
-  'bg-surface-2 text-foreground shadow-3',
-  'border-0 dark:border dark:border-border-strong dark:bg-surface-3',
+  'border border-border bg-popover text-popover-foreground shadow-3',
 ].join(' ')
 
 /** 淡色说明行的类（旧 `.rh-row` + `.rh-dim` 的组合，出现多处，口径只写一处） */

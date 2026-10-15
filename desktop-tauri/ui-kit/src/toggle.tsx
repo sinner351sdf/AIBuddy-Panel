@@ -24,7 +24,7 @@ const toggleVariants = cva(
   [
     'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap border',
     'font-medium transition-[background-color,border-color,color] duration-150 ease-out',
-    'outline-none select-none disabled:pointer-events-none disabled:opacity-45',
+    'outline-none select-none focus-visible:shadow-focus disabled:pointer-events-none disabled:opacity-45',
     '[&_svg]:pointer-events-none [&_svg]:shrink-0',
     // 激活态：品牌浅底。三个属性一起给，未激活时的透明描边保证按下不跳位
     'data-pressed:border-primary-bd data-pressed:bg-primary-soft data-pressed:font-semibold data-pressed:text-primary-fg',
@@ -34,13 +34,14 @@ const toggleVariants = cva(
     variants: {
       variant: {
         /** 平铺型：未激活时只是一行文字（列表工具条里的开关型筛选） */
+        segmented: 'border-transparent bg-transparent text-muted-foreground shadow-none hover:bg-accent hover:text-foreground data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-1 data-pressed:hover:bg-background data-[zero=true]:data-unpressed:opacity-45',
         default: 'border-transparent bg-transparent text-subtle hover:bg-nav-hover hover:text-foreground',
         /** 控件型：未激活时与同行的按钮同脸 */
         outline:
           'border-control-border bg-control text-foreground shadow-1 hover:border-control-border-hover hover:bg-control-hover',
       },
       size: {
-        default: 'h-[30px] rounded-md px-3 text-[12.5px]',
+        default: 'h-[var(--control-h)] rounded-md px-3 text-[12.5px]',
         xs: 'h-6 rounded-sm px-2 text-[11.5px]',
         sm: 'h-[26px] rounded-sm px-2.5 text-[12px]',
         lg: 'h-9 rounded-md px-4 text-[13px]',

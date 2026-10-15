@@ -1,17 +1,10 @@
-/* Agent2API · 报表页的纯计算层（读数口径 / 单位 / 四张手写 SVG 的几何） */
+/* Agent2API · 报表公共数据、单位格式与热力图计算。 */
 
 /**
- * 为什么单独一个 .ts：岛目录里的 *.tsx 会被 index.tsx 的 glob 当成岛自动加载，
- * 而这里只是纯函数（不注册 window、不建 React root、不碰 DOM）。计算与视图分开，
- * 几何公式可以逐条对着旧 ui/report.js 核对，视图那边只负责把这里算出来的坐标铺进 JSX。
- *
- * 四张图都是手写 SVG（项目没有图表库，也不为一个页面引依赖）：
- *   · 折线 / 柱状图按**像素坐标**画：先量容器宽度再算坐标，文字与刻度线因此不会被
- *     拉变形；宽度变化由 report-page.tsx 的 ResizeObserver 量好传进来重算。
- *   · 热力图格子边长固定、只让列数随宽度自适应，观感与 GitHub 贡献图一致。
- *   · 用量环形图尺寸固定、不随窗口变：它旁边挂着图例列表，两者并排占满卡片，
- *     尺寸一动反而会让右侧那列读数跟着跳。
- * 这里只回答「给定数据与容器宽度 → 画在哪」，不知道容器是谁、什么时候重算。
+ * 活跃热力图继续使用本模块的像素几何与阈值。
+ * 排名、环形图和两张趋势图已迁移到 report-chart-components.tsx（shadcn Chart + Recharts）。
+ * 新数据适配器在 report-chart-data.ts；这里保留旧图形计算供迁移前后数据口径对照测试，
+ * 页面不再使用旧环形图、折线或柱状图坐标。
  */
 
 import { t } from '../i18n'
@@ -25,6 +18,7 @@ export type StatsHour = {
 /** 排行 / 环形图共用的一条：模型维度用 model 当身份，提供商与账号维度用 id */
 export type StatsGroup = {
   id?: string; label?: string; model?: string
+  provider?: string; providerLabel?: string; edition?: string; editionLabel?: string
   requests?: number; success?: number; totalTokens?: number; tokens?: number
 }
 export type StatsOverview = {
@@ -310,18 +304,24 @@ export function rankTotalText(list: StatsGroup[]): string {
 
 /* ─── 板块三：用量环形图（模型 / 提供商）──── */
 
-/**
- * 分色板：与 OmniProxy 的 `MODEL_COLORS` 逐字一致。
- *
- * 前 6 色是优先色（红 / 黄 / 绿 / 蓝 / 靛 / 青），按用量排名分配 —— 用量最大的那段
- * 拿红色，一眼就能找到「谁是大头」。后 10 色为补充色，已逐一校验过与优先色及彼此在
- * 色相（<22°）与明度（<17）上都不接近，两套主题下都能分辨。条目数超过色板容量（16）
- * 时从头循环复用。
- */
+/** Theme-aware palette with derived overflow series; order stays stable. */
 export const SLICE_COLORS: readonly string[] = [
-  '#f73b00', '#f7bb07', '#4aaa4d', '#1872cb', '#3444a3', '#13c2c2',
-  '#722ed1', '#eb2f96', '#a0d911', '#34d399', '#d946ef', '#ff85c0',
-  '#b37feb', '#9d174d', '#ffa39e', '#69b1ff',
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
+  'color-mix(in oklch, var(--chart-1), var(--chart-2))',
+  'color-mix(in oklch, var(--chart-2), var(--chart-3))',
+  'color-mix(in oklch, var(--chart-3), var(--chart-5))',
+  'color-mix(in oklch, var(--chart-4), var(--chart-2))',
+  'color-mix(in oklch, var(--chart-1), var(--chart-4))',
+  'color-mix(in oklch, var(--chart-1) 75%, var(--chart-4))',
+  'color-mix(in oklch, var(--chart-2) 75%, var(--chart-3))',
+  'color-mix(in oklch, var(--chart-3) 75%, var(--chart-5))',
+  'color-mix(in oklch, var(--chart-4) 75%, var(--chart-2))',
+  'color-mix(in oklch, var(--chart-5) 75%, var(--chart-3))',
+  'color-mix(in oklch, var(--chart-1) 25%, var(--chart-4))',
 ]
 
 /**

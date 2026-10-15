@@ -1,11 +1,17 @@
+import { ConversationPreview } from '../components/conversation-preview'
+import { Empty as EmptyState, EmptyHeader, EmptyDescription, EmptyMedia } from '@ui'
+import { RequestPhaseBadge, RequestPhaseElapsed } from './request-phase'
+import { Alert, AlertDescription, Tabs, TabsList, TabsTrigger, TabsContent } from '@ui'
 import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 import {
+  cn,
   Badge, BadgeDot, Button, Dialog, DialogBody, DialogContent, DialogFooter,
-  DialogHeader, DialogTitle, SegmentedControl, Spinner, Table, TableBody,
+  DialogHeader, DialogTitle, Spinner, Table, TableBody,
   TableCell, TableHead, TableHeader, TableRow, type SegmentedControlOption,
 } from '@ui'
 import { t } from '../i18n'
+import { RequestTimings, type StageTiming } from './request-timings'
 
 /**
  * 「请求日志」页的**详情弹窗**（请求详情 / 预览对话 / 原始报文 · 三标签）。
@@ -22,7 +28,7 @@ import { t } from '../i18n'
  *      传进来的行对象** `open(id, row)`（列表当前一屏的数据，不发任何请求）；
  *      row 缺失（列表在弹窗打开前恰好刷新过）时显示「数据已刷新，请重试」。
  *   ② 预览对话 —— 调 `getStatsRequestRaw(id)` 拿下游原文（请求体 + 最终响应），
- *      解析与气泡渲染全在 conversation-preview.js（纯函数，这里只取数与给空态）。
+ *      解析与内容解析保留在 conversation-preview.js，界面由 ConversationPreview 组件组合（纯数据解析桥，这里取数并组合 React 预览）。
  *      404 / 双空给空态：报文有自己的容量闸（按条数与时间丢最旧），
  *      「明细还在、原文已被挤掉」是正常状态，不是错误。
  *   ③ 原始报文 —— 调试模式保存的**上游**原始报文（`getDebugTraffic` 的四段：
@@ -34,7 +40,7 @@ import { t } from '../i18n'
  *   · 两个接口在 open 时**并行**发起，谁到了渲染谁（各自动自己那块与标签条，
  *     互不阻塞）；
  *   · **切换标签不发任何请求**，只切显示 —— 三个 pane 始终挂载、用 hidden 切
- *     display，pane 里的 DOM（含气泡里 <details> 的展开态）原样保留；滚动位置
+ *     display，pane 里的 DOM（含 Trace 展开态）原样保留；滚动位置
  *     另由 scrollTops 记 / 还原（display:none 会把滚动容器的高度塌掉、归零）；
  *   · 快速连点两条详情时**只认最后一次 open**（模块级 seq 作 token），
  *     迟到的旧响应一律丢弃。
@@ -77,6 +83,7 @@ type AttemptDetail = {
   notice?: unknown
   /** 这一轮实际发给上游的体字节数（缺 = 没发出去过）*/
   bodyBytes?: unknown
+  timings?: StageTiming[]
 }
 
 /** 敏感词命中：词 + 次数 */
@@ -91,6 +98,7 @@ type ProviderFields = { provider?: string; providerLabel?: string }
  * 一律按空值兜。
  */
 type RequestRow = {
+  id?: string
   ts?: number | string | null
   status?: number | string | null
   error?: unknown
@@ -160,6 +168,7 @@ type SharedWindow = {
     getStatsRequestRaw(id: string): Promise<unknown>
     getDebugTraffic(id: string): Promise<unknown>
     terminateStatsRequest(id: string): Promise<unknown>
+    getStatsRequests(query: string): Promise<{ entries?: RequestRow[] }>
   }
   /**
    * toast 与 esc 在本岛**不使用**，列出来只为把依赖面写清楚：旧实现用 esc 拼
@@ -173,10 +182,6 @@ type SharedWindow = {
   }
   /** ask 的 html 是原始 HTML（调用方负责转义），okClass='danger' 时确认键走红 */
   wbConfirm?: { ask?: (options: { title?: string; html?: string; okText?: string; okClass?: string }) => Promise<boolean> }
-  /** 对话气泡渲染（纯函数，本岛只负责取数与空态） */
-  wbConversationPreview?: { render?: (requestBody: unknown, responseBody: unknown) => string }
-  /** 阶段徽章与阶段计时（同一套阶段要在三处逐字一致，见 request-phase.js 的模块头） */
-  wbRequestPhase?: { badgeHtml?: (entry: unknown) => string; elapsedLineHtml?: (entry: unknown) => string }
   /** 提供商展示名目录（后端 label → 目录 → 原样回显 id） */
   wbProviders?: { labelOf?: (id: string) => string }
   /** Token 读数的量级词与分档（units.js；中文「万 / 亿」与英文「k / M」的切换在那边一处） */
@@ -227,6 +232,30 @@ function fmtFirstResponse(ms: unknown): string {
   const value = Number(ms)
   if (!Number.isFinite(value) || value <= 0) return '-'
   return fmtDuration(value)
+}
+
+/** 生成速度（tok/s）的悬停说明（与列表 SPEED_TIP 同一份文案，改口径时一起改） */
+const SPEED_TIP = t('生成速度：输出 token ÷ 流式段用时（总用时 − 首响）；流式段不足总用时一半时按总用时计')
+
+/**
+ * 生成速度（tok/s）：输出 token ÷ 流式段用时（总用时 − 首响）。
+ *
+ * 与列表 requests-page 的 tokensPerSecond 逐字同源（那边是唯一实现，这里是详情
+ * 弹窗的镜像，两边注释互相指认，改口径时一起改）。护栏两条，不满足回落按总用时
+ * 计：流式段 ≥ 500ms（非流式响应 duration ≈ 首响，分母趋零）、流式段 ≥ 总用时
+ * 的一半（静默思考的上游把 token 攒到首帧后的小窗口里一股脑下发，短尾窗口
+ * 除出来是「下发速度」不是「生成速度」，能到 800+ tok/s 的假读数）。
+ * 输出 / 总用时为 0（失败行 token 清零、旧行）给空串 —— 调用方据此省掉这一段。
+ */
+function fmtTokensPerSecond(row: RequestRow): string {
+  const tokens = Number(row.completionTokens) || 0
+  const duration = Number(row.durationMs) || 0
+  if (tokens <= 0 || duration <= 0) return ''
+  const first = Number(row.firstResponseMs)
+  const streamMs = Number.isFinite(first) && first > 0 && first < duration ? duration - first : 0
+  const streaming = streamMs >= 500 && streamMs * 2 >= duration
+  const rate = tokens / ((streaming ? streamMs : duration) / 1000)
+  return `${rate >= 100 ? Math.round(rate) : rate.toFixed(1)} tok/s`
 }
 
 /** 令牌读数：量级词与分档交给 units.js 的 formatTokens（与列表 / 报表页同一口径，
@@ -287,12 +316,10 @@ const DEBUG_SEGS: readonly { label: string; pick: (data: DebugTraffic) => string
 
 /** 空态块（请求详情 / 预览对话的兜底文案共用同一形制） */
 function Empty({ text, loading = false }: { text: string; loading?: boolean }) {
-  return (
-    <div className='flex items-center justify-center gap-2 py-6 text-center text-[12.5px] text-muted-foreground'>
-      {loading ? <Spinner className='size-3.5' /> : null}
-      {text}
-    </div>
-  )
+  return <EmptyState variant='compact'><EmptyHeader>
+    {loading ? <EmptyMedia><Spinner /></EmptyMedia> : null}
+    <EmptyDescription>{text}</EmptyDescription>
+  </EmptyHeader></EmptyState>
 }
 
 /**
@@ -303,7 +330,7 @@ function Empty({ text, loading = false }: { text: string; loading?: boolean }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <TableRow className={NO_HOVER}>
-      <th scope='row' className={`w-[76px] whitespace-nowrap text-left text-[12.5px] font-semibold text-muted-foreground ${GRID_CELL}`}>
+      <th scope='row' className={cn('w-[76px] whitespace-nowrap text-left text-[12.5px] font-semibold text-muted-foreground', GRID_CELL)}>
         {label}
       </th>
       <TableCell className={GRID_CELL}>{children}</TableCell>
@@ -312,36 +339,16 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 /**
- * 状态徽章：与列表 statusCell 同款 —— 进行中交给 `request-phase.js`（阶段徽章：
+ * 状态徽章：与列表 statusCell 同款 —— 进行中交给共享 RequestPhaseBadge（阶段徽章：
  * 连接中 / 等待响应 / 响应中 / 重试中，没有阶段时回落「进行中」，后面缀一段当前
  * 阶段的计时），2xx 带摘要时给 title 说明失败在响应体阶段。判据（isRunning /
  * isOk）是上面那两个镜像函数，结构与列表逐字同源。
  */
 function StatusCell({ row }: { row: RequestRow }) {
   if (isRunning(row)) {
-    const phase = shared().wbRequestPhase
-    // 阶段模块没就绪时回落成改造前的静态徽章（与列表对 request-phase 的可选链同一
-    // 手法）：加载顺序本就是硬要求，但真出问题时这一格不该空着。呼吸点用页面既有的
-    // .req-live-dot（1.2s 脉动 + reduced-motion 降级），组件库的 BadgeDot 是静态圆点
-    if (!phase?.badgeHtml) {
-      return (
-        <Badge variant='info' shape='tag' title={t('请求正在转发中，用时列显示的是已用时')}>
-          <BadgeDot className='req-live-dot' />
-          {t('进行中')}
-        </Badge>
-      )
-    }
-    const elapsed = phase.elapsedLineHtml?.(row) ?? ''
-    return (
-      <span className='inline-flex flex-wrap items-center gap-1.5'>
-        {/* 徽章与阶段计时都由 request-phase.js 产出 HTML（同一套阶段要在三处逐字
-            一致，见那边的模块头），这里原样注入、不重写 */}
-        <span dangerouslySetInnerHTML={{ __html: phase.badgeHtml(row) }} />
-        {elapsed ? (
-          <span className='text-[11.5px] text-muted-foreground' dangerouslySetInnerHTML={{ __html: elapsed }} />
-        ) : null}
-      </span>
-    )
+    return <span className='inline-flex flex-wrap items-center gap-1.5'>
+      <RequestPhaseBadge entry={row} /><RequestPhaseElapsed entry={row} />
+    </span>
   }
   const status = Number(row.status) || 0
   const ok = isOk(row)
@@ -446,10 +453,10 @@ function AttemptsTable({ row }: { row: RequestRow }) {
               </TableCell>
               <TableCell className={ATTEMPT_CELL}>{item?.account ? String(item.account) : '—'}</TableCell>
               <TableCell className={ATTEMPT_CELL}>{attemptResult(item)}</TableCell>
-              <TableCell className={`${ATTEMPT_CELL} whitespace-nowrap`} title={bodyTitle}>
+              <TableCell className={cn(ATTEMPT_CELL, 'whitespace-nowrap')} title={bodyTitle}>
                 {bodyText}
               </TableCell>
-              <TableCell className={`${ATTEMPT_CELL} whitespace-nowrap`} title={retryTitle || undefined}>
+              <TableCell className={cn(ATTEMPT_CELL, 'whitespace-nowrap')} title={retryTitle || undefined}>
                 {retries.length ? t('↻ {n} 次', { n: retries.length }) : '-'}
               </TableCell>
               <TableCell className={ATTEMPT_CELL}>{notice || '—'}</TableCell>
@@ -458,7 +465,7 @@ function AttemptsTable({ row }: { row: RequestRow }) {
         })}
         {details.length < attempts ? (
           <TableRow className={NO_HOVER}>
-            <TableCell colSpan={7} className={`${ATTEMPT_CELL} text-muted-foreground`}>
+            <TableCell colSpan={7} className={cn(ATTEMPT_CELL, 'text-muted-foreground')}>
               {t('另有 {missing} 次尝试未记录明细（只保留最早的 {kept} 条）', {
                 missing: attempts - details.length, kept: details.length,
               })}
@@ -531,6 +538,7 @@ function DetailPane({ row }: { row: RequestRow | null }) {
   // 没有可显示的数据 —— 说清原因让用户关掉重开，比一片空字段诚实
   if (!row) return <Empty text={t('列表数据已刷新，请重试（关闭后重新打开这条详情）')} />
   const account = String(row.accountName ?? '').trim()
+  const speed = fmtTokensPerSecond(row)
   return (
     // 值列基色打在 table 上靠继承（继承永远输给元素上的直接声明），格内的错误红 / 成功绿不会被压住
     <Table className='text-[12.5px] text-subtle [&_tr:last-child>td]:border-b-0 [&_tr:last-child>th]:border-b-0'>
@@ -545,9 +553,9 @@ function DetailPane({ row }: { row: RequestRow | null }) {
               <span className='text-[11.5px] text-muted-foreground'>{t('（请求仍在转发中）')}</span>
             </>
           ) : (
-            <>{t('{duration} / 首帧 {first}', {
+            t('{duration} / 首帧 {first}', {
               duration: fmtDuration(row.durationMs), first: fmtFirstResponse(row.firstResponseMs),
-            })}</>
+            })
           )}
         </Field>
         <Field label={t('重试次数')}>{String(Number(row.attempts) || 1)}</Field>
@@ -563,6 +571,9 @@ function DetailPane({ row }: { row: RequestRow | null }) {
             total: fmtTokens(row.totalTokens),
             cache: fmtTokens(row.cacheReadTokens),
           })}
+          {/* 生成速度跟在缓存读后面（与列表用量列的落点同一语义）；失败行 token
+              清零，fmtTokensPerSecond 给空串，自动省掉 */}
+          {speed ? <span title={SPEED_TIP}> · {speed}</span> : null}
         </Field>
         {/* 测试发起的请求**按需多一行**：它是这一条明细的性质（走的是真实转发链路、但不进报表），
             正常转发的行不必为此多读一行「正常转发」 —— 那种字段每个租户都有时等于没有 */}
@@ -578,6 +589,9 @@ function DetailPane({ row }: { row: RequestRow | null }) {
           {row.error ? <span className='text-destructive'>{String(row.error)}</span> : '—'}
         </Field>
         <Field label={t('尝试明细')}><AttemptsTable row={row} /></Field>
+        <Field label={t('链路耗时')}>
+          <RequestTimings attempts={row.attemptDetails || []} running={isRunning(row)} startedAt={row.ts} />
+        </Field>
         {row.route ? <Field label={t('路由回放')}><RouteReplay row={row} /></Field> : null}
         <Field label={t('敏感词')}>
           {/* 命中标签（与列表「敏」标签同一套紫，这里展开写词与次数） */}
@@ -605,20 +619,11 @@ function DetailPane({ row }: { row: RequestRow | null }) {
 function PreviewPane({ state }: { state: RawState }) {
   if (!state) return <Empty text={t('正在读取…')} loading />
   const body = state === 'gone' ? null : state.body
-  // 气泡 HTML 由 conversation-preview.js 产出（纯函数，内部已对原文转义），
-  // 这里原样注入 —— 迁移只换外壳，不重写渲染
-  const html = body
-    ? shared().wbConversationPreview?.render?.(body.requestBody, body.responseBody) || ''
-    : ''
-  if (!html) return <Empty text={t('无报文原文（可能已被清理或超出保留范围）')} />
-  return (
-    <div>
-      {state !== 'gone' && state.truncated ? (
-        <div className='mb-2 text-[11.5px] text-warning'>{t('正文超过单条上限，可能已被截断')}</div>
-      ) : null}
-      <div dangerouslySetInnerHTML={{ __html: html }} />
-    </div>
-  )
+  if (!body || (!body.requestBody && !body.responseBody)) return <Empty text={t('无报文原文（可能已被清理或超出保留范围）')} />
+  return <>
+    {state !== 'gone' && state.truncated ? <Alert role='status' className='mb-2'><AlertDescription>{t('正文超过单条上限，可能已被截断')}</AlertDescription></Alert> : null}
+    <ConversationPreview requestBody={body.requestBody} responseBody={body.responseBody} />
+  </>
 }
 /* ─── 标签 ③：原始报文（调试模式的四段）─────── */
 
@@ -670,7 +675,8 @@ type RequestDetailProps = {
   onClose: () => void
 }
 
-function RequestDetail({ id, row, token, onClose }: RequestDetailProps) {
+function RequestDetail({ id, row: initialRow, token, onClose }: RequestDetailProps) {
+  const [row, setRow] = React.useState(initialRow)
   const [active, setActive] = React.useState<TabKey>(DEFAULT_TAB)
   const [raw, setRaw] = React.useState<RawState>(null)
   const [debug, setDebug] = React.useState<DebugState>(null)
@@ -736,6 +742,34 @@ function RequestDetail({ id, row, token, onClose }: RequestDetailProps) {
     return () => { aliveRef.current = false }
     // 只在挂载时拉一次：本岛是「打开时建、关闭即卸」，id 不会中途变
   }, [])
+
+  // Refresh the exact request while the dialog is open, independent of list paging.
+  // Reuse the authenticated bridge and narrow the query to its millisecond; always
+  // match the immutable id before accepting a row. No overlapping polls.
+  React.useEffect(() => {
+    const ts = Number(initialRow?.ts)
+    if (!isRunning(initialRow) || !Number.isFinite(ts) || ts <= 0) return
+    let stopped = false
+    let timer = 0
+    const refresh = async () => {
+      let finished = false
+      try {
+        const result = await api().getStatsRequests(`start=${ts}&end=${ts + 1}&limit=200`)
+        if (stopped) return
+        const next = result?.entries?.find(item => item.id === id)
+        if (next) {
+          setRow(next)
+          finished = !isRunning(next)
+          if (finished) void loadRaw()
+        }
+      } catch {
+        // Keep the last observed milestones on transient connection failures.
+      }
+      if (!stopped && !finished) timer = window.setTimeout(() => { void refresh() }, 1500)
+    }
+    void refresh()
+    return () => { stopped = true; window.clearTimeout(timer) }
+  }, [id])
 
   /**
    * 还原当前 pane 的滚动位置：切换标签只改 hidden（display:none），pane 的 DOM 原样
@@ -807,18 +841,14 @@ function RequestDetail({ id, row, token, onClose }: RequestDetailProps) {
           <DialogTitle>{t('请求详情')}</DialogTitle>
         </DialogHeader>
         <DialogBody ref={bodyRef} className='gap-3'>
-          <SegmentedControl options={tabOptions} value={active} onValueChange={switchTab}
-            aria-label={t('详情内容')} className='self-start' />
-          {/* 三个 pane 常驻（用 hidden 切显示，不卸载）：切换标签时 pane 的 DOM 与展开态
-              原样保留，滚动位置由上面的 layout effect 还原。pane 不标 role="tabpanel" ——
-              分段控件是 radiogroup 语义（不是 tablist），孤立的 tabpanel 是残缺结构 */}
-          <section hidden={active !== 'detail'}><DetailPane row={row} /></section>
-          <section hidden={active !== 'preview'}><PreviewPane state={raw} /></section>
-          {showRaw ? (
-            <section hidden={active !== 'raw'}>
-              <RawPane data={(debug as { data: DebugTraffic }).data} />
-            </section>
-          ) : null}
+          <Tabs value={active} onValueChange={next => switchTab(String(next) as TabKey)}>
+            <TabsList aria-label={t('详情内容')}>
+              {tabOptions.map(tab => <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>)}
+            </TabsList>
+            <TabsContent value='detail' keepMounted><DetailPane row={row} /></TabsContent>
+            <TabsContent value='preview' keepMounted><PreviewPane state={raw} /></TabsContent>
+            {showRaw ? <TabsContent value='raw' keepMounted><RawPane data={(debug as { data: DebugTraffic }).data} /></TabsContent> : null}
+          </Tabs>
         </DialogBody>
         <DialogFooter>
           <span className='min-w-0 text-[11.5px] text-muted-foreground'>{hint}</span>

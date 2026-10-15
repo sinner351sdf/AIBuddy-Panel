@@ -1,6 +1,6 @@
 # Agent2API · 多提供商本地网关
 
-> 此仓库为 AIBuddy-Panel 定制版本，代码上游为 agent2api。已跟进上游 **3.0.2**（`221e552`），保留原面板定制；升级前请阅读[3.0.2 核对与代码审查](docs/aibuddy-port/REVIEW-3.0.2.zh-CN.md)及[完整移植清单与兼容性说明](docs/aibuddy-port/BETA-INTEGRATION-2026-10-13.zh-CN.md)。
+> 此仓库为 AIBuddy-Panel 定制版本，代码上游为 agent2api。当前代码已同步至 **3.0.3**，并保留本地网关、提供商与面板定制。查看[本轮更新记录](CHANGELOG.md)、[3.0.3 移植与兼容性说明](docs/aibuddy-port/UPSTREAM-3.0.3.zh-CN.md)及[任务中心说明](docs/workbuddy-task-center/README.zh-CN.md)。本轮为代码更新，安装包与正式 Release 需单独发布。
 
 WorkBuddy 国内版账号可在账号池的「任务」按钮中查看和操作[单账号积分任务](docs/aibuddy-port/WORKBUDDY-ACCOUNT-TASKS.zh-CN.md)。
 

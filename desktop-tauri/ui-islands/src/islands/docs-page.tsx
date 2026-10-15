@@ -1,61 +1,21 @@
+import { InfoTip } from '../components/info-tip'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
-import { Button, Spinner } from '@ui'
+import {
+  Badge, Button, Spinner, ToggleGroup, ToggleGroupItem,
+  Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter,
+  CodeBlock, CodeBlockHeader, CodeBlockTitle, CodeBlockActions, CodeBlockContent,
+  Item, ItemGroup, ItemContent, ItemTitle, ItemDescription, ItemFooter,
+} from '@ui'
+import { CopyIcon, RefreshCwIcon } from '@ui/navigation-icons'
 import { t } from '../i18n'
 
 /**
- * 文档页（接口地址）—— React 岛。
- *
- * 替换的是 ui/index.html 里 `<section class="page" data-page="docs">` 那 74 行静态 DOM
- * （接口条 .ep-panel / .ep-list / .ep-row / .ep-group / .panel-foot）。对外**没有任何
- * window 接口**，app.js 切到本页时只调 `window.wbPortPanel.sync()`（补一次真实端口），
- * 与本岛无关，调用方一行都不用改。页面共三块面板：接口地址（纯展示）、客户端快速接入
- * （本地状态）与网关健康（有网络请求，见下）。
- *
- * ── 网关健康：探活不在挂载时打，在「进页面」时打 ────────────────
- * 本岛在应用启动时就挂载（islands/ui.js 统一加载），不是切到本页才挂载；要是在挂载
- * useEffect 里直接探活，用户一辈子不进文档页也会白打几发请求。app.js 切页只在本岛
- * 挂载的 section 上切 `.active` 类（从不碰子节点，两边不抢 DOM），于是拿 class 变化
- * 当「进页面」的信号：MutationObserver 盯住 section 的 class，每次拿到 `.active`
- * 自动检测一轮（挂载时就已在本页 —— 上次会话停在这页 —— 也算一次）。不新增
- * window 接口、不改 app.js：showPage 的 docs 分支保持只调 wbPortPanel.sync()。
- * 探活对象按部署者视角挑的：/health 与 /v1/models 同源、免鉴权（未配 Key 的空
- * 模型清单同样算成功），未登录时 /api/update/status、/api/storage 读不到只回落
- * 「—」/ 省略脚注，不算失败。
- *
- * ── 挂载：面板岛模式，root 直接建在既有的页面区块上 ──────────────
- * 先 `section.replaceChildren()` 清掉静态骨架，再把 root 建在这个 section 上（不套宿主
- * div）：页面 CSS 用 `.page` / `.panel` 这组直接子选择器分配布局，中间插一层会打断它
- * （与 tasks-panel / logs-panel 同一手法）。app.js 的 showPage 只在这个 section 上切
- * `active` 类、从不碰子节点，两边不会抢同一个 DOM。
- *
- * ── 边界：页面布局类名照旧，控件换组件库 ──────────────────────
- * `.panel` `.panel-head` `.panel-foot` `.ep-panel` `.ep-list` `.ep-row` `.ep-head`
- * `.ep-name` `.ep-note` `.ep-line` `.ep-value` `.ep-group` 全部保留（样式在
- * ui/css/page-gateway.css 与 layout.css）—— 布局不是「组件」，换成 Tailwind 会让这一页
- * 与其它页长得不一样。这一页唯一的控件是 5 颗复制按钮，换成 @ui 的 Button。
- * 面板头那枚问号仍是 `.tip-q` + `data-tip`（tooltip.js 的自动增强带 MutationObserver，
- * 接得住 React 插入的节点）—— 与设置页 / 定时任务页同一处理，不换成 Tooltip 是刻意的：
- * 换要把长文包一层组件，观感与行为却完全一样。
- *
- * ── 地址不是本岛的数据：五个 id 必须原样渲染、且必须稳定 ────────────
- * 五条地址的文本由**另一个岛**写进来：port-panel.tsx 的 paintGatewayAddress 用
- * `getElementById(id).textContent = ...` 就地覆盖（它每次 sync / render 都重写一遍，
- * 地址随真实端口变化）。所以：
- *   · `id` 一字不改（api-base / api-chat / api-responses / api-messages / api-models）
- *     —— 少了任何一个，那一行地址永远是占位的「—」；
- *   · 这五个元素的**文本不进 React 的 state**，本岛只渲染一次静态骨架，之后不重渲染；
- *     即便将来有人给它加了会变的 key 或条件渲染把它换掉，React 重建元素后 port-panel
- *     要等下一次 sync（最多 20 秒的轮询）才会补写 —— 用户会看到地址闪没；
- *   · 占位的「—」是**首屏**文案（静态 DOM 里就有）：port-panel 还没写进来时不留空白。
- *     React 只在挂载时渲染它一次，之后 port-panel 的 textContent 覆盖不会被 React
- *     回写（同一处 children 前后一致，React 不产生 DOM 操作），所以不会互相打架。
- *
- * ── 复制按钮：属性与类名都是 clipboard.js 的契约 ────────────────
- * clipboard.js 是**全局事件委托**（扫 `[data-copy-from]`，取该 id 元素的文本、剥掉
- * "POST " / "GET " 前缀再复制），并且只在触发器带 `.copy-btn` 类时才做「⧉ → ✓」的
- * 即时反馈。两样都照抄静态 DOM，换成 Button 不影响：委托认的是属性与类名，不看标签。
+ * 接入文档：Base URL、协议与客户端示例、同源健康检测。
+ * 五个 api-* 节点由 port-panel 写入真实地址，复制仍走 clipboard.js 的委托与权限兜底。
+ * root 同步挂载在既有 section 上，保证 port-panel 初始化时这些节点已经存在。
+ * 健康检测只在进入页面或手动重试时执行，不因应用启动、切换客户端或复制而触发。
  */
 
 /* ─── 常量 ─────────────────────────────────── */
@@ -73,33 +33,31 @@ type EndpointRowProps = {
   note: string
 }
 
-/** 一行端点：上排「名字 + 用途」，下排「方法 + URL + 复制」（两排是 .ep-* 的既有版式） */
+/** 不加旧 copy-btn 类：旧委托会替换 textContent，破坏 React 图标；成功反馈沿用全局 toast。 */
+function CopyAddress({ from, label, text = false }: { from: string; label: string; text?: boolean }) {
+  return (
+    <Button variant={text ? 'outline' : 'ghost'} size={text ? 'sm' : 'icon-sm'}
+      data-copy-from={from} aria-label={label} title={label}>
+      <CopyIcon data-icon='inline-start' />
+      {text ? t('复制') : null}
+    </Button>
+  )
+}
+
 function EndpointRow({ id, name, note }: EndpointRowProps) {
   return (
-    <div className='ep-row'>
-      <div className='ep-head'>
-        <span className='ep-name'>{name}</span>
-        <span className='ep-note'>{note}</span>
-      </div>
-      <div className='ep-line'>
-        <code className='ep-value' id={id}>—</code>
-        {/*
-          复制按钮：`data-copy-from` 与 `.copy-btn` 见文件头（clipboard.js 的委托契约）。
-          size / rounded 用工具类再写一遍 21px 与 --r-xs：`.copy-btn` 是老样式表里的
-          未分层声明，而组件库的工具类分层且带 !important（globals.css 的刻意取舍），
-          不补这两个值就会被 icon-xs 档的 24px / 圆角盖掉，这一行的行高跟着变。
-        */}
-        <Button
-          variant='ghost'
-          size='icon-xs'
-          className='copy-btn size-[21px] rounded-[var(--r-xs)]'
-          data-copy-from={id}
-          title={t('复制地址')}
-        >
-          ⧉
-        </Button>
-      </div>
-    </div>
+    <Item role='listitem' size='sm' className='px-0'>
+      <ItemContent className='min-w-0'>
+        <ItemTitle>{name}</ItemTitle>
+        <ItemDescription className='line-clamp-none'>{note}</ItemDescription>
+      </ItemContent>
+      <ItemFooter className='min-w-0'>
+        <CodeBlock size='sm' className='flex-row items-center'>
+          <CodeBlockContent className='flex-1' aria-label={t('{name} 请求地址', { name })}><span id={id}>—</span></CodeBlockContent>
+          <div className='shrink-0 pr-2'><CopyAddress from={id} label={t('复制 {name} 地址', { name })} /></div>
+        </CodeBlock>
+      </ItemFooter>
+    </Item>
   )
 }
 
@@ -203,27 +161,6 @@ function clientSnippet(kind: ClientKind, base: string): string {
   }
 }
 
-/** 一颗接入客户端的分段按钮（选中用品牌实底，未选中透明） */
-function ClientTab({ kind, label, hint, active, onPick }: {
-  kind: ClientKind
-  label: string
-  hint: string
-  active: boolean
-  onPick: (kind: ClientKind) => void
-}) {
-  return (
-    <Button
-      variant={active ? 'default' : 'ghost'}
-      size='sm'
-      className='shrink-0'
-      title={hint}
-      onClick={() => onPick(kind)}
-    >
-      {label}
-    </Button>
-  )
-}
-
 const DOCS_CLIENT_KEY = 'aibuddy-docs-client'
 const DOCS_CLIENTS: ClientKind[] = ['curl', 'python', 'node', 'claude', 'codex']
 
@@ -247,46 +184,50 @@ function QuickStartPanel() {
       // 存储不可用只影响下次打开
     }
   }
-  // 现读而非存 state：port-panel 首渲染就会把 Base URL 写进 #api-base，
-  // 用户点切换时读到的必然是已同步的地址（早时序则走 quickStartBase 的回退）
-  const base = quickStartBase()
-  const snippetId = 'qs-snippet'
+  const [base, setBase] = useState(quickStartBase)
+  useEffect(() => {
+    const source = document.getElementById('api-base')
+    if (!source) return
+    const sync = () => setBase(quickStartBase())
+    const observer = new MutationObserver(sync)
+    observer.observe(source, { childList: true, characterData: true, subtree: true })
+    sync()
+    return () => observer.disconnect()
+  }, [])
+  const client = CLIENT_TABS.find(tab => tab.kind === kind)!
+  const filenames: Record<ClientKind, string> = {
+    curl: 'Terminal', python: 'example.py', node: 'example.mjs', claude: 'Terminal', codex: '~/.codex/config.toml',
+  }
   return (
-    <section className='panel ep-panel'>
-      <div className='panel-head'>
-        <h2>客户端快速接入</h2>
-        <span className='tip-q' tabIndex={0} aria-label='接口地址说明'
-          data-tip='按上方 Base URL 现生成接入片段；把「sk-你的网关Key」换成「网关 Key」页里创建的 Key，模型名从 GET /v1/models 里选。'></span>
-      </div>
-      <div className='ep-list'>
-        <div className='ep-group'>选择客户端类型</div>
-        <div className='flex flex-wrap gap-2 px-[16px] pb-[4px]'>
-          {CLIENT_TABS.map((tab) => (
-            <ClientTab key={tab.kind} {...tab} active={kind === tab.kind} onPick={setKind} />
+    <Card as='section' variant='panel' size='sm' className='min-w-0'>
+      <CardHeader variant='panel'>
+        <div className='flex min-w-0 flex-1 flex-col gap-1'>
+          <CardTitle>{t('客户端快速接入')}</CardTitle>
+          <CardDescription>{t('选择客户端，复制对应的接入示例。')}</CardDescription>
+        </div>
+        <InfoTip label={t('客户端快速接入说明')}>{t('按上方 Base URL 现生成接入片段；把「sk-你的网关Key」换成「网关 Key」页里创建的 Key，模型名从 GET /v1/models 里选。')}</InfoTip>
+      </CardHeader>
+      <CardContent variant='panel'>
+        <ToggleGroup variant='outline' size='sm' spacing={2} value={[kind]}
+          aria-label={t('选择客户端类型')} className='flex-wrap'
+          onValueChange={next => { if (next.length) setKind(next[0] as ClientKind) }}>
+          {CLIENT_TABS.map(tab => (
+            <ToggleGroupItem key={tab.kind} value={tab.kind} title={t(tab.hint)}>{tab.label}</ToggleGroupItem>
           ))}
-        </div>
-        <div className='px-[16px] pb-[16px]'>
-          <div className='relative'>
-            <pre
-              id={snippetId}
-              className='m-0 overflow-x-auto rounded-[var(--r-sm)] bg-[var(--surface-inset)] p-[14px] font-mono text-[12px] leading-[1.7] whitespace-pre'
-            >{clientSnippet(kind, base)}</pre>
-            <Button
-              variant='ghost'
-              size='icon-xs'
-              className='copy-btn absolute right-[10px] top-[10px] size-[24px] rounded-[var(--r-xs)] bg-[var(--surface)]'
-              data-copy-from={snippetId}
-              title='复制配置'
-            >
-              ⧉
-            </Button>
-          </div>
-          <div className='mt-[10px] text-[12px] muted'>
-            各客户端共用同一套账号池与 Key；流式（SSE）在以上所有方式里默认开启。
-          </div>
-        </div>
-      </div>
-    </section>
+        </ToggleGroup>
+        <CodeBlock size='sm'>
+          <CodeBlockHeader>
+            <CodeBlockTitle>{filenames[kind]}</CodeBlockTitle>
+            <CodeBlockActions><CopyAddress from='qs-snippet' label={t('复制 {name} 配置', { name: client.label })} text /></CodeBlockActions>
+          </CodeBlockHeader>
+          <CodeBlockContent id='qs-snippet' aria-label={t('{name} 接入示例', { name: client.label })}>{clientSnippet(kind, base)}</CodeBlockContent>
+        </CodeBlock>
+        <CardDescription>{t(client.hint)} · {t('将示例中的 Key 和模型名替换为自己的配置。')}</CardDescription>
+      </CardContent>
+      <CardFooter variant='panel'>
+        {t('各客户端共用同一套账号池与 Key；支持流式（SSE）响应。')}
+      </CardFooter>
+    </Card>
   )
 }
 
@@ -383,29 +324,8 @@ const IDLE_SNAPSHOT: HealthSnapshot = {
   requests: null,
 }
 
-/** 状态卡的色调：ok 绿 / bad 红 / info 靛（版本读到了）/ idle 灰（还没测过）。
- *  全部取自 tokens 语义色，深浅主题自适应 —— 卡片里没有一处写死颜色 */
 type CardTone = 'ok' | 'bad' | 'info' | 'idle'
 
-const DOT_COLOR: Record<CardTone, string> = {
-  ok: 'var(--ok)',
-  bad: 'var(--danger)',
-  info: 'var(--info)',
-  idle: 'var(--text-3)',
-}
-
-const VALUE_COLOR: Record<CardTone, string> = {
-  ok: 'var(--ok)',
-  bad: 'var(--danger)',
-  info: 'var(--text)',
-  idle: 'var(--text-3)',
-}
-
-/**
- * 一张状态卡：上排「圆点 + 名字」，中排大字读数，下排小字说明（失败再补一行红字）。
- * 卡身用 .ep-group / 代码块同款的做法：--surface-inset 抬一层 + --hairline 描边，
- * 与面板内其它「凹下去的小块」视觉同族。
- */
 function HealthCard({ name, tone, value, hint, error }: {
   name: string
   tone: CardTone
@@ -414,19 +334,21 @@ function HealthCard({ name, tone, value, hint, error }: {
   error: string
 }) {
   return (
-    <div className='min-w-[176px] flex-1 rounded-[var(--r-sm)] border border-[var(--hairline)] bg-[var(--surface-inset)] p-[12px]'>
-      <div className='flex items-center gap-[7px]'>
-        <span aria-hidden className='size-[8px] shrink-0 rounded-full' style={{ background: DOT_COLOR[tone] }} />
-        <span className='text-[12.5px] font-semibold'>{name}</span>
-      </div>
-      <div className='mt-[7px] text-[15px] font-semibold leading-[1.4]' style={{ color: VALUE_COLOR[tone] }}>
-        {value}
-      </div>
-      {error ? (
-        <div className='mt-[5px] text-[11.5px] leading-[1.55]' style={{ color: 'var(--danger)' }}>{error}</div>
-      ) : null}
-      <div className='mt-[5px] text-[11.5px] leading-[1.55] muted'>{hint}</div>
-    </div>
+    <Card size='sm' className='min-w-0'>
+      <CardHeader>
+        <div className='flex flex-wrap items-center justify-between gap-2'>
+          <div className='flex min-w-0 items-center gap-1'>
+            <CardTitle>{t(name)}</CardTitle>
+            <InfoTip label={t('{name}说明', { name: t(name) })}>{t(hint)}</InfoTip>
+          </div>
+          <Badge variant={tone === 'bad' ? 'destructive' : 'secondary'}>
+            {t(tone === 'ok' ? '检测通过' : tone === 'bad' ? '检测失败' : tone === 'info' ? '已读取' : '待检测')}
+          </Badge>
+        </div>
+        <CardDescription>{value}</CardDescription>
+      </CardHeader>
+      {error ? <CardContent><CardDescription role='alert'>{t(error)}</CardDescription></CardContent> : null}
+    </Card>
   )
 }
 
@@ -489,19 +411,19 @@ function HealthPanel() {
     : snap.models.ok === false ? '不可用' : '—'
 
   return (
-    <section className='panel ep-panel'>
-      <div className='panel-head'>
-        <h2>网关健康</h2>
-        <span className='tip-q' tabIndex={0} aria-label='网关健康面板说明' data-tip={HEALTH_TIP}></span>
-        <div className='head-actions'>
+    <Card as='section' variant='panel' size='sm' className='min-w-0'>
+      <CardHeader variant='panel'>
+        <CardTitle>网关健康</CardTitle>
+        <InfoTip label={'网关健康面板说明'}>{HEALTH_TIP}</InfoTip>
+        <div className='ml-auto'>
           <Button variant='outline' size='sm' disabled={snap.checking} onClick={() => void check()}>
-            {snap.checking ? (<><Spinner className='size-3.5' />检测中…</>) : '重新检测'}
+            {snap.checking ? <Spinner data-icon='inline-start' /> : <RefreshCwIcon data-icon='inline-start' />}
+            {snap.checking ? t('检测中…') : t('重新检测')}
           </Button>
         </div>
-      </div>
-      <div className='ep-list'>
-        {/* 三张卡横排；窗口放不下时 flex-wrap 整卡落到下一行，不压扁读数 */}
-        <div className='flex flex-wrap gap-[10px] px-[16px] py-[14px]'>
+      </CardHeader>
+      <CardContent variant='panel'>
+        <div className='grid min-w-0 gap-3 md:grid-cols-3'>
           <HealthCard
             name='网关进程'
             tone={snap.gateway.ok === true ? 'ok' : snap.gateway.ok === false ? 'bad' : 'idle'}
@@ -524,18 +446,18 @@ function HealthPanel() {
             error=''
           />
         </div>
-      </div>
-      <div className='panel-foot'>
+      </CardContent>
+      <CardFooter variant='panel' className='justify-between'>
         <span>
           {'探活请求不带鉴权头、与页面同源；探活只看 HTTP 状态 —— '}
           <code>{'{"status":"ok"}'}</code>
           {' 或空模型清单同样算通过。'}
         </span>
         {snap.accounts !== null ? (
-          <span>{`账号池 ${snap.accounts} 个账号 · 累计请求 ${snap.requests ?? 0} 次`}</span>
+          <span>{`账号池 ${snap.accounts} 个账号 · 请求记录 ${snap.requests ?? 0} 条`}</span>
         ) : null}
-      </div>
-    </section>
+      </CardFooter>
+    </Card>
   )
 }
 
@@ -543,50 +465,56 @@ function HealthPanel() {
 
 function DocsPage() {
   return (
-    <>
-      <section className='panel ep-panel'>
-      <div className='panel-head'>
-        <h2>{t('接口地址')}</h2>
-        <span className='tip-q' tabIndex={0} aria-label='客户端快速接入说明' data-tip={PANEL_TIP}></span>
+    <div className='flex min-w-0 flex-col gap-4'>
+      <Card as='section' variant='panel' size='sm'>
+        <CardHeader variant='panel'>
+          <div className='flex min-w-0 flex-1 flex-col gap-1'>
+            <CardTitle>{t('接口地址')}</CardTitle>
+            <CardDescription>{t('将 Base URL 填入客户端的「API 地址 / Base URL」。')}</CardDescription>
+          </div>
+          <InfoTip label={t('接口地址说明')}>{PANEL_TIP}</InfoTip>
+        </CardHeader>
+        <CardContent variant='panel'>
+          <CodeBlock>
+            <CodeBlockHeader>
+              <CodeBlockTitle>Base URL</CodeBlockTitle>
+              <CodeBlockActions><CopyAddress from='api-base' label={t('复制 Base URL')} text /></CodeBlockActions>
+            </CodeBlockHeader>
+            <CodeBlockContent aria-label='Base URL'><span id='api-base'>—</span></CodeBlockContent>
+          </CodeBlock>
+        </CardContent>
+        <CardFooter variant='panel'>
+          <div className='flex min-w-0 flex-wrap items-center gap-2'>
+            <Badge variant='secondary'>{t('Key 鉴权')}</Badge>
+            <span>{t('使用「网关 Key」页中任一启用的 Key：')}</span>
+            <code>{'Authorization: Bearer <key>'}</code>
+            <span>{t('或')}</span>
+            <code>{'x-api-key: <key>'}</code>
+            <InfoTip label={t('鉴权与部署说明')}>{t('一把启用的 Key 都没有时不鉴权（默认网关只监听 127.0.0.1；在设置页开启「局域网访问」后监听所有网卡，鉴权与安全闸门随之启用）。服务器部署默认拒绝无 Key 的转发；创建第一把 Key 后恢复。')}</InfoTip>
+          </div>
+        </CardFooter>
+      </Card>
+      <div className='grid min-w-0 items-start gap-4 xl:grid-cols-2'>
+        <Card as='section' variant='panel' size='sm' className='min-w-0'>
+          <CardHeader variant='panel'>
+            <div className='flex flex-col gap-1'>
+              <CardTitle>{t('协议与端点')}</CardTitle>
+              <CardDescription>{t('按客户端支持的协议选择，共用同一套模型与账号池。')}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent variant='panel'>
+            <ItemGroup aria-label={t('接口端点')}>
+              <EndpointRow id='api-chat' name='OpenAI Chat Completions' note={t('多数 OpenAI 兼容客户端的默认协议')} />
+              <EndpointRow id='api-responses' name='OpenAI Responses' note={t('OpenAI 新协议（Codex、新版 SDK）')} />
+              <EndpointRow id='api-messages' name='Anthropic Messages' note={t('Claude Code / Anthropic SDK（token 计数：/v1/messages/count_tokens）')} />
+              <EndpointRow id='api-models' name={t('模型列表')} note={t('客户端自动拉取可用模型；不受鉴权限制，配 Key 之前就能拉')} />
+            </ItemGroup>
+          </CardContent>
+        </Card>
+        <QuickStartPanel />
       </div>
-      {/* 对话协议三种并列写出：客户端按自己支持的那种选一行填，三家共用同一套模型与账号池
-          —— 换协议不用换配置。端点名（Base URL / OpenAI …）是协议固定叫法，不进词典；
-          用途说明与分组标题是中文，走 t() */}
-      <div className='ep-list'>
-        <EndpointRow id='api-base' name='Base URL' note={t('填进客户端的「API 地址 / Base URL」')} />
-
-        <div className='ep-group'>{t('对话协议（按客户端支持的类型选一行）')}</div>
-
-        <EndpointRow id='api-chat' name='OpenAI Chat Completions' note={t('多数 OpenAI 兼容客户端的默认协议')} />
-        <EndpointRow id='api-responses' name='OpenAI Responses' note={t('OpenAI 新协议（Codex、新版 SDK）')} />
-        <EndpointRow id='api-messages' name='Anthropic Messages'
-          note={t('Claude Code / Anthropic SDK（token 计数：/v1/messages/count_tokens）')} />
-
-        <div className='ep-group'>{t('模型清单')}</div>
-
-        <EndpointRow id='api-models' name={t('模型列表')}
-          note={t('客户端自动拉取可用模型；不受鉴权限制，配 Key 之前就能拉')} />
-      </div>
-      {/* 脚注逐字照抄静态 DOM：空格与标点都是原文的一部分，所以每段文本各写一个表达式 ——
-          JSX 会把「跨行的文本」折成一个空格，中英混排里那一格空隙很显眼。
-          内联的 <code> 是协议关键字、不进词典；两边的中文碎片各自走 t()（片段式翻译在这里
-          是刻意的：把整句塞进一个键就没法保留 <b> / <code> 的行内强调） */}
-      <div className='panel-foot'>
-        <span>
-          {t('鉴权用「网关 Key」页里任一')}
-          <b>{t('启用')}</b>
-          {t('的 Key：请求带 ')}
-          <code>{'Authorization: Bearer <key>'}</code>
-          {t(' 或 ')}
-          <code>{'x-api-key: <key>'}</code>
-          {t('。一把启用的 Key 都没有时不鉴权（默认网关只监听 127.0.0.1；在设置页开启「局域网访问」后监听所有网卡，鉴权与安全闸门随之启用）。')}
-          {'服务器部署默认拒绝无 Key 的转发；创建第一把 Key 后恢复。'}
-        </span>
-      </div>
-    </section>
-      <QuickStartPanel />
       <HealthPanel />
-    </>
+    </div>
   )
 }
 
@@ -597,8 +525,7 @@ const PAGE_SELECTOR = '.page[data-page="docs"]'
 let mounted = false
 
 /**
- * 把 React root 直接建在页面区块上（不套宿主 div，理由见文件头）。先清掉骨架里的静态子节点
- * （.panel / .panel-head / .ep-list …）：下面按同样的类名重新渲染，留着会与 React 打架。
+ * 把 React root 直接建在既有页面区块上，先清掉静态骨架，避免与 React 重复渲染。
  */
 function mount(): void {
   if (mounted) return

@@ -344,11 +344,16 @@ impl ProviderAdapter for AccioAdapter {
                 .unwrap_or("")
                 .to_string();
             // 凭证（含临期主动刷新）。显式账号必填 —— Accio 没有环境变量旁路。
+            let prepare = telemetry.begin_stage("credentials");
             let context = account_context(store, &account_id, self.region, false).await?;
+            prepare.finish();
+            let build = telemetry.begin_stage("build_request");
             // 思考档位：客户端显式指定 > 映射绑定（`body` 里已由 payload 层注入）
             let effort = protocol::client_effort(body);
             let plan = chat::build_plan(&context.credentials, body, &model_name, effort.as_deref())?;
             let effective_proxy = proxy.or(context.proxy);
+            telemetry.note_attempt_body_bytes(plan.body.len() as i64);
+            build.finish();
 
             logging::verbose(
                 "[Accio]",
@@ -369,7 +374,11 @@ impl ProviderAdapter for AccioAdapter {
                 capture.reset_request(&plan.url, "accio", &headers, body);
             }
 
+            // reqwest exposes response headers, not independent DNS/TCP/TLS/upload
+            // milestones. Keep this combined duration honest, including pool reuse.
+            let headers = telemetry.begin_stage("send_headers");
             let response = chat::send(&plan, effective_proxy.as_ref()).await?;
+            headers.finish();
             if let Some(capture) = capture.as_deref() {
                 capture.attach_response(response.status().as_u16(), response.headers());
             }
@@ -398,7 +407,7 @@ impl ProviderAdapter for AccioAdapter {
             };
             if stream {
                 // 首帧预读：额度/鉴权错误在 200 + 帧里，拦在返回之前换号无损
-                let (prefetched, source) = chat::prefetch_stream_head(response, &limit).await?;
+                let (prefetched, source) = chat::prefetch_stream_head(response, &limit, telemetry).await?;
                 let (sender, receiver) =
                     tokio::sync::mpsc::channel::<Result<bytes::Bytes, std::io::Error>>(64);
                 let telemetry = telemetry.clone();

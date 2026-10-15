@@ -1,3 +1,4 @@
+import { Settings2Icon } from '@ui/navigation-icons'
 import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 import { Button, Popover, PopoverContent, SegmentedControl, Switch, cn } from '@ui'
@@ -10,11 +11,11 @@ import { t } from '../i18n'
  *
  * ── 第一层：列配置的能力层（照旧保留）──────────────────────────
  * `register` / `apply` / `configOf` / `syncStaticHead` / `close` 五个方法是对外契约，
- * 四张表（账号表、模型管理、网关 Key、请求日志）在运行期调它们。它们读写的是一份
+ * 五张表（账号表、模型管理、网关 Key、请求日志、签到记录）在运行期调它们。它们读写的是一份
  * 「列 key → { 显示, 对齐 } 的有序配置」+ localStorage 持久化（键名前缀照旧），
- * 逻辑与口径逐字照抄 —— 这层不是「界面」，是四张表共用的**数据契约**：口径一动
+ * 逻辑与口径逐字照抄 —— 这层不是「界面」，是五张表共用的**数据契约**：口径一动
  * （`apply` 拿到的数组顺序、`configOf` 的返回形状、`syncStaticHead` 对静态表头做的事），
- * 四张表的列集合 / 顺序 / 对齐就会与面板各画一个样。所以这里只把它搬进 TS，不改行为。
+ * 五张表的列集合 / 顺序 / 对齐就会与面板各画一个样。所以这里只把它搬进 TS，不改行为。
  *
  * ── 第二层：浮层面板（本次换掉）────────────────────────────────
  * 外壳交给组件库的 `Popover`（Base UI，`modal={false}` 的非模态浮层）：定位（floating-ui）、
@@ -30,11 +31,10 @@ import { t } from '../i18n'
  * 当成「点面板外」，得自己把这一次认出来。
  * 控件仍全部走组件库：显隐 `Switch`、对齐三档 `SegmentedControl`、按钮 `Button`。
  *
- * ── 触发按钮（齿轮）为什么留在命令式一侧 ───────────────────────
- * 它插在 legacy 渲染出来的表头工具条里（`#batch-bar .batch-actions`、`.panel-head .head-actions`），
- * 插入位置与「排在最前 / 最后」由那些脚本的加载期决定；它的 `.colset-btn` / `.open` 样式也还在
- * ui/css 里。那是「打开浮层的触发管道」而不是浮层本体：换成 React 只会多一层宿主对齐成本，
- * 换不来任何行为收益，所以照旧 —— 按钮本身不归 React 管。
+ * ── 命令式注册与 React 触发按钮 ────────────────────────────
+ * register 仍负责工具条里的前 / 后插入。display:contents 宿主承载真实 Button，
+ * 浮层的 anchor 始终是其 HTMLButtonElement；不移动 React 管理的按钮节点。
+ * 表头重建或重复登记时卸载旧宿主，避免留下失联的 React root 与旧表数据闭包。
  *
  * ── 点外关闭与按钮自己那一下（这段是本次最容易做错的地方）──────
  * Base UI 判定「点面板外」是在 document 的**捕获阶段**（useDismiss 的 click 监听），
@@ -110,14 +110,14 @@ type ColConfigItem = { key: string; visible: boolean; align: Align }
 type ColumnDecl = {
   key: string
   label?: string
-  /** 默认是否显示（不声明即显示）；四张表当前都没用到，作为契约的一部分保留 */
+  /** 默认是否显示（不声明即显示）；五张表当前都没用到，作为契约的一部分保留 */
   visible?: boolean
   align?: Align
   /** 上一版的默认对齐：只给 normalize 分辨旧存盘里那一档是「用户挑的」还是「旧默认值」 */
   legacyAlign?: Align
 }
 
-/** register 的入参（四张表各给一份；mount 是元素、选择器或返回元素的函数） */
+/** register 的入参（五张表各给一份；mount 是元素、选择器或返回元素的函数） */
 type TableSpec = {
   id: string
   label?: string
@@ -130,7 +130,7 @@ type TableSpec = {
   buttonClass?: string
 }
 
-/** 登记项 = 声明 + 当前配置（配置是运行期被面板改写的那一份，四张表也读它） */
+/** 登记项 = 声明 + 当前配置（配置是运行期被面板改写的那一份，五张表也读它） */
 type TableEntry = TableSpec & { config: ColConfigItem[] }
 
 /** 存盘形态 v2：`{ v, defaults, items }`；v1 是裸数组（见 normalize） */
@@ -329,6 +329,9 @@ type PanelHandle = {
 }
 
 let panel: PanelHandle | null = null
+const panelListeners = new Set<() => void>()
+function subscribePanel(listener: () => void): () => void { panelListeners.add(listener); return () => { panelListeners.delete(listener) } }
+function notifyPanel(): void { for (const listener of panelListeners) listener() }
 
 function closePanel(): void {
   if (!panel) return
@@ -336,6 +339,7 @@ function closePanel(): void {
   // 先清引用再卸：unmount 会同步跑组件的清理，那些清理里若再走到 close 也不会递归
   panel = null
   current.destroy()
+  notifyPanel()
 }
 
 function openPanelFor(spec: TableEntry, anchor: Anchor): void {
@@ -354,6 +358,7 @@ function openPanelFor(spec: TableEntry, anchor: Anchor): void {
     },
   }
   panel = handle
+  notifyPanel()
   root.render(<ColSettingsPanel spec={spec} anchor={anchor} repaintRef={repaintRef} onClose={closePanel} />)
 }
 
@@ -412,7 +417,7 @@ type PanelProps = {
 /**
  * 列设置面板。
  *
- * 配置本体**不放在组件 state 里**：那是能力层的东西（`spec.config`），四张表的
+ * 配置本体**不放在组件 state 里**：那是能力层的东西（`spec.config`），五张表的
  * `apply()` 也读同一份。组件里存副本必然漂移，所以只用一个自增的版本号触发重画，
  * 渲染时直接读 `spec.config`。
  */
@@ -567,8 +572,7 @@ function ColSettingsPanel({ spec, anchor, repaintRef, onClose }: PanelProps) {
         <div
           className={cn(
             ROW_GRID,
-            'border-b border-hairline px-3 pt-[9px] pb-[7px]',
-            'text-[10.5px] font-semibold tracking-[.05em] text-muted-foreground',
+            'border-b border-hairline px-3 pt-[9px] pb-[7px] text-[10.5px] font-semibold tracking-[.05em] text-muted-foreground',
           )}
         >
           <span />
@@ -731,27 +735,58 @@ function syncStaticHead(
  * 「列设置」触发按钮：照旧用命令式建原生按钮并插进 legacy 页面骨架（理由见文件头）。
  * 齿轮图标来自 icons.js（运行期读 wbIcons），与旧实现逐字一致。
  *
- * 它同时就是浮层的锚点（PopoverContent 的 anchor 收它），所以不必再套包裹层。
+ * 真实 Button 是浮层锚点；命令式工具条只持有无布局盒的 React 宿主。
  */
-function makeButton(spec: TableEntry): Anchor {
-  const button = document.createElement('button')
-  button.type = 'button'
-  button.className = `sm colset-btn${spec.buttonClass ? ` ${spec.buttonClass}` : ''}`
-  button.id = `btn-colset-${spec.id}`
-  button.title = t('调整「{name}」的列：显示 / 隐藏、顺序、对齐', { name: spec.label || spec.id })
-  button.innerHTML = `${shared().wbIcons?.icon?.('settings', 14) || ''}<span>${t('列设置')}</span>`
-  button.setAttribute('aria-haspopup', 'dialog')
-  button.setAttribute('aria-expanded', 'false')
-  button.addEventListener('click', event => {
-    // 面板开着时点这颗按钮：Base UI 已在捕获阶段把它判成「点面板外」并关了窗，
-    // 这一次冒泡到这里只需认领标记、不再开回去（否则按钮按下去关不掉，见文件头）
-    if (outsidePressEvent === event) {
-      outsidePressEvent = null
-      return
+type TriggerMount = { host: HTMLSpanElement; root: ReturnType<typeof createRoot>; spec: TableEntry }
+const triggerMounts = new Map<string, TriggerMount>()
+let triggerObserver: MutationObserver | null = null
+
+function disposeTrigger(mount: TriggerMount): void {
+  if (triggerMounts.get(mount.spec.id) === mount) triggerMounts.delete(mount.spec.id)
+  if (panel?.spec === mount.spec) closePanel()
+  mount.host.remove()
+  // register is also called from another island's layout effect. Finish that
+  // commit before unmounting this independent root.
+  queueMicrotask(() => mount.root.unmount())
+}
+
+function observeTriggers(): void {
+  if (triggerObserver) return
+  triggerObserver = new MutationObserver(() => {
+    for (const mount of triggerMounts.values()) {
+      if (!mount.host.isConnected) disposeTrigger(mount)
     }
-    togglePanel(spec, button)
+    if (!triggerMounts.size) { triggerObserver?.disconnect(); triggerObserver = null }
   })
-  return button
+  triggerObserver.observe(document.documentElement, { childList: true, subtree: true })
+}
+
+function ColumnSettingsButton({ spec }: { spec: TableEntry }) {
+  const expanded = React.useSyncExternalStore(subscribePanel, () => panel?.spec === spec, () => false)
+  return <Button variant={expanded ? 'secondary' : 'outline'} size='sm' id={`btn-colset-${spec.id}`}
+    className={cn('colset-btn', spec.buttonClass)}
+    title={t('调整「{name}」的列：显示 / 隐藏、顺序、对齐', { name: spec.label || spec.id })}
+    aria-haspopup='dialog' aria-expanded={expanded}
+    onClick={event => {
+      // Base UI records the native outside-press event during capture.
+      if (outsidePressEvent === event.nativeEvent) { outsidePressEvent = null; return }
+      togglePanel(spec, event.currentTarget)
+    }}>
+    <Settings2Icon data-icon='inline-start' />{t('列设置')}
+  </Button>
+}
+
+function makeButton(spec: TableEntry): HTMLSpanElement {
+  const previous = triggerMounts.get(spec.id)
+  if (previous) disposeTrigger(previous)
+  const host = document.createElement('span')
+  host.style.display = 'contents'
+  host.dataset.colsetTrigger = spec.id
+  const root = createRoot(host)
+  triggerMounts.set(spec.id, { host, root, spec })
+  root.render(<ColumnSettingsButton spec={spec} />)
+  observeTriggers()
+  return host
 }
 
 function mountOf(spec: TableSpec): Element | null {
@@ -774,8 +809,8 @@ function register(spec: TableSpec): ColSettingsHandle {
   const entry: TableEntry = { ...spec, config: load(spec) }
   registry.set(spec.id, entry)
   const host = mountOf(spec)
-  const button = makeButton(entry)
   if (host) {
+    const button = makeButton(entry)
     if (spec.buttonPlacement === 'last') host.appendChild(button)
     else host.insertBefore(button, host.firstChild)
   }

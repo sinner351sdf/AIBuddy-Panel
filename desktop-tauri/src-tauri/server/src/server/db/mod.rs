@@ -81,6 +81,7 @@
 pub mod backup;
 pub mod migrate;
 pub mod schema;
+pub(crate) mod account_history;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};

@@ -57,6 +57,10 @@
 //! 前三者回答「有哪些模型」，最后一者回答「先试哪一家」。
 //! 各家清单的**持久化**（远程拉到的那份在进程重启后由它读回，不再回落到内置
 //! 清单）在 `providers/catalog_cache.rs` —— 它横跨上面三层，不属于任何一层。
+//! `model_meta/` 是**元数据**那一层（models.dev 的能力位与逐模型思考档位）：
+//! 它不改「有哪些模型」，只把各家没声明的键补齐 —— 接入点是上面第一、二层的
+//! 清单成型处（`providers::catalog::manifest_for` 与
+//! `custom_providers::bindings::public_models`），优先级与取舍见它的模块头。
 //!
 //! 约定：core 里的模块只做纯逻辑 + 文件读写 + 上游 HTTP，不认识 axum；
 //! api/ 里的 handler 负责把 HTTP 输入转成 core 调用、再把结果转成响应。
@@ -92,6 +96,8 @@ pub mod growth_queue;
 // streak 挂签到后；默认全关，配置与游标落 task_state 的 kv，设置 API 在
 // `api::growth_tasks::schedule`）
 pub mod growth_schedule;
+pub mod task_records;
+pub mod task_execution;
 pub mod import_ccswitch;
 // 网关 Key 的额度 / 有效期（quotaTokens / expiresAt 的消费点：转发前准入判定
 // + 收尾 Token 计量；存储与展示见 `core::api_keys`，作用域传播见 `key_scope`）
@@ -99,6 +105,7 @@ pub mod key_quota;
 pub mod key_scope;
 pub mod limiter;
 pub mod login;
+pub mod model_meta;
 pub mod model_rules;
 pub mod models;
 // 多渠道通知与账号异常告警（渠道管理 / 告警设置 / 测试的 API 在 `api::notify_api`；
@@ -115,6 +122,8 @@ pub mod proxies;
 pub mod routing;
 pub mod sanitize;
 pub mod scheduled_tasks;
+pub mod sub_kernel;
+pub mod subscriptions;
 pub mod task_state;
 pub mod update;
 pub mod upstream;

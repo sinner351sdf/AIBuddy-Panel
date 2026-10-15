@@ -1,33 +1,23 @@
-/* ─────────────────────────────────────────────
-   Agent2API · TagsView 页签栏（vue-next-admin 式）
-   内容区顶部一条页签栏：当前页高亮（主色文字 + 主色软底 + 主色描边）、
-   每个页签可单独关闭（×）、右侧「全部关闭」；首页（overview）固定
-   不可关（但可以拖拽挪位置）。页签清单持久化在 localStorage
-   （aibuddy-tags，数组顺序即页签顺序），刷新后保留。
-   页签支持鼠标拖拽换位（pointer 实现，6px 阈值：未超阈值按点击切页、
-   超过才进拖拽），拖拽指示与高亮全走 tokens 变量。
-
-   接线方式（不改 index.html / app.js）：
-   · DOM 由本文件动态注入 —— .main 内、.content 之前；
-   · 页面切换靠包装 window.showPage 捕获（先记页签再调原函数），
-     wbApp.showPage 换成访问器，谁读都拿到包装器、谁赋值都被接住；
-   · 另在捕获阶段监听 .nav-item[data-page] 点击兜底（record 幂等，
-     双触发无副作用）。
-   ───────────────────────────────────────────── */
+/* 页签状态与经典脚本接线。Tabs / ScrollArea / ContextMenu 由 shell-tabs.tsx
+   渲染；这里保留存档、页面切换、内容全屏与 pointer 排序。 */
 
 (function () {
   'use strict';
+
+  // bundle 或经典脚本重复装载时保留已有订阅、DOM 与 showPage 包装。
+  if (window.wbTagsView && window.wbTagsView.__shellTabsBridge) return;
 
   var STORAGE_KEY = 'aibuddy-tags';        // 页签清单（数组 of page id）
   var PAGE_KEY = 'workbuddy-desktop-page'; // app.js 记忆的当前页
   var HOME = 'overview';                   // 首页页签固定不可关
 
   // 与 app.js 的 PAGES 保持一致（那边是脚本内常量读不到，改动时两处同步）
-  var PAGES = ['overview', 'accounts', 'credits', 'gateway', 'proxies', 'keys', 'docs', 'logs', 'tasks', 'requests', 'settings'];
+  var PAGES = ['overview', 'accounts', 'checkin', 'credits', 'gateway', 'proxies', 'keys', 'docs', 'logs', 'tasks', 'requests', 'settings'];
   // 与 app.js 的 PAGE_LABELS 保持一致；优先取侧栏导航上的现成文案，取不到才退回这张表
   var LABELS = {
     overview: '用量',
     accounts: '账号池',
+    checkin: '签到中心',
     credits: '积分构成',
     gateway: '模型与档位',
     proxies: '网络代理',
@@ -44,6 +34,7 @@
   var PAGE_ICONS = {
     overview: 'overview',
     accounts: 'accounts',
+    checkin: 'checkin',
     credits: 'packages',
     gateway: 'gateway',
     proxies: 'proxies',
@@ -62,6 +53,9 @@
   var installed = false; // showPage 包装是否已装上
   // 被包装的原 showPage；wbApp.showPage / window.showPage 被重新赋值时更新到这里
   var rawHolder = { fn: null };
+  var listeners = new Set();
+  var snapshot = null;
+  var pageIds = Object.freeze(PAGES.slice());
 
   /* ── 存取 ─────────────────────────────────── */
 
@@ -99,45 +93,20 @@
 
   /* ── DOM ──────────────────────────────────── */
 
-  /** 构建 .tags-view 并插到 .main 内、.content 之前；成功返回 true */
+  /** 只创建 React 宿主；点击、键盘与菜单交给官方组件。 */
   function buildDom() {
-    if (scrollEl) return true; // 已建好
+    if (root) return true;
     var main = document.querySelector('.main');
     var content = main && main.querySelector('.content');
     if (!main || !content) return false;
-
     root = document.createElement('div');
     root.className = 'tags-view';
-
-    scrollEl = document.createElement('div');
-    scrollEl.className = 'tags-scroll';
-    scrollEl.setAttribute('role', 'tablist');
-    scrollEl.setAttribute('aria-label', '页签栏');
-
-    var ops = document.createElement('button');
-    ops.type = 'button';
-    ops.className = 'tags-ops';
-    ops.textContent = '全部关闭';
-    ops.title = '关闭除首页外的全部页签';
-    ops.addEventListener('click', closeAll);
-
-    root.appendChild(scrollEl);
-    root.appendChild(ops);
     main.insertBefore(root, content);
-
-    // 事件委托：页签重建（整表重建式重绘）不用逐个绑
-    root.addEventListener('click', onRootClick);
-    root.addEventListener('contextmenu', onRootContextmenu);
-    root.addEventListener('keydown', onRootKeydown);
     root.addEventListener('pointerdown', onRootPointerdown);
-    // 页签拖拽走 pointer 实现，禁掉浏览器原生的 HTML5 拖放（ Ghost 拖影会和
-    // 自绘指示打架；标签本无拖放语义，一概拦下最省心）
     root.addEventListener('dragstart', function (event) {
       if (event.target.closest && event.target.closest('.tag')) event.preventDefault();
     });
-    // 真拖拽结束后浏览器会补一个合成 click（pointerup 落在页签上）：捕获阶段
-    // 吞掉，不然「拖完」会被 onRootClick 当成「点了那个页签」误切页。
-    // suppressClick 在下一次 pointerdown 复位（见 onRootPointerdown）。
+    // capture 早于 React 的点击处理，拖拽后的合成 click 不会误切页。
     root.addEventListener('click', function (event) {
       if (!suppressClick) return;
       suppressClick = false;
@@ -147,62 +116,46 @@
     return true;
   }
 
-  /** 重绘页签（数量少，整表重建最省心）；激活项滚进可视区 */
+  /** useSyncExternalStore 要求未更新时返回同一快照。 */
   function render() {
-    if (!scrollEl) return;
-    scrollEl.textContent = '';
-    tags.forEach(function (page) {
-      var tag = document.createElement('div');
-      // tag 内还要放关闭按钮，button 嵌 button 不合法，用 div + role/tabindex
-      tag.className = 'tag' + (page === current ? ' active' : '') + (page === HOME ? ' home' : '');
-      tag.setAttribute('role', 'tab');
-      tag.setAttribute('aria-selected', page === current ? 'true' : 'false');
-      tag.tabIndex = 0;
-      tag.dataset.page = page;
-      tag.title = page === HOME ? labelOf(page) + '（固定不可关闭）' : labelOf(page);
-
-      // 图标：icons.js 的内联 SVG（随 currentColor 变色），插在文字前。
-      // render 是唯一的整表重建点，每次重绘都会走到这里，图标不会丢。
-      var iconSvg = PAGE_ICONS[page] && window.wbIcons
-        ? window.wbIcons.icon(PAGE_ICONS[page], 13) : '';
-      if (iconSvg) {
-        var ico = document.createElement('span');
-        ico.className = 'tag-ico';
-        ico.innerHTML = iconSvg; // svg 自带 aria-hidden，纯装饰
-        tag.appendChild(ico);
-      }
-
-      var label = document.createElement('span');
-      label.className = 'tag-label';
-      label.textContent = labelOf(page);
-      tag.appendChild(label);
-
-      if (page !== HOME) {
-        var close = document.createElement('button');
-        close.type = 'button';
-        close.className = 'tag-close';
-        close.textContent = '\u00d7';
-        close.title = '关闭页签';
-        close.setAttribute('aria-label', '关闭「' + labelOf(page) + '」页签');
-        tag.appendChild(close);
-      }
-      scrollEl.appendChild(tag);
+    snapshot = Object.freeze({
+      home: HOME,
+      current: current,
+      pages: pageIds,
+      contentMax: document.body.classList.contains('pref-content-max'),
+      tags: Object.freeze(tags.map(function (page) {
+        return Object.freeze({
+          page: page,
+          label: labelOf(page),
+          iconSvg: PAGE_ICONS[page] && window.wbIcons
+            ? window.wbIcons.icon(PAGE_ICONS[page], 16) : '',
+        });
+      })),
     });
-
-    var active = scrollEl.querySelector('.tag.active');
-    if (active) revealTag(active);
+    listeners.forEach(function (listener) { listener(); });
   }
 
-  /** 把激活页签水平滚进可视区（手动算 scrollLeft，避免 scrollIntoView 带动页面竖滚） */
+  function mountIsland() {
+    if (root && window.wbShellTabs) window.wbShellTabs.mount(root, window.wbTagsView);
+  }
+  // 兼容 module 延后于经典脚本加载。
+  document.addEventListener('wb:shell-tabs-ready', mountIsland);
+
+  /** 用 viewport 坐标计算，避免 ScrollArea 内层布局改变 offsetParent。 */
   function revealTag(el) {
     if (!scrollEl) return;
-    var left = el.offsetLeft; // CSS 里 .tags-scroll 是 position:relative，offsetLeft 相对它
-    var right = left + el.offsetWidth;
-    if (left < scrollEl.scrollLeft) {
-      scrollEl.scrollLeft = left;
-    } else if (right > scrollEl.scrollLeft + scrollEl.clientWidth) {
-      scrollEl.scrollLeft = right - scrollEl.clientWidth;
+    var viewport = scrollEl.getBoundingClientRect();
+    var rect = el.getBoundingClientRect();
+    if (rect.left < viewport.left) {
+      scrollEl.scrollLeft += rect.left - viewport.left;
+    } else if (rect.right > viewport.right) {
+      scrollEl.scrollLeft += rect.right - viewport.right;
     }
+  }
+
+  function revealCurrent() {
+    var active = scrollEl && scrollEl.querySelector('.tag[data-page="' + current + '"]');
+    if (active) revealTag(active);
   }
 
   /* ── 行为 ─────────────────────────────────── */
@@ -210,6 +163,7 @@
   /** 记录一次页面切换（包装器与导航兜底都会调；同页重复调用无副作用） */
   function record(name) {
     var page = normalize(name);
+    if (current === page && tags.indexOf(page) !== -1 && snapshot) return;
     if (tags.indexOf(page) === -1) tags.push(page);
     current = page;
     persist();
@@ -222,6 +176,7 @@
       window.showPage(page);
       return;
     }
+    record(page);
     manualSwitch(page);
   }
 
@@ -249,6 +204,7 @@
     tags.splice(idx, 1);
     if (page === current) {
       var next = tags[idx] || tags[idx - 1] || HOME;
+      current = next;
       persist();
       render();
       go(next);
@@ -258,62 +214,33 @@
     render();
   }
 
-  /** 全部关闭：回到只剩首页，并跳回首页 */
+  /** 全部关闭：回到只剩首页，并跳回首页。 */
   function closeAll() {
+    var shouldGoHome = current !== HOME;
     tags = [HOME];
+    current = HOME;
     persist();
     render();
-    if (current !== HOME) go(HOME);
+    if (shouldGoHome) go(HOME);
   }
 
-  /* ── 右键菜单（vue-next-admin 式：刷新 / 关闭当前 / 关闭其它 / 全部关闭）── */
-  var ctxMenu = null;
-  function closeCtxMenu() {
-    if (ctxMenu) { ctxMenu.remove(); ctxMenu = null; }
+  /** 关闭其它时，若当前页也被关闭，就激活保留下来的目标页签。 */
+  function closeOthers(name) {
+    var page = normalize(name);
+    tags = tags.filter(function (tag) { return tag === page || tag === HOME; });
+    if (tags.indexOf(page) === -1) tags.push(page);
+    var shouldGo = tags.indexOf(current) === -1;
+    if (shouldGo) current = page;
+    persist();
+    render();
+    if (shouldGo) go(page);
   }
-  function openCtxMenu(page, x, y) {
-    closeCtxMenu();
-    ctxMenu = document.createElement('div');
-    ctxMenu.className = 'tags-ctx-menu';
-    var items = [];
-    if (page === current) items.push(['refresh', '刷新']);
-    items.push(['maximize', document.body.classList.contains('pref-content-max') ? '退出内容全屏' : '当前页全屏']);
-    if (page !== HOME) {
-      items.push(['close', '关闭当前']);
-      items.push(['others', '关闭其它']);
-    }
-    items.push(['all', '全部关闭']);
-    items.forEach(function (it) {
-      var mi = document.createElement('div');
-      mi.className = 'tags-ctx-item' + (it[0] === 'all' ? ' danger' : '');
-      mi.textContent = it[1];
-      mi.addEventListener('click', function () {
-        closeCtxMenu();
-        if (it[0] === 'refresh') {
-          // 重进当前页：各页的 showPage 会重新拉数据
-          go(page);
-        } else if (it[0] === 'maximize') {
-          toggleContentMax();
-        } else if (it[0] === 'close') {
-          close(page);
-        } else if (it[0] === 'others') {
-          tags = tags.filter(function (t) { return t === page || t === HOME; });
-          if (tags.indexOf(page) === -1) tags.unshift(page);
-          persist(); render();
-        } else {
-          closeAll();
-        }
-      });
-      ctxMenu.appendChild(mi);
-    });
-    ctxMenu.style.left = Math.min(x, window.innerWidth - 150) + 'px';
-    ctxMenu.style.top = Math.min(y, window.innerHeight - items.length * 36 - 16) + 'px';
-    document.body.appendChild(ctxMenu);
-  }
+
   /** 内容区全屏：藏侧栏 / 顶栏 / 页签栏，Esc 或再触发一次退出 */
   function toggleContentMax() {
     var on = document.body.classList.toggle('pref-content-max');
     try { localStorage.setItem('aibuddy-content-max', on ? '1' : '0'); } catch (e) {}
+    render();
   }
   (function restoreContentMax() {
     try { if (localStorage.getItem('aibuddy-content-max') === '1') document.body.classList.add('pref-content-max'); } catch (e) {}
@@ -322,43 +249,9 @@
     if (e.key === 'Escape' && document.body.classList.contains('pref-content-max')) toggleContentMax();
   });
 
-  function onRootContextmenu(event) {
-    var tag = event.target.closest && event.target.closest('.tag');
-    if (!tag) return;
-    event.preventDefault();
-    openCtxMenu(tag.dataset.page, event.clientX, event.clientY);
-  }
-  document.addEventListener('click', function (e) {
-    if (ctxMenu && !ctxMenu.contains(e.target)) closeCtxMenu();
-  });
-  window.addEventListener('blur', closeCtxMenu);
-
-  /* ── 事件 ─────────────────────────────────── */
-
-  function onRootClick(event) {
-    var closeBtn = event.target.closest && event.target.closest('.tag-close');
-    if (closeBtn) {
-      var owner = closeBtn.closest('.tag');
-      if (owner) close(owner.dataset.page);
-      return;
-    }
-    var tag = event.target.closest && event.target.closest('.tag');
-    if (tag) go(tag.dataset.page);
-  }
-
-  function onRootKeydown(event) {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    if (event.target.classList && event.target.classList.contains('tag-close')) return;
-    var tag = event.target.closest && event.target.closest('.tag');
-    if (tag) {
-      event.preventDefault();
-      go(tag.dataset.page);
-    }
-  }
-
-  /* ── 页签拖拽换位（pointer 实现，vue-next-admin TagsView 手感）──
+  /* ── 页签拖拽换位 ──
      按下后位移超过 6px 阈值才进拖拽；没超过就不打断原生 click（交给
-     onRootClick 切页）。拖拽经过的目标页签加主色描边 + 插入侧色条
+     TabsTrigger 切页）。拖拽经过的目标页签显示插入侧色条
      （.drop-before / .drop-after，样式在 tags-view.css，全 tokens 变量）。
      松手按新顺序重排 tags 并 persist()；overview 也在可拖之列
      （恒在数组中、位置可变）。触屏不启用，保留原生滚动/点按。 */
@@ -369,10 +262,10 @@
   function onRootPointerdown(event) {
     if (event.button !== 0 || event.isPrimary === false) return;
     if (event.pointerType === 'touch') return; // 触屏：保留原生滚动/点按
+    suppressClick = false;
     var tag = event.target.closest && event.target.closest('.tag');
     if (!tag) return;
     if (event.target.closest && event.target.closest('.tag-close')) return; // 关闭钮照常点关
-    suppressClick = false; // 复位：上一次拖拽若没等来 click，别误吞这次点击
     dragState = {
       tag: tag,
       page: tag.dataset.page,
@@ -382,7 +275,6 @@
       target: null,
       before: false,
     };
-    try { tag.setPointerCapture(event.pointerId); } catch (e) { /* 拿不到就靠 window 兜 */ }
     window.addEventListener('pointermove', onDragPointermove);
     window.addEventListener('pointerup', onDragPointerup);
     window.addEventListener('pointercancel', onDragPointercancel);
@@ -410,6 +302,8 @@
       var dy = event.clientY - d.y;
       if (dx * dx + dy * dy < DRAG_THRESHOLD_SQ) return; // 阈值内：还算点击
       d.active = true;
+      // 仅真拖拽时 capture；普通点击仍落在内部 TabsTrigger 按钮上。
+      try { d.tag.setPointerCapture(event.pointerId); } catch (e) { /* window 监听兜底 */ }
       document.body.classList.add('tags-dragging');
       d.tag.classList.add('dragging');
     }
@@ -441,7 +335,7 @@
     var d = finishDrag();
     if (!d) return;
     d.tag.classList.remove('dragging');
-    if (!d.active) return; // 未超阈值：不吞 click，让 onRootClick 正常切页
+    if (!d.active) return; // 未超阈值：不吞 click，让 TabsTrigger 正常切页
     suppressClick = true;  // 真拖拽：吞掉紧随的合成 click
     var from = tags.indexOf(d.page);
     var to = d.target ? tags.indexOf(d.target.dataset.page) : -1;
@@ -487,7 +381,7 @@
         configurable: true,
         enumerable: true,
         get: function () { return wrapped; },
-        set: function (fn) { if (typeof fn === 'function') rawHolder.fn = fn; },
+        set: function (fn) { if (typeof fn === 'function' && fn !== wrapped) rawHolder.fn = fn; },
       });
     } catch (e) {
       window.showPage = wrapped; // 极老引擎退回普通赋值，至少 window 路径生效
@@ -499,7 +393,7 @@
           configurable: true,
           enumerable: true,
           get: function () { return wrapped; },
-          set: function (fn) { if (typeof fn === 'function') rawHolder.fn = fn; },
+          set: function (fn) { if (typeof fn === 'function' && fn !== wrapped) rawHolder.fn = fn; },
         });
       } catch (e) {
         try { window.wbApp.showPage = wrapped; } catch (e2) { /* 忽略 */ }
@@ -550,14 +444,26 @@
     syncCurrent();
     render();
     tryInstall();
+    mountIsland();
   }
 
-  // 调试/外部控制出口：wbTagsView.open('settings') 等
+  // 兼容旧公共接口，并向 React 暴露同一份状态与动作。
   window.wbTagsView = {
-    open: function (page) { record(page); go(page); },
+    __shellTabsBridge: true,
+    open: function (page) { page = normalize(page); record(page); go(page); },
     close: close,
     closeAll: closeAll,
+    closeOthers: closeOthers,
+    refresh: function (page) { go(normalize(page)); },
+    toggleContentMax: toggleContentMax,
     list: function () { return tags.slice(); },
+    getSnapshot: function () { return snapshot; },
+    subscribe: function (listener) {
+      listeners.add(listener);
+      return function () { listeners.delete(listener); };
+    },
+    setViewport: function (viewport) { scrollEl = viewport; },
+    revealCurrent: revealCurrent,
   };
 
   start();

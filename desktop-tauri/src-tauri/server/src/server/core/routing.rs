@@ -138,7 +138,12 @@ impl<'a> CooldownKeys<'a> {
 
     /// 某条账号记录的冷却键：按它所属的家解析（每条账号记录只属于一家）。
     pub fn for_account(&self, account: &Value) -> String {
-        self.for_provider(provider_of(account))
+        let wire = self.for_provider(provider_of(account));
+        if crate::server::core::providers::zcode::region::Region::from_provider_id(provider_of(account)).is_some() {
+            let plan = crate::server::core::providers::zcode::channel::selected(account, &wire);
+            return crate::server::core::providers::zcode::channel::cooldown_key(plan, &wire);
+        }
+        wire
     }
 }
 
@@ -159,6 +164,11 @@ pub fn is_rate_limited(account: &Value, keys: &CooldownKeys<'_>, now: i64) -> bo
 ///
 /// 冷却键按 [`CooldownKeys`] 解析（真名，不是请求名）。
 pub fn rate_limit_reset_at(account: &Value, keys: &CooldownKeys<'_>, now: i64) -> i64 {
+    if crate::server::core::providers::zcode::region::Region::from_provider_id(provider_of(account)).is_some() {
+        let wire = keys.for_provider(provider_of(account));
+        let plan = crate::server::core::providers::zcode::channel::selected(account, &wire);
+        return crate::server::core::providers::zcode::channel::reset_at(account, plan, &wire, now);
+    }
     let key = keys.for_account(account);
     let Some(limit) = account
         .get("rateLimits")

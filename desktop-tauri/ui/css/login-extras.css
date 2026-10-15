@@ -19,56 +19,8 @@
 
 #login-app > div { animation: login-card-in .35s ease both; }
 
-/* ── 背景点缀：淡雅星座（圆点 + 细连线）──
-   结构由 login-extras.js 注入：3 个径向渐变圆点 + 2 条细连线。
-   z-index: -1 让装饰层压在页面背景（body 的主色光晕渐变）之上、
-   卡片等在流内容之下 —— 卡片是无定位的 flex 子项，负 z 定位元素
-   恰好插在两者之间；主题按钮（z-index:50）自然在其上。 */
-.login-deco {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-/* 圆点：主色径向渐变，中心实、边缘散。透明度整体压在 ≤0.25，
-   深浅主题下 --ui-primary 各自是亮紫/深紫，同一份透明度都成立。 */
-.login-deco-dot {
-  position: absolute;
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 50%,
-    color-mix(in srgb, var(--ui-primary, #7c5cfc) 55%, transparent) 0%,
-    color-mix(in srgb, var(--ui-primary, #7c5cfc) 16%, transparent) 42%,
-    transparent 72%);
-  animation: login-deco-float 18s ease-in-out infinite alternate;
-}
-
-/* 三颗点错落在卡片两翼，不压住卡片本体；各给不同尺寸/深浅与漂移节奏 */
-.login-deco-dot--one   { width: 220px; height: 220px; left: 6%;  top: 14%; opacity: .22; }
-.login-deco-dot--two   { width: 150px; height: 150px; left: 81%; top: 18%; opacity: .18; animation-duration: 23s; animation-delay: -7s; }
-.login-deco-dot--three { width: 170px; height: 170px; left: 73%; top: 66%; opacity: .15; animation-duration: 27s; animation-delay: -13s; }
-
-/* 细连线：1px、两端渐隐的主色渐变，用 rotate 摆到两点之间。
-   端点渐隐所以角度不必精确过圆心，「似连非连」正是点缀的分寸。 */
-.login-deco-line {
-  position: absolute;
-  height: 1px;
-  transform-origin: left center;
-  background: linear-gradient(90deg, transparent,
-    color-mix(in srgb, var(--ui-primary, #7c5cfc) 55%, transparent) 50%, transparent);
-  opacity: .18;
-}
-
-/* 点一 → 点二：横贯页面上部 */
-.login-deco-line--one { left: 12%; top: 23%; width: 62vw; transform: rotate(3deg); }
-/* 点二 → 点三：右侧近纵贯 */
-.login-deco-line--two { left: 86%; top: 28%; width: 48vh; transform: rotate(100deg); opacity: .14; }
-
-/* 圆点缓慢漂移（±10px）：给静页一点呼吸感，慢到不被当成动效 */
-@keyframes login-deco-float {
-  to { transform: translateY(-10px); }
-}
+/* Keep the login canvas quiet; the injected decorative layer has no layout. */
+.login-deco { display: none; }
 
 /* ── 密码显隐切换（Element Plus 式 eye / eye-off）──
    按钮由 login-extras.js 注入到 #form 末尾：绝对定位进 #password 右侧，
@@ -97,14 +49,14 @@
 }
 
 .login-eye:hover {
-  color: var(--ui-foreground, var(--ui-primary, #7c5cfc));
-  background: color-mix(in srgb, var(--ui-primary, #7c5cfc) 10%, transparent);
+  color: var(--ui-foreground, var(--ui-primary, #171717));
+  background: color-mix(in srgb, var(--ui-primary, #171717) 10%, transparent);
 }
 
 .login-eye:focus-visible {
   outline: none;
   box-shadow: var(--ui-focus-ring, 0 0 0 3px
-    color-mix(in srgb, var(--ui-primary, #7c5cfc) 25%, transparent));
+    color-mix(in srgb, var(--ui-primary, #171717) 25%, transparent));
 }
 
 .login-eye svg {

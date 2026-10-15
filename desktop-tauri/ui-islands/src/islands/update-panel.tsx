@@ -1,3 +1,5 @@
+import { Alert, AlertDescription } from '@ui'
+import { InfoTip } from '../components/info-tip'
 import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 import { Badge, Button, Progress } from '@ui'
@@ -9,6 +11,7 @@ import { showUpdateModal } from './update-modal'
 import { UpdateSettingsDialog } from './update-settings'
 import { QqGroupDialog } from './update-qq-group'
 import { t } from '../i18n'
+import { Empty, EmptyHeader, EmptyDescription, Card, CardHeader, CardTitle, CardContent } from '@ui'
 
 /**
  * Agent2API · 设置页「软件更新」面板（React 岛）。
@@ -661,7 +664,7 @@ function changelogCard(snap: Snapshot, onJoinQq: () => void): React.ReactNode {
   return (
     <div className='rel-note'>
       <div className='rel-note-head'>
-        <span className='rel-tag'>{String(info?.latestVersion || t('最新版本'))}</span>
+        <Badge variant='brand'>{String(info?.latestVersion || t('最新版本'))}</Badge>
         {/* 旧的 .badge.tag.warn → Badge 的 tag 形态 + warning 语义色 */}
         {info?.prerelease === true ? <Badge shape='tag' variant='warning'>{t('预发布')}</Badge> : null}
         {published ? <span className='rel-date'>{published}</span> : null}
@@ -672,7 +675,7 @@ function changelogCard(snap: Snapshot, onJoinQq: () => void): React.ReactNode {
             文本节点，于是旧实现那几处 esc() 在这里天然不需要。 */}
         {html ? <div className='md-body' dangerouslySetInnerHTML={{ __html: html }} /> : (
           <div className='md-body'>
-            <p className='md-body-empty'>{t('这个版本没有填写发布说明。')}</p>
+            <Empty variant='compact' className='md-body-empty'><EmptyHeader><EmptyDescription>{t('这个版本没有填写发布说明。')}</EmptyDescription></EmptyHeader></Empty>
           </div>
         )}
         {/* 页脚：GitHub 说明（有发布页时才有）+ 加入 QQ 群。两个入口看起来是同一副
@@ -691,8 +694,8 @@ function changelogCard(snap: Snapshot, onJoinQq: () => void): React.ReactNode {
           <Button
             type='button'
             variant='link'
-            size='sm'
-            className='h-auto border-0 px-0 text-[11.5px] font-semibold text-primary-fg underline-offset-auto'
+            size='xs'
+            className='h-auto px-0'
             title={t('群号：{group}', { group: QQ_GROUP })}
             onClick={onJoinQq}
           >
@@ -733,13 +736,10 @@ function UpdatePanel() {
     : ''
 
   return (
-    <section className='panel' onClick={handleExternalClick}>
-      <div className='panel-head'>
-        <h2>{t('软件更新')}</h2>
-        <span
-          className='tip-q'
-          data-tip={t('更新包从 GitHub 发布页下载，下载完成后可直接启动安装程序并自动重启本程序。安装包会先校验来源域名与文件完整性。检查更新与下载安装包的出网线路、GitHub 令牌都在「更新设置」里：线路默认直连（直连失败时自动借 Clash Verge 的混合端口重试一次），选定指定出口后只走该出口；填写 GitHub 令牌可把检查限额从 60 次/小时提高到 5000 次/小时。')}
-        ></span>
+    <Card as='section' variant='panel' size='sm' className='panel' onClick={handleExternalClick}>
+      <CardHeader variant='panel' className='panel-head'>
+        <CardTitle>{t('软件更新')}</CardTitle>
+        <InfoTip>{t('更新包从 GitHub 发布页下载，下载完成后可直接启动安装程序并自动重启本程序。安装包会先校验来源域名与文件完整性。检查更新与下载安装包的出网线路、GitHub 令牌都在「更新设置」里：线路默认直连（直连失败时自动借 Clash Verge 的混合端口重试一次），选定指定出口后只走该出口；填写 GitHub 令牌可把检查限额从 60 次/小时提高到 5000 次/小时。')}</InfoTip>
         {/* id 保留：app.js 的 renderTopbarStatus 按 id 镜像徽章文案与语义色（配色经
             data-tone 传；设置页顶栏那枚镜像目前还不读它，保持一致没坏处） */}
         <Badge id='update-badge' variant={BADGE_VARIANT[snap.badgeTone]} data-tone={snap.badgeTone}>
@@ -771,26 +771,24 @@ function UpdatePanel() {
             </Button>
           ) : null}
         </div>
-      </div>
-      <div className='panel-body'>
+      </CardHeader>
+      <CardContent variant='panel' className='panel-body'>
         {/* 当前版本 → 最新版本两个读数同一行，窗口放不下时靠 .update-version 的 wrap 换行 */}
         <div className='update-version'>
-          <span className='version-pill'>
+          <Badge variant='outline'>
             <span className='k'>{t('当前版本')}</span>
-            <span className='v' id='update-current'>{snap.info?.currentVersion || '—'}</span>
-          </span>
+            <span id='update-current'>{snap.info?.currentVersion || '—'}</span>
+          </Badge>
           <span className='version-arrow'>→</span>
-          <span className='version-pill new'>
+          <Badge variant='brand'>
             <span className='k'>{t('最新版本')}</span>
-            <span className='v' id='update-latest'>{latestLabel}</span>
-          </span>
+            <span id='update-latest'>{latestLabel}</span>
+          </Badge>
         </div>
 
         {/* 错误态用行内色（旧实现同样是 style.color）：.detail 是页面排版类，
             没有语义色工具类可换 */}
-        <div className='detail' id='update-state' style={snap.stateError ? { color: 'var(--danger)' } : undefined}>
-          {snap.stateText}
-        </div>
+        {snap.stateError ? <Alert variant='destructive' id='update-state'><AlertDescription>{snap.stateText}</AlertDescription></Alert> : <div className='detail' id='update-state'>{snap.stateText}</div>}
 
         {/* 进度条：旧实现只在 0 < percent < 100 时露出，这里同样条件渲染 */}
         {snap.phase === 'downloading' && snap.percent > 0 && snap.percent < 100
@@ -837,14 +835,14 @@ function UpdatePanel() {
             {changelogCard(snap, () => setQqGroupOpen(true))}
           </div>
         </div>
-      </div>
+      </CardContent>
 
       {/* 「更新设置」弹窗：条件渲染（Dialog 自带 Portal 挂 body，放在 section 里
           只是声明位置，不影响视觉层级）；关闭即卸载，状态在弹窗内部自生自灭 */}
       {settingsOpen ? <UpdateSettingsDialog open onClose={() => setSettingsOpen(false)} /> : null}
       {/* 「加入 QQ 群」：二维码 + 群号（图在项目仓库里，见 update-shared.ts 的说明） */}
       {qqGroupOpen ? <QqGroupDialog open onClose={() => setQqGroupOpen(false)} /> : null}
-    </section>
+    </Card>
   )
 }
 

@@ -174,11 +174,14 @@ fn pool_references(state: &ServerState) -> std::collections::HashMap<String, Vec
         let Some(proxy_id) = config.get("proxyId").and_then(Value::as_str) else {
             continue;
         };
-        references.entry(proxy_id.to_string()).or_default().push(json!({
-            "id": account.get("id").cloned().unwrap_or(Value::Null),
-            "name": account.get("name").cloned().unwrap_or(Value::Null),
-            "enabled": account.get("enabled").cloned().unwrap_or(Value::Bool(true)),
-        }));
+        references
+            .entry(proxy_id.to_string())
+            .or_default()
+            .push(json!({
+                "id": account.get("id").cloned().unwrap_or(Value::Null),
+                "name": account.get("name").cloned().unwrap_or(Value::Null),
+                "enabled": account.get("enabled").cloned().unwrap_or(Value::Bool(true)),
+            }));
     }
     references
 }
@@ -188,8 +191,13 @@ fn pool_references(state: &ServerState) -> std::collections::HashMap<String, Vec
 /// 每个条目注入 `usedBy`（引用它的账号）—— 删除确认框要用它提示
 /// 「有 N 个账号正在使用」；`clash` 是实时快照，前端据此显示「Clash 是否可用 /
 /// 有几个出口」。所有写操作也返回这份（与模型管理页的写接口同约定：前端就地替换）。
+///
+/// 订阅条目另外注入 `orphan`（所属订阅已不存在——数据被外部工具清掉、
+/// 或旧版进程误删存储键的场景）：孤儿条目在界面上允许**手动删除**清理，
+/// 非孤儿仍是只读镜像（见 `core::proxy_pool::remove_subscription_orphan`）。
 fn pool_payload(state: &ServerState) -> Value {
     let references = pool_references(state);
+    let live_subscriptions = crate::server::core::subscriptions::ids();
     let items: Vec<Value> = proxy_pool::list()
         .into_iter()
         .map(|mut item| {
@@ -199,8 +207,15 @@ fn pool_payload(state: &ServerState) -> Value {
                 .and_then(|id| references.get(id))
                 .cloned()
                 .unwrap_or_default();
+            let orphan = item.get("source").and_then(Value::as_str) == Some("subscription")
+                && item
+                    .get("providerId")
+                    .and_then(Value::as_str)
+                    .map(|provider_id| !live_subscriptions.contains(provider_id))
+                    .unwrap_or(true);
             if let Some(object) = item.as_object_mut() {
                 object.insert("usedBy".to_string(), Value::Array(used));
+                object.insert("orphan".to_string(), Value::Bool(orphan));
             }
             item
         })
@@ -211,36 +226,37 @@ fn pool_payload(state: &ServerState) -> Value {
     })
 }
 
-/// 先同步 Clash 再取列表；`with_report = true` 时把本次同步的变更数 / 失败原因
-/// 一并带上（「同步 Clash Verge」按钮要报「更新了 N 项」或「Clash 不可用」，
-/// 而自动同步那次不必刷提示 —— 用户没点任何东西）。
+/// 先同步 Clash 再取列表，同时返回变更数和失败原因；自动同步的失败也在页脚展示。
 ///
 /// 为什么列接口也同步：OmniProxy 的 `router.get('/proxies')` 就是这么做的 ——
 /// 「在 Clash 里加了出口，打开页面就能看到」，不必先点一次同步。同步是幂等的，
 /// 没有变更时一个字段都不写（见 `proxy_pool::sync_clash`）。
-fn synced_payload(state: &ServerState, with_report: bool) -> Value {
-    let report = proxy_pool::sync_clash();
+async fn synced_payload(state: &ServerState) -> Value {
+    let report = tokio::task::spawn_blocking(proxy_pool::sync_clash)
+        .await
+        .unwrap_or_else(|_| proxy_pool::ClashSyncReport {
+            changes: 0,
+            error: Some("Clash 同步任务失败".into()),
+        });
     let mut data = pool_payload(state);
-    if with_report {
-        if let Some(object) = data.as_object_mut() {
-            object.insert("changes".to_string(), Value::from(report.changes));
-            object.insert(
-                "syncError".to_string(),
-                report.error.map(Value::String).unwrap_or(Value::Null),
-            );
-        }
+    if let Some(object) = data.as_object_mut() {
+        object.insert("changes".to_string(), Value::from(report.changes));
+        object.insert(
+            "syncError".to_string(),
+            report.error.map(Value::String).unwrap_or(Value::Null),
+        );
     }
     data
 }
 
 /// GET /api/proxies/pool（顺手同步一次 Clash 出口，见 `synced_payload`）
 pub async fn pool_list(state: &ServerState) -> Response {
-    ok_json(synced_payload(state, false))
+    ok_json(synced_payload(state).await)
 }
 
 /// POST /api/proxies/pool/sync-clash（手动强制同步；响应带本次变更数与失败原因）
 pub async fn pool_sync_clash(state: &ServerState) -> Response {
-    ok_json(synced_payload(state, true))
+    ok_json(synced_payload(state).await)
 }
 
 /// POST /api/proxies/pool（新建）
@@ -270,6 +286,11 @@ pub async fn pool_update(state: &ServerState, body: &Bytes) -> Response {
 }
 
 /// POST /api/proxies/pool/remove（删除；body 里带 id）
+///
+/// 只读镜像（Clash 同步 / 订阅节点）默认拒绝，**孤儿订阅节点例外**：
+/// 归属订阅已不存在（providerId 不在订阅清单里）的订阅条目允许手动删除
+/// —— 它们不会再被任何同步碰，删除是唯一出路。orphan 判定在这里做
+/// （core 层不认识订阅存储，见 `core::proxy_pool::remove_subscription_orphan`）。
 pub async fn pool_remove(state: &ServerState, body: &Bytes) -> Response {
     let payload = match parse_body(body) {
         Ok(value) => value,
@@ -282,10 +303,22 @@ pub async fn pool_remove(state: &ServerState, body: &Bytes) -> Response {
     // 状态码要分开：条目**不存在** → 404（客户端多半拿着过期的 id）；
     // 存在但从 Clash 同步来（只读）→ 400（请求合法，是对象不允许删）。
     // core 的 Err 只有一句文案，所以存在性在这里先探一次（列表量级很小）。
-    let exists = proxy_pool::list()
+    let items = proxy_pool::list();
+    let target = items
         .iter()
-        .any(|item| item.get("id").and_then(Value::as_str) == Some(id));
-    match proxy_pool::remove(id) {
+        .find(|item| item.get("id").and_then(Value::as_str) == Some(id));
+    let exists = target.is_some();
+    let orphan = target
+        .filter(|item| item.get("source").and_then(Value::as_str) == Some("subscription"))
+        .and_then(|item| item.get("providerId").and_then(Value::as_str))
+        .map(|provider_id| !crate::server::core::subscriptions::ids().contains(provider_id))
+        .unwrap_or(false);
+    let result = if orphan {
+        proxy_pool::remove_subscription_orphan(id)
+    } else {
+        proxy_pool::remove(id)
+    };
+    match result {
         Ok((_, name)) => {
             let mut data = pool_payload(state);
             if let Some(object) = data.as_object_mut() {
@@ -345,7 +378,10 @@ pub async fn pool_test(state: &ServerState, body: &Bytes) -> Response {
         }
         object.insert(
             "items".to_string(),
-            pool_payload(state).get("items").cloned().unwrap_or_else(|| json!([])),
+            pool_payload(state)
+                .get("items")
+                .cloned()
+                .unwrap_or_else(|| json!([])),
         );
     }
     ok_json(data)

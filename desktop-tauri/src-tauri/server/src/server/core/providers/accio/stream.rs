@@ -199,7 +199,7 @@ pub fn sse_done() -> String {
 /// 逐行缓冲（跨分片半行拼接）：SSE 的 `data:` 行可能被切在任意位置
 #[derive(Default)]
 pub struct LineBuffer {
-    pending: String,
+    pending: Vec<u8>,
 }
 
 impl LineBuffer {
@@ -209,13 +209,22 @@ impl LineBuffer {
 
     /// 喂一段字节，产出**完整行**
     pub fn push(&mut self, chunk: &str) -> Vec<String> {
-        self.pending.push_str(chunk);
+        self.push_bytes(chunk.as_bytes())
+    }
+
+    /// Decode only complete lines: an HTTP chunk can split a UTF-8 character.
+    pub fn push_bytes(&mut self, chunk: &[u8]) -> Vec<String> {
+        self.pending.extend_from_slice(chunk);
         let mut lines = Vec::new();
-        while let Some(index) = self.pending.find('\n') {
-            let line: String = self.pending.drain(..=index).collect();
+        let mut consumed = 0;
+        while let Some(index) = self.pending[consumed..].iter().position(|byte| *byte == b'\n') {
+            let end = consumed + index + 1;
+            let line = String::from_utf8_lossy(&self.pending[consumed..end]);
             let trimmed = line.trim_end_matches(['\r', '\n']).to_string();
             lines.push(trimmed);
+            consumed = end;
         }
+        self.pending.drain(..consumed);
         lines
     }
 
@@ -226,7 +235,7 @@ impl LineBuffer {
     /// 续传方会把后半截当成一条新行去 JSON 解析，解析失败、**这一帧的内容
     /// 静默丢掉**（且只在「帧恰好被切在 chunk 边界」时复现，是最难查的那类）。
     pub fn take_pending(&mut self) -> String {
-        std::mem::take(&mut self.pending)
+        String::from_utf8_lossy(&std::mem::take(&mut self.pending)).into_owned()
     }
 }
 
@@ -316,7 +325,7 @@ impl Translator {
                     let index = self.accumulate_call(id, name, args);
                     // 先取快照再改标记：借用与可变借用分开，避免交叉持有
                     let (announce, call_id, call_name) = match self.tool_state.get(index as usize) {
-                        Some(entry) => (entry.announced, entry.id.clone(), entry.name.clone()),
+                        Some(entry) => (!entry.announced, entry.id.clone(), entry.name.clone()),
                         None => (true, String::new(), String::new()),
                     };
                     if let Some(entry) = self.tool_state.get_mut(index as usize) {

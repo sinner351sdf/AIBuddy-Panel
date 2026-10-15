@@ -471,6 +471,8 @@ pub async fn accept_with_verify(
 /// 领奖结果（refs tasks.go:133-144 parseClaimReward）。
 #[derive(Debug, Clone, Default)]
 pub struct ClaimReward {
+    pub credit_known: bool,
+    pub energy_known: bool,
     /// 已领取过（幂等：不算错误，但无新增奖励）
     pub already_claimed: bool,
     pub credit: i64,
@@ -616,6 +618,8 @@ fn web_claim_headers(session: &Value) -> Vec<(String, String)> {
 /// （refs tasks.go:133-144）。
 fn parse_claim(data: &Value) -> ClaimReward {
     ClaimReward {
+        credit_known: data.get("credit").and_then(Value::as_i64).is_some(),
+        energy_known: data.get("energy").and_then(Value::as_i64).is_some(),
         already_claimed: data
             .get("already_claimed")
             .and_then(Value::as_bool)

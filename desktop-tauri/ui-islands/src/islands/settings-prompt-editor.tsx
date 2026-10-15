@@ -28,6 +28,7 @@
 
 import * as React from 'react'
 import {
+  cn,
   Button,
   Dialog,
   DialogBody,
@@ -36,7 +37,9 @@ import {
   DialogHeader,
   DialogSection,
   DialogTitle,
-  Label,
+  Field,
+  FieldGroup,
+  FieldLabel,
   Textarea,
 } from '@ui'
 import { NOTES, type GatewayBlocks } from './settings-model'
@@ -126,23 +129,25 @@ function BodyEditor({ title, text, source, file, disabled, save, onClose }: {
               {t('想回到原来那份，把这里清空再保存即可（不会删掉你配的文件路径）。')}
             </p>
           </DialogSection>
-          <div className='flex flex-col gap-1.5'>
-            <Label htmlFor='settings-prompt-body'>{t('提示词正文')}</Label>
-            <Textarea
-              id='settings-prompt-body'
-              rows={18}
-              className='min-h-[320px]'
-              spellCheck={false}
-              disabled={busy}
-              value={draft}
-              onChange={event => setDraft(event.currentTarget.value)}
-            />
-            <div className='hint'>
-              {draft.trim()
-                ? t('{lines} 行、{chars} 字符（按当前草稿计）', { lines: draft.split('\n').length, chars: draft.length })
-                : t('空 = 不要这一份，回落提示词文件 / 内置默认提示词。')}
-            </div>
-          </div>
+          <FieldGroup className='gap-4'>
+            <Field data-disabled={busy} className='flex flex-col gap-1.5'>
+              <FieldLabel htmlFor='settings-prompt-body'>{t('提示词正文')}</FieldLabel>
+              <Textarea
+                id='settings-prompt-body'
+                rows={18}
+                className='min-h-[320px]'
+                spellCheck={false}
+                disabled={busy}
+                value={draft}
+                onChange={event => setDraft(event.currentTarget.value)}
+              />
+              <div className='hint'>
+                {draft.trim()
+                  ? t('{lines} 行、{chars} 字符（按当前草稿计）', { lines: draft.split('\n').length, chars: draft.length })
+                  : t('空 = 不要这一份，回落提示词文件 / 内置默认提示词。')}
+              </div>
+            </Field>
+          </FieldGroup>
         </DialogBody>
         <DialogFooter>
           <Button
@@ -287,29 +292,31 @@ function GatewayEditor({ id, title, official, over, enabled, disabled, onClose }
             </p>
             <p>{NOTES.promptGatewayText}</p>
           </DialogSection>
-          {BLOCK_FIELDS.map(field => (
-            <div className='flex flex-col gap-1.5' key={field.key}>
-              <Label htmlFor={`settings-prompt-block-${id}-${field.key}`}>
-                {field.label}
-                <span className='ml-2 font-normal text-subtle'>
-                  {draft[field.key] === official[field.key] ? t('（官方原文）') : t('（已改）')}
-                </span>
-              </Label>
-              <Textarea
-                id={`settings-prompt-block-${id}-${field.key}`}
-                rows={field.key === 'identity' ? 2 : 10}
-                className={field.key === 'identity' ? 'min-h-[64px]' : 'min-h-[200px]'}
-                spellCheck={false}
-                disabled={busy}
-                value={draft[field.key]}
-                onChange={event => {
-                  const value = event.currentTarget.value
-                  setDraft(current => ({ ...current, [field.key]: value }))
-                }}
-              />
-              <div className='hint'>{field.hint}</div>
-            </div>
-          ))}
+          <FieldGroup className='gap-4'>
+            {BLOCK_FIELDS.map(field => (
+              <Field data-disabled={busy} className='flex flex-col gap-1.5' key={field.key}>
+                <FieldLabel htmlFor={`settings-prompt-block-${id}-${field.key}`} className='gap-0'>
+                  {field.label}
+                  <span className='ml-2 font-normal text-subtle'>
+                    {draft[field.key] === official[field.key] ? t('（官方原文）') : t('（已改）')}
+                  </span>
+                </FieldLabel>
+                <Textarea
+                  id={`settings-prompt-block-${id}-${field.key}`}
+                  rows={field.key === 'identity' ? 2 : 10}
+                  className={cn(field.key === 'identity' ? 'min-h-[64px]' : 'min-h-[200px]')}
+                  spellCheck={false}
+                  disabled={busy}
+                  value={draft[field.key]}
+                  onChange={event => {
+                    const value = event.currentTarget.value
+                    setDraft(current => ({ ...current, [field.key]: value }))
+                  }}
+                />
+                <div className='hint'>{field.hint}</div>
+              </Field>
+            ))}
+          </FieldGroup>
         </DialogBody>
         <DialogFooter>
           <Button

@@ -254,7 +254,7 @@ function AddAccountModal({
             <DialogBody>
               {/* 各家的块整块常驻、只切显隐：块内的登录引擎把状态放在自己的闭包里，
                   节点被卸载就等于把「刚发出去的验证码绑在哪个 deviceId 上」丢掉 */}
-              <WorkBuddyBlock active={state.provider === WORKBUDDY_PROVIDER} />
+              <WorkBuddyBlock active={state.step === 'form' && state.provider === WORKBUDDY_PROVIDER} />
               {BUILTIN_CONFIGS.map(item => (
                 <ProviderBlock
                   key={item.provider}

@@ -342,8 +342,8 @@
 }
 
 /* 用时：等宽 + 右对齐，相邻行的数字能直接竖着比大小。
-   两行：总用时（主读数）+ 首响（次读数，淡一档，与用量列的 sub 同一手法）——
-   OmniProxy 的用时列就是这个形态。只有数据行是两行，表头仍是单行文本
+   两行：总用时（主读数）+ 首响（次读数，淡一档，与用量列的 sub 同一手法）。
+   只有数据行是多行，表头仍是单行文本
    （所有排版声明都带 .req-row 前缀限定在数据行上，见上方 .req-time 的说明）。 */
 .req-row .req-dur {
   display: flex;
@@ -370,8 +370,8 @@
   font-size: 11px;
 }
 
-/* 用量两行：in / out / all 与 缓存读取 / 命中率。
-   等宽 + tabular-nums，超出省略（完整两行读数在 title 里）。 */
+/* 用量两行：in / out / all 与 缓存读取 / 命中率（生成速度 tok/s 跟在命中率后，同一行）。
+   等宽 + tabular-nums，超出省略（完整读数在 title 里）。 */
 .req-row .req-usage {
   display: flex;
   flex-direction: column;
@@ -709,7 +709,7 @@
 .cv-msg {
   max-width: 75%;
   padding: 8px 12px;
-  border-radius: 10px;
+  border-radius: var(--r-lg);
   font-size: 12.5px;
   line-height: 1.65;
   overflow-wrap: break-word;
@@ -719,7 +719,7 @@
    的 userInner 说明），保留原有换行与空白。前景用 components.css 的
    button.primary 同一个「主色底上的近白」配方：浅色得到纯白、深色得到近白
    （--surface 在深色下是深灰，掺进来刚好把纯白压成不刺眼的近白）。 */
-.cv-msg.user { background: var(--primary); color: color-mix(in srgb, var(--surface) 8%, white); }
+.cv-msg.user { background: var(--primary); color: var(--primary-foreground); }
 .cv-plain { white-space: pre-wrap; }
 
 /* assistant 气泡：抬升表面色 + 细描边 */
@@ -731,7 +731,7 @@
   background: var(--surface-inset);
   color: var(--text-2);
   font-size: 12px;
-  border-radius: 8px;
+  border-radius: var(--r-md);
 }
 
 .cv-msg.cv-error { background: var(--danger-soft); color: var(--danger); }
@@ -750,7 +750,7 @@
   max-height: 220px;
   margin: 6px 0 0;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-md);
 }
 
 /* 折叠块：思考过程 / 工具结果 / 解析降级的原文 */
@@ -769,7 +769,7 @@ details.cv-tool {
   max-width: 88%;
   padding: 6px 10px;
   border: 1px dashed var(--border-strong);
-  border-radius: 10px;
+  border-radius: var(--r-lg);
   background: var(--surface-2);
   color: var(--text-2);
   font-size: 12px;

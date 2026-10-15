@@ -1,3 +1,5 @@
+import type { NotificationsBridge } from './notifications-store'
+
 import { localApi } from './local-api'
 /**
  * Agent2API · 设置页的**模型层**（桥类型 / 字段表 / 纯函数 / 页面文案）。
@@ -129,6 +131,68 @@ export type ClineHeadersData = {
   effective: Record<string, string>
 }
 
+/** models.dev 模型元数据的当前状态（GET / PUT `/api/models/metadata` 同形）。 */
+export type ModelsDevState = {
+  /** 联网刷新开关（关闭后已装载的数据继续用，见后端 `KEY_MODELS_DEV_ENABLED`） */
+  modelsDevEnabled?: boolean
+  /** 这份索引的来历：`builtin`（内嵌快照）/ `cache`（上次刷新结果）/ `network`（刚拉的） */
+  source?: string
+  /** 这份数据的生成时刻（毫秒；0 = 未知） */
+  updatedAt?: number
+  /** 收录的模型条数 */
+  count?: number
+}
+
+/** 立即刷新的一行结果（字段与各家目录刷新的结果行同形，见后端 `api::model_meta`）。 */
+export type ModelsDevRefreshResult = {
+  status?: string
+  message?: string
+  count?: number
+  refreshedAt?: number
+}
+
+/** 面板状态行要的那几个字段（避免这里 import 状态层的类型造成循环依赖） */
+type ModelsDevView = {
+  status: 'loading' | 'ready' | 'unavailable'
+  enabled: boolean
+  source: string
+  updatedAt: number
+  count: number
+}
+
+/**
+ * models.dev 面板的状态行：把「开关 + 数据来历 + 生成时刻 + 条数」写成一句话。
+ *
+ * 为什么不只写「已开启」：这个开关的价值全在**那份元数据是什么时候的、有多少
+ * 条** —— 只报开关状态，用户没法判断「我的档位为什么还是老样子」是没开、
+ * 是没拉到、还是这份快照本来就旧。
+ */
+export function modelsDevStateText(state: ModelsDevView): string {
+  if (state.status === 'loading') return STATES.appLoading
+  if (state.status === 'unavailable') return STATES.modelsDevUnavailable
+  const origin = state.source === 'builtin'
+    ? STATES.modelsDevSourceBuiltin
+    : state.source === 'cache'
+      ? STATES.modelsDevSourceCache
+      : state.source === 'network'
+        ? STATES.modelsDevSourceNetwork
+        // 后端将来加了档位时原样回显，不显示成空白
+        : state.source
+  const stamp = state.updatedAt > 0
+    // 与别处的时间展示同源（app.js 提供的 `formatTime`；岛里从共享桥取）
+    ? String(shared().wbApp?.formatTime?.(state.updatedAt) ?? '')
+    : ''
+  if (!origin && !stamp && !state.count) return STATES.modelsDevEmpty
+  const at = stamp ? t('，{time}', { time: stamp }) : ''
+  const mode = state.enabled ? t('正在联网更新') : t('仅用现有数据、不联网刷新')
+  return t('{count} 条 · 来自{origin}{at} · {mode}', {
+    count: Number(state.count).toLocaleString('zh-CN'),
+    origin: origin || t('未知来源'),
+    at,
+    mode,
+  })
+}
+
 /** 本页用到的壳 / HTTP 桥（方法名与 bridge.rs 一一对应，一个都不能改） */
 export type SettingsBridge = {
   /** 'desktop' | 'web'：面板登录那一块只在网页端有意义 */
@@ -168,6 +232,11 @@ export type SettingsBridge = {
   getStorage(): Promise<unknown>
   getCaptchaSetting(): Promise<{ captchaEnabled?: boolean } | null | undefined>
   saveCaptchaSetting(on: boolean): Promise<{ captchaEnabled?: boolean } | null | undefined>
+  /** models.dev 模型元数据：开关 + 当前索引状态（见后端 `api::model_meta`） */
+  getModelsDev(): Promise<ModelsDevState | null | undefined>
+  saveModelsDev(on: boolean): Promise<ModelsDevState | null | undefined>
+  /** 立即刷新：真打公网；返回一行结果（与各家目录刷新同形）+ 刷新后的状态 */
+  refreshModelsDev(): Promise<{ result?: ModelsDevRefreshResult; status?: ModelsDevState } | null | undefined>
   panelLogout(): Promise<unknown>
   /** 后端就绪状态（局域网地址展示要拼网关端口；其余字段本页不消费） */
   getBackendStatus?(): Promise<{ port?: number } | null | undefined>
@@ -222,6 +291,8 @@ export type SharedWindow = {
     applyTheme?: (mode: string) => void
     /** 应用界面缩放（传百分数，如 105）：由 app.js 落到 WebView 层并记档 */
     applyZoom?: (percent: number) => void
+    /** 时间戳 → 本地时间串（app.js 的全局实现；models.dev 面板的「数据是什么时候的」用它） */
+    formatTime?: (value: unknown) => string
   }
   /** Token 计量单位的展示口径（units.js）：本页只负责拨开关，格式化在那边 */
   wbUnits?: { isChinese?: () => boolean; setChinese?: (on: boolean) => void }
@@ -236,13 +307,8 @@ export type SharedWindow = {
     closeAll?(): void
     list?(): string[]
   }
-  /** 通知中心（notify-center.js）的官方外部出口：open / refresh / unread 都是真的 */
-  wbNotifyCenter?: {
-    refresh?(): void
-    open?(): void
-    close?(): void
-    unread?(): number
-  }
+  /** 通知中心与顶栏铃铛共用的快照、订阅与动作。 */
+  wbNotifyCenter?: NotificationsBridge
 }
 
 export function shared(): SharedWindow {
@@ -499,7 +565,7 @@ export type ShellPrefs = {
   theme: 'light' | 'dark' | 'system'
   darkSidebar: boolean
   darkTopbar: boolean
-  /** 空 = 用 tokens.css 默认紫罗兰 */
+  /** 空 = 用共享主题的中性主色 */
   primary: string
   contentWidth: 'fluid' | 'boxed'
   dynamicTitle: boolean
@@ -562,7 +628,7 @@ export const PRIMARY_PRESETS: ReadonlyArray<readonly [string, string]> = [
 ]
 
 /** 默认主题色（prefs.js 自定义取色器的回落值，也是「恢复默认」的目标） */
-export const PRIMARY_DEFAULT = '#7c5cfc'
+export const PRIMARY_DEFAULT = '#171717'
 
 /** 内容宽度档位（value 与 prefs.js 存档值逐字一致） */
 export const SHELL_CONTENT_WIDTHS = [
@@ -4168,13 +4234,14 @@ export const TIPS = {
   /* ── 偏好与外观 / 通知与页签（本次新增：外壳偏好，与 ui/js/prefs.js 同源）── */
   prefsDrawer: '打开右上角齿轮同款的「偏好设置」抽屉：四个页签（外观 / 布局 / 通用 / 锁屏）里有全部偏好项目，外加「复制偏好 / 导入偏好 / 恢复默认」三个批量动作。抽屉与本页读写的是同一份本机配置，两边改动的值互相可见（抽屉每次打开都会重读）。',
   prefsTheme: '与「显示 → 显示模式」、侧边栏底部的主题三键、偏好抽屉是同一个设置的几个入口：浅色 / 深色把界面固定在该模式，「跟随系统」随操作系统的深浅自动切换并即时跟上，窗口标题栏的深浅色一并同步。这里改动会同时写进应用主题与偏好存档两处，下次启动按同一值打开，不会互相顶掉。',
-  prefsPrimary: '界面主色：按钮、选中态、链接、开关等主色元素立即换色。内置 12 色点击即用；「自定义」取色器可选任意颜色；「恢复默认」回到内置紫罗兰（#7c5cfc）。主色只在本机生效（保存在浏览器偏好里），悬停、柔和底、描边等衍生色按当前深浅主题自动计算，无需逐个调整。',
+  prefsPrimary: '界面主色：按钮、选中态、链接、开关等主色元素立即换色。内置 12 色点击即用；「自定义」取色器可选任意颜色；「恢复默认」回到内置中性主题（亮暗模式自动反转主色与前景）。主色只在本机生效（保存在浏览器偏好里），悬停、柔和底、描边等衍生色按当前深浅主题自动计算，无需逐个调整。',
   prefsLock: '锁屏遮罩盖住整个页面，解锁前无法操作。开启后：可在本分区一键立即锁屏；鼠标 / 键盘空闲达到设定分钟数自动锁屏（有活动就重新计时，可设 0–1440 分钟，0 = 不自动锁屏）；锁屏状态会持久化，刷新页面后仍在锁屏，解锁才清除。解锁密码仅保存在本机浏览器（明文存 localStorage，不上传服务器），留空则锁屏后点击即可解锁。锁屏参数由壳在页面加载时读取，改动需刷新页面后生效；「立即锁屏」会自动先保存再刷新，直接进入锁屏。',
   shellTags: '内容区顶部的页签栏记录本次会话打开过的页面：首页「报表」固定不可关闭，其余页签可单独关闭、右键批量操作，清单在刷新后保留（存档非法项会自动丢弃、自动去重）。「清空页签（回到首页）」调用页签栏自带的「全部关闭」：立即回到只剩首页并跳回首页，不用刷新。',
-  shellNotify: '顶栏铃铛是通知中心：每 60 秒轮询一次最近 8 条网关运行事件（页面切到后台时暂停轮询、回前台立即补拉；间隔固定、暂不可配置），只统计 error / warn 级别的未读角标，打开面板即全部记为已读；首轮拉到数据时会把当时的水位记为已读，历史告警不追着新用户响。完整历史在「日志」页查看。',
+  shellNotify: '顶栏铃铛与此处共用同一份通知状态：默认每 1 分钟轮询最近 8 条网关运行事件（可在偏好设置中调整间隔；页面切到后台时暂停轮询、回前台立即补拉），只统计 error / warn 级别的未读角标，打开面板即全部记为已读；首轮拉到数据时会把当时的水位记为已读，历史告警不追着新用户响。完整历史在「日志」页查看。',
   /* ── 通知中心（渠道与告警路由，本次新增）── */
   notifyChannels: '通知渠道是网关把告警**推到外面**的出口：每条渠道是一组「类型 + 地址 / 凭据」，类型全量对齐 Uptime-Kuma（109 种：Webhook / Telegram / 钉钉 / 飞书 / Bark / SMTP / PagerDuty / 各家短信与推送服务等），同一类型可以配多条（比如两个不同的钉钉群）。清单整体保存在网关配置里，添加 / 编辑 / 删除 / 启停都是**全量保存**——请求进行中整块禁用，成功后按后端返回的清单重画。密钥类字段默认打码：卡片摘要只露首尾几段，编辑表单里是密码框（可点「显示」临时明文核对），保存时按输入框里的真实值原样落盘。「测试」按钮会用与真实告警完全相同的通道发一条测试消息，收到即配置正确。',
   notifyAlerts: '告警事件路由决定「哪些事件要推送到渠道」：总开关关闭时任何事件都不做外部推送；三路事件开关各对应一类故障（429 降级 / 账号掉线 / 探活自动禁用），只影响**站外推送**——事件本身永远会写入事件日志并出现在顶栏铃铛里。静默时段（HH:mm 起止，本地时区）内的告警照常记录、照常亮红点，只是**不推送到渠道**，适合夜间免打扰；两端都留空 = 不启用静默，只填一端保存不会通过。',
+  modelsDev: t('models.dev 是一个开源的模型资料库（社区维护），这里用它补齐「上游没告诉我们」的模型能力：上下文窗口、最大输出、工具调用、图片、视频、是否支持思考，以及这个模型认识哪些思考档位。优先级是：你在「模型能力」里手工改的值 > 上游清单自己声明的值 > models.dev 的值 —— 它只填上游没声明的空位，从不推翻上游已声明的。网关随包内嵌了一份快照，所以离线、首次启动、访问不通时也有数据；开启时会按「模型目录刷新」任务的间隔联网更新（同一轮里一并刷新，也可在这里立即刷新）。关闭只停联网刷新，已经拿到的数据继续用。'),
 } as const
 
 /** 面板底注（`.hint.retention-note`）与各面板内的说明行 */
@@ -4216,13 +4283,14 @@ export const NOTES = {
   prefsPane: '本页与顶栏齿轮的「偏好设置」抽屉共用同一份本机配置（localStorage 的 aibuddy-prefs，不随账号走、清浏览器数据会重置；抽屉每次打开都会重读，两边互相可见）。除锁屏外的一切改动立即应用并持久化；锁屏的解锁校验与自动锁屏计时由壳在页面加载时读取，改动需刷新页面后生效。',
   prefWatermark: '在页面最上层平铺「品牌名 · 当天日期」的半透明水印（canvas 生成、不挡任何点击），适用于录屏与演示场景；水印文字取侧栏品牌区当前的品牌名，换品牌后重新开关一次即按新名字重绘。',
   prefDisplayItems: '这些开关与偏好抽屉「布局 / 通用」页签里的同名项目是同一批配置：改这里立即生效，抽屉打开后看到的也是改过的值。全部保存在本机偏好里，不随账号同步。',
-  shellPane: '页签与通知都是外壳（浏览器内）功能：页签清单（aibuddy-tags）、通知已读水位（aibuddy-notify-read）、内容区全屏（aibuddy-content-max）都保存在本机 localStorage，不随账号走。通知中心的 60 秒轮询间隔是固定值，页面不可见时自动暂停、回前台立即补拉。',
-  shellResetUnread: '清除通知中心的已读水位（aibuddy-notify-read）并立即重算：已亮着的红点随之清零，水位在重算时按当前最新事件重建 —— 之后的 error / warn 告警才会计未读。适合「红点想清零、从现在重新计数」的场景。',
+  shellPane: '页签与通知都是外壳（浏览器内）功能：页签清单（aibuddy-tags）、通知已读水位（aibuddy-notify-read）、内容区全屏（aibuddy-content-max）都保存在本机 localStorage，不随账号走。通知轮询间隔由偏好设置控制，页面不可见时自动暂停、回前台立即补拉。',
+  shellResetUnread: '「全部标为已读」将当前已加载的事件记为已读，未读数与顶栏铃铛立即同步；不删除事件日志，之后出现的新告警仍会提醒。',
   /* ── 通知中心（本次新增）── */
   notifyChannels: '渠道逐条保存在网关配置里：添加走 POST /api/notify/channels，修改与启停走 PUT /api/notify/channels/{id}，删除走 DELETE（逐项生效，没有整单覆盖）。请求进行中整块禁用。删除需要确认，删除后不可恢复 —— 好在配置不复杂，重新添加一张同样的渠道即可。',
   notifyQuiet: '静默时段（本地时区 HH:mm）内的告警**只记录不推送**：事件日志照常写、铃铛照常亮红点，渠道收不到推送；开始与结束都填写才生效，两端都留空 = 不启用静默。',
   notifyBell: '顶栏铃铛（通知中心）读的是网关事件日志，属于站内提醒：不需要配置渠道、也不受这里的总开关与事件路由控制；本页管的是站外推送（微信 / Telegram / 手机通知等）。两者相互独立 —— 关掉推送，铃铛照常工作。',
   backupDanger: t('备份文件内含全部账号凭证、网关 API Key 与面板管理员凭据，可直接用于登录。请妥善保管，不要外传或上传到公共位置。'),
+  modelsDev: t('「模型管理」里每个能力的来源标记（上游 / models.dev / 已覆盖）读的就是这份数据；映射弹窗的思考档位下拉也按这里的数据只列该模型真实认识的档位。'),
 } as const
 
 /** 状态行（`.settings-state`）的派生文案：与旧实现的赋值逐字一致 */
@@ -4244,6 +4312,12 @@ export const STATES = {
   corsUnavailable: t('未能读取网关跨域访问设置，请稍后重试'),
   corsOn: t('正在应答跨源请求：浏览器跨域请求可直连 /v1/*。'),
   corsOff: t('未开启，浏览器跨域无法直连网关。'),
+  modelsDevUnavailable: t('未能读取 models.dev 元数据状态，请稍后重试'),
+  /** 数据来历：内嵌快照（发版时那份）/ 上次刷新结果 / 刚拉的 */
+  modelsDevSourceBuiltin: t('随包内嵌的快照（发版时的那份）'),
+  modelsDevSourceCache: t('上次成功刷新的结果（存在本机数据库里）'),
+  modelsDevSourceNetwork: t('刚刚从 models.dev 拉到的最新数据'),
+  modelsDevEmpty: t('还没有装载任何数据。'),
   promptUnavailable: t('未能读取系统提示词设置，请稍后重试'),
   degradeUntilFallback: t('次日 00:00'),
   // ── 显示分类（本次新增：不来自静态骨架，是新写的文案）──

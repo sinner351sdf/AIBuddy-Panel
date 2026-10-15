@@ -184,7 +184,8 @@ pub async fn report_chat_activity(
         extra: growth_extra(session, false),
         ..Default::default()
     };
-    service.call_billing(REPORT_ACTIVITY, options).await?;
+    let spec=BillingSpec { base: if session.get("edition").and_then(Value::as_str)==Some("intl") { BillingBase::Session } else { BillingBase::Billing }, ..REPORT_ACTIVITY };
+    service.call_billing(spec, options).await?;
     Ok(())
 }
 

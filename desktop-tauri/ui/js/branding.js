@@ -38,7 +38,7 @@ function boot(){
               el.appendChild(img);
             });
           }else{pending=true}
-          var lsvg=document.querySelector('#login-app svg[role="img"], #login-app img[src="brand/logo-horizontal.svg"]');
+          var lsvg=document.querySelector('#login-app [data-brand-logo], #login-app svg[role="img"], #login-app img[src="brand/logo-horizontal.svg"]');
           if(lsvg){
             var img=document.createElement('img');
             img.src=logo;img.alt='';

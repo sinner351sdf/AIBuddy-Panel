@@ -36,6 +36,8 @@ function Switch({ className, size = 'default', ...props }: SwitchProps) {
         'transition-colors duration-[180ms] ease-out',
         'data-checked:bg-primary',
         'focus-visible:shadow-focus focus-visible:outline-none',
+        'aria-invalid:shadow-[0_0_0_1px_var(--destructive)]',
+        'aria-invalid:focus-visible:shadow-focus aria-invalid:[--ui-focus-ring:0_0_0_3px_color-mix(in_srgb,var(--destructive)_20%,transparent)]',
         'data-disabled:cursor-not-allowed data-disabled:opacity-50',
         small ? 'h-[14px] w-6' : 'h-[21px] w-9',
         className
@@ -45,8 +47,8 @@ function Switch({ className, size = 'default', ...props }: SwitchProps) {
       <BaseSwitch.Thumb
         data-slot='switch-thumb'
         className={cn(
-          'block rounded-full bg-primary-on shadow-1',
-          'transition-transform duration-[180ms] [transition-timing-function:cubic-bezier(.3,1.4,.6,1)]',
+          'block rounded-full bg-switch-thumb shadow-1 data-checked:bg-primary-foreground',
+          'transition-transform duration-[180ms] ease-in-out',
           small
             ? 'size-[10px] translate-x-0.5 data-checked:translate-x-[10px]'
             : 'size-[17px] translate-x-0.5 data-checked:translate-x-[15px]'

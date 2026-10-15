@@ -28,7 +28,8 @@
  */
 
 import * as React from 'react'
-import { Button, Input } from '@ui'
+import { InfoTip } from '../components/info-tip'
+import { Alert, AlertDescription, Button, Field, FieldGroup, FieldLabel, Input } from '@ui'
 import { shared } from './settings-model'
 
 /** localStorage 键：远程地址与 Key 的持久化（JSON `{url, key}`） */
@@ -229,14 +230,26 @@ export function RemoteSyncSection(): React.ReactElement {
 
   return (
     <div className='mt-3 rounded-md border border-hairline bg-surface-2 p-3'>
-      <div className='text-sm font-medium'>一键绑定远程面板</div>
-      <div className='hint mt-1'>
-        把本机账号一键上传到远程面板，或从远程拉回来，不用再导文件倒手。远程按
-        「提供商 + 业务身份」自动识别：已存在的更新凭证、没有的新增，不会重复堆积；
-        全部提供商与自定义提供商定义一并同步。本机客户端「实时登录态」账号不随同步迁移
-        （会列在跳过明细里，远程侧要用「导入桌面端登录态」重新读取）。
+      <div className='flex items-center gap-1'>
+        <div className='text-sm font-medium'>一键绑定远程面板</div>
+        <InfoTip label='一键绑定远程面板说明'>
+          <div className='flex flex-col gap-2'>
+            <div>
+              把本机账号一键上传到远程面板，或从远程拉回来，不用再导文件倒手。远程按
+              「提供商 + 业务身份」自动识别：已存在的更新凭证、没有的新增，不会重复堆积；
+              全部提供商与自定义提供商定义一并同步。本机客户端「实时登录态」账号不随同步迁移
+              （会列在跳过明细里，远程侧要用「导入桌面端登录态」重新读取）。
+            </div>
+            <div>
+              Key 只存本机（浏览器存储），仅随请求发送到上面填写的远程地址；在远程面板的
+              「API Keys」页创建。浏览器端打开的 https 面板连 http 远程会被浏览器拦下，桌面端不受限。
+            </div>
+          </div>
+        </InfoTip>
       </div>
-      <div className='mt-2 flex flex-col gap-2 sm:flex-row'>
+      <FieldGroup className='mt-2 flex-col gap-2 sm:flex-row'>
+        <Field className='gap-0 sm:flex-1'>
+        <FieldLabel htmlFor='remote-sync-url' className='sr-only'>远程面板地址</FieldLabel>
         <Input
           id='remote-sync-url'
           className='sm:flex-1'
@@ -244,6 +257,9 @@ export function RemoteSyncSection(): React.ReactElement {
           value={url}
           onChange={event => { setUrl(event.target.value); saveConfig({ url: event.target.value, key }) }}
         />
+        </Field>
+        <Field className='gap-0 sm:w-[280px] sm:flex-none'>
+        <FieldLabel htmlFor='remote-sync-key' className='sr-only'>远程 API Key</FieldLabel>
         <Input
           id='remote-sync-key'
           className='sm:w-[280px]'
@@ -251,7 +267,8 @@ export function RemoteSyncSection(): React.ReactElement {
           value={key}
           onChange={event => { setKey(event.target.value); saveConfig({ url, key: event.target.value }) }}
         />
-      </div>
+        </Field>
+      </FieldGroup>
       <div className='mt-2 flex flex-wrap gap-2'>
         <Button
           id='btn-remote-sync-test'
@@ -278,21 +295,10 @@ export function RemoteSyncSection(): React.ReactElement {
           {busy === 'pull' ? '拉取中…' : '从远程拉取'}
         </Button>
       </div>
-      <div className='hint mt-2'>
-        Key 只存本机（浏览器存储），仅随请求发送到上面填写的远程地址；在远程面板的
-        「API Keys」页创建。浏览器端打开的 https 面板连 http 远程会被浏览器拦下，桌面端不受限。
-      </div>
       {feedback ? (
-        <div
-          className={
-            'mt-2 rounded-md border px-3 py-2 text-[12px] leading-[1.7] whitespace-pre-line '
-            + (feedback.ok
-              ? 'border-hairline bg-surface-inset text-subtle'
-              : 'border-destructive-bd bg-destructive-soft text-destructive')
-          }
-        >
-          {feedback.text}
-        </div>
+        <Alert variant={feedback.ok ? 'default' : 'destructive'} role={feedback.ok ? 'status' : 'alert'} className='mt-2'>
+          <AlertDescription className='whitespace-pre-line'>{feedback.text}</AlertDescription>
+        </Alert>
       ) : null}
     </div>
   )

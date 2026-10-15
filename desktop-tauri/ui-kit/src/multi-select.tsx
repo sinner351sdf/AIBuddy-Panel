@@ -52,6 +52,10 @@ type MultiSelectProps<Value extends string = string> = {
   title?: string
   /** 无障碍名（触发器上没有可见 label 时必填） */
   'aria-label'?: string
+  'aria-labelledby'?: string
+  /** 关联 FieldDescription / FieldError；校验状态交给可聚焦的触发器播报。 */
+  'aria-describedby'?: string
+  'aria-invalid'?: React.AriaAttributes['aria-invalid']
 }
 
 /** 选中项的连接符（与 select.js 的 selectedText 逐字一致） */
@@ -100,12 +104,17 @@ function MultiSelect<Value extends string = string>({
         id={id}
         title={title}
         aria-label={props['aria-label']}
+        aria-labelledby={props['aria-labelledby']}
+        aria-describedby={props['aria-describedby']}
+        aria-invalid={props['aria-invalid']}
         className={cn(
-          'inline-flex h-[30px] min-w-0 cursor-pointer items-center justify-between gap-1.5 rounded-md border border-control-border bg-control px-2.5',
+          'inline-flex h-[var(--control-h)] min-w-0 cursor-pointer items-center justify-between gap-1.5 rounded-md border border-control-border bg-control px-2.5',
           'text-[12.5px] font-normal text-foreground',
           'transition-colors duration-150 ease-out',
           'hover:border-control-border-hover hover:bg-control-hover',
-          'focus-visible:border-primary focus-visible:shadow-focus focus-visible:outline-none',
+          'focus-visible:border-ring focus-visible:shadow-focus focus-visible:outline-none',
+          'aria-invalid:border-destructive aria-invalid:hover:border-destructive aria-invalid:focus-visible:border-destructive',
+          'aria-invalid:[--ui-focus-ring:0_0_0_3px_color-mix(in_srgb,var(--destructive)_20%,transparent)]',
           'data-disabled:cursor-not-allowed data-disabled:bg-control data-disabled:text-muted-foreground data-disabled:opacity-60',
           className
         )}

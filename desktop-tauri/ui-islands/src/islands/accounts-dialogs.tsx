@@ -19,6 +19,14 @@
 
 import * as React from 'react'
 import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLegend,
+  FieldSet,
+  FieldLabel,
+  SelectGroup,
   Button,
   Checkbox,
   Dialog,
@@ -47,7 +55,7 @@ import {
 } from './accounts-shared'
 import {
   displayNameOf, providerFeatures, providerOf, supportsPlanChannel, supportsUsage,
-  zcodePlanLabel, zcodePlanOf, ZCODE_PLAN_CODING, ZCODE_PLAN_START,
+  zcodePlanLabel, zcodePlanOf, ZCODE_PLAN_AUTO, ZCODE_PLAN_CODING, ZCODE_PLAN_START,
 } from './accounts-domain'
 import {
   readUsageChanges, UsageSettingsSection, usageDraftOf, type UsageDraft,
@@ -262,31 +270,34 @@ export function ProxyForm({
   }
 
   return (
-    <div className='flex flex-col'>
-      <RadioGroup value={draft.mode} onValueChange={value => set({ mode: value as ProxyDraft['mode'] })}
-        className='flex-row flex-wrap items-center gap-5' aria-label={t('代理方式')}>
-        <Label className='inline-flex cursor-pointer items-center gap-2 font-normal'>
-          <RadioGroupItem value='none' />{t('无代理（直连）')}
-        </Label>
-        <Label className='inline-flex cursor-pointer items-center gap-2 font-normal'>
-          <RadioGroupItem value='pool' />{t('已保存的代理')}
-        </Label>
-        {/* Clash 直引档只对**已经是这种配置**的账号出现（见函数说明）：
-            出口统一走代理池之后不再提供新建入口 */}
-        {showClashMode ? (
+    <FieldGroup className='flex flex-col gap-0'>
+      <FieldSet className='gap-0'>
+        <FieldLegend className='sr-only'>{t('代理方式')}</FieldLegend>
+        <RadioGroup value={draft.mode} onValueChange={value => set({ mode: value as ProxyDraft['mode'] })}
+          className='flex-row flex-wrap items-center gap-5' aria-label={t('代理方式')}>
           <Label className='inline-flex cursor-pointer items-center gap-2 font-normal'>
-            <RadioGroupItem value='clash' />Clash Verge
+            <RadioGroupItem value='none' />{t('无代理（直连）')}
           </Label>
-        ) : null}
-        <Label className='inline-flex cursor-pointer items-center gap-2 font-normal'>
-          <RadioGroupItem value='custom' />{t('自定义')}
-        </Label>
-      </RadioGroup>
+          <Label className='inline-flex cursor-pointer items-center gap-2 font-normal'>
+            <RadioGroupItem value='pool' />{t('已保存的代理')}
+          </Label>
+          {/* Clash 直引档只对**已经是这种配置**的账号出现（见函数说明）：
+              出口统一走代理池之后不再提供新建入口 */}
+          {showClashMode ? (
+            <Label className='inline-flex cursor-pointer items-center gap-2 font-normal'>
+              <RadioGroupItem value='clash' />Clash Verge
+            </Label>
+          ) : null}
+          <Label className='inline-flex cursor-pointer items-center gap-2 font-normal'>
+            <RadioGroupItem value='custom' />{t('自定义')}
+          </Label>
+        </RadioGroup>
+      </FieldSet>
 
       {draft.mode === 'pool' ? (
         <div className='mt-3'>
-          <div className='field-row'>
-            <label htmlFor={`${idPrefix}-pool-exit`}>{t('代理')}</label>
+          <Field orientation='horizontal' className='field-row flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+            <FieldLabel htmlFor={`${idPrefix}-pool-exit`}>{t('代理')}</FieldLabel>
             {/* value 恒为字符串（空串 = 还没选）：受控值从 undefined 切到字符串会被 Base UI
                 当成「非受控 → 受控」的切换，所以不给 undefined */}
             <Select value={draft.proxyId} disabled={!pool?.length}
@@ -299,15 +310,17 @@ export function ProxyForm({
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {(pool ?? []).map(item => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {poolItemLabel(item)}
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  {(pool ?? []).map(item => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {poolItemLabel(item)}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
             <Button variant='outline' size='sm' onClick={() => loadPool(true)}>{t('重新读取')}</Button>
-          </div>
+          </Field>
           <div className='detail mt-1.5'>
             {poolError
               ? t('读取失败：{error}', { error: poolError })
@@ -322,8 +335,8 @@ export function ProxyForm({
 
       {draft.mode === 'clash' ? (
         <div className='mt-3'>
-          <div className='field-row'>
-            <label htmlFor={`${idPrefix}-clash-exit`}>{t('出口')}</label>
+          <Field orientation='horizontal' className='field-row flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+            <FieldLabel htmlFor={`${idPrefix}-clash-exit`}>{t('出口')}</FieldLabel>
             {/* value 恒为字符串（空串 = 还没选）：受控值从 undefined 切到字符串会被 Base UI
                 当成「非受控 → 受控」的切换，所以不给 undefined */}
             <Select value={draft.listenerUid} disabled={!options.length}
@@ -336,11 +349,13 @@ export function ProxyForm({
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {options.map(option => (
-                  <SelectItem key={String(option.uid)} value={String(option.uid)}>
-                    {clashOptionLabel(option)}
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  {options.map(option => (
+                    <SelectItem key={String(option.uid)} value={String(option.uid)}>
+                      {clashOptionLabel(option)}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
             <Button variant='outline' size='sm' onClick={() => {
@@ -348,7 +363,7 @@ export function ProxyForm({
                 .then(() => toast(t('✅ 已重新读取 Clash Verge 配置')))
                 .catch(error => toast(t('读取失败：{error}', { error: errorMessage(error) }), 'err'))
             }}>{t('重新读取')}</Button>
-          </div>
+          </Field>
           <div className='detail mt-1.5'>
             {clash === null
               ? t('正在读取 Clash Verge 配置…')
@@ -368,32 +383,34 @@ export function ProxyForm({
 
       {draft.mode === 'custom' ? (
         <div className='mt-3'>
-          <div className='field-row'>
-            <label htmlFor={`${idPrefix}-protocol`}>{t('协议')}</label>
+          <Field orientation='horizontal' className='field-row flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+            <FieldLabel htmlFor={`${idPrefix}-protocol`}>{t('协议')}</FieldLabel>
             <Select value={draft.protocol} onValueChange={value => set({ protocol: value as 'http' | 'socks5' })}>
               <SelectTrigger id={`${idPrefix}-protocol`} className='min-w-[110px]'>
                 <SelectValue>{draft.protocol === 'socks5' ? 'SOCKS5' : 'HTTP'}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value='http'>HTTP</SelectItem>
-                <SelectItem value='socks5'>SOCKS5</SelectItem>
+                <SelectGroup>
+                  <SelectItem value='http'>HTTP</SelectItem>
+                  <SelectItem value='socks5'>SOCKS5</SelectItem>
+                </SelectGroup>
               </SelectContent>
             </Select>
-            <label htmlFor={`${idPrefix}-host`} className='ml-2'>{t('主机')}</label>
+            <FieldLabel htmlFor={`${idPrefix}-host`} className='ml-2'>{t('主机')}</FieldLabel>
             <Input id={`${idPrefix}-host`} className='min-w-[140px]' placeholder='127.0.0.1'
               value={draft.host} onChange={event => set({ host: event.currentTarget.value })} />
-            <label htmlFor={`${idPrefix}-port`}>{t('端口')}</label>
+            <FieldLabel htmlFor={`${idPrefix}-port`}>{t('端口')}</FieldLabel>
             <Input id={`${idPrefix}-port`} type='number' min={1} max={65535} className='max-w-[110px]'
               placeholder='7890' value={draft.port} onChange={event => set({ port: event.currentTarget.value })} />
-          </div>
-          <div className='field-row mt-2.5'>
-            <label htmlFor={`${idPrefix}-user`}>{t('用户名')}</label>
+          </Field>
+          <Field orientation='horizontal' className='field-row mt-2.5 flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+            <FieldLabel htmlFor={`${idPrefix}-user`}>{t('用户名')}</FieldLabel>
             <Input id={`${idPrefix}-user`} placeholder={t('可选')} autoComplete='off'
               value={draft.username} onChange={event => set({ username: event.currentTarget.value })} />
-            <label htmlFor={`${idPrefix}-pass`}>{t('密码')}</label>
+            <FieldLabel htmlFor={`${idPrefix}-pass`}>{t('密码')}</FieldLabel>
             <Input id={`${idPrefix}-pass`} type='password' placeholder={t('可选')} autoComplete='new-password'
               value={draft.password} onChange={event => set({ password: event.currentTarget.value })} />
-          </div>
+          </Field>
         </div>
       ) : null}
 
@@ -403,7 +420,7 @@ export function ProxyForm({
         </Button>
         <span className='detail'>{testResult}</span>
       </div>
-    </div>
+    </FieldGroup>
   )
 }
 
@@ -414,15 +431,16 @@ export function ProxyForm({
  * `supportsPlanChannel`），因此按能力位条件渲染。
  *
  * 两条通道是**两份独立的额度**，上游对「套餐已到期」的拒绝只由其中一条给出，
- * 所以这里必须由用户明确指定走哪条（详见后端 `providers::zcode::plan` 的模块头）。
+ * 默认自动按模型余量选择，也可以在这里手动指定通道。
  * 没有套餐登录态（jwt）时活动套餐那一项**仍可选中**但带一句说明 —— 禁用选项
  * 会让用户以为「这个功能不存在」，而实际问题是他需要重新登录一次。
  */
 function PlanChannelField({
-  plan, hasJwt, onChange,
+  plan, hasJwt, supportsAuto, onChange,
 }: {
   plan: string
   hasJwt: boolean
+  supportsAuto: boolean
   onChange: (next: string) => void
 }) {
   const current = zcodePlanLabel(plan)
@@ -430,7 +448,7 @@ function PlanChannelField({
   // 只在真的要用活动套餐时才盯着令牌池：编码套餐那条路不需要验证码令牌。
   // 5 秒一轮（与后台铸造器同一量级），弹窗关掉就停
   React.useEffect(() => {
-    if (plan !== ZCODE_PLAN_START) return () => { /* 不需要轮询 */ }
+    if (plan === ZCODE_PLAN_CODING) return () => { /* 不需要轮询 */ }
     let alive = true
     const tick = () => {
       void Promise.resolve(shared().workbuddyDesktop?.zcodeCaptchaStats?.())
@@ -442,22 +460,30 @@ function PlanChannelField({
     return () => { alive = false; window.clearInterval(timer) }
   }, [plan])
   return (
-    <div className='field-row mt-2.5'>
-      <label htmlFor='account-plan-channel'>{t('使用套餐')}</label>
+    <Field orientation='horizontal' className='field-row mt-2.5 flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+      <FieldLabel htmlFor='account-plan-channel'>{t('使用套餐')}</FieldLabel>
       <Select value={plan} onValueChange={value => onChange(String(value))}>
         <SelectTrigger id='account-plan-channel' className='min-w-[220px]'>
           {/* 显式传当前项的展示文案（不依赖 value 自动显示，见工程约定） */}
           <SelectValue>{current}</SelectValue>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ZCODE_PLAN_CODING}>
-            {t('编码套餐（Coding Plan）— 走开放平台端点，用自己订阅的额度')}
-          </SelectItem>
-          <SelectItem value={ZCODE_PLAN_START}>
-            {t('活动套餐（Start Plan）— 走官方活动端点，用活动里领到的额度')}
-          </SelectItem>
+          <SelectGroup>
+            {supportsAuto ? <SelectItem value={ZCODE_PLAN_AUTO}>
+              {t('自动（按模型剩余额度）')}
+            </SelectItem> : null}
+            <SelectItem value={ZCODE_PLAN_CODING}>
+              {t('编码套餐（Coding Plan）— 走开放平台端点，用自己订阅的额度')}
+            </SelectItem>
+            <SelectItem value={ZCODE_PLAN_START}>
+              {t('活动套餐（Start Plan）— 走官方活动端点，用活动里领到的额度')}
+            </SelectItem>
+          </SelectGroup>
         </SelectContent>
       </Select>
+      {plan === ZCODE_PLAN_AUTO ? (
+        <span className='detail'>{t('优先使用该模型有剩余额度的有效活动套餐；不可用时选择编码套餐，各通道分别冷却。')}</span>
+      ) : null}
       {plan === ZCODE_PLAN_START && !hasJwt ? (
         <span className='detail text-destructive'>
           {t('该账号没有套餐登录态（jwt），活动套餐会失败：请重新登录该账号')}
@@ -469,7 +495,7 @@ function PlanChannelField({
           {pool && pool.ready === 0 ? t('（库存为空，正在补；补不上时转发会失败）') : ''}
         </span>
       ) : null}
-    </div>
+    </Field>
   )
 }
 
@@ -484,8 +510,8 @@ function BalanceTokenField({
   clearBusy: boolean
 }) {
   return (
-    <div className='field-row mt-2.5'>
-      <label htmlFor='account-balance-token-input'>{t('余额查询凭证')}</label>
+    <Field orientation='horizontal' className='field-row mt-2.5 flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+      <FieldLabel htmlFor='account-balance-token-input'>{t('余额查询凭证')}</FieldLabel>
       <Input id='account-balance-token-input' className='min-w-[220px]'
         placeholder={configured ? t('已配置，留空则不修改') : t('一般不用填')}
         title={t('积分查询已复用转发用的登录凭证，这里通常留空即可。只有旧版本填过、或从旧代理导入过凭证时才有值')}
@@ -494,7 +520,7 @@ function BalanceTokenField({
         <Button variant='outline' size='sm' disabled={clearBusy} onClick={onClear}
           title={t('清除已配置的余额查询凭证')}>{t('清除')}</Button>
       ) : null}
-    </div>
+    </Field>
   )
 }
 
@@ -526,8 +552,8 @@ function CustomCredentialFields({
 }) {
   return (
     <>
-      <div className='field-row mt-2.5'>
-        <label htmlFor='account-api-key-input'>{t('API Key')}</label>
+      <Field orientation='horizontal' className='field-row mt-2.5 flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none' data-disabled={noAuth || undefined}>
+        <FieldLabel htmlFor='account-api-key-input'>{t('API Key')}</FieldLabel>
         <Input id='account-api-key-input' type='password' autoComplete='new-password'
           className='min-w-[220px]' disabled={noAuth}
           placeholder={hasApiKey ? t('已配置，留空则不修改') : 'sk-…'}
@@ -537,14 +563,15 @@ function CustomCredentialFields({
           <Button variant='outline' size='sm' disabled={clearBusy} onClick={onClear}
             title={t('清除已配置的 API Key（转发时会因缺少凭证被跳过）')}>{t('清除')}</Button>
         ) : null}
-      </div>
-      <div className='field-row mt-2.5'>
-        <Label className='inline-flex cursor-pointer items-center gap-2.5 font-normal'>
-          <Checkbox checked={noAuth} aria-label={t('该上游无需鉴权')}
-            onCheckedChange={next => onToggleNoAuth(next === true)} />
-          <span className='text-xs text-subtle'>{t('该上游无需鉴权（转发与拉取模型都不发送鉴权头）')}</span>
-        </Label>
-      </div>
+      </Field>
+      <Field orientation='horizontal' className='field-row mt-2.5 flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+        <Checkbox id='account-no-auth' checked={noAuth} aria-label={t('该上游无需鉴权')}
+          onCheckedChange={next => onToggleNoAuth(next === true)} />
+        <FieldContent>
+          <FieldLabel htmlFor='account-no-auth'>{t('该上游无需鉴权')}</FieldLabel>
+          <FieldDescription>{t('转发与拉取模型都不发送鉴权头')}</FieldDescription>
+        </FieldContent>
+      </Field>
       <p className='detail'>
         {t('上游本来不要凭证时（本地 Ollama、OpenCode Zen 的免费档）勾上这一项：账号会被正常选路；只把 Key 留空')}
         <strong>{t('又不勾')}</strong>
@@ -579,55 +606,60 @@ function ProviderSection({
   const current = protocols.find(option => option.value === protocol)?.label || protocol
   return (
     <DialogSection>
-      <h3>{t('提供商')}</h3>
-      <p>
-        {t('这一栏改的是')}<strong>{t('「{name}」本身', { name: provider.name || provider.id })}</strong>
-        {t('（名下 {count} 个账号共用）', { count })}
-        {t('改协议 / Base URL 会改变它们的转发方式，正在进行的请求可能失败；模型清单与映射在「模型管理」页。')}
-      </p>
-      <div className='field-row'>
-        <label htmlFor='account-provider-name'>{t('名称')}</label>
-        <Input id='account-provider-name' maxLength={MAX_PROVIDER_NAME_CHARS} className='min-w-[220px]'
-          placeholder={t('提供商显示名，1~{max} 个字符', { max: MAX_PROVIDER_NAME_CHARS })}
-          value={name} onChange={event => onName(event.currentTarget.value)} />
-      </div>
-      <div className='field-row mt-2.5'>
-        <label htmlFor='account-provider-protocol'>{t('协议')}</label>
-        <Select value={protocol} onValueChange={value => onProtocol(String(value))}>
-          <SelectTrigger id='account-provider-protocol' className='min-w-[180px]'>
-            <SelectValue>{current}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {protocols.map(option => (
-              <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className='field-row mt-2.5'>
-        <label htmlFor='account-provider-baseurl'>{t('Base URL')}</label>
-        <Input id='account-provider-baseurl' className='min-w-[260px]'
-          placeholder={t('OpenAI 兼容填到 /v1；Anthropic 填根地址')}
-          value={baseUrl} onChange={event => onBaseUrl(event.currentTarget.value)} />
-      </div>
-      <div className='field-row mt-2.5'>
-        <Label className='inline-flex cursor-pointer items-center gap-2.5 font-normal'>
-          <Checkbox checked={emulation === 'opencode'} aria-label={t('伪装 OpenCode 官方客户端')}
+      <FieldGroup className='gap-2.5'>
+        <h3>{t('提供商')}</h3>
+        <p>
+          {t('这一栏改的是')}<strong>{t('「{name}」本身', { name: provider.name || provider.id })}</strong>
+          {t('（名下 {count} 个账号共用）', { count })}
+          {t('改协议 / Base URL 会改变它们的转发方式，正在进行的请求可能失败；模型清单与映射在「模型管理」页。')}
+        </p>
+        <Field orientation='horizontal' className='field-row flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+          <FieldLabel htmlFor='account-provider-name'>{t('名称')}</FieldLabel>
+          <Input id='account-provider-name' maxLength={MAX_PROVIDER_NAME_CHARS} className='min-w-[220px]'
+            placeholder={t('提供商显示名，1~{max} 个字符', { max: MAX_PROVIDER_NAME_CHARS })}
+            value={name} onChange={event => onName(event.currentTarget.value)} />
+        </Field>
+        <Field orientation='horizontal' className='field-row mt-2.5 flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+          <FieldLabel htmlFor='account-provider-protocol'>{t('协议')}</FieldLabel>
+          <Select value={protocol} onValueChange={value => onProtocol(String(value))}>
+            <SelectTrigger id='account-provider-protocol' className='min-w-[180px]'>
+              <SelectValue>{current}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {protocols.map(option => (
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field orientation='horizontal' className='field-row mt-2.5 flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+          <FieldLabel htmlFor='account-provider-baseurl'>{t('Base URL')}</FieldLabel>
+          <Input id='account-provider-baseurl' className='min-w-[260px]'
+            placeholder={t('OpenAI 兼容填到 /v1；Anthropic 填根地址')}
+            value={baseUrl} onChange={event => onBaseUrl(event.currentTarget.value)} />
+        </Field>
+        <Field orientation='horizontal' className='field-row mt-2.5 flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+          <Checkbox id='account-client-emulation' checked={emulation === 'opencode'} aria-label={t('伪装 OpenCode 官方客户端')}
             onCheckedChange={next => onEmulation(next === true ? 'opencode' : '')} />
-          <span className='text-xs text-subtle'>{t('伪装 OpenCode 官方客户端（OpenCode Zen 免费档要它才放行）')}</span>
-        </Label>
-      </div>
-      <p className='detail'>
-        {t('开启后，网关按 OpenCode 官方 CLI 的形状发请求：没填 Key 的账号用匿名凭证')}
-        <code>{'public'}</code>
-        {t('、补官方会话头、请求体补两个占位工具（上游免费档的三道校验）。')}
-        <strong>{t('它会改写请求体')}</strong>
-        {t('，只对 OpenCode Zen 这类上游有意义，别的家请关掉。')}
-      </p>
-      <div className='field-row mt-3'>
-        <Button variant='destructive' onClick={onRemove}>{t('删除提供商')}</Button>
-        <span className='detail'>{t('级联删除名下全部账号，不可恢复')}</span>
-      </div>
+          <FieldContent>
+            <FieldLabel htmlFor='account-client-emulation'>{t('伪装 OpenCode 官方客户端')}</FieldLabel>
+            <FieldDescription>{t('OpenCode Zen 免费档要它才放行')}</FieldDescription>
+          </FieldContent>
+        </Field>
+        <p className='detail'>
+          {t('开启后，网关按 OpenCode 官方 CLI 的形状发请求：没填 Key 的账号用匿名凭证')}
+          <code>{'public'}</code>
+          {t('、补官方会话头、请求体补两个占位工具（上游免费档的三道校验）。')}
+          <strong>{t('它会改写请求体')}</strong>
+          {t('，只对 OpenCode Zen 这类上游有意义，别的家请关掉。')}
+        </p>
+        <div className='field-row mt-3'>
+          <Button variant='destructive' onClick={onRemove}>{t('删除提供商')}</Button>
+          <span className='detail'>{t('级联删除名下全部账号，不可恢复')}</span>
+        </div>
+      </FieldGroup>
     </DialogSection>
   )
 }
@@ -902,36 +934,38 @@ export function AccountSettingsDialog({ id, onClose }: { id: string; onClose: ()
                   ))}
               </div>
             </aside>
-            <div className='acct-dlg-main'>
+            <FieldGroup className='acct-dlg-main gap-0 [&_.field-row>[data-slot=field-label]]:w-[76px]'>
               {pane === 'basic' ? (
                 <div>
                   <div className='acct-dlg-pane-head'>
                     <h3>{t('基本')}</h3>
                     <p>{t('这条账号是谁、排第几、能不能接请求。')}</p>
                   </div>
-                  <div className='field-row'>
-                    <label>{t('启用')}</label>
-                    <Switch checked={enabled} onCheckedChange={setEnabled} aria-label={t('启用该账号')} />
-                    <span className='detail'>{t('关闭则不参与转发（余额查询照常，见「查询设置」）')}</span>
-                  </div>
-                  <div className='field-row'>
-                    <label htmlFor='account-name-input'>{t('备注名')}</label>
+                  <Field orientation='horizontal' className='field-row flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+                    <FieldLabel htmlFor='account-enabled'>{t('启用')}</FieldLabel>
+                    <Switch id='account-enabled' checked={enabled} onCheckedChange={setEnabled} aria-label={t('启用该账号')} />
+                    <FieldContent>
+                      <FieldDescription className='detail'>{t('关闭则不参与转发（余额查询照常，见「查询设置」）')}</FieldDescription>
+                    </FieldContent>
+                  </Field>
+                  <Field orientation='horizontal' className='field-row flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+                    <FieldLabel htmlFor='account-name-input'>{t('备注名')}</FieldLabel>
                     <Input id='account-name-input' maxLength={100} placeholder={t('账号显示名称')} className='max-w-[280px]'
                       value={name} onChange={event => setName(event.currentTarget.value)} />
-                  </div>
+                  </Field>
                   <div className='field-row'>
                     <label>{t('转发顺序')}</label>
                     <span className='detail'>
                       {t('在列表里拖：拖分组带调整整组顺位，拖行首把手调整组内先后（顺序由拖拽表达，不再填数字）')}
                     </span>
                   </div>
-                  <div className='field-row'>
-                    <label htmlFor='account-conc-input'>{t('并发上限')}</label>
+                  <Field orientation='horizontal' className='field-row flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+                    <FieldLabel htmlFor='account-conc-input'>{t('并发上限')}</FieldLabel>
                     <Input id='account-conc-input' type='number' min={0} max={CONC_MAX} step={1}
                       className='max-w-[110px]' value={concDraft}
                       onChange={event => setConcDraft(event.currentTarget.value)} />
                     <span className='detail'>{concDefault > 0 ? t('0 = 按本家默认 {default}', { default: concDefault }) : t('0 = 不限')}</span>
-                  </div>
+                  </Field>
                   <p className='detail acct-dlg-hint'>
                     {concDefault > 0
                       ? t('并发上限 受上游硬顶约束，达到上限的账号跳过、请求转给其他账号（原列表 ⋯ 菜单的「并发上限」入口已并入这里）')
@@ -963,6 +997,7 @@ export function AccountSettingsDialog({ id, onClose }: { id: string; onClose: ()
                   ) : null}
                   {supportsPlanChannel(target) ? (
                     <PlanChannelField plan={planChannel} hasJwt={account.canClaim === true}
+                      supportsAuto={account.zcodePlanAutoSupported === true}
                       onChange={setPlanChannel} />
                   ) : null}
                   {provider ? (
@@ -1018,7 +1053,7 @@ export function AccountSettingsDialog({ id, onClose }: { id: string; onClose: ()
                   ) : null}
                 </div>
               ) : null}
-            </div>
+            </FieldGroup>
           </div>
         </DialogBody>
         <DialogFooter>
@@ -1037,15 +1072,27 @@ const BATCH_ACTIONS = [
   { value: 'enable', label: t('启用') },
   { value: 'disable', label: t('禁用') },
   { value: 'proxy', label: t('修改代理') },
+  { value: 'concurrency', label: t('设置并发上限') },
   { value: 'remove', label: t('删除') },
 ] as const
 
 function BatchDialog({ ids, action, onClose }: { ids: string[]; action: string; onClose: () => void }) {
   const [current, setCurrent] = React.useState(action)
   const [proxyDraft, setProxyDraft] = React.useState<ProxyDraft>(() => draftOfProxy(null))
+  // 并发上限草稿：**不预填**。预填有两个坑：混选时每家现值不同（填谁都不对），
+  // 而 CodeArts 的公开读数是「配置与上游硬顶取大」后的结果，预填再确认会把
+  // 一个没配过的 3 物化进记录。空值 = 还没填，提交时显式拦下（见 run）。
+  const [concDraft, setConcDraft] = React.useState('')
   const [busy, setBusy] = React.useState(false)
   const [result, setResult] = React.useState<React.ReactNode>('')
   const accounts = ids.map(id => findAccount(id)).filter((account): account is AccountRecord => account !== null)
+  /** 选中的账号里「本家没有『不限』这一档」的硬顶（CodeArts 3，其余 0）：只影响提示
+   *  文案 —— 这些家即使填 0、或填一个比硬顶更小的数，实际并发仍由硬顶决定
+   *  （见 store_util 的 `max_concurrent_public_for`）。空选区取 0 */
+  const concHardCap = accounts.reduce(
+    (cap, account) => Math.max(cap, Number(providerFeatures(providerOf(account)).concurrencyDefault) || 0),
+    0,
+  )
 
   /** 批量删除是不可逆操作，按数量做二次确认（原生 confirm 在 Tauri WebView 里直接放行） */
   function confirmBatchRemove(count: number): Promise<boolean> {
@@ -1068,6 +1115,18 @@ function BatchDialog({ ids, action, onClose }: { ids: string[]; action: string; 
         toast(errorMessage(error), 'err')
         return
       }
+    }
+    // 并发上限：与设置弹窗同一套归一（0~999 的整数，0 = 不限）。**必须显式填**：
+    // 空值不当 0 —— 否则「选错动作直接点执行」会把一批账号的并发限制全部清掉。
+    // 后端还会再挡一次（同一份校验），这里先挡是为了不把 400 当交互反馈
+    let maxConcurrent: number | undefined
+    if (current === 'concurrency') {
+      const raw = Number(concDraft.trim())
+      if (!concDraft.trim() || !Number.isFinite(raw) || raw < 0) {
+        toast(t('并发上限必须是 0~{max} 的整数', { max: CONC_MAX }), 'err')
+        return
+      }
+      maxConcurrent = Math.min(CONC_MAX, Math.round(raw))
     }
     if (current === 'remove' && !(await confirmBatchRemove(ids.length))) return
 
@@ -1092,14 +1151,15 @@ function BatchDialog({ ids, action, onClose }: { ids: string[]; action: string; 
     setBusy(true)
     setResult('')
     try {
-      const payload: { action: string; ids: string[]; proxy?: unknown } = { action: current, ids }
+      const payload: { action: string; ids: string[]; proxy?: unknown; maxConcurrent?: number } = { action: current, ids }
       if (current === 'proxy') payload.proxy = proxy
+      if (current === 'concurrency') payload.maxConcurrent = maxConcurrent
       const data = await shared().workbuddyDesktop?.batchAccounts?.(payload)
       const okCount = (data?.ok || []).filter(item => item.changes?.length).length
       const removedCount = (data?.removed || []).length
       const failed = data?.failed || []
       const succeeded = current === 'remove' ? removedCount : okCount
-      const verb = { enable: t('启用'), disable: t('禁用'), proxy: t('修改代理'), remove: t('删除') }[current] || current
+      const verb = { enable: t('启用'), disable: t('禁用'), proxy: t('修改代理'), concurrency: t('设置并发上限'), remove: t('删除') }[current] || current
       if (failed.length) {
         const detail = failed.slice(0, 3).map(item => labelOf(findAccount(String(item.id))) || item.id).join(t('、'))
         toast(t('{verb}完成：成功 {ok} 个，失败 {fail} 个（{detail}{more}）', {
@@ -1123,7 +1183,7 @@ function BatchDialog({ ids, action, onClose }: { ids: string[]; action: string; 
     }
   }
 
-const verb = { enable: t('启用'), disable: t('禁用'), proxy: t('修改代理'), remove: t('删除') }[current] || current
+const verb = { enable: t('启用'), disable: t('禁用'), proxy: t('修改代理'), concurrency: t('设置并发上限'), remove: t('删除') }[current] || current
 
   return (
     <Dialog open onOpenChange={next => { if (next || busy) return; onClose() }}>
@@ -1135,20 +1195,41 @@ const verb = { enable: t('启用'), disable: t('禁用'), proxy: t('修改代理
             <p style={{ maxHeight: 84, overflowY: 'auto' }}>{accounts.map(account => labelOf(account)).join(t('、'))}</p>
           </DialogSection>
           <DialogSection>
-            <h3>{t('操作')}</h3>
-            <RadioGroup value={current} onValueChange={setCurrent} className='flex-row flex-wrap items-center gap-5'
-              aria-label={t('批量动作')}>
-              {BATCH_ACTIONS.map(item => (
-                <Label key={item.value} className='inline-flex cursor-pointer items-center gap-2 font-normal'>
-                  <RadioGroupItem value={item.value} />{item.label}
-                </Label>
-              ))}
-            </RadioGroup>
-            {current === 'proxy' ? (
-              <div className='mt-2.5'>
-                <ProxyForm draft={proxyDraft} onChange={setProxyDraft} idPrefix='batch-proxy' />
-              </div>
-            ) : null}
+            <FieldGroup className='gap-2.5'>
+              <h3>{t('操作')}</h3>
+              <FieldSet className='gap-0'>
+                <FieldLegend className='sr-only'>{t('批量动作')}</FieldLegend>
+                <RadioGroup value={current} onValueChange={setCurrent} className='flex-row flex-wrap items-center gap-5'
+                  aria-label={t('批量动作')}>
+                  {BATCH_ACTIONS.map(item => (
+                    <Label key={item.value} className='inline-flex cursor-pointer items-center gap-2 font-normal'>
+                      <RadioGroupItem value={item.value} />{item.label}
+                    </Label>
+                  ))}
+                </RadioGroup>
+              </FieldSet>
+              {current === 'proxy' ? (
+                <div className='mt-2.5'>
+                  <ProxyForm draft={proxyDraft} onChange={setProxyDraft} idPrefix='batch-proxy' />
+                </div>
+              ) : null}
+              {current === 'concurrency' ? (
+                <div className='mt-2.5'>
+                  <Field orientation='horizontal' className='field-row flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+                    <FieldLabel htmlFor='batch-conc-input'>{t('并发上限')}</FieldLabel>
+                    <Input id='batch-conc-input' type='number' min={0} max={CONC_MAX} step={1}
+                      className='max-w-[110px]' placeholder={t('不限')} value={concDraft}
+                      onChange={event => setConcDraft(event.currentTarget.value)} />
+                    <span className='detail'>{t('0 = 不限')}</span>
+                  </Field>
+                  <p className='detail acct-dlg-hint'>
+                    {concHardCap > 0
+                      ? t('并发上限 0~{max}；有上游硬顶的家（如 CodeArts）以它的硬顶为准；达到上限的账号会被跳过、请求转给其他账号', { max: CONC_MAX })
+                      : t('并发上限 0~{max}；达到上限的账号会被跳过、请求转给其他账号', { max: CONC_MAX })}
+                  </p>
+                </div>
+              ) : null}
+            </FieldGroup>
           </DialogSection>
           <div className='detail' style={{ minHeight: 18 }}>{result}</div>
         </DialogBody>

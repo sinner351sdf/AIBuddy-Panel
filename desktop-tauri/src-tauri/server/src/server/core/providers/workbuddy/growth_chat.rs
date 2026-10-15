@@ -29,6 +29,7 @@ pub async fn growth_chat_request_id(
     expert_id: &str,
 ) -> Result<(String, String), GatewayError> {
     use std::time::Duration;
+    if crate::server::core::task_execution::should_stop(){return Err(GatewayError::with_status(409,"任务已停止，未发送后续模型请求"));}
 
     // refs desktop.go:420：conversationId 用 UnixNano（无需真实会话）
     let nanos = std::time::SystemTime::now()

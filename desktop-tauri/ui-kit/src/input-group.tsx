@@ -35,7 +35,7 @@ function InputGroup({ className, ...props }: React.ComponentProps<'div'>) {
       data-slot='input-group'
       role='group'
       className={cn(
-        'group/input-group relative flex h-[30px] w-full min-w-0 items-center rounded-md border border-control-border bg-control',
+        'group/input-group relative flex h-[var(--control-h)] w-full min-w-0 items-center rounded-md border border-control-border bg-control',
         'transition-[border-color,box-shadow] duration-150 ease-out',
         'outline-none',
         // 焦点环与描边跟着内部控件的 focus-visible 走（容器自己不是焦点元素）
@@ -45,6 +45,11 @@ function InputGroup({ className, ...props }: React.ComponentProps<'div'>) {
         // 必须排除 focus-visible —— 两条 has- 变体特异性相同，谁生效只看生成顺序，
         // 不排除的话鼠标停在聚焦的输入框上会显示 hover 色而不是主色。
         'has-[[data-slot=input-group-control]:hover:not(:focus-visible)]:border-control-border-hover',
+        // 校验归容器：内部控件移除了边框和焦点环，错误态也必须由这一层承接。
+        'has-[[data-slot=input-group-control][aria-invalid=true]]:border-destructive',
+        'has-[[data-slot=input-group-control][aria-invalid=true]:hover]:border-destructive',
+        'has-[[data-slot=input-group-control][aria-invalid=true]:focus-visible]:border-destructive',
+        'has-[[data-slot=input-group-control][aria-invalid=true]]:[--ui-focus-ring:0_0_0_3px_color-mix(in_srgb,var(--destructive)_20%,transparent)]',
         'has-[>textarea]:h-auto',
         // 前后 addon 占位后，控件在那一侧只需留一点间距
         'has-[>[data-align=inline-start]]:[&>[data-slot=input-group-control]]:pl-1.5',
@@ -105,9 +110,9 @@ function InputGroupAddon({ className, align = 'inline-start', ...props }: InputG
 const inputGroupButtonVariants = cva('flex items-center shadow-none', {
   variants: {
     size: {
-      xs: 'h-6 gap-1 rounded-xs px-1.5',
+      xs: 'h-6 gap-1 rounded-xs px-1.5 [&_[data-icon]]:size-3',
       sm: 'h-8 gap-1.5 rounded-sm px-2.5',
-      'icon-xs': 'size-6 rounded-xs p-0',
+      'icon-xs': 'size-6 rounded-xs p-0 [&_[data-icon]]:size-3',
       'icon-sm': 'size-8 rounded-sm p-0',
     },
   },

@@ -18,7 +18,9 @@ function Textarea({ className, ...props }: React.ComponentProps<'textarea'>) {
         'transition-[border-color,box-shadow] duration-150 ease-out',
         'placeholder:text-muted-foreground',
         'hover:border-control-border-hover',
-        'focus:border-primary focus:shadow-focus',
+        'focus:border-ring focus:shadow-focus',
+        'aria-invalid:border-destructive aria-invalid:hover:border-destructive aria-invalid:focus:border-destructive',
+        'aria-invalid:[--ui-focus-ring:0_0_0_3px_color-mix(in_srgb,var(--destructive)_20%,transparent)]',
         'disabled:cursor-not-allowed disabled:bg-surface-3 disabled:text-muted-foreground',
         className
       )}

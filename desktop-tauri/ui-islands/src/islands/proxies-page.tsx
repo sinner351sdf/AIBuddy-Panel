@@ -58,6 +58,7 @@
 import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 import {
+  SelectGroup,
   Badge,
   Button,
   Checkbox,
@@ -68,7 +69,10 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  Label,
+  Field,
+  FieldContent,
+  FieldGroup,
+  FieldLabel,
   Select,
   SelectContent,
   SelectItem,
@@ -79,12 +83,16 @@ import {
 } from '@ui'
 import { poolItemAddress } from './accounts-shared'
 import {
-  CLASH_READONLY_HINT, batchRemove, batchTest, clearSelection, durationText, errorMessage,
-  formatTime, getSnapshot, isClashItem, isPicked, items, loadPanel, pickableIds, removeItem,
-  saveItem, setAllPicked, subscribe, syncClash, testItem, toggleItem, togglePick, toast, wb,
+  batchRemove, batchTest, clearSelection, durationText, errorMessage,
+  formatTime, getSnapshot, isOrphanSubscriptionItem, isPicked, isReadonlyPoolItem,
+  isSubscriptionItem, items, loadPanel, pickableIds, readonlyHint, removeItem, saveItem,
+  setAllPicked, subscribe, syncClash, testItem, toggleItem, togglePick, toast, wb,
   type ProxyPoolItem,
 } from './proxies-state'
+import { SubscriptionSection } from './proxies-sub-view'
+import { loadSection } from './proxies-sub-state'
 import { t } from '../i18n'
+import { Card, CardHeader, CardTitle, Empty, EmptyHeader, EmptyDescription, CardFooter } from '@ui'
 
 /* ─── 表格列 ─────────────────────────────────── */
 
@@ -99,12 +107,14 @@ function ProxiesPage() {
   const snapshot = React.useSyncExternalStore(subscribe, getSnapshot)
   const [modal, setModal] = React.useState<{ item: ProxyPoolItem | null } | null>(null)
   const rows = items()
+  const [search, setSearch] = React.useState('')
+  const visibleRows = rows.filter(item => `${item.name} ${poolItemAddress(item)}`.toLowerCase().includes(search.trim().toLowerCase()))
   const ready = snapshot.data !== null
   const selectedCount = snapshot.selected.size
   const selectedIds = pickableIds()
   const allPicked = rows.length > 0 && rows.every(item => snapshot.selected.has(item.id))
   const somePicked = selectedCount > 0 && !allPicked
-  const clashPicked = rows.filter(item => snapshot.selected.has(item.id) && isClashItem(item)).length
+  const clashPicked = rows.filter(item => snapshot.selected.has(item.id) && isReadonlyPoolItem(item)).length
   const progress = snapshot.batchProgress
 
   function testCell(item: ProxyPoolItem): React.ReactNode {
@@ -114,7 +124,7 @@ function ProxiesPage() {
     return (
       <div className='flex flex-col gap-0.5 leading-[1.5]'>
         {/* 失败原因是上游错误原文（后端数据）原样透出；耗时只有数字单位，不包 */}
-        <span className={last.success ? 'text-success' : 'text-destructive'}
+        <span className={cn(last.success ? 'text-success' : 'text-destructive')}
           title={last.success ? '' : String(last.error || t('连接失败'))}>
           {last.success ? t('✅ {ip}', { ip: last.ip || t('连接成功') }) : t('❌ 连接失败')}
           {suffix ? `　${suffix}` : ''}
@@ -150,7 +160,9 @@ function ProxiesPage() {
         )
       case 'kind':
         return item.source === 'clash' ? (
-          <Badge variant='secondary' title={CLASH_READONLY_HINT}>Clash Verge</Badge>
+          <Badge variant='secondary' title={readonlyHint(item)}>Clash Verge</Badge>
+        ) : item.source === 'subscription' ? (
+          <Badge variant='secondary' title={readonlyHint(item)}>{t('订阅')}</Badge>
         ) : (
           <Badge title={t('手动填写的地址与端口')}>{t('手动')}</Badge>
         )
@@ -166,18 +178,23 @@ function ProxiesPage() {
         )
       case 'state': {
         // 只读镜像：开关照常显示真实状态（Clash 里禁用了这里也看得见），但不给改
-        const readonly = isClashItem(item)
+        const readonly = isReadonlyPoolItem(item)
+        const hint = readonlyHint(item)
         return (
           <Switch checked={item.enabled} disabled={locked || readonly}
             aria-label={t('启用「{name}」', { name: item.name || t('未命名') })}
-            title={readonly ? CLASH_READONLY_HINT : undefined}
+            title={readonly ? hint : undefined}
             onCheckedChange={next => void toggleItem(item, next)} />
         )
       }
       case 'test':
         return testCell(item)
       case 'act': {
-        const readonly = isClashItem(item)
+        // 只读镜像不给编辑；孤儿订阅节点（所属订阅已删）**删除放行** ——
+        // 归属订阅已不存在，删除是清理它们的唯一出路（见 isWritablePoolItem）
+        const orphan = isOrphanSubscriptionItem(item)
+        const readonly = isReadonlyPoolItem(item)
+        const hint = readonlyHint(item)
         return (
           <div className='row-actions'>
             <Button size='sm' variant='ghost' disabled={locked || snapshot.testing !== null}
@@ -185,12 +202,12 @@ function ProxiesPage() {
               {snapshot.testing === item.id ? t('测试中…') : t('测试')}
             </Button>
             <Button size='sm' variant='ghost' disabled={locked || readonly}
-              title={readonly ? CLASH_READONLY_HINT : undefined}
+              title={readonly ? hint : undefined}
               onClick={() => setModal({ item })}>
               {t('编辑')}
             </Button>
-            <Button size='sm' variant='destructive' disabled={locked || readonly}
-              title={readonly ? CLASH_READONLY_HINT : undefined}
+            <Button size='sm' variant='destructive' disabled={locked || (readonly && !orphan)}
+              title={readonly ? hint : undefined}
               onClick={() => void removeItem(item)}>
               {t('删除')}
             </Button>
@@ -203,12 +220,21 @@ function ProxiesPage() {
   }
 
   return (
-    <section className='panel'>
-      <div className='panel-head'>
-        <h2>{t('网络代理')}</h2>
-        <span className='panel-sub'>
-          {ready ? t('{n} 个出口', { n: rows.length }) : t('加载中…')}
-        </span>
+    <>
+      {/* 订阅区块在代理池面板上方：节点由内核镜像进池（subscription 来源的
+          只读条目），先配订阅再在下面看/引用节点，视线自上而下 */}
+      <SubscriptionSection />
+
+      <Card as='section' variant='panel' size='sm' className='panel'>
+        <CardHeader variant='panel' className='panel-head'>
+          <CardTitle>{t('代理池')}</CardTitle>
+          <span className='panel-sub'>
+            {ready ? t('{n} 个出口', { n: rows.length }) : t('加载中…')}
+          </span>
+          {/* 来源说明：本表的条目不止手动添加的 —— 订阅与 Clash 的出口自动
+              镜像进来（只读），放在面板头让「源 → 消费」的关系一眼可见，
+              不必等用户看到页脚的 Clash 说明才反应过来 */}
+          <span className='text-[11px] text-subtle'>{t('订阅与 Clash 的出口自动镜像进来')}</span>
         <div className='head-actions'>
           {/* 同步放在刷新左边：它做的事比「刷新」多一层（把 Clash 的出口集合
               镜像进池），而进页面时的那次自动同步是静默的 —— 用户想在
@@ -219,13 +245,13 @@ function ProxiesPage() {
             {snapshot.syncing ? t('同步中…') : t('同步 Clash Verge')}
           </Button>
           <Button variant='outline' disabled={snapshot.loading || snapshot.batchBusy}
-            onClick={() => void loadPanel()}>
+            onClick={() => { void loadPanel(); void loadSection() }}>
             {snapshot.loading ? t('刷新中…') : t('刷新')}
           </Button>
           <Button variant='default' disabled={snapshot.batchBusy}
             onClick={() => setModal({ item: null })}>{t('＋ 新增代理')}</Button>
         </div>
-      </div>
+      </CardHeader>
 
       {/* 批量条：与账号页同一套类名（page-accounts.css），勾选后整条点亮成主色底 */}
       <div className={cn('batch-bar', selectedCount > 0 && 'active')}>
@@ -240,7 +266,7 @@ function ProxiesPage() {
         </span>
         {clashPicked ? (
           <span className='batch-hidden'>
-            {t('其中 {n} 条来自 Clash 同步：可参与批量测试，删除会跳过', { n: clashPicked })}
+            {t('其中 {n} 条是同步来的只读条目（Clash / 订阅）：可参与批量测试，删除会跳过', { n: clashPicked })}
           </span>
         ) : null}
         <div className='batch-actions'>
@@ -260,6 +286,10 @@ function ProxiesPage() {
       </div>
 
       <div className='models-table-wrap'>
+        <div className='px-3 py-2'>
+          <Input value={search} onChange={event => setSearch(event.target.value)}
+            aria-label={t('搜索代理节点')} placeholder={t('搜索节点名称或地址')} />
+        </div>
         <table className='models-table'>
           <colgroup>
             {/* 勾选列用**像素**而不是百分比：它是固定尺寸的小件（14px 勾选框 +
@@ -284,7 +314,7 @@ function ProxiesPage() {
             </tr>
           </thead>
           <tbody>
-            {rows.length ? rows.map(item => {
+            {visibleRows.length ? visibleRows.map(item => {
               const busy = snapshot.pending.has(item.id)
               const picked = isPicked(item.id)
               return (
@@ -299,25 +329,25 @@ function ProxiesPage() {
               )
             }) : (
               <tr>
-                <td colSpan={COLUMNS.length} className='empty'>
-                  {ready
-                    ? t('还没有代理。点右上角「＋ 新增代理」手填一个，或点「同步 Clash Verge」把 Clash 的出口导进来。')
+                <td colSpan={COLUMNS.length} className='empty'><Empty variant='compact'><EmptyHeader><EmptyDescription>
+                  {rows.length ? t('没有匹配的节点') : ready
+                    ? t('还没有代理。点右上角「＋ 新增代理」手填一个，点「同步 Clash Verge」把 Clash 的出口导进来，或在上方「订阅」区块导入订阅节点。')
                     : t('加载中…')}
-                </td>
+                </EmptyDescription></EmptyHeader></Empty></td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
 
-      <div className='panel-foot'>
+      <CardFooter variant='panel' className='panel-foot'>
         {/* 行内 <b> 是强调，拆片段保住它（与 docs-page 脚注同一手法）；片段的空格是原文 */}
         <span>
           {t('这里配的出口可被账号引用（账号弹窗 →「出网代理」→「已保存的代理」）—— 改一次地址、所有引用的账号一起生效。测试的判据是')}
           <b>{t('能否连上上游')}</b>
           {t('， 出口 IP 与耗时是附带读数。')}
           <b>Clash Verge</b>
-          {t(' 那一类由「同步 Clash Verge」 镜像进来（进入本页时会自动同步一次）：名称、端口、启用都跟随 Clash， 在 Clash 里改或删，这里跟着变 —— 所以它们只读，改请到 Clash Verge 里改。')}
+          {t(' 的出口会自动同步进来，启停与删除请在 Clash 侧操作（这里的镜像是只读的）。')}
         </span>
         {/* Clash 状态常驻在页脚：同步是静默的（进页面自动跑一次），没有这句话时
             「为什么一条 Clash 条目都没有」只能靠点按钮 + 看 toast 才知道 */}
@@ -331,7 +361,8 @@ function ProxiesPage() {
         {snapshot.error ? (
           <span className='text-destructive'>{t('读取失败：{reason}', { reason: snapshot.error })}</span>
         ) : null}
-      </div>
+        {snapshot.data?.syncError ? <span className='text-destructive'>{t('节点同步失败：{reason}', { reason: snapshot.data.syncError })}</span> : null}
+      </CardFooter>
 
       {modal ? (
         <ProxyModal
@@ -339,7 +370,8 @@ function ProxiesPage() {
           onClose={() => setModal(null)}
         />
       ) : null}
-    </section>
+      </Card>
+    </>
   )
 }
 
@@ -462,63 +494,69 @@ function ProxyModal({
           <DialogTitle>{editing ? t('编辑代理') : t('新增代理')}</DialogTitle>
         </DialogHeader>
         <DialogBody className='flex flex-col gap-3.5'>
-          <div className='flex flex-col gap-1.5'>
-            <Label htmlFor='proxy-name'>{t('名称')}</Label>
-            <Input id='proxy-name' maxLength={60} autoComplete='off' spellCheck={false}
-              placeholder={t('例如：香港 HTTP 出口')}
-              value={name} onChange={event => setName(event.currentTarget.value)} />
-          </div>
+          <FieldGroup className='gap-3.5 *:data-[slot=field-group]:gap-2.5'>
+            <Field className='flex w-auto flex-col gap-1.5'>
+              <FieldLabel htmlFor='proxy-name'>{t('名称')}</FieldLabel>
+              <Input id='proxy-name' maxLength={60} autoComplete='off' spellCheck={false}
+                placeholder={t('例如：香港 HTTP 出口')}
+                value={name} onChange={event => setName(event.currentTarget.value)} />
+            </Field>
 
-          <div className='flex flex-row items-end gap-2.5'>
-            <div className='flex flex-col gap-1.5'>
-              <Label htmlFor='proxy-protocol'>{t('协议')}</Label>
-              {/* 协议名 HTTP / SOCKS5 是固定叫法，不进词典 */}
-              <Select value={protocol} onValueChange={value => setProtocol(value as 'http' | 'socks5')}>
-                <SelectTrigger id='proxy-protocol' className='min-w-[110px]'>
-                  <SelectValue>{protocol === 'socks5' ? 'SOCKS5' : 'HTTP'}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='http'>HTTP</SelectItem>
-                  <SelectItem value='socks5'>SOCKS5</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className='flex min-w-0 flex-1 flex-col gap-1.5'>
-              <Label htmlFor='proxy-host'>{t('主机')}</Label>
-              <Input id='proxy-host' placeholder='127.0.0.1' autoComplete='off' spellCheck={false}
-                value={host} onChange={event => setHost(event.currentTarget.value)} />
-            </div>
-            <div className='flex flex-col gap-1.5'>
-              <Label htmlFor='proxy-port'>{t('端口')}</Label>
-              <Input id='proxy-port' type='number' min={1} max={65535} className='max-w-[110px]'
-                placeholder='7890' value={port} onChange={event => setPort(event.currentTarget.value)} />
-            </div>
-          </div>
-          <div className='flex flex-row items-end gap-2.5'>
-            <div className='flex min-w-0 flex-1 flex-col gap-1.5'>
-              <Label htmlFor='proxy-user'>{t('用户名')}</Label>
-              <Input id='proxy-user' placeholder={t('可选')} autoComplete='off'
-                value={username} onChange={event => setUsername(event.currentTarget.value)} />
-            </div>
-            <div className='flex min-w-0 flex-1 flex-col gap-1.5'>
-              <Label htmlFor='proxy-pass'>{t('密码')}</Label>
-              <Input id='proxy-pass' placeholder={t('可选')} autoComplete='off'
-                value={password} onChange={event => setPassword(event.currentTarget.value)} />
-            </div>
-          </div>
+            <FieldGroup className='flex flex-row items-end gap-2.5'>
+              <Field className='flex w-auto flex-col gap-1.5'>
+                <FieldLabel htmlFor='proxy-protocol'>{t('协议')}</FieldLabel>
+                {/* 协议名 HTTP / SOCKS5 是固定叫法，不进词典 */}
+                <Select value={protocol} onValueChange={value => setProtocol(value as 'http' | 'socks5')}>
+                  <SelectTrigger id='proxy-protocol' className='min-w-[110px]'>
+                    <SelectValue>{protocol === 'socks5' ? 'SOCKS5' : 'HTTP'}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value='http'>HTTP</SelectItem>
+                      <SelectItem value='socks5'>SOCKS5</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field className='flex min-w-0 flex-1 flex-col gap-1.5'>
+                <FieldLabel htmlFor='proxy-host'>{t('主机')}</FieldLabel>
+                <Input id='proxy-host' placeholder='127.0.0.1' autoComplete='off' spellCheck={false}
+                  value={host} onChange={event => setHost(event.currentTarget.value)} />
+              </Field>
+              <Field className='flex w-auto flex-col gap-1.5'>
+                <FieldLabel htmlFor='proxy-port'>{t('端口')}</FieldLabel>
+                <Input id='proxy-port' type='number' min={1} max={65535} className='max-w-[110px]'
+                  placeholder='7890' value={port} onChange={event => setPort(event.currentTarget.value)} />
+              </Field>
+            </FieldGroup>
+            <FieldGroup className='flex flex-row items-end gap-2.5'>
+              <Field className='flex min-w-0 flex-1 flex-col gap-1.5'>
+                <FieldLabel htmlFor='proxy-user'>{t('用户名')}</FieldLabel>
+                <Input id='proxy-user' placeholder={t('可选')} autoComplete='off'
+                  value={username} onChange={event => setUsername(event.currentTarget.value)} />
+              </Field>
+              <Field className='flex min-w-0 flex-1 flex-col gap-1.5'>
+                <FieldLabel htmlFor='proxy-pass'>{t('密码')}</FieldLabel>
+                <Input id='proxy-pass' placeholder={t('可选')} autoComplete='off'
+                  value={password} onChange={event => setPassword(event.currentTarget.value)} />
+              </Field>
+            </FieldGroup>
 
-          <div className='flex flex-row items-center gap-2.5'>
-            <Switch checked={enabled} onCheckedChange={setEnabled} aria-label={t('启用这条代理')} />
-            <span className='text-[12.5px]'>
-              {t('启用（禁用的条目不会被账号使用，被引用时账号回退直连；仍可测试）')}
-            </span>
-          </div>
+            <Field orientation='horizontal' className='flex flex-row items-center gap-2.5 has-[>[data-slot=field-content]]:items-center'>
+              <Switch id='proxy-enabled' checked={enabled} onCheckedChange={setEnabled} aria-label={t('启用这条代理')} />
+              <FieldContent>
+                <FieldLabel htmlFor='proxy-enabled' className='text-[12.5px]'>
+                  {t('启用（禁用的条目不会被账号使用，被引用时账号回退直连；仍可测试）')}
+                </FieldLabel>
+              </FieldContent>
+            </Field>
 
-          <p className='text-xs leading-[1.65] text-subtle'>
-            {t('想要 Clash Verge 的出口？那类条目由工具条的')}<b>{t('「同步 Clash Verge」')}</b>{t('整体 镜像进来（进本页时也会自动同步一次），名称与端口跟随 Clash、因此是只读的 —— 不必（也不能）在这里手工填。')}
-          </p>
+            <p className='text-xs leading-[1.65] text-subtle'>
+              {t('想要 Clash Verge 的出口？那类条目由工具条的')}<b>{t('「同步 Clash Verge」')}</b>{t('整体 镜像进来（进本页时也会自动同步一次），名称与端口跟随 Clash、因此是只读的 —— 不必（也不能）在这里手工填。')}
+            </p>
 
-          <div className='min-h-[18px] text-xs text-subtle'>{status}</div>
+            <div className='min-h-[18px] text-xs text-subtle'>{status}</div>
+          </FieldGroup>
         </DialogBody>
         <DialogFooter>
           <Button variant='outline' disabled={testing || saving} onClick={() => void testDraft()}>
@@ -544,7 +582,7 @@ declare global {
   }
 }
 
-window.wbProxiesPanel = { load: () => loadPanel() }
+window.wbProxiesPanel = { load: async () => { await loadPanel(); await loadSection() } }
 
 const PAGE_SELECTOR = '.page[data-page="proxies"]'
 
@@ -561,7 +599,7 @@ function mount(): void {
   createRoot(section).render(<ProxiesPage />)
   // 首屏若正停在本页就自拉一次（app.js 启动时的 showPage 早于本岛加载，
   // 那一次 load() 会丢；与 keys / models 各岛同一处兜底）
-  if (wb().wbApp?.currentPage === 'proxies') void loadPanel()
+  if (wb().wbApp?.currentPage === 'proxies') { void loadPanel(); void loadSection() }
 }
 
 // 脚本排在页面骨架之后（index.html 里 islands/ui.js 在各 section 之后），正常直接挂；

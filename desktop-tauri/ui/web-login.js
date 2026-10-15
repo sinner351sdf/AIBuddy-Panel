@@ -33,6 +33,17 @@
 
   const providerLabel = id => window.wbProviders?.labelOf?.(id) || id;
 
+  // Publish content state instead of replacing React-owned Button children.
+  const paintButton = (button, text, waiting = false) => {
+    if (window.wbWebLoginButton) {
+      window.wbWebLoginButton.render(button.id, { text, busy: waiting });
+    } else {
+      // Classic hosts without React keep the same text and disabled behavior.
+      button.textContent = text;
+    }
+    button.ariaBusy = waiting ? 'true' : 'false';
+  };
+
   /**
    * 建一个登录控制器。
    *
@@ -55,7 +66,7 @@
       const button_ = button();
       if (!button_) return;
       const texts = config.texts ? config.texts() : { button: '', hint: '' };
-      if (texts.button) button_.textContent = texts.button;
+      if (texts.button) paintButton(button_, texts.button);
       const hint_ = hint();
       if (hint_ && texts.hint) hint_.textContent = texts.hint;
     };
@@ -67,7 +78,7 @@
       const cancel_ = cancelButton();
       if (loginActive && loginProvider === config.provider) {
         button_.disabled = true;
-        button_.innerHTML = `<span class="spinner"></span>${config.busyText || wbI18n.t('等待登录完成…')}`;
+        paintButton(button_, config.busyText || wbI18n.t('等待登录完成…'), true);
         // 取消按钮切 hidden 属性而不是行内 display：它是组件库的 Button（自带带
         // !important 的 inline-flex 工具类），行内样式压不过它
         if (cancel_) cancel_.hidden = false;
@@ -77,6 +88,8 @@
       if (loginActive) {
         // 别家在等待：主进程同一时刻只允许一个登录流程，本家的发起按钮必须禁用
         button_.disabled = true;
+        const texts = config.texts ? config.texts() : { button: '' };
+        if (texts.button) paintButton(button_, texts.button);
         const hint_ = hint();
         if (hint_) {
           hint_.textContent = wbI18n.t('正在等待{name}登录完成；完成或取消后才能发起新的登录', {
@@ -103,7 +116,7 @@
         const button_ = button();
         if (button_) {
           button_.disabled = true;
-          button_.innerHTML = `<span class="spinner"></span>${config.busyText || wbI18n.t('等待网页登录…')}`;
+          paintButton(button_, config.busyText || wbI18n.t('等待网页登录…'), true);
         }
         try {
           const result = await config.start();

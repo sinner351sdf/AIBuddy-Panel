@@ -598,6 +598,7 @@ pub(super) async fn raw_json_call(
     proxy: Option<&ResolvedProxy>,
 ) -> Result<RawCall, super::BillingError> {
     use crate::server::core::auth_http::send_raw;
+    if method!="GET" && crate::server::core::task_execution::should_stop(){return Err(super::BillingError::new("任务已停止，未发送后续请求",409));}
 
     let response = send_raw(method, url, body, headers, proxy, Some(super::REQUEST_TIMEOUT_MS))
         .await

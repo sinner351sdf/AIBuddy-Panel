@@ -93,6 +93,7 @@ pub async fn run_action(
                 return Ok(Done);
             }
             for index in 0..need {
+                if super::task_execution::should_stop(){return Ok(Skipped("收到停止请求，未启动后续步骤".into()));}
                 let conversation_id = format!("{}-{index}", conversation("chat5"));
                 report::report_chat_activity(service, session, &conversation_id, "", "", "").await?;
                 // 连续上报之间保持 1.05s（refs autotask.go:745；最后一条后不等）
@@ -185,6 +186,7 @@ pub async fn run_action(
                 ("5", "代码评审"),
             ];
             for index in 0..need {
+                if super::task_execution::should_stop(){return Ok(Skipped("收到停止请求，未启动后续步骤".into()));}
                 let template = templates[(index as usize) % templates.len()];
                 let conversation_id = format!("{}-{index}", conversation("tpl"));
                 let request_id = format!("{}-req", conversation_id);
@@ -272,6 +274,7 @@ async fn run_expert_batch(
     }
     let mut ok = 0usize;
     for (index, expert) in experts.iter().enumerate() {
+        if super::task_execution::should_stop(){return Ok(Skipped("收到停止请求，未启动后续专家步骤".into()));}
         if ok >= count {
             break;
         }
@@ -430,7 +433,7 @@ async fn run_skill_fresh(
 /// 夜猫子计数窗口：23:00–08:00 **本地时区**（refs blackcat.go:19-23）。
 /// 窗口外行为不计分，不做（避免白报）。
 fn in_night_window() -> bool {
-    let hour = chrono::Local::now().hour();
+    let hour = crate::server::core::beijing::now().hour();
     hour >= 23 || hour < 8
 }
 
@@ -451,6 +454,9 @@ async fn run_black_cat(
         return Ok(Skipped("进度已达标，无需补足".to_string()));
     }
     for index in 0..need {
+                if super::task_execution::should_stop(){return Ok(Skipped("收到停止请求，未启动后续步骤".into()));}
+        if super::task_execution::should_stop() {return Ok(Skipped("收到停止请求，未启动后续对话".into()));}
+        if !in_night_window() { return Ok(Skipped("夜猫窗口结束，剩余进度下次补足".into())); }
         // 真实 glm-5.2 对话（判据的最直接证据）+ chat 事件上报
         growth_chat_request_id(session, "glm-5.2", "1+1等于几？直接回答。", "")
             .await
@@ -517,6 +523,7 @@ async fn run_mp_mini_chat(
     // （refs autotask.go:369-370：上一轮残留进度被回滚后立即重报同样无效）
     let need = (target - task.current).max(0);
     for index in 0..need {
+                if super::task_execution::should_stop(){return Ok(Skipped("收到停止请求，未启动后续步骤".into()));}
         tokio::time::sleep(Duration::from_millis(MP_CHAT_EVENT_GAP_MS + chat_jitter_ms())).await;
         let conversation_id = format!("wb2api-mp-{}-{}", logging::now_ms(), index);
         let event = if with_activity_id {
@@ -657,6 +664,7 @@ async fn run_sequential_event(
     }
     // 回读两轮（3s 间隔）；round 0 未点亮且有 fallback 时补一轮（refs:473-488）
     for round in 0..2 {
+        if super::task_execution::should_stop(){return Ok(Skipped("收到停止请求，未启动后续步骤".into()));}
         tokio::time::sleep(Duration::from_millis(growth::CLAIM_POLL_GAP_MS)).await;
         if let Ok(Some(fresh)) = growth::task_by_code(service, session, code).await {
             if fresh.claimable || fresh.claimed || fresh.current >= target {

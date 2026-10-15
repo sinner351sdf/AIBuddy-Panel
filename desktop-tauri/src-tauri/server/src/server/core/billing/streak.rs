@@ -232,7 +232,7 @@ pub async fn heatmap_yesterday_missed(
     session: &Value,
 ) -> Result<bool, BillingError> {
     // refs 用本地时区的昨日日期（time.Now().AddDate(0,0,-1)）
-    let yesterday = (chrono::Local::now() - chrono::Duration::days(1))
+    let yesterday = (crate::server::core::beijing::now() - chrono::Duration::days(1))
         .format("%Y-%m-%d")
         .to_string();
     let call = service.call_billing(HEATMAP, streak_options(session)).await?;
@@ -274,10 +274,15 @@ pub async fn use_makeup_card(
 /// 注：refs 的 ClaimGift/ClaimCompensation（每号一次，无则业务错误静默跳过）
 /// 由 [`super::gift`] 承担，本状态机顺带调用，与 refs 的步骤顺序一致。
 pub async fn streak_bonus_account(service: &BillingService, session: &Value) -> Vec<String> {
+    streak_bonus_with_policy(service, session, true).await
+}
+
+/// Background rewards never spend makeup cards or lottery chances.
+pub async fn streak_bonus_with_policy(service: &BillingService, session: &Value, spend: bool) -> Vec<String> {
     let mut messages = Vec::new();
     // 0. 补签保连登（refs scheduler/streak.go:99-116 makeupYesterday）：
     //    昨日漏签且有补签卡则补上（连续天数一断就要重攒 7 天）
-    makeup_yesterday(service, session, &mut messages).await;
+    if spend { makeup_yesterday(service, session, &mut messages).await; }
     // 0.5 礼包/补偿（每号一次，无则业务错误静默跳过，refs scheduler/streak.go:40-46）
     for (kind, label) in [
         (super::gift::GiftKind::Gift, "新手礼包"),
@@ -325,6 +330,7 @@ pub async fn streak_bonus_account(service: &BillingService, session: &Value) -> 
             }
         }
     }
+    if !spend { return messages; }
     // 抽奖：按当前 chances 全抽完（兑换刚发的次数已在服务端累加，refs:71-87）
     let chances = match lottery_chances(service, session).await {
         Ok(chances) => chances,
@@ -372,7 +378,7 @@ async fn makeup_yesterday(service: &BillingService, session: &Value, messages: &
     if balance <= 0 {
         return;
     }
-    let yesterday = (chrono::Local::now() - chrono::Duration::days(1))
+    let yesterday = (crate::server::core::beijing::now() - chrono::Duration::days(1))
         .format("%Y-%m-%d")
         .to_string();
     if let Err(error) = use_makeup_card(service, session, &yesterday).await {
@@ -382,4 +388,13 @@ async fn makeup_yesterday(service: &BillingService, session: &Value, messages: &
     let message = format!("已用补签卡补签 {yesterday}（保连登）");
     logging::log("[Growth]", &format!("★ {message}"));
     messages.push(message);
+}
+
+/// A date-specific oracle, not cumulative streak days.
+pub async fn active_today(service: &BillingService, session: &Value) -> Result<bool, BillingError> {
+    let call=service.call_billing(HEATMAP,streak_options(session)).await?;
+    let today=crate::server::core::beijing::today_key();
+    Ok(call.data.get("cells").and_then(Value::as_array).is_some_and(|cells|cells.iter().any(|cell|
+        cell.get("date").and_then(Value::as_str).and_then(|date|date.get(..10))==Some(today.as_str())
+        && cell.get("score").and_then(Value::as_i64).unwrap_or(0)>0)))
 }

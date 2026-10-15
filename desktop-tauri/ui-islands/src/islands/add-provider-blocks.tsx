@@ -17,9 +17,9 @@
  * 行内样式与单类名都压不过它（兜底规则见组件库 globals.css 的 `[hidden][hidden]`）。
  *
  * ── 引擎的容器契约（一个字都不能改）──────────────────────────
- *   web-login.js：按 id 找按钮 / 取消 / 提示三个节点，自己写 disabled / innerHTML /
- *                hidden —— 这三个节点的 id 与旧实现逐字一致，
- *                且**文本子节点是常量**（React 不会去覆盖引擎写进去的内容）。
+ *   web-login.js：按 id 找按钮 / 取消 / 提示三个节点，自己写 disabled / hidden；
+ *                按钮文案与 Spinner 通过 WebLoginButtonContent 的状态接口更新，
+ *                不再替换 React 拥有的子节点。这三个节点的 id 与旧实现逐字一致。
  *   sms-login.js：create() 时按 id 绑 click，之后按 id 现读输入框的 .value ——
  *                六个 id 逐字一致，输入框是非受控的（React 从不写回 value）。
  *   autoclaw-oauth.js：create() 时抓两个变体按钮的文案、绑 click，同样按 id 读写。
@@ -27,7 +27,13 @@
  */
 
 import * as React from 'react'
+import { WebLoginButtonContent } from './web-login-button'
 import {
+  Field,
+  FieldContent,
+  FieldGroup,
+  FieldLabel,
+  cn,
   Button,
   DialogSection,
   Input,
@@ -72,6 +78,7 @@ import {
   type WebLoginController,
 } from './add-account-bridge'
 import { t } from '../i18n'
+import { WorkbuddyQrLogin } from './workbuddy-qr-login'
 
 /**
  * 弹窗里的分段比页面上大一号（旧 #add-modal .add-seg 的 28px 项高 / 12.5px 字号，
@@ -190,39 +197,41 @@ function ManualSection({
         }
       }}
     >
-      <h3>{manualTitleOf(config)}</h3>
-      <Note {...note} />
-      {config.fields.map(field => {
-        const id = fieldIdOf(config, field)
-        // 必填只在标签上标出（弹窗不是 <form>，原生 required 不生效），真正的拦截在 submit
-        const marker = field.optional ? '' : t('（必填）')
-        return (
-          <div key={id} className={`field-row${field.rows ? ' stack' : ''}`}>
-            <label htmlFor={id}>
-              {field.label}
-              {marker}
-            </label>
-            {field.rows ? (
-              <Textarea id={id} rows={field.rows} placeholder={field.placeholder} {...draftProps(id)} />
-            ) : (
-              <Input
-                id={id}
-                type='text'
-                maxLength={maxLengthOf(field)}
-                placeholder={field.placeholder}
-                {...draftProps(id)}
-              />
-            )}
-          </div>
-        )
-      })}
-      <div className='field-row'>
-        <Button id={`${prefix}-add-button`} onClick={() => { void submit() }} disabled={busy}>
-          {busy ? t('添加中…') : addButtonTextOf(config)}
-        </Button>
-        {/* 引擎不碰这一格：忙态文案在按钮上，这一格只放链接给出的路径与提交失败以外的说明 */}
-        <span className='detail' id={`${prefix}-add-hint`}>{hint}</span>
-      </div>
+      <FieldGroup className='gap-2.5'>
+        <h3>{manualTitleOf(config)}</h3>
+        <Note {...note} />
+        {config.fields.map(field => {
+          const id = fieldIdOf(config, field)
+          // 必填只在标签上标出（弹窗不是 <form>，原生 required 不生效），真正的拦截在 submit
+          const marker = field.optional ? '' : t('（必填）')
+          return (
+            <Field orientation={field.rows ? 'vertical' : 'horizontal'} key={id} className={cn('field-row gap-2.5 [&>[data-slot=field-label]]:flex-none', field.rows ? 'stack gap-1.5' : 'flex-wrap')}>
+              <FieldLabel htmlFor={id}>
+                {field.label}
+                {marker}
+              </FieldLabel>
+              {field.rows ? (
+                <Textarea id={id} rows={field.rows} placeholder={field.placeholder} {...draftProps(id)} />
+              ) : (
+                <Input
+                  id={id}
+                  type='text'
+                  maxLength={maxLengthOf(field)}
+                  placeholder={field.placeholder}
+                  {...draftProps(id)}
+                />
+              )}
+            </Field>
+          )
+        })}
+        <div className='field-row'>
+          <Button id={`${prefix}-add-button`} onClick={() => { void submit() }} disabled={busy}>
+            {busy ? t('添加中…') : addButtonTextOf(config)}
+          </Button>
+          {/* 引擎不碰这一格：忙态文案在按钮上，这一格只放链接给出的路径与提交失败以外的说明 */}
+          <span className='detail' id={`${prefix}-add-hint`}>{hint}</span>
+        </div>
+      </FieldGroup>
     </DialogSection>
   )
 }
@@ -352,9 +361,8 @@ function WebLoginSection({
         </div>
       ) : null}
       <div className='field-row'>
-        {/* 按钮与提示的文本子节点必须是常量：引擎会直接改它们的 textContent */}
         <Button id={`${prefix}-web-button`} onClick={() => controllerRef.current?.start()}>
-          {web.button}
+          <WebLoginButtonContent buttonId={`${prefix}-web-button`}>{web.button}</WebLoginButtonContent>
         </Button>
         {/* 收起时靠 hidden 属性（不是行内 display）：引擎在 waiting 与空闲之间
             切的就是它（见 web-login.js 的 applyState）。按钮是组件库的 Button，
@@ -414,13 +422,13 @@ function SmsSection({
         html={sms.noteHtml}
         text={t('用 AutoClaw 账号绑定的手机号登录：点击「获取验证码」，收到短信后填入下方并登录。验证码由本机直接提交给官方接口，界面不显示 token。')}
       />
-      <div className='sms-form'>
+      <FieldGroup className='sms-form'>
         {/* 第 1 行：手机号与发码合成一格。按钮内嵌在输入框尾部（组件库的
             InputGroup，就是为「输入框带一个动作」准备的），不再自己占一行 */}
-        <div className='sms-field'>
-          <label className='lb' htmlFor={`${prefix}-sms-phone`}>
+        <Field orientation='horizontal' className='sms-field grid grid-cols-[88px_minmax(0,1fr)] items-center gap-3 max-[640px]:grid-cols-[minmax(0,1fr)] max-[640px]:gap-1.5'>
+          <FieldLabel className='lb max-[640px]:justify-start' htmlFor={`${prefix}-sms-phone`}>
             {t('手机号')}<i className='req'>*</i>
-          </label>
+          </FieldLabel>
           <InputGroup>
             <InputGroupInput
               id={`${prefix}-sms-phone`}
@@ -432,18 +440,18 @@ function SmsSection({
             <InputGroupAddon align='inline-end'>
               {/* 引擎在 create() 时就绑上这一颗的 click（文案与禁用态也归它管）。
                   ghost + 主色字：不描边框，也不在 30px 高的输入框里再嵌一个盒子 */}
-              <InputGroupButton id={`${prefix}-sms-send`} className='text-primary-fg'>
+              <InputGroupButton id={`${prefix}-sms-send`} variant='ghost-brand'>
                 {t('获取验证码')}
               </InputGroupButton>
             </InputGroupAddon>
           </InputGroup>
-        </div>
+        </Field>
 
         {/* 第 2 行：验证码只占 118px（6 个数字），右边并上同样是短字段的备注名 */}
-        <div className='sms-field'>
-          <label className='lb' htmlFor={`${prefix}-sms-code`}>
+        <Field orientation='horizontal' className='sms-field grid grid-cols-[88px_minmax(0,1fr)] items-center gap-3 max-[640px]:grid-cols-[minmax(0,1fr)] max-[640px]:gap-1.5'>
+          <FieldLabel className='lb max-[640px]:justify-start' htmlFor={`${prefix}-sms-code`}>
             {t('验证码')}<i className='req'>*</i>
-          </label>
+          </FieldLabel>
           <div className='sms-pair'>
             {/* 验证码**不进草稿**：引擎在登录成功后会把它清掉（codeNode.value = ''），
                 草稿若留着，下次挂载会把这个已经用过的码填回去 —— 手机号与备注名照旧留 */}
@@ -454,7 +462,7 @@ function SmsSection({
               maxLength={6}
               placeholder={t('6 位数字')}
             />
-            <label className='lb-inline' htmlFor={`${prefix}-sms-name`}>{t('备注名')}</label>
+            <FieldLabel className='lb-inline' htmlFor={`${prefix}-sms-name`}>{t('备注名')}</FieldLabel>
             <Input
               id={`${prefix}-sms-name`}
               className='sms-name'
@@ -463,14 +471,14 @@ function SmsSection({
               {...draftProps(`${prefix}-sms-name`)}
             />
           </div>
-        </div>
+        </Field>
 
-        <div className='sms-foot'>
+        <div className='sms-foot max-[640px]:ml-0'>
           <Button id={`${prefix}-sms-submit`}>{t('登录并添加')}</Button>
           {/* 失败时引擎会给它挂 .err（见 setHint） */}
           <span className='detail sms-hint' id={`${prefix}-sms-hint`} />
         </div>
-      </div>
+      </FieldGroup>
     </DialogSection>
   )
 }
@@ -649,6 +657,7 @@ export function WorkBuddyBlock({ active }: { active: boolean }): React.ReactElem
   // 三处偏好的初值来自模块级 loginPrefs：旧实现里它们住在静态 DOM 上，
   // 关掉弹窗再打开仍是上次的选择（resetAddStep 只复位提供商与步骤）
   const [edition, setEdition] = React.useState<Edition>(loginPrefs.edition)
+  const [method, setMethod] = React.useState('qr')
   const [loginMode, setLoginMode] = React.useState<LoginMode>(loginPrefs.loginMode)
   const [socialRestore, setSocialRestore] = React.useState(loginPrefs.socialRestore)
   const editionRef = React.useRef(edition)
@@ -755,52 +764,63 @@ export function WorkBuddyBlock({ active }: { active: boolean }): React.ReactElem
       </DialogSection>
 
       <DialogSection>
-        <h3>{t('网页登录')}</h3>
-        <p>{t('完成登录后自动加入账号列表，昵称取自上游。')}</p>
-        <div className='field-row'>
-          <span className='text-[12.5px] whitespace-nowrap text-subtle'>{t('打开方式')}</span>
-          <SegmentedControl
-            aria-label={t('网页登录的打开方式')}
-            className={ADD_SEG_CLASS}
-            options={[
-              { value: 'embedded', label: t('内嵌窗口') },
-              { value: 'external', label: t('系统默认浏览器') },
-            ]}
-            value={loginMode}
-            onValueChange={pickLoginMode}
-          />
-          <label className='flex items-center gap-2' title={socialTitle}>
-            <Switch
-              checked={socialRestore}
-              disabled={!socialUsable}
-              onCheckedChange={next => {
-                // 勾选本身只影响发起登录时传给壳侧的值，不需要重建界面
-                setSocialRestore(next)
-                loginPrefs.socialRestore = next
-              }}
-            />
-            <span className='text-[12.5px] text-subtle'>{t('恢复 Google / GitHub 入口')}</span>
-          </label>
-        </div>
-        <p>{t('系统浏览器可复用已有登录态（国际版推荐）；内嵌窗口更干净。')}</p>
-        <div className='field-row'>
-          {/* 按钮与提示的文本子节点必须是常量：引擎会直接改它们的 textContent */}
-          <Button id='web-login-button' onClick={() => controllerRef.current?.start()}>
-            {t('打开网页登录')}
-          </Button>
-          <Button
-            id='web-login-cancel'
-            variant='outline'
-            hidden
-            onClick={() => controllerRef.current?.cancel()}
-          >
-            {t('取消等待')}
-          </Button>
-          <span className='detail' id='web-login-hint'>
-            {t('内嵌窗口打开；完成后自动加入列表，关窗即取消等待')}
-          </span>
-        </div>
+        <h3>{t('登录方式')}</h3>
+        <SegmentedControl aria-label={t('WorkBuddy登录方式')} options={[{value:'qr',label:t('扫码登录')},{value:'web',label:t('网页登录')}]} value={method} onValueChange={setMethod} />
+        {method === 'qr' ? <WorkbuddyQrLogin active={active} edition={edition} /> : null}
       </DialogSection>
+      <div hidden={method !== 'web'}>
+      <DialogSection>
+        <FieldGroup className='gap-2.5'>
+          <h3>{t('网页登录')}</h3>
+          <p>{t('完成登录后自动加入账号列表，昵称取自上游。')}</p>
+          <Field orientation='horizontal' className='field-row flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+            <span className='text-[12.5px] whitespace-nowrap text-subtle'>{t('打开方式')}</span>
+            <SegmentedControl
+              aria-label={t('网页登录的打开方式')}
+              className={ADD_SEG_CLASS}
+              options={[
+                { value: 'embedded', label: t('内嵌窗口') },
+                { value: 'external', label: t('系统默认浏览器') },
+              ]}
+              value={loginMode}
+              onValueChange={pickLoginMode}
+            />
+            <Field orientation='horizontal' className='w-auto gap-2' data-disabled={!socialUsable || undefined} title={socialTitle}>
+              <Switch
+                id='workbuddy-social-restore'
+                checked={socialRestore}
+                disabled={!socialUsable}
+                onCheckedChange={next => {
+                  // 勾选本身只影响发起登录时传给壳侧的值，不需要重建界面
+                  setSocialRestore(next)
+                  loginPrefs.socialRestore = next
+                }}
+              />
+              <FieldContent className='flex-none'>
+                <FieldLabel htmlFor='workbuddy-social-restore'>{t('恢复 Google / GitHub 入口')}</FieldLabel>
+              </FieldContent>
+            </Field>
+          </Field>
+          <p>{t('系统浏览器可复用已有登录态（国际版推荐）；内嵌窗口更干净。')}</p>
+          <div className='field-row'>
+            <Button id='web-login-button' onClick={() => controllerRef.current?.start()}>
+              <WebLoginButtonContent buttonId='web-login-button'>{t('打开网页登录')}</WebLoginButtonContent>
+            </Button>
+            <Button
+              id='web-login-cancel'
+              variant='outline'
+              hidden
+              onClick={() => controllerRef.current?.cancel()}
+            >
+              {t('取消等待')}
+            </Button>
+            <span className='detail' id='web-login-hint'>
+              {t('内嵌窗口打开；完成后自动加入列表，关窗即取消等待')}
+            </span>
+          </div>
+        </FieldGroup>
+      </DialogSection>
+      </div>
     </div>
   )
 }

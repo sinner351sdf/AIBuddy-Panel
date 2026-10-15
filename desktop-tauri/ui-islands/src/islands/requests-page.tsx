@@ -1,7 +1,10 @@
+import { RequestPhaseBadge, RequestPhaseElapsed, phaseLabelOf, phaseBadgeHtml, phaseElapsedLineHtml, phaseElapsedText, phaseOf } from './request-phase'
 import * as React from 'react'
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import {
+  cn,
+  SelectGroup,
   Badge, BadgeDot, Button, SegmentedControl, Toggle,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   type SegmentedControlOption,
@@ -15,6 +18,7 @@ import {
   type PageSizeChoice,
 } from './table-shell'
 import { t } from '../i18n'
+import { Card, CardHeader, CardTitle, CardContent, Empty, EmptyHeader, EmptyDescription } from '@ui'
 
 /**
  * Agent2API · 请求日志页（网关转发明细：筛选 / 分页 / 自动刷新）—— React 岛。
@@ -121,7 +125,7 @@ type ColSettingsApi = {
  */
 type SharedWindow = {
   workbuddyDesktop?: RequestsBridge
-  wbApp?: { readonly currentPage?: string }
+  wbApp?: { readonly currentPage?: string; renderTopbarStatus?: () => void }
   /** 提供商展示名目录（后端 label → 目录 → 原样回显 id，三级兜底见 targetCell） */
   wbProviders?: { labelOf?: (id: string) => string }
   wbFilterMemory?: {
@@ -149,107 +153,6 @@ function shared(): SharedWindow {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
-}
-
-/** HTML 转义：只服务阶段徽章那两段 HTML 串（其余内容走 React 的自动转义） */
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, ch => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[ch] ?? ch))
-}
-
-/* ─── 转发阶段（原 ui/request-phase.js，仍挂 window）──────────
- *
- * 同一套阶段要在**两处**渲染且必须逐字一致：列表的状态列（本文件）与详情弹窗
- * （islands/request-detail.tsx 的 StatusCell，它读 window.wbRequestPhase 的 badgeHtml /
- * elapsedLineHtml 并原样注入）。所以文案 / 类名 / 计时的唯一实现在这里，窗口接口照旧导出 ——
- * 不能并进列表渲染后就撤掉：那会让详情弹窗那格静默失去阶段显示（回落成「进行中」）。
- *
- * 数据来自后端在途期间写入的 `phase` / `phaseStartedAt`（见 core::upstream::usage::LogPhase）：
- * phase 空串 = 不在途（终态行、旧行），回落成通用的「进行中」。
- * 文案（含悬停说明）在模块求值时走 t()：岛加载晚于 head 里的 i18n 词典注入，拿得到译文。
- */
-const PHASES: Record<string, { label: string; cls: string }> = {
-  connecting: { label: t('连接中'), cls: 'phase-connecting' },
-  waiting: { label: t('等待响应'), cls: 'phase-waiting' },
-  streaming: { label: t('响应中'), cls: 'phase-streaming' },
-  retrying: { label: t('重试中'), cls: 'phase-retrying' },
-  queued: { label: t('排队中'), cls: 'phase-queued' },
-}
-const PHASE_FALLBACK_LABEL = t('进行中')
-const PHASE_FALLBACK_CLS = 'running'
-/** 每个阶段的悬停说明：徽章只有四个字，落点要说清「这一步在干什么」 */
-const PHASE_TITLES: Record<string, string> = {
-  connecting: t('请求已受理，正在选路、取凭证、建立上游连接'),
-  waiting: t('上游请求已发出，正在等第一个字节到达（模型的思考时间也在这段）'),
-  streaming: t('首帧已到，上游内容正在下发'),
-  retrying: t('本轮尝试失败，正在退避等待或切换到下一个账号'),
-  queued: t('上游模型繁忙，请求已排进上游队列；网关正按上游建议的时长等待后重发（不是登录态或额度问题）'),
-  '': t('请求正在转发中，用时列显示的是已用时'),
-}
-
-/** 行对象里那个阶段字面量，非法值一律按「没有阶段」处理（不猜） */
-function phaseOf(entry: unknown): string {
-  const raw = String((entry as RequestEntry | null)?.phase ?? '').trim().toLowerCase()
-  return Object.prototype.hasOwnProperty.call(PHASES, raw) ? raw : ''
-}
-
-/** 阶段文案（空串阶段 → 「进行中」） */
-function phaseLabelOf(entry: unknown): string {
-  const phase = phaseOf(entry)
-  return phase ? PHASES[phase].label : PHASE_FALLBACK_LABEL
-}
-
-/**
- * 阶段耗时 → 展示文案（N秒 / N分M秒，与「用时」列同族）。
- *
- * 必须先排除空值再转数字：`Number(null)` **是 0**（不是 NaN），只判 Number.isFinite 会把
- * 「没有这个读数」的 null 当成「0 毫秒」，于是 max(1, …) 渲染出一个凭空编出来的「1秒」。
- * 拿不到读数返回空串，调用方据此整行省掉。
- */
-function phaseElapsedText(ms: unknown): string {
-  if (ms === null || ms === undefined || ms === '') return ''
-  const value = Number(ms)
-  if (!Number.isFinite(value) || value < 0) return ''
-  const seconds = Math.max(1, Math.floor(value / 1000))
-  if (seconds < 60) return t('{n}秒', { n: seconds })
-  return t('{m}分{s}秒', { m: Math.floor(seconds / 60), s: seconds % 60 })
-}
-
-/**
- * 当前阶段计时的读数（毫秒），取不到给 null。优先用服务端现算的 `phaseElapsedMs`（与库里的
- * 阶段起点同一时钟，浏览器时钟偏了也不会离谱）；老响应没有该字段时用 phaseStartedAt 本地减一次。
- */
-function phaseElapsedMsOf(entry: unknown): number | null {
-  const raw: unknown = (entry as RequestEntry | null)?.phaseElapsedMs
-  if (raw !== null && raw !== undefined && raw !== '') {
-    const server = Number(raw)
-    if (Number.isFinite(server) && server >= 0) return server
-  }
-  const started = Number((entry as RequestEntry | null)?.phaseStartedAt)
-  if (!Number.isFinite(started) || started <= 0) return null
-  const local = Date.now() - started
-  return Number.isFinite(local) ? Math.max(0, local) : null
-}
-
-/** 阶段徽章（呼吸点 + 文案）。只返回徽章本身，不含外层列容器 —— 列表与详情弹窗的容器不同 */
-function phaseBadgeHtml(entry: unknown): string {
-  const phase = phaseOf(entry)
-  const label = phase ? PHASES[phase].label : PHASE_FALLBACK_LABEL
-  const cls = phase ? PHASES[phase].cls : PHASE_FALLBACK_CLS
-  const title = PHASE_TITLES[phase] || PHASE_TITLES['']
-  return `<span class="badge tag ${cls}" title="${escapeHtml(title)}">`
-    + `<span class="req-live-dot" aria-hidden="true"></span>${escapeHtml(label)}</span>`
-}
-
-/** 阶段计时的第二行；**有值才渲染**（整行省掉而不是写占位：缺失的成因是「还没测到」） */
-function phaseElapsedLineHtml(entry: unknown): string {
-  const text = phaseElapsedText(phaseElapsedMsOf(entry))
-  if (!text) return ''
-  const label = phaseLabelOf(entry)
-  const tip = t('进入「{phase}」阶段已持续 {time}', { phase: label, time: text })
-  return `<span class="req-phase-elapsed" title="${escapeHtml(tip)}">`
-    + `${escapeHtml(text)}</span>`
 }
 
 /* ─── 列定义（与 table-columns.js 的登记同源，改列时两处要一起改）──
@@ -481,6 +384,40 @@ function formatDuration(ms: unknown): string {
   if (seconds >= 60) return t('{m}分{s}秒', { m: Math.floor(seconds / 60), s: seconds % 60 })
   const millis = rounded % 1000
   return millis > 0 ? t('{s}秒{ms}ms', { s: seconds, ms: millis }) : t('{n}秒', { n: seconds })
+}
+
+/**
+ * 生成速度（tok/s）的悬停说明：口径与回落规则都在这里说清 —— 显示出来的数可能
+ * 按流式段算、也可能按总用时算（回落），不说明白会让人拿它对不上别的工具。
+ */
+const SPEED_TIP = t('生成速度：输出 token ÷ 流式段用时（总用时 − 首响）；流式段不足总用时一半时按总用时计')
+
+/** 流式段的下界（毫秒）：低于它按总用时计，见 tokensPerSecond */
+const STREAM_MS_FLOOR = 500
+
+/**
+ * 生成速度（tok/s）：输出 token ÷ 流式段用时（总用时 − 首响）。
+ *
+ * 分母刻意**不含**「等首帧」的时间 —— 那段若是模型的静默思考（首帧前上游一字节
+ * 不发），算进去会把生成速度压得明显偏低。但反过来，流式段只是一条**短尾巴**时
+ * 也不能按它算：思考型上游常常整段思考都不发帧，token 在首帧后的一个小窗口里
+ * 一股脑到达（上游缓冲、聚合路径、隐藏思考都是这个形态），486 token ÷ 0.6 秒
+ * 窗口能算出 800+ tok/s 的假速度 —— 那测的是「下发得快」，不是「生成得快」。
+ * 所以护栏两条，不满足就回落按总用时计（宁可给保守的平均速度，不给天文数字）：
+ *   · 流式段 ≥ STREAM_MS_FLOOR（非流式响应 duration ≈ 首响，分母趋零）；
+ *   · 流式段 ≥ 总用时的一半（内容段要撑得起请求，短尾窗口的读数不可信）。
+ * 输出 / 总用时为 0（失败行 token 清零、旧行）→ 空串，调用方整行省掉。
+ * 进行中行没有 completionTokens（收尾才记账），自然走空串 —— 速度只有终态行才有。
+ */
+function tokensPerSecond(entry: RequestEntry): string {
+  const tokens = Number(entry.completionTokens) || 0
+  const duration = Number(entry.durationMs) || 0
+  if (tokens <= 0 || duration <= 0) return ''
+  const first = Number(entry.firstResponseMs)
+  const streamMs = Number.isFinite(first) && first > 0 && first < duration ? duration - first : 0
+  const streaming = streamMs >= STREAM_MS_FLOOR && streamMs * 2 >= duration
+  const rate = tokens / ((streaming ? streamMs : duration) / 1000)
+  return `${rate >= 100 ? Math.round(rate) : rate.toFixed(1)} tok/s`
 }
 
 /**
@@ -797,33 +734,16 @@ function requestCell(entry: RequestEntry, column: VisibleColumn): React.ReactNod
             aria-label={t('命中了敏感词')}>{t('敏')}</Badge>,
         )
       }
-      if (!tags.length) return <span key={key} className={`req-none ta-${align}`}>-</span>
+      if (!tags.length) return <span key={key} className={cn('req-none', `ta-${align}`)}>-</span>
       return <span key={key} className={className}>{tags}</span>
     }
 
     case 'status': {
       if (isRunning(entry)) {
-        const phase = window.wbRequestPhase
-        // 阶段模块没就绪（加载顺序是硬要求，但真出问题时这一格不该空着）：回落成改造前的静态徽章
-        if (!phase?.badgeHtml) {
-          return (
-            <span key={key} className={className}>
-              <span className='req-status-badge'>
-                <Badge shape='tag' variant='info' title={t('请求正在转发中，用时列显示的是已用时')}>
-                  <BadgeDot className='req-live-dot' aria-hidden='true' />{t('进行中')}
-                </Badge>
-              </span>
-            </span>
-          )
-        }
-        const elapsed = phase.elapsedLineHtml?.(entry) ?? ''
-        return (
-          <span key={key} className={className}>
-            {/* 徽章与阶段计时都由 wbRequestPhase 产出 HTML（详情弹窗读同一份，两处必须逐字一致） */}
-            <span className='req-status-badge' dangerouslySetInnerHTML={{ __html: phase.badgeHtml(entry) }} />
-            {elapsed ? <span className='req-status-line' dangerouslySetInnerHTML={{ __html: elapsed }} /> : null}
-          </span>
-        )
+        return <span key={key} className={className}>
+          <span className='req-status-badge'><RequestPhaseBadge entry={entry} /></span>
+          <span className='req-status-line'><RequestPhaseElapsed entry={entry} /></span>
+        </span>
       }
       const status = Number(entry.status) || 0
       const ok = isOk(entry)
@@ -855,7 +775,7 @@ function requestCell(entry: RequestEntry, column: VisibleColumn): React.ReactNod
       const upText = tag(upstream, upstreamLevel)
       const downText = tag(client, clientLevel)
       return (
-        <span key={key} className={`${className} req-model-split`}>
+        <span key={key} className={cn(className, 'req-model-split')}>
           <span className='req-model-line'
             title={t('转发到上游的模型：{model}', { model: upText })}>⬆️ {upText}</span>
           <span className='req-model-line sub'
@@ -900,10 +820,18 @@ function requestCell(entry: RequestEntry, column: VisibleColumn): React.ReactNod
       const line2 = t('缓存读取: {cache} / 命中率: {rate}', {
         cache: formatTokens(entry.cacheReadTokens), rate: cacheRate(entry),
       })
+      // 生成速度跟在命中率后面（**同一行**，不另起一行）：速度是「token ÷ 时间」的
+      // 导出量，归在用量读数一族；只有成功行有 token（失败行清零），拿不到就不加。
+      // 整行 nowrap，超宽省略 —— 完整读数在 title 里（与该列既有手法同一套）
+      const speed = tokensPerSecond(entry)
+      const line2full = speed ? `${line2} · ${speed}` : line2
       return (
-        <span key={key} className={className} title={`${line1}\n${line2}`}>
+        <span key={key} className={className} title={[line1, line2full].filter(Boolean).join('\n')}>
           <span className='req-usage-line'>{line1}</span>
-          <span className='req-usage-line sub'>{line2}</span>
+          <span className='req-usage-line sub'>
+            {line2}
+            {speed ? <span title={SPEED_TIP}> · {speed}</span> : null}
+          </span>
         </span>
       )
     }
@@ -914,13 +842,13 @@ function requestCell(entry: RequestEntry, column: VisibleColumn): React.ReactNod
       if (entry.error) {
         return <span key={key} className={className} title={String(entry.error)}>{String(entry.error)}</span>
       }
-      return <span key={key} className={`req-none ${base} ta-${align}`}>-</span>
+      return <span key={key} className={cn('req-none', base, `ta-${align}`)}>-</span>
     }
 
     case 'detail': {
       const id = entry.id ? String(entry.id) : ''
       // 只有带 id 的行才有入口（旧数据与「转发前就失败」的请求都没有报文可看）
-      if (!id) return <span key={key} className={`req-none ${base} ta-${align}`}>-</span>
+      if (!id) return <span key={key} className={cn('req-none', base, `ta-${align}`)}>-</span>
       return (
         <span key={key} className={className}>
           <Button size='sm' variant='outline' className='req-detail-btn' title={t('查看该请求的上游原始报文')}
@@ -940,7 +868,7 @@ function headRow(columns: VisibleColumn[]): React.ReactNode {
     <div className='req-head' key='__head'>
       {columns.map(column => (
         <span key={column.key} data-col={column.key}
-          className={`${column.sel.slice(1)}${column.key === 'dur' ? ' req-num' : ''} ta-${column.align}`}>
+          className={cn(column.sel.slice(1), column.key === 'dur' ? 'req-num' : '', `ta-${column.align}`)}>
           {column.label}
         </span>
       ))}
@@ -1231,6 +1159,11 @@ function RequestsPage() {
   // 「仅看进行中」开着时整页都是进行中，再缀一遍就成了复读
   const liveText = !runningOnly && data.running > 0 ? t(' · {n} 进行中', { n: data.running }) : ''
 
+  // Read the committed Badge, so header counts follow filters and live updates immediately.
+  React.useEffect(() => {
+    if (shared().wbApp?.currentPage === 'requests') shared().wbApp?.renderTopbarStatus?.()
+  }, [badgeText, liveText])
+
   /** 页脚读数：范围、状态、提供商与模型都写出来，「为什么只有这几条」一眼可查 */
   const summaryParts = [RANGE_LABEL[range] || t('全部')]
   if (runningOnly) summaryParts.push(t('只看进行中'))
@@ -1252,15 +1185,15 @@ function RequestsPage() {
 
   const rowKeys = uniqueRowKeys(data.entries)
   const rows = data.entries.map((entry, index) => (
-    <div key={rowKeys[index]} className={`req-row${isRunning(entry) ? ' running' : isOk(entry) ? '' : ' failed'}`}>
+    <div key={rowKeys[index]} className={cn('req-row', isRunning(entry) ? 'running' : isOk(entry) ? '' : 'failed')}>
       {columns.map(column => requestCell(entry, column))}
     </div>
   ))
 
   return (
-    <section className='panel'>
-      <div className='panel-head'>
-        <h2>{t('请求日志列表')}</h2>
+    <Card as='section' variant='panel' size='sm' className='panel'>
+      <CardHeader variant='panel' className='panel-head'>
+        <CardTitle>{t('请求日志列表')}</CardTitle>
         {/* id 保留：app.js 的 renderTopbarStatus 按 id 镜像这枚徽标的文案与配色（data-tone 空串
             = 无修饰，与旧实现 renderBadge 只写 'badge' 等价） */}
         <Badge id='req-badge' variant='outline' data-tone=''>{badgeText + liveText}</Badge>
@@ -1271,9 +1204,9 @@ function RequestsPage() {
           <Button id='btn-req-clear' variant='destructive'
             onClick={() => { void shared().wbRequestClearModal?.open?.() }}>{t('清理')}</Button>
         </div>
-      </div>
+      </CardHeader>
 
-      <div className='panel-body'>
+      <CardContent variant='panel' className='panel-body'>
         <div className='log-filters'>
           {/* 时间档位用组件库的 SegmentedControl（不再经 wbSegmented 挂载点）。shrink-0 补的是旧
               CSS `.log-filters .seg { flex: 0 0 auto }`：新控件没有 .seg 类，不补会被压扁 */}
@@ -1292,9 +1225,11 @@ function RequestsPage() {
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {STATUS_OPTIONS.map(option => (
-                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-              ))}
+              <SelectGroup>
+                {STATUS_OPTIONS.map(option => (
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
           <Select value={filters.provider}
@@ -1308,10 +1243,12 @@ function RequestsPage() {
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value=''>{ALL_PROVIDER_LABEL}</SelectItem>
-              {providerSelectOptions.map(option => (
-                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-              ))}
+              <SelectGroup>
+                <SelectItem value=''>{ALL_PROVIDER_LABEL}</SelectItem>
+                {providerSelectOptions.map(option => (
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
           <Select value={filters.model}
@@ -1321,10 +1258,12 @@ function RequestsPage() {
               <SelectValue>{filters.model || ALL_MODEL_LABEL}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value=''>{ALL_MODEL_LABEL}</SelectItem>
-              {modelSelectOptions.map(value => (
-                <SelectItem key={value} value={value}>{value}</SelectItem>
-              ))}
+              <SelectGroup>
+                <SelectItem value=''>{ALL_MODEL_LABEL}</SelectItem>
+                {modelSelectOptions.map(value => (
+                  <SelectItem key={value} value={value}>{value}</SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
           {/* 仅看进行中：开关型筛选用 Toggle —— 只有两态、且能按回未激活（分段控件是单选且不可
@@ -1343,12 +1282,12 @@ function RequestsPage() {
             按 `#req-list` 找根、按 `.req-head > .req-xxx` 找表头格插把手 */}
         <div className='log-list' id='req-list' ref={listRef}>
           {data.error
-            ? <div className='log-empty'>{data.error}</div>
+            ? <Empty variant='compact' className='log-empty'><EmptyHeader><EmptyDescription>{data.error}</EmptyDescription></EmptyHeader></Empty>
             : data.entries.length
               ? [headRow(columns), ...rows]
-              : <div className='log-empty'>{emptyText(data)}</div>}
+              : <Empty variant='compact' className='log-empty'><EmptyHeader><EmptyDescription>{emptyText(data)}</EmptyDescription></EmptyHeader></Empty>}
         </div>
-      </div>
+      </CardContent>
 
       {/* 页脚分页栏交给通用表格外壳（table-shell.tsx）：读数 / 每页条数 / 跳页 /
           翻页器四件事五张表同一套。这里走的是**服务端真分页** —— 翻页与换档位都
@@ -1365,7 +1304,7 @@ function RequestsPage() {
         onPageChange={gotoPage}
         disabled={!data.loaded && !data.error}
       />
-    </section>
+    </Card>
   )
 }
 

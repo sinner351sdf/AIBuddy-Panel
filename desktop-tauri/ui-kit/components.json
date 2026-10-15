@@ -1,0 +1,22 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "base-nova",
+  "rsc": false,
+  "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "styles/globals.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "iconLibrary": "lucide",
+  "aliases": {
+    "components": "@agent2api/ui",
+    "ui": "@agent2api/ui",
+    "utils": "@agent2api/ui/lib/cn",
+    "lib": "@agent2api/ui/lib",
+    "hooks": "@agent2api/ui/hooks"
+  },
+  "registries": {}
+}

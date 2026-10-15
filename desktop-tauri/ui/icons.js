@@ -223,44 +223,8 @@
       + '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>'
       + '<path d="m1 1 22 22"/></g>',
 
-    /**
-     * 品牌标：应用图标本体（紫罗兰渐变圆角方块 + 白色对话气泡 + 三点 + 星芒）。
-     *
-     * 几何照搬 ui/brand/logo-horizontal.svg 里的图标 mark（那块 512×512 的
-     * 渐变圆角方块组），这里按同一比例换算到 24 画布，两处形状严格一致
-     * （换算系数 24/512 = 0.046875；圆角 114 → 5.34）。渐变也照抄原文件：
-     * 方块对角 #a678ff → #8654f0 → #6123c0，三点 #7a41e8 → #b795fa，
-     * 顶部一层白色高光（sheen，.16 → 0）。
-     *
-     * 颜色不用 currentColor 而写死：这枚标要与 .ico/.png 应用图标与
-     * 登录页的横版 Logo 一模一样，而主题里的 --primary 在深浅两套下取值不同
-     * （深色主题会偏亮），跟着它走就不再是同一枚图标了。渐变的 id 带
-     * wb-brand- 前缀：同一页面可能注入多枚 brand（侧栏 / 标题栏），
-     * 重复 id 指向同一定义，无害；前缀避免与页面里其它 SVG 的 id 撞车。
-     */
-    brand: '<defs>'
-      + '<linearGradient id="wb-brand-bg" x1="0" y1="0" x2="1" y2="1">'
-      + '<stop offset="0" stop-color="#a678ff"/><stop offset=".48" stop-color="#8654f0"/><stop offset="1" stop-color="#6123c0"/>'
-      + '</linearGradient>'
-      + '<linearGradient id="wb-brand-sheen" x1="0" y1="0" x2="0" y2="1">'
-      + '<stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/>'
-      + '</linearGradient>'
-      + '<linearGradient id="wb-brand-dots" x1="0" y1="0" x2="1" y2="0">'
-      + '<stop offset="0" stop-color="#7a41e8"/><stop offset="1" stop-color="#b795fa"/>'
-      + '</linearGradient>'
-      + '</defs>'
-      + '<rect width="24" height="24" rx="5.34" fill="url(#wb-brand-bg)"/>'
-      + '<rect width="24" height="24" rx="5.34" fill="url(#wb-brand-sheen)"/>'
-      // 白色对话气泡（尾巴朝左下），三点是气泡内的「打字中」意象
-      + '<path fill="#fff" d="M8.44 6.19H15.56A2.91 2.91 0 0 1 18.47 9.09V12.84A2.91 2.91 0 0 1 15.56 15.75H10.41'
-      + 'C10.13 17.06 9.28 18.38 7.5 18.84C7.13 18.94 6.94 18.66 7.22 18.38C8.25 17.81 8.53 16.88 8.53 15.75H8.44'
-      + 'A2.91 2.91 0 0 1 5.53 12.84V9.09A2.91 2.91 0 0 1 8.44 6.19Z"/>'
-      + '<g fill="url(#wb-brand-dots)">'
-      + '<circle cx="9.28" cy="10.97" r=".8"/><circle cx="12" cy="10.97" r=".8"/><circle cx="14.72" cy="10.97" r=".8"/>'
-      + '</g>'
-      // 右上角四角星芒
-      + '<path fill="#fff" d="M18.66 3.75C18.85 4.58 19.32 5.05 20.16 5.25C19.32 5.45 18.85 5.92 18.66 6.75'
-      + 'C18.46 5.92 17.99 5.45 17.16 5.25C17.99 5.05 18.46 4.58 18.66 3.75Z"/>',
+    // 品牌标与侧栏、登录页、桌面图标共用同一份黑白 B 汇流 SVG。
+    brand: '<image href="brand/logo-icon.svg?v=b-mono-1" width="24" height="24"/>',
   };
 
   /**

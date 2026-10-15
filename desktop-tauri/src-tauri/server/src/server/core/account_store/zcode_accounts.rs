@@ -226,6 +226,8 @@ impl AccountStore {
         // 「能不能领取套餐」是**跨地区同语义**的能力位：没有 jwt 时界面上
         // 的领取按钮应当不可点，而不是点了才报「缺少登录态」
         public.insert("canClaim".to_string(), Value::Bool(jwt_present));
+        public.insert("hasCodingToken".to_string(), Value::Bool(record.has_token()));
+        public.insert("zcodePlanAutoSupported".to_string(), Value::Bool(true));
         // 最近一次领取的时刻 + 领到的套餐 id（0 / 空串 = 从未领过）。
         // 与 `checkinAt` 同一处置：给**原始时间戳**而不是「今天领过没」的布尔 ——
         // 自然日边界要按用户本地时区算，那个判定在界面上已有同款实现。
@@ -256,14 +258,14 @@ impl AccountStore {
         );
         public.insert("desktop".to_string(), Value::Bool(false));
         public.insert("available".to_string(), Value::Bool(available));
-        // 用哪条上游通道（`coding-plan` / `start-plan`，见 `zcode::plan`）。
+        // 用哪条上游通道（`auto` / `coding-plan` / `start-plan`，见 `zcode::plan`）。
         // 缺失/认不出时**照实给默认值**而不是 null：界面上的下拉要选中当前项，
         // 让前端自己兜默认值等于把同一个口径抄两遍
         public.insert(
             crate::server::core::providers::zcode::PLAN_FIELD.to_string(),
             Value::String(
                 crate::server::core::providers::zcode::normalize_plan(&record.zcode_plan())
-                    .unwrap_or(crate::server::core::providers::zcode::PLAN_CODING)
+                    .unwrap_or(crate::server::core::providers::zcode::PLAN_AUTO)
                     .to_string(),
             ),
         );
@@ -323,7 +325,7 @@ impl AccountStore {
     /// 顺带做取值校验 —— 认不出的值直接 400，而不是落一个静默退回默认通道
     /// 的值（那会让用户以为切换成功了）。
     ///
-    /// 空值 = 恢复默认（`coding-plan`）：界面上的下拉给的就是这两个取值，
+    /// 空值 = 恢复默认（`auto`）：界面上的下拉给的就是这两个取值，
     /// 从旧的记录格式（没有这个键）升级上来时也是这个口径 —— `plan_of` 读缺失
     /// 即默认，所以「写默认值」与「不写」等价，这里选择写下去，让记录自解释。
     ///
@@ -338,10 +340,10 @@ impl AccountStore {
             .as_str()
             .map(str::trim)
             .filter(|value| !value.is_empty())
-            .unwrap_or(zcode::PLAN_CODING);
+            .unwrap_or(zcode::PLAN_AUTO);
         let Some(plan) = zcode::normalize_plan(raw) else {
             return Err(AccountStoreError::bad_request(
-                "未知的 ZCode 套餐通道（只支持 coding-plan / start-plan）",
+                "未知的 ZCode 套餐通道（只支持 auto / coding-plan / start-plan）",
             ));
         };
         let guard = self.guard();
@@ -354,23 +356,28 @@ impl AccountStore {
         if zcode::plan_of(&record.to_value()) == plan && !record.zcode_plan().trim().is_empty() {
             return Ok(Vec::new());
         }
+        // 旧的裸模型键在改设置前归到原通道，防止切换后把历史 Coding 限额
+        // 误解释为 Start 限额。已有通道键原样保留。
+        if let Some(Value::Object(mut limits)) = record.get("rateLimits").cloned() {
+            let legacy_plan = if zcode::plan_of(&record.to_value()) == zcode::PLAN_START {
+                zcode::PLAN_START
+            } else { zcode::PLAN_CODING };
+            let legacy_keys: Vec<String> = limits.keys().filter(|key| !key.contains("::")).cloned().collect();
+            for model in legacy_keys {
+                if let Some(entry) = limits.remove(&model) {
+                    let key = zcode::channel::cooldown_key(legacy_plan, &model);
+                    let old_reset = entry["resetAt"].as_f64().unwrap_or(0.0);
+                    let reset = limits.get(&key).and_then(|v| v["resetAt"].as_f64()).unwrap_or(0.0);
+                    if old_reset >= reset { limits.insert(key, entry); }
+                }
+            }
+            record.set("rateLimits", Value::Object(limits));
+        }
         record.set_zcode_plan(plan);
         record.set_updated_at(logging::now_ms());
         self.with_conn(&guard, |conn| sql::update_in_place(conn, &record))?;
-        // 账号锁先放开再动作限额表（两把锁不嵌套，见 `remove_account` 的说明）
-        drop(guard);
-        // ── 换通道顺手清掉限额标记（不做这件事的后果）────────────────
-        // 限额标记是「这个账号对某个模型在上游吃到了限额」，而**额度是按通道
-        // 算的**：编码套餐那条路被限了，不代表活动套餐那条路也被限。留着旧标记
-        // 会让用户刚切完通道、下一次请求就被选路跳过（账号页上看是「限流中」），
-        // 看起来像「切了也没用」。清掉之后下一次请求会用新通道真打一次：
-        // 真限额会再被标上，那是如实的。
-        let cleared = self.clear_all_rate_limits(account_id);
-        let mut changes = vec![format!("套餐通道 → {}", zcode::plan_label(plan))];
-        if cleared > 0 {
-            changes.push(format!("已清除 {cleared} 个模型的限额标记（换通道后旧记录不再适用）"));
-        }
-        Ok(changes)
+        // 通道冷却分开保留，切换设置不再清空另一通道的真实限额。
+        Ok(vec![format!("套餐通道 → {}", zcode::plan_label(plan))])
     }
 
     /// 落一次领取结果（套餐 id → 时刻），返回是否写盘成功。

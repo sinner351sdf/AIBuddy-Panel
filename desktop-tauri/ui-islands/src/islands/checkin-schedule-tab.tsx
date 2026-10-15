@@ -1,5 +1,7 @@
+import { Alert, AlertDescription } from '@ui'
+import { InfoTip } from '../components/info-tip'
 import * as React from 'react'
-import { Badge, Button, Checkbox, Input, Spinner, Switch } from '@ui'
+import { cn, Badge, Button, Checkbox, Input, Spinner, Switch } from '@ui'
 import { formatTime, shared, toast } from './accounts-shared'
 import { t } from '../i18n'
 import {
@@ -12,6 +14,7 @@ import {
   type SchedulesStore,
 } from './checkin-schedules-state'
 import type { ScheduleEntry } from './checkin-state'
+import { Card, CardHeader, CardTitle, Empty, EmptyHeader, EmptyDescription } from '@ui'
 
 /**
  * 签到中心的「定时签到」标签页。
@@ -162,17 +165,8 @@ function ScheduleEditor({ entry, store }: { entry: ScheduleEntry | null; store: 
             <span className='ck-mini-note'>
               {t('到点时逐个签到，已勾 {n} / {total} 家', { n: picked.size, total: options.length })}
             </span>
-            <button type='button' className='ck-mini-btn' disabled={store.saving} onClick={pickAll}>
-              {t('全选')}
-            </button>
-            <button
-              type='button'
-              className='ck-mini-btn'
-              disabled={store.saving || picked.size === 0}
-              onClick={clearAll}
-            >
-              {t('清空')}
-            </button>
+            <Button variant='ghost' size='xs' disabled={store.saving} onClick={pickAll}>{t('全选')}</Button>
+            <Button variant='ghost' size='xs' disabled={store.saving || picked.size === 0} onClick={clearAll}>{t('清空')}</Button>
           </div>
           <div className='ck-range'>
             {options.map(option => (
@@ -256,7 +250,7 @@ function ScheduleEntryRow({ entry, store }: { entry: ScheduleEntry; store: Sched
     await deleteSchedule(entry.id)
   }
   return (
-    <div className={expanded ? 'ck-sched-row open' : 'ck-sched-row'}>
+    <div className={cn(expanded ? 'ck-sched-row open' : 'ck-sched-row')}>
       <div className='ck-sched-main'>
         <Switch
           checked={entry.enabled === true}
@@ -298,7 +292,7 @@ function ScheduleEntryRow({ entry, store }: { entry: ScheduleEntry; store: Sched
           >
             {expanded ? t('收起') : t('编辑')}
           </Button>
-          <Button size='sm' variant='ghost' className='text-destructive' disabled={store.saving} onClick={() => void remove()}>
+          <Button size='sm' variant='ghost-destructive' disabled={store.saving} onClick={() => void remove()}>
             {t('删除')}
           </Button>
         </div>
@@ -420,9 +414,9 @@ function KeepalivePanel({ models, defaultModels, dirty, saving }: {
     setInput('')
   }
   return (
-    <section className='panel ck-chain-panel'>
-      <div className='panel-head'>
-        <h2>{t('保活模型链')}</h2>
+    <Card as='section' variant='panel' size='sm' className='panel ck-chain-panel'>
+      <CardHeader variant='panel' className='panel-head'>
+        <CardTitle>{t('保活模型链')}</CardTitle>
         <span className='panel-sub'>{t('WorkBuddy 国际版日活任务的免费模型 · 全局一份，与条目无关')}</span>
         <Button
           size='sm'
@@ -433,7 +427,7 @@ function KeepalivePanel({ models, defaultModels, dirty, saving }: {
         >
           {saving ? t('保存中…') : t('保存')}
         </Button>
-      </div>
+      </CardHeader>
       <div className='p-4'>
         <div className='ck-set-line ck-set-line-top'>
           <span className='ck-set-k'>{t('模型清单')}</span>
@@ -442,15 +436,7 @@ function KeepalivePanel({ models, defaultModels, dirty, saving }: {
                 删空了再保存，现在一键填好（仍然要点「保存」才生效） */}
             <div className='ck-mini-row'>
               <span className='ck-mini-note'>{t('按序逐个尝试，共 {n} 个', { n: models.length })}</span>
-              <button
-                type='button'
-                className='ck-mini-btn'
-                disabled={saving || defaultModels.length === 0}
-                title={t('把缺省链填进清单，再点「保存」生效')}
-                onClick={() => setKeepaliveDraft([...defaultModels])}
-              >
-                {t('填入缺省链')}
-              </button>
+              <Button variant='ghost' size='xs' disabled={saving || defaultModels.length === 0} title={t('把缺省链填进清单，再点「保存」生效')} onClick={() => setKeepaliveDraft([...defaultModels])}>{t('填入缺省链')}</Button>
             </div>
             <div className='ck-chain'>
               {models.map((model, index) => (
@@ -466,20 +452,12 @@ function KeepalivePanel({ models, defaultModels, dirty, saving }: {
                   />
                   <span className='ck-chain-name' title={model}>{model}</span>
                   <span className='ck-chain-index'>#{index + 1}</span>
-                  <button
-                    type='button'
-                    className='ck-chain-del'
-                    disabled={saving}
-                    aria-label={t('移除 {name}', { name: model })}
-                    title={t('从清单里移除')}
-                    onClick={() => setKeepaliveDraft(models.filter((_, keep) => keep !== index))}
-                  >
-                    ×
-                  </button>
+                  <Button variant='ghost' size='icon-xs' disabled={saving} aria-label={t('移除 {name}', { name: model })} title={t('从清单里移除')} onClick={() => setKeepaliveDraft(models.filter((_, keep) => keep !== index))}>×
+                  </Button>
                 </div>
               ))}
               {models.length === 0 ? (
-                <div className='ck-chain-empty'>{t('清单为空 —— 保存后恢复缺省链')}</div>
+                <Empty variant='compact' className='ck-chain-empty'><EmptyHeader><EmptyDescription>{t('清单为空 —— 保存后恢复缺省链')}</EmptyDescription></EmptyHeader></Empty>
               ) : null}
             </div>
             <div className='ck-chain-add'>
@@ -507,17 +485,17 @@ function KeepalivePanel({ models, defaultModels, dirty, saving }: {
           })}
         </div>
       </div>
-    </section>
+    </Card>
   )
 }
 
 /* ─── 页面 ─────────────────────────────────── */
 
-function ScheduleTab(): React.ReactElement {
+function ScheduleTab({ active = true }: { active?: boolean }): React.ReactElement {
   const store = useSchedulesStore()
   const checkin = useCheckinSnapshot()
-  // 挂载即拉一次（切到本标签页 = 重新挂载，天然刷新）
-  React.useEffect(() => { void loadSchedules() }, [])
+  // 切到本标签页才刷新；TabsContent 常驻保留输入与展开态。
+  React.useEffect(() => { if (active) void loadSchedules() }, [active])
 
   if (!store.loaded) {
     return (
@@ -542,16 +520,16 @@ function ScheduleTab(): React.ReactElement {
   return (
     <div>
       {store.loadError ? (
-        <div className='ck-page-error'>
-          <span>{t('读取定时签到数据失败：{error}', { error: store.loadError })}</span>
+        <Alert variant='destructive'>
+          <AlertDescription>{t('读取定时签到数据失败：{error}', { error: store.loadError })}</AlertDescription>
           <Button size='sm' variant='outline' onClick={() => void loadSchedules()}>{t('重试')}</Button>
-        </div>
+        </Alert>
       ) : null}
 
-      <section className='panel'>
-        <div className='panel-head'>
-          <h2>{t('定时签到')}</h2>
-          <span className='tip-q' data-tip={AUTO_CHECKIN_DESC}></span>
+      <Card as='section' variant='panel' size='sm' className='panel'>
+        <CardHeader variant='panel' className='panel-head'>
+          <CardTitle>{t('定时签到')}</CardTitle>
+          <InfoTip>{AUTO_CHECKIN_DESC}</InfoTip>
           <span className='panel-sub'>{t('每条条目各有时刻与范围 · 各自当天去重 · 错过时点开机自动补签')}</span>
           {/* 新建入口放卡头（原先是卡尾的一颗按钮：条目一多就要滚到底才看得见，
               而它恰恰是「这个页面第一件要做的事」） */}
@@ -564,7 +542,7 @@ function ScheduleTab(): React.ReactElement {
           >
             {store.editingId === 'new' ? t('收起新建') : t('添加条目')}
           </Button>
-        </div>
+        </CardHeader>
         <div className='p-4'>
           <div className='ck-set-line'>
             <span className='ck-set-k'>{t('总开关')}</span>
@@ -584,10 +562,10 @@ function ScheduleTab(): React.ReactElement {
           {store.editingId === 'new' ? <NewEntryRow store={store} /> : null}
           {entries.map(entry => <ScheduleEntryRow key={entry.id} entry={entry} store={store} />)}
           {entries.length === 0 ? (
-            <div className='ck-empty'>{t('还没有定时条目 —— 点「添加条目」建一条，或到「签到中心」手动签到。')}</div>
+            <Empty variant='compact' className='ck-empty'><EmptyHeader><EmptyDescription>{t('还没有定时条目 —— 点「添加条目」建一条，或到「签到中心」手动签到。')}</EmptyDescription></EmptyHeader></Empty>
           ) : null}
         </div>
-      </section>
+      </Card>
 
       <KeepalivePanel
         models={chainModels}

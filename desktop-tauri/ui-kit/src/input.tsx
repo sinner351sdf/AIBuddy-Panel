@@ -23,12 +23,14 @@ function Input({ className, type, ref, ...props }: React.ComponentProps<'input'>
       type={type}
       data-slot='input'
       className={cn(
-        'h-[30px] w-full min-w-0 rounded-md border border-control-border bg-control px-2.5',
+        'h-[var(--control-h)] w-full min-w-0 rounded-md border border-control-border bg-control px-2.5',
         'text-[12.5px] text-foreground outline-none',
         'transition-[border-color,box-shadow] duration-150 ease-out',
         'placeholder:text-muted-foreground',
         'hover:border-control-border-hover',
-        'focus:border-primary focus:shadow-focus',
+        'focus:border-ring focus:shadow-focus',
+        'aria-invalid:border-destructive aria-invalid:hover:border-destructive aria-invalid:focus:border-destructive',
+        'aria-invalid:[--ui-focus-ring:0_0_0_3px_color-mix(in_srgb,var(--destructive)_20%,transparent)]',
         'disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-surface-3 disabled:text-muted-foreground',
         'file:inline-flex file:border-0 file:bg-transparent file:text-foreground',
         className

@@ -19,10 +19,10 @@
 //!
 //! | 账号里的 `plan` | 上游 | 鉴权 | 协议 |
 //! |---|---|---|---|
-//! | `coding-plan`（默认） | `{openai_base}/chat/completions` | `accessToken` | OpenAI Chat |
+//! | `coding-plan`（手动指定） | `{openai_base}/chat/completions` | `accessToken` | OpenAI Chat |
 //! | `start-plan` | `{zcode}/api/v1/zcode-plan/anthropic/v1/messages` | 套餐 `jwt` | Anthropic Messages |
 //!
-//! 为什么必须让用户选：**编码套餐与活动套餐是两份独立的额度**，而
+//! 默认 `auto` 按本次模型的有效活动余额选择，手动选项仍保留：**编码套餐与活动套餐是两份独立的额度**，而
 //! 「套餐已到期」这类拒绝只由其中一条通道给出（用户实测：编码套餐到期后，
 //! 走 OpenAI 通道恒回 429「您的GLM Coding Plan套餐已到期」，而当天领到的
 //! 活动额度只能从 `zcode.z.ai` 的 anthropic 端点花掉）。两条通道的
@@ -74,12 +74,18 @@
 //!      Failed`）而不是签名 —— 因此本家先不做，靠 `coding_key` 把凭证换对。
 //!      哪天真被 `VERIFY_SIGNATURE_INVALID` 拒了，再照参考实现的
 //!      `src/proxy/client-signing.ts` 补。
-//!   3. **活动套餐通道上的人机验证**（2026-09-28 实测：**每条请求都要**，不是偶发）：
-//!      推理端点缺 `X-Aliyun-Captcha-Verify-Param` 一律回 `400 {"code":3007}`。
-//!      Rust 侧铸不出这种令牌（要跑阿里云 SDK），但**桌面端的 WebView 能** ——
-//!      由界面静默铸造、经 `POST /api/zcode/captcha` 进池，转发层每条请求取一个，
-//!      见 [`captcha`]。headless / Docker 部署没有 WebView，那条通道在那里不可用
-//!      （请用编码套餐通道），错误文案会如实说明。
+//!   3. ~~活动套餐通道上的人机验证~~ —— **2026-10-01 起改为「听上游的」**：
+//!      2026-09-28 实测推理端点缺 `X-Aliyun-Captcha-Verify-Param` 一律回
+//!      `400 {"code":3007}`，于是当时做成了「桌面端 WebView 静默铸令牌 →
+//!      `POST /api/zcode/captcha` 进池 → 转发层每条请求取一个」（见 [`captcha`]），
+//!      headless / Docker 上这条通道因此不可用。后来上游在
+//!      `GET /api/v1/client/configs` 里下发了
+//!      `configs.captcha.skip_model_request: true`（2026-10-01 实测，与客户端版本
+//!      无关），也就是说**推理请求**这一侧它此刻不要令牌了。现在这一格由
+//!      [`config_sync`] 每 5 分钟同步、`plan.rs` 照它决定要不要带那两个头，
+//!      上游回 3007 则当场翻回「要码」（代价被钉在最多一次往返）。
+//!      **仍然没解决的一半**：上游把这一格改回 `false` 之后，headless 部署就又
+//!      用不了这条通道了 —— 铸令牌仍然只有 WebView 会。
 
 use serde_json::Value;
 
@@ -88,8 +94,10 @@ pub mod adapter;
 pub mod activation;
 pub mod balance;
 pub mod captcha;
+pub mod channel;
 pub mod claim;
 pub mod coding_key;
+pub mod config_sync;
 pub mod credentials;
 pub mod models;
 pub mod monitor;
@@ -106,7 +114,10 @@ pub mod region;
 /// 适配器三处读的是同一个字符串，不存在映射表。
 pub const PLAN_FIELD: &str = "zcodePlan";
 
-/// 编码套餐通道（默认值）：开放平台的 OpenAI 兼容端点 + `accessToken`
+/// 默认按本次上游模型的可用额度与通道冷却选择。
+pub const PLAN_AUTO: &str = "auto";
+
+/// 编码套餐通道：开放平台的 OpenAI 兼容端点 + `accessToken`
 pub const PLAN_CODING: &str = "coding-plan";
 
 /// 活动套餐通道：`zcode.z.ai` 的 Anthropic 端点 + 套餐 `jwt`（见 [`plan`]）
@@ -163,6 +174,7 @@ pub fn official_prompt_blocks() -> Option<GatewayBlocks> {
 /// 而不是静默回落到默认通道 —— 那会让用户以为切过去了，实际还在用旧通道。
 pub fn normalize_plan(raw: &str) -> Option<&'static str> {
     match raw.trim() {
+        PLAN_AUTO => Some(PLAN_AUTO),
         PLAN_CODING => Some(PLAN_CODING),
         PLAN_START => Some(PLAN_START),
         _ => None,
@@ -172,14 +184,13 @@ pub fn normalize_plan(raw: &str) -> Option<&'static str> {
 /// 账号（**公开形态**：`ZcodeAdapter::build_chat_request` 拿到的会话、
 /// `provider_loop` 分派点的账号对象都算）用哪条通道。
 ///
-/// 缺失/认不出 = [`PLAN_CODING`]：这是存量账号的默认，也是「添加账号后直接能用」
-/// 的那条路（默认行为因此与本次改造之前逐字节相同）。
+/// 缺失/认不出 = [`PLAN_AUTO`]；显式指定的通道照常保留。
 pub fn plan_of(account: &Value) -> &'static str {
     account
         .get(PLAN_FIELD)
         .and_then(Value::as_str)
         .and_then(normalize_plan)
-        .unwrap_or(PLAN_CODING)
+        .unwrap_or(PLAN_AUTO)
 }
 
 /// 通道的展示名：账号页的下拉、保存后的变更提示、错误文案共用这一处措辞
@@ -187,6 +198,7 @@ pub fn plan_of(account: &Value) -> &'static str {
 /// 「Coding Plan」，对不上是同一条设置）。
 pub fn plan_label(plan: &str) -> &'static str {
     match plan {
+        PLAN_AUTO => "自动（按模型剩余额度）",
         PLAN_START => "活动套餐（Start Plan）",
         _ => "编码套餐（Coding Plan）",
     }

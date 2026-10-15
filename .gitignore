@@ -41,6 +41,10 @@ data/
 !/docs/
 /docs/*
 !/docs/aibuddy-port/
+!/docs/workbuddy-task-center/
 !/docs/OPEN-SOURCE-REFERENCES.md
 # 正式 Release 的发布说明由工作流读取，需纳入版本控制。
 !/docs/releases/
+
+# 本地品牌安装验证截图（设计稿与正式品牌资源继续入库）
+assets/brand/concepts/*installed*.png

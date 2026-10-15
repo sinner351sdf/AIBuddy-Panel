@@ -18,7 +18,9 @@ import { cn } from './lib/cn'
  *   <Select value={v} onValueChange={setV}>
  *     <SelectTrigger><SelectValue /></SelectTrigger>
  *     <SelectContent>
- *       <SelectItem value="a">选项 A</SelectItem>
+ *       <SelectGroup>
+ *         <SelectItem value="a">选项 A</SelectItem>
+ *       </SelectGroup>
  *     </SelectContent>
  *   </Select>
  */
@@ -39,7 +41,7 @@ function SelectTrigger({ className, children, ...props }: SelectTriggerProps) {
     <BaseSelect.Trigger
       data-slot='select-trigger'
       className={cn(
-        'inline-flex h-[30px] min-w-0 cursor-pointer items-center justify-between gap-1.5 rounded-md border border-control-border bg-control px-2.5',
+        'inline-flex h-[var(--control-h)] min-w-0 cursor-pointer items-center justify-between gap-1.5 rounded-md border border-control-border bg-control px-2.5',
         // 选中值（SelectValue 渲染出的 span）是触发器的 flex 子项，默认
         // min-width:auto 不收缩：标签比触发器宽时会把边框撑破、文字溢出去
         // （账号表代理列实测）。truncate 把 overflow 变 hidden，自动最小尺寸
@@ -49,7 +51,9 @@ function SelectTrigger({ className, children, ...props }: SelectTriggerProps) {
         'text-[12.5px] font-normal text-foreground',
         'transition-colors duration-150 ease-out',
         'hover:border-control-border-hover hover:bg-control-hover',
-        'focus-visible:border-primary focus-visible:shadow-focus focus-visible:outline-none',
+        'focus-visible:border-ring focus-visible:shadow-focus focus-visible:outline-none',
+        'aria-invalid:border-destructive aria-invalid:hover:border-destructive aria-invalid:focus-visible:border-destructive',
+        'aria-invalid:[--ui-focus-ring:0_0_0_3px_color-mix(in_srgb,var(--destructive)_20%,transparent)]',
         'data-disabled:cursor-not-allowed data-disabled:bg-control data-disabled:text-muted-foreground data-disabled:opacity-60',
         className
       )}

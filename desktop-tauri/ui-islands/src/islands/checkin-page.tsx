@@ -1,6 +1,8 @@
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@ui'
+import { Tabs, TabsList, TabsTrigger, TabsContent, Alert, AlertDescription } from '@ui'
 import { createRoot } from 'react-dom/client'
 import * as React from 'react'
-import { Badge, Button, Progress, SegmentedControl, Spinner } from '@ui'
+import { cn, Badge, Button, Progress, Spinner } from '@ui'
 import { PROVIDER_ICONS } from './add-provider-pick'
 import { formatTime, shared, type OnboardingTask } from './accounts-shared'
 import { claimedPlanIdsToday } from './accounts-domain'
@@ -8,12 +10,15 @@ import {
   claimOnboarding, getCheckinStore, groupTone, loadCheckinCenter, nextScheduleRun,
   onboardingExpanded, queryOnboarding, runAllCheckin, setCheckinTab, showCheckinTab,
   signSingleAccount, subscribeCheckinStore, toggleOnboardingExpand, toggleProviderExpand,
+  growthExpanded, queryGrowth, runGrowth, runGrowthSchool, runGrowthTravel, toggleGrowthExpand,
   type CheckinProviderGroup, type CheckinStore, type CheckinTab,
 } from './checkin-state'
 import { ScheduleTab } from './checkin-schedule-tab'
 import { RecordsTab } from './checkin-records-tab'
 import { openZcodePlans } from './accounts-data'
 import { t } from '../i18n'
+import { openTaskCenter } from './task-center-api'
+import { Card, CardHeader, CardTitle, Empty, EmptyHeader, EmptyDescription } from '@ui'
 
 /**
  * 签到中心（React 岛）。
@@ -187,40 +192,28 @@ function AccountRows({ group }: { group: CheckinProviderGroup }) {
 function ProviderRow({ group, expanded }: { group: CheckinProviderGroup; expanded: boolean }) {
   const hasAccounts = group.totalCount > 0
   return (
-    <div className={expanded ? 'ck-prov-row open' : 'ck-prov-row'}>
-      <div
-        className='ck-prov-main'
-        onClick={() => hasAccounts && toggleProviderExpand(group.id)}
-        onKeyDown={event => {
-          if (hasAccounts && (event.key === 'Enter' || event.key === ' ')) {
-            event.preventDefault()
-            toggleProviderExpand(group.id)
-          }
-        }}
-        role={hasAccounts ? 'button' : undefined}
-        tabIndex={hasAccounts ? 0 : -1}
-        aria-expanded={hasAccounts ? expanded : undefined}
-      >
-        <ProviderLogo id={group.id} label={group.label} />
+    <Collapsible open={expanded} onOpenChange={() => toggleProviderExpand(group.id)} className={cn(expanded ? 'ck-prov-row open' : 'ck-prov-row')}>
+      <div className='ck-prov-main'>
+        <CollapsibleTrigger disabled={!hasAccounts} render={<Button variant='ghost' className='h-auto min-w-0 flex-1 justify-start whitespace-normal px-0 text-left' />} aria-label={t('展开或收起 {name}', { name: group.label })}><ProviderLogo id={group.id} label={group.label} />
         <div className='ck-prov-info'>
           <div className='ck-prov-name'>{group.label}</div>
           <div className='ck-prov-desc'>{PROVIDER_DESC[group.id] ?? ''}</div>
-        </div>
+        </div>{hasAccounts ? <span aria-hidden='true'>›</span> : null}</CollapsibleTrigger>
         <div className='ck-prov-right'>
           <span className='ck-prov-count'>
             {hasAccounts ? t('{total} 账号 · {done} 已签', { total: group.totalCount, done: group.doneCount }) : '—'}
           </span>
           <GroupBadge group={group} />
-          {hasAccounts ? <span className='ck-chev' aria-hidden>›</span> : null}
+
         </div>
       </div>
-      {expanded ? (
+      <CollapsibleContent>(
         <div className='ck-prov-detail'>
           {group.id === 'qoder-intl' ? <UmidHint /> : null}
           <AccountRows group={group} />
         </div>
-      ) : null}
-    </div>
+      )</CollapsibleContent>
+    </Collapsible>
   )
 }
 
@@ -280,21 +273,9 @@ function OnboardingRow({ row }: { row: { id: string; name: string; provider?: st
   const hasDetail = cache?.status === 'loaded' && tasks.length > 0
   const expanded = hasDetail && onboardingExpanded(row.id)
   return (
-    <div className={expanded ? 'ck-prov-row open' : 'ck-prov-row'}>
-      <div
-        className='ck-prov-main'
-        onClick={hasDetail ? () => toggleOnboardingExpand(row.id) : undefined}
-        onKeyDown={event => {
-          if (hasDetail && (event.key === 'Enter' || event.key === ' ')) {
-            event.preventDefault()
-            toggleOnboardingExpand(row.id)
-          }
-        }}
-        role={hasDetail ? 'button' : undefined}
-        tabIndex={hasDetail ? 0 : -1}
-        aria-expanded={hasDetail ? expanded : undefined}
-      >
-        <ProviderLogo id={provider} label={onboardingProviderLabel(provider)} />
+    <Collapsible open={expanded} onOpenChange={() => toggleOnboardingExpand(row.id)} className={cn(expanded ? 'ck-prov-row open' : 'ck-prov-row')}>
+      <div className='ck-prov-main'>
+        <CollapsibleTrigger disabled={!hasDetail} render={<Button variant='ghost' className='h-auto min-w-0 flex-1 justify-start whitespace-normal px-0 text-left' />} aria-label={t('展开或收起 {name}', { name: row.name || row.id })}><ProviderLogo id={provider} label={onboardingProviderLabel(provider)} />
         <div className='ck-prov-info'>
           <div className='ck-prov-name'>{row.name || row.id}</div>
           <div className='ck-prov-desc'>
@@ -311,7 +292,7 @@ function OnboardingRow({ row }: { row: { id: string; name: string; provider?: st
               ? ` · ${t('结算于 {time}', { time: formatTime(cache.settledAt) })}`
               : cache?.checkedAt ? ` · ${t('查询于 {time}', { time: formatTime(cache.checkedAt) })}` : ''}
           </div>
-        </div>
+        </div>{hasDetail ? <span aria-hidden='true'>›</span> : null}</CollapsibleTrigger>
         {/* stopPropagation：右侧按钮不触发行的展开 / 收起（点「查询任务」不该顺手折起清单） */}
         <div className='ck-prov-right' onClick={event => event.stopPropagation()}>
           {cache?.status === 'loaded' && unclaimed > 0
@@ -331,25 +312,30 @@ function OnboardingRow({ row }: { row: { id: string; name: string; provider?: st
           >
             {cache?.status === 'loading' ? t('查询中…') : t('查询任务')}
           </Button>
+          {/* OfficeAce 的「一键领取」是**触发今天的结算**：它的奖励由上游按天
+              自动发放、账本条目一律已到账（待领数恒 0，见后端 onboarding 的
+              build_tasks）—— 可点性因此不看「有几项待领」；别家仍是「有待领才可点」 */}
           <Button
             size='sm'
             variant='outline'
-            disabled={cache?.status !== 'loaded' || unclaimed === 0 || cache?.claiming === true}
+            disabled={cache?.status !== 'loaded' || (provider !== 'officeace' && unclaimed === 0) || cache?.claiming === true}
             onClick={() => void claimOnboarding(row.id)}
           >
-            {cache?.claiming ? t('领取中…') : t('一键领取（{n}）', { n: unclaimed })}
+            {cache?.claiming
+              ? t('领取中…')
+              : unclaimed > 0 ? t('一键领取（{n}）', { n: unclaimed }) : t('领取')}
           </Button>
-          {hasDetail ? <span className='ck-chev' aria-hidden>›</span> : null}
+
         </div>
       </div>
       {cache?.status === 'error' ? (
-        <div className='ck-fold-note'>{t('查询失败：{error}', { error: cache.error ?? '' })}</div>
+        <Alert variant='destructive'><AlertDescription>{t('查询失败：{error}', { error: cache.error ?? '' })}</AlertDescription></Alert>
       ) : null}
-      {expanded ? (
+      <CollapsibleContent>(
         <div className='ck-prov-detail'>
           {tasks.map(task => (
             <div className='ck-task-line' key={task.key}>
-              <span className={task.done ? 'ck-task-tick done' : 'ck-task-tick'}>
+              <span className={cn(task.done ? 'ck-task-tick done' : 'ck-task-tick')}>
                 {task.done ? '✓' : '·'}
               </span>
               <span>{task.title}</span>
@@ -368,8 +354,8 @@ function OnboardingRow({ row }: { row: { id: string; name: string; provider?: st
             </div>
           ))}
         </div>
-      ) : null}
-    </div>
+      )</CollapsibleContent>
+    </Collapsible>
   )
 }
 
@@ -425,6 +411,175 @@ function PlanRow({ row }: {
   )
 }
 
+/**
+ * 成长任务一行（WorkBuddy 国内版；从参考项目 workbuddy2api 的 task_runner.py 移植）。
+ *
+ * ── 交互 ────────────────────────────────────────────────────
+ * 行是惰性的：进页面不查上游，「查询任务」按钮才打一次盘点（后端一次拉四块：
+ * 任务 / 能量 / 猫猫旅行 / 开学季）。查到后行可展开看任务清单；两颗执行按钮
+ * 分别是「一键完成」（点亮 + 领奖）与「领取」（只领已完成奖励，幂等）。
+ *
+ * ── 展开面板里的四块 ────────────────────────────────────────
+ * 能量/连登读数、任务清单（逐项进度 + 状态徽章）、猫猫旅行（巡检按钮）、
+ * 开学季（执行 + 抽奖）。写动作的进度由后端逐条留间隔，按钮以「执行中…」
+ * 反映在途 —— 一次全量可能要几十秒，这是上游限速的既定事实。
+ */
+function GrowthRow({ row }: { row: { id: string; name: string } }) {
+  const cache = getCheckinStore().growth.get(row.id)
+  const tasks = cache?.tasks ?? []
+  const supported = tasks.filter(task => task.supported && !task.unforgeable)
+  const pending = supported.filter(task => task.status !== 'claimed' && task.current < task.target)
+  const hasDetail = cache?.status === 'loaded' && tasks.length > 0
+  const expanded = hasDetail && growthExpanded(row.id)
+  const travel = cache?.travel
+  const school = cache?.school
+  const results = cache?.results ?? []
+  const resultOf = (code: string) => results.find(item => item.code === code)
+  return (
+    <Collapsible open={expanded} onOpenChange={() => toggleGrowthExpand(row.id)} className={cn(expanded ? 'ck-prov-row open' : 'ck-prov-row')}>
+      <div className='ck-prov-main'>
+        <CollapsibleTrigger disabled={!hasDetail} render={<Button variant='ghost' className='h-auto min-w-0 flex-1 justify-start whitespace-normal px-0 text-left' />} aria-label={t('展开或收起 {name}', { name: row.name || row.id })}><ProviderLogo id='workbuddy' label='WorkBuddy' />
+        <div className='ck-prov-info'>
+          <div className='ck-prov-name'>{row.name || row.id}</div>
+          <div className='ck-prov-desc'>
+            {cache?.status === 'loaded'
+              ? t('{total} 项任务 · {pending} 项可完成', { total: supported.length, pending: pending.length })
+              : t('查询任务树并一键点亮 / 领奖（含开学季与猫猫旅行）')}
+            {cache?.checkedAt ? ` · ${t('查询于 {time}', { time: formatTime(cache.checkedAt) })}` : ''}
+          </div>
+        </div>{hasDetail ? <span aria-hidden='true'>›</span> : null}</CollapsibleTrigger>
+        <div className='ck-prov-right' onClick={event => event.stopPropagation()}>
+          {cache?.status === 'loaded'
+            ? pending.length > 0
+              ? <Badge variant='warning' shape='tag'>{t('{n} 项可完成', { n: pending.length })}</Badge>
+              : <Badge variant='success' shape='tag'>{t('全部完成')}</Badge>
+            : cache?.status === 'error'
+              ? <Badge variant='destructive' shape='tag'>{t('查询失败')}</Badge>
+              : null}
+          <Button
+            size='sm'
+            variant='outline'
+            disabled={cache?.status === 'loading' || cache?.running === true}
+            onClick={() => void queryGrowth(row.id)}
+          >
+            {cache?.status === 'loading' ? t('查询中…') : t('查询任务')}
+          </Button>
+          <Button
+            size='sm'
+            variant='outline'
+            disabled={cache?.status !== 'loaded' || cache?.running === true}
+            title={t('接单 + 点亮 + 领奖（只处理已实测沉淀的任务）')}
+            onClick={() => void runGrowth(row.id, 'full')}
+          >
+            {cache?.running ? t('执行中…') : t('一键完成')}
+          </Button>
+          <Button
+            size='sm'
+            variant='ghost'
+            disabled={cache?.status !== 'loaded' || cache?.running === true}
+            title={t('只领取已完成任务的奖励（幂等，重复点不会重复入账）')}
+            onClick={() => void runGrowth(row.id, 'claim')}
+          >
+            {t('领取')}
+          </Button>
+
+        </div>
+      </div>
+      {cache?.status === 'error' ? (
+        <div className='ck-fold-note'>{t('查询失败：{error}', { error: cache.error ?? '' })}</div>
+      ) : null}
+      <CollapsibleContent>(
+        <div className='ck-prov-detail'>
+          <div className='ck-fold-note'>
+            {cache?.energy !== null && cache?.energy !== undefined ? t('能量 {n}', { n: cache.energy }) : ''}
+            {cache?.streak !== null && cache?.streak !== undefined ? ` · ${t('连登 {n} 天', { n: cache.streak })}` : ''}
+            {cache?.energy === null && cache?.streak === null ? t('（能量 / 连登读数本次未取到）') : ''}
+          </div>
+          {tasks.map(task => {
+            const result = resultOf(task.code)
+            return (
+              <div className='ck-task-line' key={task.code}>
+                <span className={cn(task.status === 'claimed' ? 'ck-task-tick done' : 'ck-task-tick')}>
+                  {task.status === 'claimed' ? '✓' : '·'}
+                </span>
+                <span title={task.description || task.source || task.code}>
+                  {task.title || task.code}
+                  {task.target > 1 ? ` (${task.current}/${task.target})` : ''}
+                </span>
+                {result ? <span className='ck-task-pts'>{result.message}</span> : null}
+                <span className='ck-task-st'>
+                  {task.unforgeable
+                    ? <Badge variant='outline' shape='tag'>{t('需真实操作')}</Badge>
+                    : !task.supported
+                      ? <Badge variant='outline' shape='tag'>{t('暂不支持')}</Badge>
+                      : task.status === 'claimed'
+                        ? <Badge variant='success' shape='tag'>{t('已领取')}</Badge>
+                        : task.status === 'completed'
+                          ? <Badge variant='brand' shape='tag'>{t('可领取')}</Badge>
+                          : task.locked
+                            ? <Badge variant='outline' shape='tag'>{t('未解锁')}</Badge>
+                            : <Badge variant='warning' shape='tag'>{t('可完成')}</Badge>}
+                </span>
+              </div>
+            )
+          })}
+          {/* ── 猫猫旅行 ── */}
+          <div className='ck-task-line'>
+            <span className='ck-task-tick'>🐾</span>
+            <span>
+              {t('猫猫旅行')}
+              {travel && travel.hasBuddy === true
+                ? `：${travel.buddyName || t('已领养')} · ${
+                  travel.state === 'traveling' ? t('在途')
+                  : travel.state === 'arrived' ? t('可领奖')
+                  : travel.state === 'idle' ? (travel.dailyLimitReached ? t('今日已派出') : t('可派出'))
+                  : travel.state ?? ''}`
+                : travel && travel.hasBuddy === false ? `：${t('未领养（领养需先完成当日对话量）')}`
+                  : '：' + (travel?.error ? String(travel.error) : t('尚未查询'))}
+            </span>
+            <span className='ck-task-st'>
+              <Button
+                size='sm'
+                variant='ghost'
+                disabled={cache?.runningTravel === true || cache?.status !== 'loaded'}
+                onClick={() => void runGrowthTravel(row.id)}
+              >
+                {cache?.runningTravel ? t('执行中…') : t('巡检一次')}
+              </Button>
+            </span>
+          </div>
+          {/* ── 开学季活动 ── */}
+          <div className='ck-task-line'>
+            <span className='ck-task-tick'>🎓</span>
+            <span>
+              {t('开学季活动')}
+              {school && school.inPeriod === true
+                ? `：${t('进行中')}${
+                  school.lottery?.balance !== undefined && school.lottery?.balance !== null
+                    ? ` · ${t('抽奖机会 {n} 次', { n: school.lottery.balance })}` : ''}`
+                : school && school.inPeriod === false ? `：${t('非活动期')}`
+                  : '：' + (school?.error ? String(school.error) : t('尚未查询'))}
+            </span>
+            <span className='ck-task-st'>
+              <Button
+                size='sm'
+                variant='ghost'
+                disabled={cache?.runningSchool === true || cache?.status !== 'loaded'}
+                title={t('执行开学季任务并抽空抽奖机会（分享 / 对话 / 专家事件）')}
+                onClick={() => void runGrowthSchool(row.id, true)}
+              >
+                {cache?.runningSchool ? t('执行中…') : t('执行并抽奖')}
+              </Button>
+            </span>
+          </div>
+          {cache?.schoolText ? <div className='ck-fold-note'>{cache.schoolText}</div> : null}
+          {cache?.lotteryText ? <div className='ck-fold-note'>{cache.lotteryText}</div> : null}
+        </div>
+      )</CollapsibleContent>
+    </Collapsible>
+  )
+}
+
 /** 空账号家的占位行（没有账号时该行不可展开） */
 function EmptyProviderRow({ group }: { group: CheckinProviderGroup }) {
   return (
@@ -475,6 +630,8 @@ function CenterTab({ store }: { store: CheckinStore }) {
   const onboardingChecked = onboardingRows.filter(row => store.onboarding.get(row.id)?.status === 'loaded')
   const onboardingUnclaimed = onboardingRows.reduce((sum, row) => sum + (store.onboarding.get(row.id)?.unclaimed ?? 0), 0)
   const welfarePlanRows = snapshot?.extras.plans ?? []
+  // 成长任务行（WorkBuddy 国内版；从参考项目 workbuddy2api 的 task_runner 移植）
+  const growthRows = snapshot?.extras.growth ?? []
   // 定时签到总览：条目数（启用 / 总数）与聚合「下次执行」（多条目里最近的一次）
   const scheduleEntries = Array.isArray(auto?.schedules) ? auto!.schedules! : []
   const scheduleEnabled = scheduleEntries.filter(entry => entry.enabled === true).length
@@ -492,27 +649,21 @@ function CenterTab({ store }: { store: CheckinStore }) {
           <Progress className='ck-stat-bar' value={daily && daily.todayEligible > 0 ? (daily.todayDone / daily.todayEligible) * 100 : 0} />
           <div className='ck-stat-foot'>{outCount > 0 ? t('另有 {n} 个账号不参与每日签到', { n: outCount }) : t('全部账号均可签到')}</div>
         </div>
-        <div
-          className='ck-stat ck-stat-link'
-          onClick={() => void showCheckinTab('schedule')}
-          role='button'
-          tabIndex={0}
-          onKeyDown={event => { if (event.key === 'Enter') void showCheckinTab('schedule') }}
-        >
-          <div className='ck-stat-label'>{t('定时签到')}</div>
-          <div className='ck-stat-value'>
+        <Button variant='outline' className='h-auto flex-col items-stretch whitespace-normal px-3 py-3 text-left' onClick={() => void showCheckinTab('schedule')}>
+          <span className='ck-stat-label'>{t('定时签到')}</span>
+          <span className='ck-stat-value'>
             {auto
               ? <>{scheduleEnabled}<small> / {scheduleEntries.length} {t('条启用')}</small></>
               : <span className='ck-pending'>—</span>}
-          </div>
-          <div className='ck-stat-foot'>
+          </span>
+          <span className='ck-stat-foot'>
             {auto?.enabled !== true
               ? t('总开关已关闭 · 在「定时签到」页打开')
               : scheduleNext
                 ? t('下次 {date} · 点此管理条目', { date: formatTime(scheduleNext) })
                 : t('暂无启用的条目 · 点此添加')}
-          </div>
-        </div>
+          </span>
+        </Button>
         <div className='ck-stat'>
           <div className='ck-stat-label'>{t('待领新手福利')}</div>
           <div className='ck-stat-value'>
@@ -526,26 +677,20 @@ function CenterTab({ store }: { store: CheckinStore }) {
               : t('没有支持新手福利的账号')}
           </div>
         </div>
-        <div
-          className='ck-stat ck-stat-link'
-          onClick={() => void showCheckinTab('records')}
-          role='button'
-          tabIndex={0}
-          onKeyDown={event => { if (event.key === 'Enter') void showCheckinTab('records') }}
-        >
-          <div className='ck-stat-label'>{t('累计签到记录')}</div>
-          <div className='ck-stat-value'>
+        <Button variant='outline' className='h-auto flex-col items-stretch whitespace-normal px-3 py-3 text-left' onClick={() => void showCheckinTab('records')}>
+          <span className='ck-stat-label'>{t('累计签到记录')}</span>
+          <span className='ck-stat-value'>
             {recordTotal === null ? <span className='ck-pending'>—</span> : recordTotal}
-          </div>
-          <div className='ck-stat-foot'>{t('每账号一条明细 · 点此查看「签到记录」')}</div>
-        </div>
+          </span>
+          <span className='ck-stat-foot'>{t('每账号一条明细 · 点此查看「签到记录」')}</span>
+        </Button>
       </div>
 
       {/* ── 任务面板（单列；设置与记录各自成页）── */}
       <div className='ck-main'>
-        <section className='panel'>
-          <div className='panel-head'>
-            <h2>{t('每日签到')}</h2>
+        <Card as='section' variant='panel' size='sm' className='panel'>
+          <CardHeader variant='panel' className='panel-head'>
+            <CardTitle>{t('每日签到')}</CardTitle>
             <span className='panel-sub'>{t('点击行展开账号明细 · 单账号签到不受范围限制')}</span>
             <Button
               size='sm'
@@ -556,7 +701,7 @@ function CenterTab({ store }: { store: CheckinStore }) {
             >
               {store.runningAll || auto?.running === true ? t('签到中…') : t('立即全部签到')}
             </Button>
-          </div>
+          </CardHeader>
           <div>
             {(daily?.providers ?? []).map(group =>
               group.totalCount > 0
@@ -574,11 +719,11 @@ function CenterTab({ store }: { store: CheckinStore }) {
               </div>
             ) : null}
           </div>
-        </section>
+        </Card>
 
-        <section className='panel'>
-          <div className='panel-head'>
-            <h2>{t('新手福利')}</h2>
+        <Card as='section' variant='panel' size='sm' className='panel'>
+          <CardHeader variant='panel' className='panel-head'>
+            <CardTitle>{t('新手福利')}</CardTitle>
             <span className='panel-sub'>
               {t('一次性福利 · 签到后自动查询并领取，领完记在本机不再查上游 · 点击行展开任务清单')}
             </span>
@@ -600,29 +745,45 @@ function CenterTab({ store }: { store: CheckinStore }) {
                 {t('全部查询')}
               </Button>
             ) : null}
-          </div>
+          </CardHeader>
           {onboardingRows.length ? (
             <div>
               {onboardingRows.map(row => <OnboardingRow key={row.id} row={row} />)}
             </div>
           ) : (
-            <div className='ck-empty'>{t('没有支持新手福利的账号 —— 目前有 Loomy、小浣熊、CodeArts 三家。')}</div>
+            <Empty variant='compact' className='ck-empty'><EmptyHeader><EmptyDescription>{t('没有支持新手福利的账号 —— 目前有 Loomy、小浣熊、CodeArts 三家。')}</EmptyDescription></EmptyHeader></Empty>
           )}
-        </section>
+        </Card>
 
-        <section className='panel'>
-          <div className='panel-head'>
-            <h2>{t('活动福利')}</h2>
+        <Card as='section' variant='panel' size='sm' className='panel'>
+          <CardHeader variant='panel' className='panel-head'>
+            <CardTitle>{t('活动福利')}</CardTitle>
             <span className='panel-sub'>{t('限时体验套餐 · 领取需滑块验证码 · 逐份查看与领取')}</span>
-          </div>
+          </CardHeader>
           {welfarePlanRows.length > 0 ? (
             <div>
               {welfarePlanRows.map(row => <PlanRow key={row.id} row={row} />)}
             </div>
           ) : (
-            <div className='ck-empty'>{t('没有可领套餐的账号（ZCode 未添加）。')}</div>
+            <Empty variant='compact' className='ck-empty'><EmptyHeader><EmptyDescription>{t('没有可领套餐的账号（ZCode 未添加）。')}</EmptyDescription></EmptyHeader></Empty>
           )}
-        </section>
+        </Card>
+
+        <Card as='section' variant='panel' size='sm' className='panel'>
+          <CardHeader variant='panel' className='panel-head'>
+            <CardTitle>{t('成长任务')}</CardTitle>
+            <span className='panel-sub'>
+              {t('旅行、夜猫、活跃和成长任务已统一到任务中心')}
+            </span>
+          </CardHeader>
+          {growthRows.length > 0 ? (
+            <div>
+              {growthRows.map(row => <div className='ck-prov-row' key={row.id}><div className='ck-prov-main'><span>{row.name || row.id}</span><Button size='sm' variant='outline' onClick={() => { openTaskCenter(row.id); }}>{t('打开任务中心')}</Button></div></div>)}
+            </div>
+          ) : (
+            <Empty variant='compact' className='ck-empty'><EmptyHeader><EmptyDescription>{t('没有支持成长任务的账号（需要 WorkBuddy 国内版）。')}</EmptyDescription></EmptyHeader></Empty>
+          )}
+        </Card>
       </div>
     </div>
   )
@@ -658,24 +819,21 @@ function CheckinPage() {
   const enabled = auto?.enabled === true
 
   return (
-    <div>
+    <Tabs value={store.tab} onValueChange={next => setCheckinTab(String(next) as CheckinTab)}>
       {store.loadError ? (
-        <div className='ck-page-error'>
-          <span>{t('读取签到数据失败：{error}', { error: store.loadError })}</span>
-          <Button size='sm' variant='outline' onClick={() => void loadCheckinCenter()}>{t('重试')}</Button>
-        </div>
+        <Alert variant='destructive'>
+          <AlertDescription>{t('读取签到数据失败：{error}', { error: store.loadError })}</AlertDescription>
+          <Button size='sm' variant='outline' className='mt-2 w-fit' onClick={() => void loadCheckinCenter()}>{t('重试')}</Button>
+        </Alert>
       ) : null}
 
       {/* ── Tab 条：左档位 + 右总开关徽标 ──
           徽标必须三个标签页都在（app.js 的 renderTopbarStatus 按 id 镜像它，
           放进某个标签页里就会在另外两页丢失镜像），放 Tab 条右端全局可见 */}
       <div className='ck-tabs'>
-        <SegmentedControl
-          options={CHECKIN_TAB_OPTIONS}
-          value={store.tab}
-          onValueChange={next => setCheckinTab(next as CheckinTab)}
-          aria-label={t('签到中心分区')}
-        />
+        <TabsList aria-label={t('签到中心分区')}>
+          {CHECKIN_TAB_OPTIONS.map(tab => <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>)}
+        </TabsList>
         <Badge
           id='checkin-badge'
           className='ml-auto'
@@ -686,10 +844,10 @@ function CheckinPage() {
         </Badge>
       </div>
 
-      {store.tab === 'center' ? <CenterTab store={store} /> : null}
-      {store.tab === 'schedule' ? <ScheduleTab /> : null}
-      {store.tab === 'records' ? <RecordsTab /> : null}
-    </div>
+      <TabsContent value='center' keepMounted><CenterTab store={store} /></TabsContent>
+      <TabsContent value='schedule' keepMounted><ScheduleTab active={store.tab === 'schedule'} /></TabsContent>
+      <TabsContent value='records' keepMounted><RecordsTab active={store.tab === 'records'} /></TabsContent>
+    </Tabs>
   )
 }
 

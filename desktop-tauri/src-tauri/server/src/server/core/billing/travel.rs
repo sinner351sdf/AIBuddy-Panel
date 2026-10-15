@@ -135,7 +135,7 @@ pub async fn buddy_info(
     let call = service.call_billing(BUDDY_INFO, travel_options(session)).await?;
     let buddy = call.data.get("buddy").cloned().unwrap_or(Value::Null);
     // null / 缺字段 / 非对象都按无猫处理（refs 的 trimmed == "" | "null" 口径）
-    let Some(buddy) = buddy.as_object() else {
+    let Some(buddy) = buddy.as_object().filter(|b|!b.is_empty()) else {
         return Ok(None);
     };
     Ok(Some(Buddy {
@@ -225,11 +225,13 @@ pub async fn travel_depart(
 
 /// 领取到站奖励（refs travel.go:83-96 TravelClaim），返回 reward_credit。
 /// 奖励字段缺失不视为失败（调用方按 0 记日志即可）。
-pub async fn travel_claim(
+pub async fn travel_claim(service:&BillingService,session:&Value,record_id:i64)->Result<i64,BillingError>{Ok(travel_claim_known(service,session,record_id).await?.unwrap_or(0))}
+
+pub async fn travel_claim_known(
     service: &BillingService,
     session: &Value,
     record_id: i64,
-) -> Result<i64, BillingError> {
+) -> Result<Option<i64>, BillingError> {
     let body = json!({ "record_id": record_id });
     let options = CallOptions {
         body: Some(&body),
@@ -239,8 +241,7 @@ pub async fn travel_claim(
     Ok(call
         .data
         .get("reward_credit")
-        .and_then(Value::as_i64)
-        .unwrap_or(0))
+        .and_then(Value::as_i64))
 }
 
 // ─── 领养「当日已试」登记（跨调用进程内记忆）────────────────
@@ -367,4 +368,10 @@ async fn travel_adopt(service: &BillingService, session: &Value, uid: &str) -> S
         }
         Err(error) => format!("领取 Buddy 失败: {}", error.message),
     }
+}
+
+/// A verified new activity state permits one more adoption attempt today.
+pub fn allow_adopt_retry(session:&Value) {
+    let uid=session.pointer("/account/uid").and_then(Value::as_str).unwrap_or("");
+    if let Ok(mut map)=adopt_tried_map().lock() {map.remove(uid);}
 }

@@ -1,5 +1,6 @@
 import * as React from 'react'
 import {
+  SelectGroup,
   Badge,
   Button,
   Dialog,
@@ -13,6 +14,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Separator,
   Switch,
   cn,
 } from '@ui'
@@ -283,7 +285,7 @@ export function UpdateSettingsDialog({ open, onClose }: { open: boolean; onClose
             </div>
           </div>
 
-          <div className='h-px bg-hairline' />
+          <Separator />
 
           {/* 出网代理：说明都在下拉的悬停提示里，这里只留标题与控件 */}
           <div>
@@ -299,15 +301,17 @@ export function UpdateSettingsDialog({ open, onClose }: { open: boolean; onClose
                   <SelectValue className='min-w-0 truncate'>{pick.selected?.label || t('直连')}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {pick.items.map(item => (
-                    <SelectItem key={item.value} value={item.value} disabled={item.disabled}>{item.label}</SelectItem>
-                  ))}
+                  <SelectGroup>
+                    {pick.items.map(item => (
+                      <SelectItem key={item.value} value={item.value} disabled={item.disabled}>{item.label}</SelectItem>
+                    ))}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          <div className='h-px bg-hairline' />
+          <Separator />
 
           {/* GitHub 令牌：标题行右侧就是快捷跳转（预设好备注、无需勾选权限） */}
           <div>

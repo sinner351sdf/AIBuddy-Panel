@@ -1,109 +1,61 @@
-// Agent2API logo generator — violet theme (#8654f0 = oklch 0.585 0.221 293)
+// AIBuddy Panel — B · 汇流. All SVGs share these hand-built Bezier paths.
 const opentype = require('opentype.js');
-const fs = require('fs');
-
-const fontBuf = fs.readFileSync('C:/Windows/Fonts/segoeuib.ttf');
-const fontBold = opentype.parse(fontBuf.buffer.slice(fontBuf.byteOffset, fontBuf.byteOffset + fontBuf.byteLength));
-
-const P = {
-  bright: '#a678ff',  // gradient highlight
-  primary: '#8654f0', // theme --primary
-  deep: '#6123c0',
-  light: '#a991f9',
-  darkPrimary: '#9a73ff',
-  ink: '#3b3f4a',     // "Panel" on light bg
-  inkDark: '#efeef6', // "Panel" on dark bg
+const fs = require('node:fs');
+const path = require('node:path');
+const ROOT = path.resolve(__dirname, '..');
+const PATHS = {
+  upper: 'M66 0H115C171 0 213 40 213 89C213 103 211 114 207 121C196 113 184 108 170 104C170 82 155 67 134 67H105C81 67 66 50 66 28Z',
+  lower: 'M6 278Q0 278 0 272V221C0 179 32 145 82 145C109 145 132 156 144 175C125 187 101 189 84 200C69 210 66 227 66 245V278Z',
+  fold: 'M66 278H113C153 278 173 252 173 220C173 207 169 194 161 185C156 215 135 231 108 234C83 237 66 254 66 278Z',
+  stream: 'M6 0H66V30C66 76 94 98 139 100C199 103 241 139 241 191C241 243 202 278 144 278H113C153 278 173 252 173 220C173 169 135 136 75 136C29 136 0 110 0 66V6Q0 0 6 0Z',
 };
-
-// ---- icon mark (512 viewBox): violet squircle + white chat bubble w/ tail + gradient dots + AI sparkle ----
-const ICON_MARK = `
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="${P.bright}"/>
-      <stop offset=".48" stop-color="${P.primary}"/>
-      <stop offset="1" stop-color="${P.deep}"/>
-    </linearGradient>
-    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity=".16"/>
-      <stop offset=".55" stop-color="#ffffff" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="dots" x1="181" y1="0" x2="331" y2="0" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#7a41e8"/>
-      <stop offset="1" stop-color="#b795fa"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="114" fill="url(#bg)"/>
-  <rect width="512" height="512" rx="114" fill="url(#sheen)"/>
-  <path fill="#ffffff" d="M 180 132 H 332 A 62 62 0 0 1 394 194 V 274 A 62 62 0 0 1 332 336 H 222
-    C 216 364 198 392 160 402 C 152 404 148 398 154 392 C 176 380 182 360 182 336 H 180
-    A 62 62 0 0 1 118 274 V 194 A 62 62 0 0 1 180 132 Z"/>
-  <g fill="url(#dots)">
-    <circle cx="198" cy="234" r="17"/>
-    <circle cx="256" cy="234" r="17"/>
-    <circle cx="314" cy="234" r="17"/>
-  </g>
-  <path fill="#ffffff" d="M 398 80 C 402.2 97.8 412.2 107.8 430 112 C 412.2 116.2 402.2 126.2 398 144
-    C 393.8 126.2 383.8 116.2 366 112 C 383.8 107.8 393.8 97.8 398 80 Z"/>`;
-
+function mark(mono = false) {
+  const fill = mono ? '#fff' : '#111111';
+  return `<g fill="${fill}">
+  <path d="${PATHS.upper}"/>
+  <path d="${PATHS.lower}"/>
+  <path d="${PATHS.fold}"/>
+  <path d="${PATHS.stream}"/></g>`;
+}
+function svg(width, height, content) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">${content}</svg>`;
+}
 function buildIcon(size = 512) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="${size}" height="${size}">${ICON_MARK}</svg>`;
+  return svg(512, 512, `<rect width="512" height="512" rx="114" fill="#fff"/><g transform="translate(111.4 89.2) scale(1.2)">${mark()}</g>`).replace('width="512" height="512"', `width="${size}" height="${size}"`);
 }
-
-// ---- text to vector path ----
-function textPath(text, fontSize, x, y, fill, tracking = 0) {
-  const p = fontBold.getPath(text, x, y, fontSize, { kerning: true, tracking });
-  return { svg: `<path fill="${fill}" d="${p.toPathData(2)}"/>`, width: p.getBoundingBox().x2 - p.getBoundingBox().x1 };
+function loadFont() {
+  const candidates = [process.env.AIBUDDY_BRAND_FONT, 'C:/Windows/Fonts/segoeuib.ttf', '/System/Library/Fonts/Supplemental/Arial Bold.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'];
+  const file = candidates.find(candidate => candidate && fs.existsSync(candidate));
+  if (!file) throw new Error('Set AIBUDDY_BRAND_FONT to a bold TrueType font path.');
+  const data = fs.readFileSync(file);
+  return opentype.parse(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
 }
-
-// ---- horizontal lockup ----
-function horizontal(dark = false) {
-  const fs = 132, iconSize = 256, pad = 36, gap = 52;
-  const H = 320;
-  const baseY = (H + iconSize) / 2 + fs * 0.355 - iconSize / 2; // optical center vs icon
-  let x = pad + iconSize + gap;
-  const t1 = textPath('AIBuddy', fs, x, baseY, 'x');
-  const grad = dark
-    ? `<stop offset="0" stop-color="#b9a0ff"/><stop offset="1" stop-color="#9a73ff"/>`
-    : `<stop offset="0" stop-color="${P.primary}"/><stop offset="1" stop-color="${P.deep}"/>`;
-  const panelFill = dark ? P.inkDark : P.ink;
-  x += t1.width + fs * 0.26;
-  const t2 = textPath('Panel', fs, x, baseY, 'x');
-  const W = Math.ceil(x + t2.width + pad);
-  const iconY = (H - iconSize) / 2;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
-  <defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="0">${grad}</linearGradient></defs>
-  <g transform="translate(${pad} ${iconY}) scale(${iconSize / 512})">${ICON_MARK}</g>
-  ${t1.svg.replace('fill="x"', 'fill="url(#tg)"')}
-  ${t2.svg.replace('fill="x"', `fill="${panelFill}"`)}
-</svg>`;
+function textPath(font, text, size, x, y, fill) {
+  return `<path fill="${fill}" d="${font.getPath(text, x, y, size, { kerning: true }).toPathData(2)}"/>`;
 }
-
-// ---- stacked lockup ----
-function stacked(dark = false) {
-  const fs = 84, iconSize = 300, iconY = 24;
-  const W0 = textPath('AIBuddy', fs, 0, 0, 'x');
-  const W2 = textPath('Panel', fs, 0, 0, 'x');
-  const textW = W0.width + fs * 0.26 + W2.width;
-  const W = Math.ceil(textW + 80), H = Math.ceil(iconY + iconSize + 56 + fs + 40);
-  const baseY = iconY + iconSize + 56 + fs * 0.72;
-  const tx = (W - textW) / 2;
-  const grad = dark
-    ? `<stop offset="0" stop-color="#b9a0ff"/><stop offset="1" stop-color="#9a73ff"/>`
-    : `<stop offset="0" stop-color="${P.primary}"/><stop offset="1" stop-color="${P.deep}"/>`;
-  const panelFill = dark ? P.inkDark : P.ink;
-  const t1 = textPath('AIBuddy', fs, tx, baseY, 'url(#tg)');
-  const t2 = textPath('Panel', fs, tx + W0.width + fs * 0.26, baseY, 'x');
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
-  <defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="0">${grad}</linearGradient></defs>
-  <g transform="translate(${(W - iconSize) / 2} ${iconY}) scale(${iconSize / 512})">${ICON_MARK}</g>
-  ${t1.svg}${t2.svg.replace('fill="x"', `fill="${panelFill}"`)}
-</svg>`;
+function horizontal(font, dark) {
+  const width = Math.ceil(300 + font.getAdvanceWidth('AIBuddy', 140) + 40);
+  return svg(width, 320, `<g transform="translate(40 49) scale(.8)">${mark(dark)}</g>${textPath(font, 'AIBuddy', 140, 285, 178, dark ? '#f7f7f7' : '#111111')}${textPath(font, 'Panel', 88, 289, 268, dark ? '#bfbfbf' : '#666666')}`);
 }
-
-fs.mkdirSync('out', { recursive: true });
-fs.writeFileSync('out/logo-icon.svg', buildIcon());
-fs.writeFileSync('out/logo-horizontal.svg', horizontal(false));
-fs.writeFileSync('out/logo-horizontal-dark.svg', horizontal(true));
-fs.writeFileSync('out/logo-stacked.svg', stacked());
-fs.writeFileSync('out/logo-stacked-dark.svg', stacked(true));
-console.log('SVGs written:', fs.readdirSync('out').join(', '));
+function stacked(font, dark) {
+  const width = Math.ceil(Math.max(360, font.getAdvanceWidth('AIBuddy', 84) + 80));
+  const line = (text, size, y, fill) => textPath(font, text, size, (width - font.getAdvanceWidth(text, size)) / 2, y, fill);
+  return svg(width, 540, `<g transform="translate(${(width - 241) / 2} 24)">${mark(dark)}</g>${line('AIBuddy', 84, 423, dark ? '#f7f7f7' : '#111111')}${line('Panel', 54, 495, dark ? '#bfbfbf' : '#666666')}`);
+}
+function generate() {
+  const font = loadFont();
+  fs.mkdirSync(ROOT, { recursive: true });
+  const files = {
+    'logo-mark.svg': svg(241, 278, mark()),
+    'logo-mark-mono.svg': svg(241, 278, mark(true)),
+    'logo-icon.svg': buildIcon(),
+    'logo-horizontal.svg': horizontal(font, false),
+    'logo-horizontal-dark.svg': horizontal(font, true),
+    'logo-stacked.svg': stacked(font, false),
+    'logo-stacked-dark.svg': stacked(font, true),
+  };
+  for (const [name, content] of Object.entries(files)) fs.writeFileSync(path.join(ROOT, name), content + '\n');
+  console.log(`Generated ${Object.keys(files).length} brand SVGs.`);
+}
+module.exports = { buildIcon, generate };
+if (require.main === module) generate();

@@ -1,6 +1,10 @@
+import { Alert, AlertDescription } from '@ui'
+import { InfoTip } from '../components/info-tip'
 import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 import {
+  cn,
+  SelectGroup,
   Badge,
   BadgeDot,
   Button,
@@ -15,6 +19,8 @@ import {
   Switch,
 } from '@ui'
 import { t } from '../i18n'
+import { WorkbuddyTaskCenter } from './workbuddy-task-center'
+import { Empty, EmptyHeader, EmptyDescription } from '@ui'
 
 /**
  * 定时任务面板（间隔型任务）—— 本项目的第一个**面板岛**。
@@ -1019,7 +1025,7 @@ function TasksPanel() {
    *
    * 类名结构与旧模板一一对应（.task-item / .task-main / .task-title / .task-state /
    * .task-actions / .task-interval …），只把控件换成组件库；问号说明仍是
-   * `.tip-q` + `data-tip`（tooltip.js 用 MutationObserver 接住新插入的节点，
+   * 共享 InfoTip（Tooltip 负责悬停、聚焦与无障碍关联，
    * React 渲染出来的也会被增强）。
    *
    * 输入框**不带** `data-island-input`：那是另一个岛（输入框就地升级）的钩子，
@@ -1044,7 +1050,7 @@ function TasksPanel() {
               {/* 任务名 / 描述由后端随任务下发（固定中文常量），走 t() 让词典能翻 */}
               <span className='task-name'>{t(task.label)}</span>
             </label>
-            <span className='tip-q' data-tip={t(task.description)}></span>
+            <InfoTip>{t(task.description)}</InfoTip>
             <Badge className='task-badge' variant={task.enabled ? 'success' : 'outline'}>
               {task.enabled ? t('已开启') : t('已关闭')}
             </Badge>
@@ -1137,7 +1143,7 @@ function TasksPanel() {
         <div className='task-main'>
           <div className='task-title'>
             <span className='task-name text-[13px] font-semibold'>成长任务</span>
-            <span className='tip-q' data-tip={GROWTH_TIP}></span>
+            <InfoTip>{GROWTH_TIP}</InfoTip>
             <Badge
               className='task-badge'
               variant={!growthScanned ? 'outline' : pendingTotal ? 'brand' : 'outline'}
@@ -1159,20 +1165,20 @@ function TasksPanel() {
               队列错误只在「手上还没有任何队列数据」时显示（已有数据后的轮询失败
               保持静默，3 秒后下一拍自会重试——见 growthQueueError 的注释）。 */}
           {growthScanError ? (
-            <div className='flex flex-wrap items-center gap-2'>
-              <span className='task-state text-destructive'>扫描失败：{growthScanError}</span>
-              <Button size='xs' variant='outline' onClick={() => void scanGrowth()}>
+            <Alert variant='destructive'>
+              <AlertDescription>扫描失败：{growthScanError}</AlertDescription>
+              <Button size='xs' variant='outline' className='mt-2 w-fit' onClick={() => void scanGrowth()}>
                 重试
               </Button>
-            </div>
+            </Alert>
           ) : null}
           {!growthQueue && growthQueueError ? (
-            <div className='flex flex-wrap items-center gap-2'>
-              <span className='task-state text-destructive'>队列状态拉取失败：{growthQueueError}</span>
-              <Button size='xs' variant='outline' onClick={() => void pollGrowthQueue()}>
+            <Alert variant='destructive'>
+              <AlertDescription>队列状态拉取失败：{growthQueueError}</AlertDescription>
+              <Button size='xs' variant='outline' className='mt-2 w-fit' onClick={() => void pollGrowthQueue()}>
                 重试
               </Button>
-            </div>
+            </Alert>
           ) : null}
           {/* 执行进度：running 时每 3 秒随轮询刷新；结束后终态留在卡里（执行了什么、各自结果），
               直到下一次扫描 / 执行把它换掉 —— 与参考实现「终态只渲染这一次」同一语义。 */}
@@ -1234,9 +1240,7 @@ function TasksPanel() {
                       return (
                         <div
                           key={task.code}
-                          className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-sm px-1.5 py-0.5 ${
-                            state === 'claimable' ? 'bg-primary-tint' : ''
-                          }`}
+                          className={cn('flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-sm px-1.5 py-0.5', state === 'claimable' ? 'bg-primary-tint' : '')}
                         >
                           <span className='text-[12px] text-foreground'>{task.label || task.code}</span>
                           {task.target ? (
@@ -1277,11 +1281,13 @@ function TasksPanel() {
                 <SelectValue>{growthConcurrency}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {GROWTH_CONCURRENCIES.map(value => (
-                  <SelectItem key={value} value={value}>
-                    {value}
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  {GROWTH_CONCURRENCIES.map(value => (
+                    <SelectItem key={value} value={value}>
+                      {value}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </span>
@@ -1327,58 +1333,8 @@ function TasksPanel() {
   const cards = tasks.map(task => taskCard(task))
   const rest = cards.slice(LEAD_CARDS)
 
-  return (
-    <section className='panel'>
-      <div className='panel-head'>
-        <h2>{t('任务清单')}</h2>
-        {/* id 保留：app.js 的 renderTopbarStatus 会按 id 镜像这枚徽标的文案与配色
-            （配色经 data-tone 传，见 badgeTone） */}
-        <Badge id='tasks-badge' variant={badgeVariant} data-tone={badgeTone}>
-          {badgeText}
-        </Badge>
-        <span className='panel-sub'>{t('状态每 20 秒自动同步')}</span>
-        <div className='head-actions'>
-          {/* 旧实现是 load().then(() => toast('定时任务已刷新'))：不看结果，一律报已刷新 */}
-          <Button variant='outline' onClick={() => void loadPanel().then(() => toast(t('定时任务已刷新')))}>
-            {t('刷新')}
-          </Button>
-          {/* 「刷新全部」：走对外契约里的整体 load()（runLoad → loadPanel，间隔型清单与
-              自动签到两个接口在 loadPanel 里本来就一起重拉）。做法照旁边那颗「刷新」：
-              不看结果，一律报已刷新。给个更明确的「全部」说法，也留作页面骨架里的锚点。 */}
-          <Button variant='outline' onClick={() => void load().then(() => toast('已刷新'))}>
-            刷新全部
-          </Button>
-        </div>
-      </div>
-      <div className='panel-body'>
-        <div className='task-list'>
-          {empty ? (
-            <div className='log-empty'>
-              {loaded
-                ? t('没有可显示的定时任务。后端未返回任务清单，请确认网关正在运行。')
-                : t('正在加载定时任务…')}
-            </div>
-          ) : (
-            <>
-              {cards.slice(0, LEAD_CARDS)}
-              {rest.length ? <div className='task-grid'>{rest}</div> : null}
-            </>
-          )}
-          {/* 成长任务卡常驻：在 empty 分支之外固定渲染（定时任务接口失败它也在，
-              卡内各自降级——见 growthCard 的说明）；内容是逐账号分组 + 进度明细，
-              整行铺开放在列表末尾 */}
-          {growthCard()}
-        </div>
-      </div>
-      <div className='panel-foot'>
-        {/* 路径 / 字段名是配置契约、不进词典；两边的中文碎片各走 t()（片段式与 docs-page 脚注同一手法） */}
-        <span>
-          {t('任务配置保存在 ')}<code>~/.agent2api/config.json</code>{t(' 的 ')}<code>scheduledTasks</code>{t(' 字段')}
-        </span>
-        <span>{t('改动立即生效，不需要重启程序')}</span>
-      </div>
-    </section>
-  )
+  return <WorkbuddyTaskCenter maintenance={<div className='task-list'>{empty ? <Empty variant='compact' className='log-empty'><EmptyHeader><EmptyDescription>{loaded ? t('维护任务暂不可用') : t('正在加载…')}</EmptyDescription></EmptyHeader></Empty> : <>{cards.slice(0, LEAD_CARDS)}{rest.length ? <div className='task-grid'>{rest}</div> : null}</>}</div>} />
+
 }
 
 /* ─── 挂载：接管 index.html 里既有的页面区块 ─────── */

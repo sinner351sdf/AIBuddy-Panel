@@ -1,10 +1,12 @@
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ui'
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import {
+  SelectGroup,
   Badge, Button, InputGroup, InputGroupAddon, InputGroupInput,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-  SegmentedControl, type SegmentedControlOption,
+  SegmentedControl, ToggleGroup, ToggleGroupItem, type SegmentedControlOption,
   cn,
 } from '@ui'
 import {
@@ -17,6 +19,7 @@ import {
   type PageSizeChoice,
 } from './table-shell'
 import { t } from '../i18n'
+import { Empty, EmptyHeader, EmptyDescription, Card, CardHeader, CardTitle, CardContent } from '@ui'
 
 /**
  * Agent2API · 系统事件日志面板（筛选 / 分页 / 导出 / 清空）—— React 岛。
@@ -41,7 +44,7 @@ import { t } from '../i18n'
  * （filters.level，点 chip = onSelectChange 换 level），不另起请求路径。chip 里的计数读
  * /api/logs/stats 的 byLevel（各级别总条数）—— 这份响应每次 load 本来就并行取回
  * （Promise.all），此前只是没消费；没拿到（首帧 / 失败）就只显示名称，绝不为 chips 单独
- * 发请求。样式内嵌在组件里（.log-level-chips / .log-chip），与账号页 .acct-pool-* 同一做法。
+ * 发请求。级别快捷筛选由 ToggleGroup 管理，计数用 Badge 表达对应语义。
  *
  * ── 边界：页面骨架照抄 index.html，控件换组件库 ────────────────
  * 本岛接管 `<section class="page" data-page="logs">`，清空子节点后把 React root 直接建在**这个
@@ -283,7 +286,7 @@ const LEVEL_LABEL: Record<string, string> = {
  * 级别快捷筛选 chips（列表上方那排）的取值与文案：值与级别下拉同一套（'' = 全部，其余 =
  * 「最低级别及以上」口径 —— 点「警告」筛出的是 warn 及以上，与下拉里「warn 及以上」完全
  * 同义）。文案复用 LEVEL_LABEL。debug 不设 chip：那一档只留给下拉兜历史数据，常用入口是
- * 这三个语义级别。tone 是 CSS 类名（见 LOG_LEVEL_CHIPS_CSS），'' = 中性。
+ * 这三个语义级别。tone 决定计数徽章的语义色，'' = 中性。
  */
 const LEVEL_CHIPS: readonly { value: string; tone: string; label: string; title: string }[] = [
   { value: '', tone: '', label: '全部', title: '不限级别，显示全部日志' },
@@ -291,57 +294,6 @@ const LEVEL_CHIPS: readonly { value: string; tone: string; label: string; title:
   { value: 'warn', tone: 'warn', label: LEVEL_LABEL.warn, title: '筛选 warn 及以上（含错误）' },
   { value: 'error', tone: 'error', label: LEVEL_LABEL.error, title: '仅显示 error（错误）日志' },
 ]
-
-/**
- * 级别 chips 的样式（<style> 随组件渲染一次，规则全部圈在 .log-level-chips / .log-chip 名下）。
- *
- * 为什么内嵌而不是进 page-logs.css：本岛的改动约定只落在这一个 tsx 文件里（与账号页
- * .acct-pool-* 同一做法）。颜色全部取 tokens.css 的语义变量，深浅主题自动跟随。选中态用
- * 「软底 + 同色描边 + 深字」三件套：信息 = 主色（--primary-soft，即 Element Plus 可选中
- * Tag 的 primary 语义），警告 / 错误 = 各自的 --warn-soft / --danger-soft（Grafana 级别
- * chips 的按级别配色），「全部」选中 = 中性按压态；与日志行 .log-lvl 徽章是两套角色，不混。
- * 全局 button 规则（components.css）会被类选择器盖住，但 button:hover:not(:disabled) 的
- * 特异性更高，悬停态必须按同等特异性显式写回各态的底色（账号页踩过的坑，照抄结论）。
- */
-const LOG_LEVEL_CHIPS_CSS = `
-.log-level-chips {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  flex: none;
-}
-.log-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 24px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-pill);
-  background: var(--surface-2);
-  color: var(--text-2);
-  font-size: 11.5px;
-  font-weight: 500;
-  line-height: 1;
-  white-space: nowrap;
-  cursor: pointer;
-  user-select: none;
-  box-shadow: none;
-  flex: 0 0 auto;
-  transition: background .15s ease, border-color .15s ease;
-}
-.log-chip b { font-weight: 600; font-variant-numeric: tabular-nums; color: inherit; }
-.log-chip:hover:not(:disabled) { background: var(--surface-3); border-color: var(--border-strong); }
-.log-chip.on { color: var(--text); background: var(--surface-3); border-color: var(--border-strong); }
-.log-chip.on:hover:not(:disabled) { background: var(--surface-3); border-color: var(--border-strong); }
-.log-chip.on.info { color: var(--primary-fg); background: var(--primary-soft); border-color: var(--primary-bd); }
-.log-chip.on.info:hover:not(:disabled) { background: var(--primary-soft); border-color: var(--primary-bd); }
-.log-chip.on.warn { color: var(--warn); background: var(--warn-soft); border-color: var(--warn-bd); }
-.log-chip.on.warn:hover:not(:disabled) { background: var(--warn-soft); border-color: var(--warn-bd); }
-.log-chip.on.error { color: var(--danger); background: var(--danger-soft); border-color: var(--danger-bd); }
-.log-chip.on.error:hover:not(:disabled) { background: var(--danger-soft); border-color: var(--danger-bd); }
-`
 
 /**
  * 审计视图的样式（<style> 随 AuditView 渲染一次，规则全部圈在 .logs-view-body /
@@ -862,24 +814,25 @@ function emptyText(data: PanelData): string {
 }
 
 /**
- * 级别筛选 chip：真按钮（可聚焦、可回车），aria-pressed 表达选中态（与账号页 PoolChip
- * 同款交互，对齐 Element Plus 可选中 Tag / Grafana 级别 chips 的做法）。count 可选 ——
- * stats 还没到手（首帧 / 失败）就只显示名称。
+ * 级别筛选项：由 ToggleGroup 管理单选与键盘操作。count 可选 —— stats 还没到手
+ * （首帧 / 失败）就只显示名称。
  */
 function LevelChip(props: {
   tone: string
-  active: boolean
+  value: string
   label: string
   title: string
   count?: number
-  onClick(): void
 }) {
   return (
-    <button type='button' className={cn('log-chip', props.tone, props.active && 'on')}
-      title={props.title} aria-pressed={props.active} onClick={props.onClick}>
+    <ToggleGroupItem value={props.value} title={props.title}>
       {props.label}
-      {props.count === undefined ? null : <b>{props.count}</b>}
-    </button>
+      {props.count === undefined ? null : (
+        <Badge shape='tag' variant={props.tone === 'error' ? 'destructive' : props.tone === 'warn' ? 'warning' : 'secondary'}>
+          {props.count}
+        </Badge>
+      )}
+    </ToggleGroupItem>
   )
 }
 
@@ -1055,7 +1008,7 @@ function AuditView(props: {
       {/* 容器直接复用 .log-list（边框 / 圆角 / 滚动 / 空态那套），审计行另起 .audit-row */}
       <div className='log-list' ref={listRef}>
         {data.entries.length ? data.entries.map((entry, index) => auditRow(entry, index))
-          : <div className='log-empty'>{auditEmptyText()}</div>}
+          : <Empty variant='compact' className='log-empty'><EmptyHeader><EmptyDescription>{auditEmptyText()}</EmptyDescription></EmptyHeader></Empty>}
       </div>
 
       {props.footerHost ? createPortal(footer, props.footerHost) : null}
@@ -1463,12 +1416,12 @@ function LogsPanel() {
     const level = entry.level || ''
     const extra = extraText(entry)
     return (
-      <div className={`log-row ${level}`} key={entry.id ?? index}>
-        <span className='log-rail'><span className={`log-dot ${level}`} /></span>
+      <div className={cn('log-row', level)} key={entry.id ?? index}>
+        <span className='log-rail'><span className={cn('log-dot', level)} /></span>
         <div className='log-main'>
           <div className='log-line'>
             <span className='log-cat'>{categories[entry.category || ''] || entry.category}</span>
-            <span className={`log-lvl ${level}`}>{LEVEL_LABEL[level] || entry.level}</span>
+            <span className={cn('log-lvl', level)}>{LEVEL_LABEL[level] || entry.level}</span>
             <span className='msg'>{entry.message}</span>
           </div>
           {extra ? <div className='log-extra-wrap'><span className='extra'>{extra}</span></div> : null}
@@ -1482,14 +1435,13 @@ function LogsPanel() {
   const busyClear = busy?.which === 'clear'
 
   return (
-    <section className='panel' id='logs-panel-events'>
-      <div className='panel-head'>
-        <h2>{view === 'audit' ? '审计日志' : '系统事件'}</h2>
+    <Tabs value={view} onValueChange={next => applyView(String(next) as ViewKind)} className='contents'><Card as='section' variant='panel' size='sm' className='panel' id='logs-panel-events'>
+      <CardHeader variant='panel' className='panel-head'>
+        <CardTitle>{view === 'audit' ? '审计日志' : '系统事件'}</CardTitle>
         {/* 视图切换：与既有「系统事件」列表并列的「审计」视图（审计是服务端真分页，
             导出 / 清空那些操作不适用，按视图条件渲染切换）。shrink-0 与时间档位同款：
             不让分段控件在窄窗口下被压扁。 */}
-        <SegmentedControl options={VIEW_OPTIONS} value={view} onValueChange={applyView}
-          aria-label='切换日志视图' className='shrink-0' />
+        <TabsList aria-label='切换日志视图' className='shrink-0'>{VIEW_OPTIONS.map(option => <TabsTrigger key={option.value} value={option.value}>{option.label}</TabsTrigger>)}</TabsList>
         {/* id 保留：app.js 的 renderTopbarStatus 会按 id 镜像这枚徽标的文案与配色。
             data-tone 空串 = 无修饰（旧实现的 renderBadge 同样只写 'badge'、不带修饰）；
             有它 app.js 的 mirror 才会走 data-tone 分支，不去拆组件库 Badge 那串 Tailwind 类名。
@@ -1505,13 +1457,13 @@ function LogsPanel() {
               onClick={() => void clearLogs()}>{busyClear ? busy?.label : '清空'}</Button>
           </div>
         ) : null}
-      </div>
+      </CardHeader>
 
-      <div className='panel-body'>
+      <CardContent variant='panel' className='panel-body'>
         {/* 系统事件视图：两个视图都常挂、用内联 display:none 收起不可见的那个 —— 切换
             不丢滚动位置与筛选，也不用来回重挂（包装层的 flex 分配见 AUDIT_CSS 的
             .logs-view-body）。 */}
-        <div className='logs-view-body' style={view === 'audit' ? { display: 'none' } : undefined}>
+        <TabsContent value='events' keepMounted className='logs-view-body'>
           <div className='log-filters'>
             {/* 时间档位直接用组件库的 SegmentedControl（不再经 wbSegmented 挂载点）。shrink-0 补的是
                 旧 CSS `.log-filters .seg { flex: 0 0 auto }` —— 新控件没有 .seg 类，那条规则成了死
@@ -1529,9 +1481,11 @@ function LogsPanel() {
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {LEVEL_OPTIONS.map(option => (
-                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                ))}
+                <SelectGroup>
+                  {LEVEL_OPTIONS.map(option => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
             <Select value={filters.category} onValueChange={next => onSelectChange({ category: String(next ?? '') })}>
@@ -1542,11 +1496,13 @@ function LogsPanel() {
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {/* 「全部分类」+ 后端字典（含「脱敏」：不再有新条目，但历史条目要能筛出来） */}
-                <SelectItem value=''>{ALL_CATEGORY_LABEL}</SelectItem>
-                {Object.entries(categories).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>{label}</SelectItem>
-                ))}
+                <SelectGroup>
+                  {/* 「全部分类」+ 后端字典（含「脱敏」：不再有新条目，但历史条目要能筛出来） */}
+                  <SelectItem value=''>{ALL_CATEGORY_LABEL}</SelectItem>
+                  {Object.entries(categories).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
             {/* 搜索框：InputGroup + addon 图标（与 input-control.tsx 的用法一致）。w-auto flex-auto
@@ -1572,31 +1528,31 @@ function LogsPanel() {
           </div>
 
           {/* 级别快捷筛选 chips：与上面的级别下拉写同一份 filters.level（一条 onSelectChange
-              路），给常用三档一个一键直达的入口；选中 chip 的配色见 LOG_LEVEL_CHIPS_CSS。
+              路），给常用三档一个一键直达的入口；选中态由 ToggleGroup 的 data-pressed 统一管理。
               计数读 stats 的 byLevel（load 时并行取回的），「全部」用列表响应自带的 total
               （= 全库条数，页脚徽标同一个数）；没拿到就只显示名称，不为 chips 单独发请求。 */}
-          <style>{LOG_LEVEL_CHIPS_CSS}</style>
-          <div className='log-level-chips' role='group' aria-label='按级别快捷筛选'>
+          <ToggleGroup variant='outline' size='xs' spacing={1.5} value={[filters.level]}
+            className='log-level-chips flex-none flex-wrap' aria-label='按级别快捷筛选'
+            onValueChange={next => { if (next.length) onLevelChipClick(next[0]) }}>
             {LEVEL_CHIPS.map(chip => (
               <LevelChip key={chip.value} tone={chip.tone} title={chip.title}
-                active={filters.level === chip.value} label={chip.label}
+                value={chip.value} label={chip.label}
                 count={chip.value === ''
                   ? (data.loaded ? data.total : undefined)
-                  : data.byLevel[chip.value]}
-                onClick={() => onLevelChipClick(chip.value)} />
+                   : data.byLevel[chip.value]} />
             ))}
-          </div>
+          </ToggleGroup>
 
           <div className='log-list' id='log-list' ref={listRef}>
             {rows.length ? rows.map((entry, index) => logRow(entry, index))
-              : <div className='log-empty'>{emptyText(data)}</div>}
+              : <Empty variant='compact' className='log-empty'><EmptyHeader><EmptyDescription>{emptyText(data)}</EmptyDescription></EmptyHeader></Empty>}
           </div>
-        </div>
+        </TabsContent>
 
         {/* 审计视图：独立的条目流（GET /api/audit，服务端真分页），与系统事件互不干扰。
             常挂不卸、不可见时自己收起 —— 切换不丢页码与读数。 */}
-        <AuditView active={view === 'audit'} reloadSignal={auditTick} footerHost={auditFooterHost} />
-      </div>
+        <TabsContent value='audit' variant='shell' keepMounted><AuditView active={view === 'audit'} reloadSignal={auditTick} footerHost={auditFooterHost} /></TabsContent>
+      </CardContent>
 
       {/* 页脚保持 .panel 的直接子节点（页 CSS 按这个结构给 .panel-foot 分配 flex:none）。
           页脚属于各自的视图：系统事件的翻页纯前端（数据一次拉满），审计的真打接口
@@ -1616,7 +1572,7 @@ function LogsPanel() {
       ) : (
         <div ref={setAuditFooterHost} style={{ display: 'contents' }} />
       )}
-    </section>
+    </Card></Tabs>
   )
 }
 

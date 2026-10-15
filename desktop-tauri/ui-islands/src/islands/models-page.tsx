@@ -1,3 +1,5 @@
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator } from '@ui'
+import { Badge } from '@ui'
 /**
  * Agent2API · 模型管理页（左栏提供商导航 + 模型表 + 四个弹窗）—— React 岛。
  *
@@ -82,6 +84,7 @@
 import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 import {
+  SelectGroup,
   Button,
   Checkbox,
   Dialog,
@@ -95,7 +98,9 @@ import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-  Label,
+  Field,
+  FieldGroup,
+  FieldLabel,
   NavItem,
   Popover,
   PopoverContent,
@@ -114,7 +119,7 @@ import {
 } from '@ui'
 import { TableFooter, useClientPaging } from './table-shell'
 import {
-  BOOLEAN_KEYS, capabilitiesOf, capabilityState, capabilityTip,
+  BOOLEAN_KEYS, CAPABILITY_LABELS, capabilitiesOf, capabilityState, capabilityTip, capSourceOf,
   exactTokens, formatTokens, normalizeOverrides,
   type CapabilityKey,
 } from './model-capability'
@@ -127,25 +132,39 @@ import type { ManageModel, ManageView } from './models-custom-source'
 // 内置家的图标映射（与添加账号弹窗、签到中心同一份，别处不要照抄这份映射）
 import { PROVIDER_ICONS } from './add-provider-pick'
 import {
-  GROUP_LIMIT, MODEL_STATE_OPTIONS, accept, bindingKeyOf, bindingsOf, builtinRailItems,
+  GROUP_LIMIT, MODEL_SORT_OPTIONS, MODEL_STATE_OPTIONS, accept, bindingKeyOf, bindingsOf, builtinRailItems,
   closeCapability, closeCustomModel, closeMapping, collapseGroup, currentProvider, customProviderOptions,
   directoryReady, esc, errorMessage, expandGroup, formatTime, getSnapshot, levelOf, load, models,
   openAddCustomProvider, openCapability, openCustomModel, openMapping, providerLabelOf, providerOptions,
   refreshAll,
   refreshModels, registerColumnSettings, removeCustomProvider, render, resolveProvider, restoreSavedFilters,
   pruneForeignTableNodes,
-  rowEnabled, rowKeyOf, runRowAction, same, selectProvider, setSearch, setStateFilter, setTableEl,
+  rowEnabled, rowKeyOf, runRowAction, same, selectProvider, setSearch, setSort, setStateFilter, setTableEl,
   shared, subscribe, syncHead, toast, upstreamOptions, viewData, visibleColumns, writeAddModel,
   writeBinding, writeRemoveMapping, writeRemoveModel,
   type Align, type Binding, type ColumnView, type CustomModelContext, type MappingContext,
 } from './models-panel-state'
 import { t } from '../i18n'
+import { Empty, EmptyHeader, EmptyDescription, Card, CardHeader } from '@ui'
 
 
 /* ─── 页面本体 ───────────────────────────────── */
 
 /** 单元格的外壳类名（对齐由列设置给，三档互斥，与 table-col-settings 的 applyAlign 同一套） */
 const cellClass = (base: string, align?: Align): string => (align ? `${base} ta-${align}` : base)
+
+/**
+ * 按 `(提供商, 上游 id)` 找表格里那一行。
+ *
+ * 用途只有一个：思考等级下拉要读**这个目标模型自己认识哪些档位**（见
+ * `models-reasoning.levels` 的三级回落）。找不到（孤儿映射指向的模型不在当前
+ * 表格里、或 provider 为空表示「全局」）就返回 undefined，调用方回落通用候选表。
+ */
+function modelRow(provider: string, id: string): ManageModel | undefined {
+  const wanted = (id || '').trim()
+  if (!wanted) return undefined
+  return models().find(model => same(model.provider, provider) && same(model.id, wanted))
+}
 
 /**
  * 自定义家条目悬浮时把右侧计数让给删除 ×（两者占同一块位置，不藏就会叠字）。
@@ -159,6 +178,23 @@ const RAIL_HIDE_COUNT_ON_HOVER = '[.pv-row:hover_&_[data-slot=nav-item-count]]:i
 function formatCredits(credits: unknown): string {
   const match = /x\s*([\d.]+)/i.exec(String(credits || ''))
   return match ? `${match[1]}x` : String(credits || '')
+}
+
+/**
+ * 倍率的**数值**（排序用；解析不出返回 null）。
+ *
+ * 与 `formatCredits` 共用同一段正则：倍率是各家上游用同一套文本口径写进来的
+ * （`x0.7 credits`，见各家的 `attach_rates`），所以「取不出数值」与「显示成 —」
+ * 恰好是同一批行 —— 两处不会出现「显示的倍率和排序依据不是一个数」。
+ *
+ * `null` 不按 0 参与排序：0 是合法倍率（免费 / 限免档），而 null 是「上游没给」。
+ * 混在一起会把未知的排到最便宜那一端（排序说明见 models-panel-state 的 MODEL_SORTS）。
+ */
+function rateOf(credits: unknown): number | null {
+  const match = /x\s*([\d.]+)/i.exec(String(credits || ''))
+  if (!match) return null
+  const value = Number(match[1])
+  return Number.isFinite(value) ? value : null
 }
 
 /* ─── 提供商头像（左栏 + 面板头标题）───────────────────────
@@ -356,6 +392,8 @@ function ModelsPage() {
    * 与表格展示同口径（同受搜索 / 状态 / 提供商筛选约束），空清单时下拉里的两颗按钮禁用。
    */
   const exportIds = uniqueModelIds(shown)
+  /** 排序档位（'default' / 'rate-asc' / 'rate-desc'）；组内排序读它，见 rows() 里那一段 */
+  const sort = state.sort
   const columns = visibleColumns()
   const columnCount = columns.length
   /**
@@ -445,12 +483,10 @@ function ModelsPage() {
                   icon={providerAvatar(id, label)}
                   className={cn('shadow-none', RAIL_HIDE_COUNT_ON_HOVER)}
                   onClick={() => selectProvider(id)}>{label}</NavItem>
-                <button type='button' className='pv-del' aria-label={t('删除自定义提供商')}
-                  title={t('删除这个自定义提供商（连同名下账号）')}
-                  onClick={() => void removeCustomProvider(id)}>×</button>
+                <Button variant='ghost' size='icon-xs' className='absolute right-1 top-1/2 -translate-y-1/2' aria-label={t('删除自定义提供商')} title={t('删除这个自定义提供商（连同名下账号）')} onClick={() => void removeCustomProvider(id)}>×</Button>
               </div>
             )
-          }) : <div className='rail-empty'>{t('还没有自定义提供商')}</div>}
+          }) : <Empty variant='compact' className='rail-empty'><EmptyHeader><EmptyDescription>{t('还没有自定义提供商')}</EmptyDescription></EmptyHeader></Empty>}
         </div>
         <div className='rail-foot'>
           <NavItem variant='add' id='rail-add-custom'
@@ -468,8 +504,7 @@ function ModelsPage() {
       // 16px 小件（2xs 档）：原来那枚 mono 10px 的小药丸。已绑定走实心档、未绑定走虚线档，
       // 与旧 CSS 的 `.alias-level` / `.alias-level.unset` 同一套语义（mono 粗体也照旧）；
       // shadow-none 是清掉通用 button 规则的投影（旧 CSS 同样显式清过）
-      <Button variant={level ? 'secondary' : 'dashed'} size='2xs' disabled={busy}
-        className='font-mono font-bold shadow-none'
+      <Button variant={level ? 'level' : 'level-unset'} size='2xs' disabled={busy}
         title={level ? t('思考等级 {level}（点击修改）', { level }) : t('设置思考等级（当前未绑定）')}
         onClick={() => openMapping({ alias, target, provider: providerId })}>
         {level || t('＋等级')}
@@ -578,6 +613,12 @@ function ModelsPage() {
    * 展示的是**生效值**（清单原值 + 覆盖，归一后读）；被覆盖过的那一项挂一枚
    * 小点（`.cap-mark`，title 说明），未声明的显示 `—`。整格是一个按钮：
    * 点它打开能力弹窗（两列入口同一个 —— 能力是一个整体，没必要各开一个）。
+   *
+   * **来源也标出来**：这两个数正是 models.dev 补得最多的地方（上游普遍不给），
+   * 所以它补的那些值带一条虚线底边（`.filled`）—— 文字上加不了圆点那样的环，
+   * 虚线底边是同一套语义里唯一贴得上去的写法；悬停提示里还会逐项写明
+   * 「；其中 最大输出 Token 由 models.dev 补齐」。不标的话，用户没法知道这个数
+   * 是上游说的还是社区库说的 —— 两者的可信度不一样。
    */
   function budgetCell(model: ManageModel) {
     const caps = capabilitiesOf(model)
@@ -585,20 +626,28 @@ function ModelsPage() {
     const input = typeof caps.maxInputTokens === 'number' ? caps.maxInputTokens : null
     const output = typeof caps.maxOutputTokens === 'number' ? caps.maxOutputTokens : null
     const hint = t('上下文窗口 {input} / 最大输出 Token {output} —— 点击修改模型能力', { input: exactTokens(input), output: exactTokens(output) })
+      + tokenOriginSuffix(model)
     return (
-      <button type='button' className='caps-open' title={hint}
-        onClick={() => openCapability(model.provider || '', model.id)}>
-        <span className={cn('cap-num', input === null && 'unset')}>
+      <Button variant='ghost' size='xs' title={hint} onClick={() => openCapability(model.provider || '', model.id)}><span className={cn('cap-num', input === null && 'unset', capSourceOf(model, 'maxInputTokens') === 'modelsdev' && 'filled')}>
           {formatTokens(input)}
           {overrides.includes('maxInputTokens') ? <i className='cap-mark' title={t('已覆盖上游值')} /> : null}
-        </span>
-        <span className='cap-sep'>/</span>
-        <span className={cn('cap-num', output === null && 'unset')}>
+        </span><span className='cap-sep'>/</span><span className={cn('cap-num', output === null && 'unset', capSourceOf(model, 'maxOutputTokens') === 'modelsdev' && 'filled')}>
           {formatTokens(output)}
           {overrides.includes('maxOutputTokens') ? <i className='cap-mark' title={t('已覆盖上游值')} /> : null}
-        </span>
-      </button>
+        </span></Button>
     )
+  }
+
+  /**
+   * 悬停提示的**来源尾巴**（只写「不是上游给的」那两档；上游声明/未声明不必写）：
+   * 一格里两个数可能来自不同地方，所以逐项指名，而不是一句笼统的「部分来自
+   * models.dev」。
+   */
+  function tokenOriginSuffix(model: ManageModel): string {
+    const filled = (['maxInputTokens', 'maxOutputTokens'] as const)
+      .filter(key => capSourceOf(model, key) === 'modelsdev')
+      .map(key => CAPABILITY_LABELS[key])
+    return filled.length ? t('；其中 {keys} 由 models.dev 补齐', { keys: filled.join(t('、')) }) : ''
   }
 
   /**
@@ -611,22 +660,19 @@ function ModelsPage() {
     const caps = capabilitiesOf(model)
     const overrides = normalizeOverrides(model.capOverrides)
     return (
-      <button type='button' className='caps-open caps-badges'
-        title={t('对下游声明的能力（工具调用 / 图片识别 / 视频识别 / 支持思考）—— 点击修改')}
-        onClick={() => openCapability(model.provider || '', model.id)}>
-        {BOOLEAN_KEYS.map(key => {
+      <Button variant='ghost' size='xs' title={t('对下游声明的能力（工具调用 / 图片识别 / 视频识别 / 支持思考）—— 点击修改')} onClick={() => openCapability(model.provider || '', model.id)}>{BOOLEAN_KEYS.map(key => {
           const value = caps[key] ?? null
           const state = capabilityState(value)
           const overridden = overrides.includes(key)
+          const source = capSourceOf(model, key)
           return (
-            <span key={key} className={cn('cap-dot', state, overridden && 'marked')}
-              title={capabilityTip(key, value, overridden)}>
+            <span key={key} className={cn('cap-dot', state, source === 'modelsdev' && 'filled', overridden && 'marked')}
+              title={capabilityTip(key, value, overridden, source)}>
               {CAP_ICON[key]}
               {overridden ? <i className='cap-mark' /> : null}
             </span>
           )
-        })}
-      </button>
+        })}</Button>
     )
   }
 
@@ -709,7 +755,7 @@ function ModelsPage() {
                 {t('测试')}
               </Button>
               {model.source === 'manual' || custom ? (
-                <Button variant='ghost' size='sm' className='text-destructive' disabled={busyRow}
+                <Button variant='ghost-destructive' size='sm' disabled={busyRow}
                   onClick={() => void confirmRemoveModel()}>{t('移除')}</Button>
               ) : null}
             </div>
@@ -749,10 +795,10 @@ function ModelsPage() {
             ? t('该提供商已不存在（可能已被删除），请刷新列表')
             : t('这家还没有模型：点「添加模型」登记，或「获取上游模型」从上游拉取'))
         : (state.data ? t('暂无模型（请先添加账号）') : t('加载中…'))
-      return <tr><td colSpan={columnCount} className='empty'>{empty}</td></tr>
+      return <tr><td colSpan={columnCount} className='empty'><Empty variant='compact'><EmptyHeader><EmptyDescription>{empty}</EmptyDescription></EmptyHeader></Empty></td></tr>
     }
     if (!shown.length) {
-      return <tr><td colSpan={columnCount} className='empty'>{keyword ? t('没有匹配「{keyword}」的模型', { keyword }) : t('没有匹配当前筛选的模型')}</td></tr>
+      return <tr><td colSpan={columnCount} className='empty'><Empty variant='compact'><EmptyHeader><EmptyDescription>{keyword ? t('没有匹配「{keyword}」的模型', { keyword }) : t('没有匹配当前筛选的模型')}</EmptyDescription></EmptyHeader></Empty></td></tr>
     }
     // 分组带只在「全部」视图里出现：选中单家时标题已经写了是哪一家，再叠一条是重复的
     const showGroups = provider === 'all'
@@ -771,7 +817,21 @@ function ModelsPage() {
     for (const [key, group] of groups) {
       // 组内排序：禁用的行沉到该组末尾，启用的排前面；Array#sort 稳定，组内仍按后端原序
       //（判定与「已启用 / 已禁用」筛选同一份，见 rowEnabled）
-      group.items.sort((a, b) => Number(!rowEnabled(a)) - Number(!rowEnabled(b)))
+      //
+      // 「按倍率」档位只在这之后**同一个启用态内部**再排一道：禁用行仍然全部沉底，
+      // 倍率排序不会把一条禁用行顶到前面去（那会让「哪些能用」先于「哪个便宜」失效）。
+      // 解析不出倍率的行恒排在同档末尾，方向也换不动它 —— 见 rateOf 的说明。
+      group.items.sort((a, b) => {
+        const byEnabled = Number(!rowEnabled(a)) - Number(!rowEnabled(b))
+        if (byEnabled !== 0 || sort === 'default') return byEnabled
+        const left = rateOf(a.credits)
+        const right = rateOf(b.credits)
+        if (left === null || right === null) {
+          if (left === right) return 0
+          return left === null ? 1 : -1
+        }
+        return sort === 'rate-asc' ? left - right : right - left
+      })
       const open = state.expanded.has(key) || !collapsible
       const items = open ? group.items : group.items.slice(0, GROUP_LIMIT)
       const rest = group.items.length - items.length
@@ -785,7 +845,7 @@ function ModelsPage() {
         rows.push(
           <tr className='tr-group' key={`group:${key}`}>
             <td colSpan={columnCount}>
-              <span className='prov-tag'>{group.label}</span>{from > 0 ? t('（续）') : ''}{t('{n} 个模型', { n: group.items.length })}
+              <Badge variant='secondary' shape='tag'>{group.label}</Badge>{from > 0 ? t('（续）') : ''}{t('{n} 个模型', { n: group.items.length })}
             </td>
           </tr>,
         )
@@ -815,7 +875,7 @@ function ModelsPage() {
 
   return (
     <>
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <div className='mm'>
           {rail()}
           <div className='mm-main'>
@@ -824,7 +884,7 @@ function ModelsPage() {
                 —— 状态筛选 + 搜索 + 批量条。两行都是通栏块，窄窗口由 flex-wrap 整体下折。
                 「列设置」按钮仍由 wbColSettings.register 追加进 .head-actions 末尾
                 （mount 选择器 .panel-head .head-actions 在这个结构下照旧命中）。 */}
-            <div className='panel-head'>
+            <CardHeader variant='panel-flush' className='panel-head'>
               <div className='mm-titlebar'>
                 <div className='mm-title'>
                   {provider === 'all'
@@ -852,6 +912,10 @@ function ModelsPage() {
                 {/* 状态筛选：语义、键盘、滑块都在组件库里，取值仍以快照为准（完全受控） */}
                 <SegmentedControl options={MODEL_STATE_OPTIONS} value={state.stateFilter}
                   onValueChange={setStateFilter} aria-label={t('按状态筛选')} className='shrink-0' />
+                {/* 排序档位（issue #161）：默认 / 倍率升序 / 倍率降序。挑便宜模型时
+                    按倍率排比按名称排有用得多 —— 与状态筛选同一套（受控 + 落盘） */}
+                <SegmentedControl options={MODEL_SORT_OPTIONS} value={state.sort}
+                  onValueChange={setSort} aria-label={t('按倍率排序')} className='shrink-0' />
                 {/* 搜索框：InputGroup + addon 图标（与 input-control.tsx 的用法一致）。
                     刻意**不带** data-island-input：那是输入框岛（就地升级）的钩子，
                     两个岛同时挂一个输入框会打架。宽度沿用旧 CSS 的 #models-search 240px */}
@@ -865,14 +929,14 @@ function ModelsPage() {
                     不勾就不占位置）。弹窗里可删除 / 启用 / 禁用 / 设置思考等级 */}
                 {selectedModels.length > 0 ? (
                   <span className='batch-chip'>
-                    {t('已选 ')}<b>{selectedModels.length}</b>{t(' 个')}
+                    <Badge variant='secondary'>{t('已选 ')}{selectedModels.length}{t(' 个')}</Badge>
                     <Button id='btn-batch-models' variant='outline' size='xs'
                       title={t('对选中的 {n} 个模型执行批量操作', { n: selectedModels.length })}
                       onClick={() => setBatchOpen(true)}>{t('批量操作')}</Button>
                   </span>
                 ) : null}
               </div>
-            </div>
+            </CardHeader>
             <div className='models-table-wrap'>
               {/* 表骨架（colgroup + thead）是**字面量**、永远按 index.html 的原始顺序渲染全部
                   8 列、不随任何状态变化：列的显隐与顺序由 wbColSettings.syncStaticHead 就地
@@ -882,7 +946,7 @@ function ModelsPage() {
                   回来（勾选列是全选复选框，唯一内容会变的 th —— 只会被更新、不会被重建，
                   完整论证见文件头的「静态表头」一节）。
                   数据行相反：完全按 visibleColumns() 逐列渲染，与表头读同一份配置。 */}
-              <table className='models-table' ref={el => setTableEl(el)}>
+              <table className='models-table max-[640px]:has-[col:nth-child(6)]:min-w-[960px]' ref={el => setTableEl(el)}>
                 <colgroup>
                   <col className='c-check' data-col='check' />
                   <col className='c-model' data-col='model' />
@@ -898,8 +962,32 @@ function ModelsPage() {
                   <th data-col='model'>{t('上游模型')}</th>
                   <th data-col='rate'>{t('倍率')}</th>
                   <th data-col='source'>{t('来源')}</th>
-                  <th data-col='budget'>{t('上下文 / 输出')}</th>
-                  <th data-col='caps'>{t('能力')}</th>
+                  {/* 表头只留短标题，完整口径进问号提示（原括号长标题让表头喧宾夺主）。
+                      这是静态内容：重渲染时逐字不变，不会破坏「静态表头」的约定。
+                      这两枚问号讲的是**同一套视觉语言**（这个值到底是不是上游说的）：
+                      内侧描边 / 虚线底 = models.dev 补的，右上角小点 = 你改过 */}
+                  <th data-col='budget'>
+                    {t('上下文 / 输出')}
+                    <span className='th-help' aria-hidden='true'
+                      title={t('数字带虚线底 = 由 models.dev 补齐；右上角小点 = 你手动覆盖过；— = 未声明。点任意一格可改。')}>
+                      <svg viewBox='0 0 24 24'>
+                        <g fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round'>
+                          <circle cx='12' cy='12' r='9' /><path d='M12 16v-4' /><path d='M12 8h.01' />
+                        </g>
+                      </svg>
+                    </span>
+                  </th>
+                  <th data-col='caps'>
+                    {t('能力')}
+                    <span className='th-help' aria-hidden='true'
+                      title={t('圆点带内侧描边 = 由 models.dev 补齐；右上角小点 = 你手动覆盖过；虚线圈 = 未声明。悬停某一枚可看逐项出处。')}>
+                      <svg viewBox='0 0 24 24'>
+                        <g fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round'>
+                          <circle cx='12' cy='12' r='9' /><path d='M12 16v-4' /><path d='M12 8h.01' />
+                        </g>
+                      </svg>
+                    </span>
+                  </th>
                   {/* 表头只留短标题，完整口径进问号提示（原括号长标题让表头喧宾夺主）。
                       这是静态内容：重渲染时逐字不变，不会破坏「静态表头」的约定 */}
                   <th data-col='alias'>
@@ -919,7 +1007,7 @@ function ModelsPage() {
               </table>
             </div>
             {/* 表尾：读数 / 每页条数 / 跳页 / 翻页器由通用表格外壳（table-shell.tsx）统一渲染。
-                左侧说明只剩「自定义家」那一条（内置家原先那句按用户要求移除）；其余四张表
+                左侧说明只剩「自定义家」那一条（内置家原先那句按用户要求移除）；其余几张表
                 的页脚说明也都去掉了，页脚现在是清一色的控制条 */}
             <TableFooter
               className='models-panel-foot'
@@ -936,7 +1024,7 @@ function ModelsPage() {
             />
           </div>
         </div>
-      </section>
+      </Card>
       {/* 弹窗走 Dialog（Esc / 点遮罩关闭、焦点陷阱、滚动锁定都内建），按需挂载、关闭即卸 */}
       {state.mapping ? <MappingDialog context={state.mapping} onClose={closeMapping} /> : null}
       {state.customModel
@@ -999,15 +1087,18 @@ function MappingDialog({ context, onClose }: { context: MappingContext; onClose:
    * 思考等级：`select` 是下拉的当前值（'' = 不覆盖 / 某个等级 / CUSTOM_LEVEL），`custom` 是
    * 自定义输入框里的字。keep 不在候选里（用户上次填的自定义值、或后端调整过候选表）时落到
    * 「自定义」那一项并把值填进输入框 —— 直接丢掉会让「改别的字段时顺手把等级抹掉」。
+   *
+   * 候选表按**当前选中的目标模型**取（三级回落见 `models-reasoning.levels`）：先把等级绑在
+   * A 模型上、再把上游改成 B，B 不认识这个档位时同样落到「自定义」，不静默改值。
    */
   const [reasoning, setReasoning] = React.useState(() => {
-    const candidates = reasoningLevels(getSnapshot().data)
+    const candidates = reasoningLevels(getSnapshot().data, modelRow(provider, upstream))
     const current = editing ? levelOf(context.alias, context.target, context.provider) : ''
     if (current && candidates.includes(current)) return { select: current, custom: '' }
     return { select: current ? CUSTOM_LEVEL : '', custom: current }
   })
 
-  const candidates = reasoningLevels(getSnapshot().data)
+  const candidates = reasoningLevels(getSnapshot().data, modelRow(provider, upstream))
   /** 提供商候选：表格里出现过的家，再补上上下文那一家（孤儿映射可能属于「整个没进表格」的家） */
   const providerChoices = (() => {
     const options = providerOptions()
@@ -1029,8 +1120,15 @@ function MappingDialog({ context, onClose }: { context: MappingContext; onClose:
   })()
 
   const providerLabel = providerChoices.find(item => item.id === provider)?.label || provider || t('(全局)')
-  const level = reasoning.select === CUSTOM_LEVEL ? reasoning.custom.trim() : reasoning.select
-  const showCustomLevel = reasoning.select === CUSTOM_LEVEL
+  /**
+   * 显示用的等级：已选的档位不在当前候选里（换了上游 / 后端换了候选表）时按「自定义」呈现
+   * —— 与初始化同一条规则，值留在输入框里而不是被静默抹掉（派生态，不改 state）。
+   */
+  const active = reasoning.select && reasoning.select !== CUSTOM_LEVEL && !candidates.includes(reasoning.select)
+    ? { select: CUSTOM_LEVEL, custom: reasoning.custom || reasoning.select }
+    : reasoning
+  const level = active.select === CUSTOM_LEVEL ? active.custom.trim() : active.select
+  const showCustomLevel = active.select === CUSTOM_LEVEL
 
   /** 换了一家，上游候选整体换掉（保留同名项，切回来时不用重选） */
   function changeProvider(next: string): void {
@@ -1090,92 +1188,103 @@ function MappingDialog({ context, onClose }: { context: MappingContext; onClose:
           <DialogTitle>{editing ? t('设置思考等级') : t('添加模型映射')}</DialogTitle>
         </DialogHeader>
         <DialogBody>
-          <div className='flex flex-col gap-1.5'>
-            <Label htmlFor='mapping-provider'>{t('提供商')}</Label>
-            {/* 锁定 = 行内入口：提供商与上游模型就是这一行，不允许改 */}
-            <Select value={provider} disabled onValueChange={next => changeProvider(String(next))}>
-              <SelectTrigger id='mapping-provider' className='w-full'>
-                <SelectValue>{providerChoices.find(item => item.id === provider)?.label || provider}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {providerChoices.map(item => (
-                  <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className='grid grid-cols-[1fr_24px_1fr] items-end gap-2.5'>
-            <div className='flex min-w-0 flex-col gap-1.5'>
-              <Label htmlFor='mapping-alias'>{t('对外映射名（下游请求时用）')}</Label>
-              <Input id='mapping-alias' maxLength={128} placeholder={t('例如 gpt-4o')} autoComplete='off'
-                autoFocus={!editing} value={alias} disabled={editing}
-                onChange={event => setAlias(event.currentTarget.value)} onKeyDown={onEnter} />
-            </div>
-            <div className='pb-2 text-center text-muted-foreground'>→</div>
-            <div className='flex min-w-0 flex-col gap-1.5'>
-              <Label htmlFor='mapping-upstream'>{t('转发到上游模型')}</Label>
-              <Select value={upstream} disabled onValueChange={next => setUpstream(String(next))}>
-                <SelectTrigger id='mapping-upstream' className='w-full'>
-                  <SelectValue>{upstreamChoices.find(item => item.id === upstream)?.label || upstream}</SelectValue>
+          <FieldGroup className='gap-4'>
+            <Field data-disabled className='flex flex-col gap-1.5'>
+              <FieldLabel htmlFor='mapping-provider'>{t('提供商')}</FieldLabel>
+              {/* 锁定 = 行内入口：提供商与上游模型就是这一行，不允许改 */}
+              <Select value={provider} disabled onValueChange={next => changeProvider(String(next))}>
+                <SelectTrigger id='mapping-provider' className='w-full'>
+                  <SelectValue>{providerChoices.find(item => item.id === provider)?.label || provider}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {upstreamChoices.map(item => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.label}{item.off ? t('（已禁用）') : ''}
-                    </SelectItem>
-                  ))}
+                  <SelectGroup>
+                    {providerChoices.map(item => (
+                      <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
+                    ))}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
+            </Field>
+            <div className='grid grid-cols-[1fr_24px_1fr] items-end gap-2.5'>
+              <Field data-disabled={editing || undefined} className='flex min-w-0 flex-col gap-1.5'>
+                <FieldLabel htmlFor='mapping-alias'>{t('对外映射名（下游请求时用）')}</FieldLabel>
+                <Input id='mapping-alias' maxLength={128} placeholder={t('例如 gpt-4o')} autoComplete='off'
+                  autoFocus={!editing} value={alias} disabled={editing}
+                  onChange={event => setAlias(event.currentTarget.value)} onKeyDown={onEnter} />
+              </Field>
+              <div className='pb-2 text-center text-muted-foreground'>→</div>
+              <Field data-disabled className='flex min-w-0 flex-col gap-1.5'>
+                <FieldLabel htmlFor='mapping-upstream'>{t('转发到上游模型')}</FieldLabel>
+                <Select value={upstream} disabled onValueChange={next => setUpstream(String(next))}>
+                  <SelectTrigger id='mapping-upstream' className='w-full'>
+                    <SelectValue>{upstreamChoices.find(item => item.id === upstream)?.label || upstream}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {upstreamChoices.map(item => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.label}{item.off ? t('（已禁用）') : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
             </div>
-          </div>
-          {/* 预览：当前选择会变成哪一条映射（等级一起显示，保存前就能核对） */}
-          <div className='rounded-md border border-border bg-surface-inset px-3 py-2.5 font-mono text-[12px] text-subtle'>
-            {t('下游请求 ')}<b className='text-primary-fg'>{alias.trim() || t('<对外名>')}</b>{t(' → 转发')}{' '}
-            <b className='text-primary-fg'>{upstream || t('<上游模型>')}</b>{t('（{label}）', { label: providerLabel })}
-            {level ? <>{t(' · 思考等级 ')}<b className='text-primary-fg'>{level}</b></> : null}
-          </div>
-          <div className='flex flex-col gap-1.5'>
-            <div className='flex items-center gap-[7px]'>
-              <Label htmlFor='mapping-reasoning'>{t('思考等级')}</Label>
-              {/* 问号走组件库 Tooltip（旧的 data-tip + tooltip.js 是同一目标的更简陋版本） */}
-              <Tooltip>
-                <TooltipTrigger render={<span className='tip-q' tabIndex={0} aria-label={t('思考等级的注入规则')} />}>?</TooltipTrigger>
-                <TooltipContent>{REASONING_TIP}</TooltipContent>
-              </Tooltip>
+            {/* 预览：当前选择会变成哪一条映射（等级一起显示，保存前就能核对） */}
+            <div className='rounded-md border border-border bg-surface-inset px-3 py-2.5 font-mono text-[12px] text-subtle'>
+              {t('下游请求 ')}<b className='text-primary-fg'>{alias.trim() || t('<对外名>')}</b>{t(' → 转发')}{' '}
+              <b className='text-primary-fg'>{upstream || t('<上游模型>')}</b>{t('（{label}）', { label: providerLabel })}
+              {level ? <>{t(' · 思考等级 ')}<b className='text-primary-fg'>{level}</b></> : null}
             </div>
-            <Select value={reasoning.select} onValueChange={next => {
-              const value = String(next)
-              setReasoning(prev => ({ ...prev, select: value }))
-            }}>
-              {/* 改等级形态没别的可填，把焦点直接放在等级下拉上（旧实现是 setTimeout 里 focus） */}
-              <SelectTrigger id='mapping-reasoning' className='w-full' autoFocus={editing}>
-                <SelectValue>{reasoning.select === CUSTOM_LEVEL
-                  ? t('自定义等级…')
-                  : (reasoning.select || t('不覆盖'))}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value=''>{t('不覆盖')}</SelectItem>
-                {candidates.map(candidate => (
-                  <SelectItem key={candidate} value={candidate}>{candidate}</SelectItem>
-                ))}
-                <SelectItem value={CUSTOM_LEVEL}>{t('自定义等级…')}</SelectItem>
-              </SelectContent>
-            </Select>
-            {/* 自定义输入框只在「自定义等级」被选中时露出（条件渲染而不是 hidden：组件库的
-                工具类是分层 !important 的，[hidden] 那条未分层规则压不过它） */}
-            {showCustomLevel ? (
-              <Input id='mapping-reasoning-custom' maxLength={32} autoFocus
-                placeholder={t('自定义等级（例如 custom-high）')} autoComplete='off'
-                disabled={saving} value={reasoning.custom}
-                onChange={event => setReasoning(prev => ({ ...prev, custom: event.currentTarget.value }))}
-                onKeyDown={onEnter} />
-            ) : null}
-          </div>
-          <p className='text-xs leading-[1.65] text-subtle'>
-            {t('对外名可自由命名，允许与上游模型 ID 同名（同名时该上游的原生路由优先，映射作兜底）； 支持字母、数字与 ')}<code>- _ . / :</code>{t('。同一对外名可在多个提供商各添加一条： 下游用同一个名字请求，网关按账号优先级主备切换，失败自动落到下一个提供商。')}
-          </p>
-          {/* 状态行：高度固定，出现错误时弹窗不跳高 */}
-          <div className='min-h-[18px] text-xs text-subtle'>{status}</div>
+            <Field className='flex flex-col gap-1.5'>
+              <div className='flex items-center gap-[7px]'>
+                <FieldLabel htmlFor='mapping-reasoning'>{t('思考等级')}</FieldLabel>
+                {/* 问号走组件库 Tooltip（旧的 data-tip + tooltip.js 是同一目标的更简陋版本） */}
+                <Tooltip>
+                  <TooltipTrigger render={<span className='tip-q' tabIndex={0} aria-label={t('思考等级的注入规则')} />}>?</TooltipTrigger>
+                  <TooltipContent>{REASONING_TIP}</TooltipContent>
+                </Tooltip>
+              </div>
+              <Select value={active.select} onValueChange={next => {
+                const value = String(next)
+                setReasoning(prev => ({ ...prev, select: value }))
+              }}>
+                {/* 改等级形态没别的可填，把焦点直接放在等级下拉上（旧实现是 setTimeout 里 focus） */}
+                <SelectTrigger id='mapping-reasoning' className='w-full' autoFocus={editing}>
+                  <SelectValue>{active.select === CUSTOM_LEVEL
+                    ? t('自定义等级…')
+                    : (active.select || t('不覆盖'))}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value=''>{t('不覆盖')}</SelectItem>
+                    {candidates.map(candidate => (
+                      <SelectItem key={candidate} value={candidate}>{candidate}</SelectItem>
+                    ))}
+                    <SelectItem value={CUSTOM_LEVEL}>{t('自定义等级…')}</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              {/* 自定义输入框只在「自定义等级」被选中时露出（条件渲染而不是 hidden：组件库的
+                  工具类是分层 !important 的，[hidden] 那条未分层规则压不过它） */}
+              {showCustomLevel ? (
+                <Field data-disabled={saving || undefined} className='gap-1.5'>
+                  <FieldLabel htmlFor='mapping-reasoning-custom' className='sr-only'>{t('自定义思考等级')}</FieldLabel>
+                  <Input id='mapping-reasoning-custom' maxLength={32} autoFocus
+                    placeholder={t('自定义等级（例如 custom-high）')} autoComplete='off'
+                    disabled={saving} value={active.custom}
+                    onChange={event => setReasoning(prev => ({ ...prev, custom: event.currentTarget.value }))}
+                    onKeyDown={onEnter} />
+                </Field>
+              ) : null}
+            </Field>
+            <p className='text-xs leading-[1.65] text-subtle'>
+              {t('对外名可自由命名，允许与上游模型 ID 同名（同名时该上游的原生路由优先，映射作兜底）； 支持字母、数字与 ')}<code>- _ . / :</code>{t('。同一对外名可在多个提供商各添加一条： 下游用同一个名字请求，网关按账号优先级主备切换，失败自动落到下一个提供商。')}
+            </p>
+            {/* 状态行：高度固定，出现错误时弹窗不跳高 */}
+            <div className='min-h-[18px] text-xs text-subtle'>{status}</div>
+          </FieldGroup>
         </DialogBody>
         <DialogFooter>
           <div className='mr-auto' />
@@ -1263,37 +1372,41 @@ function CustomModelDialog({ initial, onClose }: { initial: CustomModelContext; 
           <DialogTitle>{t('添加自定义模型')}</DialogTitle>
         </DialogHeader>
         <DialogBody>
-          <div className='flex flex-col gap-1.5'>
-            <Label htmlFor='custom-model-provider'>{t('提供商')}</Label>
-            <Select value={providerValue} disabled={initial.locked}
-              onValueChange={next => setProvider(String(next))}>
-              <SelectTrigger id='custom-model-provider' className='w-full'>
-                <SelectValue>{providerLabel}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {choices.map(item => (
-                  <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className='flex flex-col gap-1.5'>
-            <Label htmlFor='custom-model-id'>{t('上游模型 ID')}</Label>
-            <Input id='custom-model-id' maxLength={128} placeholder={t('例如 gpt-5.5-preview')}
-              autoComplete='off' spellCheck={false} autoFocus value={id}
-              onChange={event => setId(event.currentTarget.value)} onKeyDown={onEnter} />
-          </div>
-          <div className='rounded-md border border-border bg-surface-inset px-3 py-2.5 font-mono text-[12px] text-subtle'>
-            {t('在 ')}<b className='text-primary-fg'>{providerLabel}</b>{t(' 上登记上游模型')}{' '}
-            <b className='text-primary-fg'>{id.trim() || t('<上游模型 ID>')}</b>{t('（登记后即可用这个名字请求）')}
-          </div>
-          <p className='text-xs leading-[1.65] text-subtle'>
-            {t('填上游真正认识的那个模型 ID（不是给下游用的名字）。登记后它会进入该家的模型清单： 表格里出现这一行、')}<code>/v1/models</code>{t(' 会广告它、请求它也会被转发到这家。 支持字母、数字与 ')}<code>- _ . / :</code>{t('。')}
-          </p>
-          <p className='text-xs leading-[1.65] text-subtle'>
-            {t('「来源」列会标成')}<b>{t('手动')}</b>{t('，与远程目录 / 内置清单区分开。删除自定义模型是')}<b>{t('直接移除')}</b>{t('这条登记（不像内置模型那样只是隐藏），因为它的存在完全由这次登记决定。')}
-          </p>
-          <div className='min-h-[18px] text-xs text-subtle'>{status}</div>
+          <FieldGroup className='gap-4'>
+            <Field data-disabled={initial.locked || undefined} className='flex flex-col gap-1.5'>
+              <FieldLabel htmlFor='custom-model-provider'>{t('提供商')}</FieldLabel>
+              <Select value={providerValue} disabled={initial.locked}
+                onValueChange={next => setProvider(String(next))}>
+                <SelectTrigger id='custom-model-provider' className='w-full'>
+                  <SelectValue>{providerLabel}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {choices.map(item => (
+                      <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field className='flex flex-col gap-1.5'>
+              <FieldLabel htmlFor='custom-model-id'>{t('上游模型 ID')}</FieldLabel>
+              <Input id='custom-model-id' maxLength={128} placeholder={t('例如 gpt-5.5-preview')}
+                autoComplete='off' spellCheck={false} autoFocus value={id}
+                onChange={event => setId(event.currentTarget.value)} onKeyDown={onEnter} />
+            </Field>
+            <div className='rounded-md border border-border bg-surface-inset px-3 py-2.5 font-mono text-[12px] text-subtle'>
+              {t('在 ')}<b className='text-primary-fg'>{providerLabel}</b>{t(' 上登记上游模型')}{' '}
+              <b className='text-primary-fg'>{id.trim() || t('<上游模型 ID>')}</b>{t('（登记后即可用这个名字请求）')}
+            </div>
+            <p className='text-xs leading-[1.65] text-subtle'>
+              {t('填上游真正认识的那个模型 ID（不是给下游用的名字）。登记后它会进入该家的模型清单： 表格里出现这一行、')}<code>/v1/models</code>{t(' 会广告它、请求它也会被转发到这家。 支持字母、数字与 ')}<code>- _ . / :</code>{t('。')}
+            </p>
+            <p className='text-xs leading-[1.65] text-subtle'>
+              {t('「来源」列会标成')}<b>{t('手动')}</b>{t('，与远程目录 / 内置清单区分开。删除自定义模型是')}<b>{t('直接移除')}</b>{t('这条登记（不像内置模型那样只是隐藏），因为它的存在完全由这次登记决定。')}
+            </p>
+            <div className='min-h-[18px] text-xs text-subtle'>{status}</div>
+          </FieldGroup>
         </DialogBody>
         <DialogFooter>
           <div className='mr-auto' />
@@ -1435,31 +1548,30 @@ function accessSnippets(
 function ExportMenu({ ids, onOpenConfig }: { ids: string[]; onOpenConfig: () => void }) {
   const [open, setOpen] = React.useState(false)
   const empty = ids.length === 0
-  const itemClass = 'w-full justify-start px-2 font-normal'
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<Button id='btn-export-models' variant='outline' size='sm'
-        title='导出模型清单，或按当前清单生成客户端接入配置' />}>导出</PopoverTrigger>
-      <PopoverContent align='end' sideOffset={4} className='w-[248px] p-1.5'>
-        <div className='flex flex-col gap-0.5'>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger render={<Button id='btn-export-models' variant='outline' size='sm'
+        title='导出模型清单，或按当前清单生成客户端接入配置' />}>导出</DropdownMenuTrigger>
+      <DropdownMenuContent align='end' sideOffset={4} className='w-[248px] p-1.5'>
+        <DropdownMenuGroup>
           {empty ? (
             <p className='px-2 pb-1 pt-0.5 text-[11.5px] leading-[1.6] text-subtle'>
               当前没有可导出的模型：请先添加账号或「获取模型」，再放宽搜索与状态筛选。
             </p>
           ) : null}
-          <Button variant='ghost' size='sm' className={itemClass} disabled={empty}
+          <DropdownMenuItem disabled={empty}
             title={`把当前展示的 ${ids.length} 个模型导出为 OpenAI /v1/models 兼容的 JSON 文件`}
             onClick={() => { setOpen(false); exportModelsJson(ids) }}>
             导出模型清单 JSON
-          </Button>
-          <Button variant='ghost' size='sm' className={itemClass} disabled={empty}
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={empty}
             title='按当前网关地址与模型清单，生成 OpenAI SDK / curl / Claude Code 的现成配置'
             onClick={() => { setOpen(false); onOpenConfig() }}>
             生成接入配置…
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

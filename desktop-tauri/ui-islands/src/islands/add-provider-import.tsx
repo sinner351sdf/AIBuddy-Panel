@@ -1,3 +1,4 @@
+import { Badge } from '@ui'
 /**
  * Agent2API · 「添加账号」弹窗 → 「导入」分段：从其他工具批量导入供应商。
  *
@@ -21,10 +22,11 @@
  */
 
 import * as React from 'react'
-import { Button, Checkbox } from '@ui'
+import { cn, Button, Checkbox } from '@ui'
 
 import { shared, toast } from './add-account-bridge'
 import { t } from '../i18n'
+import { Empty, EmptyHeader, EmptyDescription } from '@ui'
 
 type ImportProvider = {
   id: string | number
@@ -250,12 +252,12 @@ export function ImportPanel({ segmentOn }: { segmentOn: boolean }): React.ReactE
     <div id='add-import-panel' style={style}>
       <div id='add-import-status'>
         {!scan || !scan.available ? (
-          <div className='add-import-empty'>
+          <Empty variant='compact' className='add-import-empty'><EmptyHeader><EmptyDescription>
             <p>{scan?.reason || t('未能读取 cc-switch 数据')}</p>
             <Button variant='outline' size='sm' onClick={() => { void runScan({ force: true }) }}>
               {t('重新扫描')}
             </Button>
-          </div>
+          </EmptyDescription></EmptyHeader></Empty>
         ) : (
           <div className='add-import-head'>
             <span>
@@ -292,7 +294,7 @@ export function ImportPanel({ segmentOn }: { segmentOn: boolean }): React.ReactE
             // div + 行点击，并在 Checkbox 上停掉冒泡避免点一次触发两遍
             <div
               key={id}
-              className={`add-import-row${canImport && !failed ? '' : ' disabled'}`}
+              className={cn('add-import-row', canImport && !failed ? '' : 'disabled')}
               title={canImport ? String(item.notes || '') : String(item.reason || '')}
               onClick={() => { if (canImport) toggle() }}
             >
@@ -312,7 +314,7 @@ export function ImportPanel({ segmentOn }: { segmentOn: boolean }): React.ReactE
                 <span className='add-import-name'>
                   {String(item.name || id)}
                   {canImport ? (
-                    <span className='add-import-badge'>{protocolLabel(item.protocol)}</span>
+                    <Badge variant='secondary' shape='tag'>{protocolLabel(item.protocol)}</Badge>
                   ) : null}
                 </span>
                 <span className='add-import-meta'>{meta}</span>
@@ -333,7 +335,7 @@ export function ImportFootActions(): React.ReactElement {
   const count = current.checked.size
   return (
     <>
-      <span className={`add-foot-hint${current.footHint ? ' err' : ''}`} id='add-foot-hint'>
+      <span className={cn('add-foot-hint', current.footHint ? 'err' : '')} id='add-foot-hint'>
         {current.footHint}
       </span>
       <span className='add-foot-actions' id='add-foot-actions'>

@@ -1,11 +1,12 @@
 import * as React from 'react'
-import { Badge, Button, Dialog, DialogBody, DialogContent, DialogDescription,
+import { Alert, AlertDescription, Badge, Button, Dialog, DialogBody, DialogContent, DialogDescription,
   DialogFooter, DialogHeader, DialogTitle, Spinner } from '@ui'
 import { t } from '../i18n'
 import { displayNameOf } from './accounts-domain'
 import { errorMessage, shared, toast, type AccountRecord } from './accounts-shared'
 import { accountGrowthClient as api, canAcceptTask, canAutomateTask, taskState,
   type AccountGrowthDetails, type AccountGrowthQueue, type AccountGrowthTask } from './workbuddy-tasks-api'
+import { Empty, EmptyHeader, EmptyDescription } from '@ui'
 
 const CSS = `
 .growth-task-heading { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
@@ -22,8 +23,6 @@ const CSS = `
 .growth-task-number { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .growth-task-reward { display: flex; gap: 7px; flex-wrap: wrap; }
 .growth-task-empty { padding: 36px 0; color: var(--text-3); text-align: center; font-size: 12px; }
-.growth-task-notice { margin: 12px 0; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface-2); color: var(--text-2); font-size: 12px; line-height: 1.6; }
-.growth-task-error { color: var(--danger); }
 .growth-task-footer { flex-wrap: wrap; justify-content: flex-end; }
 .growth-task-count { color: var(--text-3); font-size: 11px; margin-right: auto; }
 @media(max-width: 640px) { .growth-task-count { width: 100%; } }
@@ -52,9 +51,9 @@ export function WorkBuddyTasksDialog({ account, onClose }: { account: AccountRec
   const ownItems = (queue?.items || []).filter(item => item.accountId === account.id)
   const running = queue?.running === true
   const blocked = loading || busy !== '' || running || queue === null || error !== '' || queueError !== ''
-  const completed = ownItems.filter(item => ['ok', 'failed', 'skipped'].includes(item.status)).length
+  const completed = ownItems.filter(item => ['ok', 'success', 'already', 'pending_verification', 'cancelled', 'failed', 'skipped'].includes(item.status)).length
   const acceptCount = tasks.filter(canAcceptTask).length
-  const autoCount = tasks.filter(canAutomateTask).length
+  const autoCount = tasks.filter(task => task.code !== 'black_cat' && canAutomateTask(task)).length
 
   const load = React.useCallback(async () => {
     setLoading(true); setError('')
@@ -125,7 +124,7 @@ export function WorkBuddyTasksDialog({ account, onClose }: { account: AccountRec
 
   return <Dialog open onOpenChange={open => { if (!open) onClose() }}>
     <style>{CSS}</style>
-    <DialogContent overlayClassName='z-[1099]' className='growth-task-dialog z-[1100] w-[min(960px,calc(100vw-40px))] max-sm:w-[calc(100vw-20px)] max-sm:max-h-[calc(100dvh-20px)]'>
+    <DialogContent layer='above-drawer' className='growth-task-dialog w-[min(960px,calc(100vw-40px))] max-sm:w-[calc(100vw-20px)] max-sm:max-h-[calc(100dvh-20px)]'>
       <DialogHeader>
         <div className='w-full'>
           <DialogTitle className='growth-task-heading'>
@@ -137,15 +136,15 @@ export function WorkBuddyTasksDialog({ account, onClose }: { account: AccountRec
         </div>
       </DialogHeader>
       <DialogBody className='growth-task-body gap-0 px-5 py-0'>
-        {error ? <div role='alert' className='growth-task-notice growth-task-error'>{error}</div> : null}
-        {busy ? <div role='status' className='growth-task-notice flex items-center gap-2'><Spinner className='size-3' />{t('正在处理…')}</div> : null}
-        {queueError ? <div role='alert' className='growth-task-notice growth-task-error'>{t('执行状态查询失败：{reason}', { reason: queueError })}</div> : null}
-        {running ? <div role='status' className='growth-task-notice'>
+        {error ? <Alert variant='destructive' className='my-3'><AlertDescription>{error}</AlertDescription></Alert> : null}
+        {busy ? <Alert role='status' className='my-3'><Spinner aria-hidden='true' /><AlertDescription>{t('正在处理…')}</AlertDescription></Alert> : null}
+        {queueError ? <Alert variant='destructive' className='my-3'><AlertDescription>{t('执行状态查询失败：{reason}', { reason: queueError })}</AlertDescription></Alert> : null}
+        {running ? <Alert role='status' className='my-3'><AlertDescription>
           {ownItems.length ? t('当前账号任务执行中：{done} / {total}，关闭弹窗后仍会继续。', { done: completed, total: ownItems.length })
             : t('其他成长任务正在执行，请等本轮结束后再操作。')}
-        </div> : null}
-        {loading && !details ? <div className='growth-task-empty flex items-center justify-center gap-2'><Spinner className='size-3' />{t('正在查询任务…')}</div> : null}
-        {!loading && details && tasks.length === 0 ? <div className='growth-task-empty'>{t('该账号暂无成长任务')}</div> : null}
+        </AlertDescription></Alert> : null}
+        {loading && !details ? <Empty variant='compact' className='growth-task-empty flex items-center justify-center gap-2'><EmptyHeader><EmptyDescription><Spinner className='size-3' />{t('正在查询任务…')}</EmptyDescription></EmptyHeader></Empty> : null}
+        {!loading && details && tasks.length === 0 ? <Empty variant='compact' className='growth-task-empty'><EmptyHeader><EmptyDescription>{t('该账号暂无成长任务')}</EmptyDescription></EmptyHeader></Empty> : null}
         {tasks.length ? <table className='growth-task-table'>
           <thead><tr><th>{t('任务')}</th><th>{t('进度')}</th><th>{t('奖励')}</th><th>{t('状态')}</th><th aria-label={t('操作')} /></tr></thead>
           <tbody>{tasks.map(task => <tr key={task.code}>
@@ -168,7 +167,7 @@ export function WorkBuddyTasksDialog({ account, onClose }: { account: AccountRec
       <DialogFooter className='growth-task-footer'>
         <span className='growth-task-count'>{details ? t('共 {n} 项 · 已领取 {done} 项', { n: tasks.length, done: tasks.filter(task => task.claimed).length }) : ''}</span>
         <Button variant='outline' disabled={blocked || !acceptCount} onClick={() => void act('accept')}>{t('全部接受')}</Button>
-        <Button disabled={blocked || !autoCount} onClick={() => void act('run')}>{t('一键完成可自动任务')}</Button>
+        <Button disabled={blocked || !autoCount} onClick={() => void act('run')}>{t('执行普通成长任务（不含夜猫）')}</Button>
         <Button variant='outline' disabled={loading || busy !== ''} onClick={() => { void load(); void poll() }}>{t('重新查询')}</Button>
         <Button variant='outline' onClick={onClose}>{t('关闭')}</Button>
       </DialogFooter>

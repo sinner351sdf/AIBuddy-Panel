@@ -18,7 +18,7 @@ import urllib.request
 import urllib.error
 
 ROOT = Path(__file__).resolve().parents[1]
-BINARY = ROOT / 'desktop-tauri/src-tauri/target/debug/agent2api-server'
+BINARY = ROOT / 'target/debug/agent2api-server'
 client = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 checks = 0
 def check(condition, message):

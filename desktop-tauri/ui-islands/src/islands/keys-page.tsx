@@ -1,9 +1,18 @@
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ui'
+import { EyeIcon, EyeOffIcon, CopyIcon, RocketIcon, EllipsisIcon, ShieldCheckIcon, GaugeIcon, Trash2Icon } from '@ui/navigation-icons'
 import { localApi } from './local-api'
 import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 import {
+  cn,
+  Alert,
+  AlertDescription,
   Badge,
   Button,
+  Progress,
+  Table, TableHeader, TableHead, TableBody, TableRow, TableCell,
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator,
   buttonVariants,
   Checkbox,
   Dialog,
@@ -14,15 +23,19 @@ import {
   DialogSection,
   DialogTitle,
   Input,
+  Field,
+  FieldContent,
+  FieldGroup,
+  FieldLabel,
   Label,
   MultiSelect,
-  SegmentedControl,
   Switch,
   type MultiSelectOption,
 } from '@ui'
 import { toDataURL } from 'qrcode'
 import { TableFooter, useClientPaging } from './table-shell'
 import { t } from '../i18n'
+import { Card, CardHeader, CardTitle, Empty, EmptyHeader, EmptyDescription } from '@ui'
 
 /**
  * Agent2API · 网关 Key 页（列表 / 新建 / 启停 / 删除 / 可用范围 / 快速接入）—— React 岛。
@@ -591,63 +604,67 @@ function KeyModal({ target, providers, modelsByProvider, onClose, onSaved }: Key
         </DialogHeader>
         <DialogBody>
           <DialogSection>
-            <div className='flex flex-wrap items-center gap-2.5'>
-              <Label htmlFor='key-name' className='text-[12.5px] whitespace-nowrap text-subtle'>{t('名称')}</Label>
-              <Input id='key-name' type='text' maxLength={60} placeholder={t('例如 Cursor / 公司电脑')}
-                autoComplete='off' value={name} disabled={editing}
-                onChange={event => setName(event.currentTarget.value)} />
-            </div>
-            {/* 编辑形态**不渲染** Key 输入行：那一行在改范围时没有意义（Key 值不可改）。
-                这里既没有常驻需求也没有状态要保，条件渲染最省事 —— 属性式显隐留给
-                节点必须常驻的场合（组件库 globals.css 的 [hidden][hidden] 已给它兜底）。 */}
-            {!editing && (
-              <div className='flex flex-wrap items-center gap-2.5'>
-                <Label htmlFor='key-value' className='text-[12.5px] whitespace-nowrap text-subtle'>Key</Label>
-                <Input id='key-value' type='text' placeholder={t('留空自动生成；手填至少 8 个字符')}
-                  autoComplete='off' spellCheck={false} value={keyValue}
-                  onChange={event => setKeyValue(event.currentTarget.value)}
-                  // 回车 = 提交（旧实现只绑在这一个输入框上）
-                  onKeyDown={event => { if (event.key === 'Enter') void save() }} />
-              </div>
-            )}
-            {/* 两个多选走组件库的 MultiSelect（受控）。宽度规则（min 180 / max 260）原先是
-                page-gateway.css 按 `#key-allowed-providers` / `#key-allowed-models` 给的，
-                而 MultiSelect 的触发器不吃 id（组件库不转发）—— 那条规则成了死规则，
-                等价的宽度锚只能自己带：flex-auto 就是旧 CSS 里的 `flex: 1 1 auto`。
-                触发器上没有可见 label 与之关联（同样没有 id 可给 htmlFor），所以 aria-label
-                必须给，否则读屏只念到一串连接起来的选项名。 */}
-            <div className='flex flex-wrap items-center gap-2.5'>
-              <Label className='text-[12.5px] whitespace-nowrap text-subtle'>{t('可用提供商')}</Label>
-              <MultiSelect
-                value={allowedProviders}
-                onValueChange={setPickedProviders}
-                options={providerOptions}
-                placeholder={t('留空 = 不限制')}
-                searchPlaceholder={t('搜索提供商…')}
-                aria-label={t('可用提供商')}
-                className='flex-auto min-w-[180px] max-w-[260px]'
-              />
-            </div>
-            <div className='flex flex-wrap items-center gap-2.5'>
-              <Label className='text-[12.5px] whitespace-nowrap text-subtle'>{t('可用模型')}</Label>
-              <MultiSelect
-                value={allowedModels}
-                onValueChange={setPickedModels}
-                options={modelCandidates}
-                placeholder={t('留空 = 不限制')}
-                emptyHint={modelEmptyHint}
-                searchPlaceholder={t('搜索模型…')}
-                aria-label={t('可用模型')}
-                className='flex-auto min-w-[180px] max-w-[260px]'
-              />
-            </div>
-            <p>
-              {t('留空表示不限制；同时设置时请求需同时满足两个条件（模型在白名单内且路由到允许的提供商）。 「可用模型」的候选跟着上面勾选的提供商走：没勾提供商时它是空的（还没有约束范围）， 勾了几家就列出这几家能收的全部对外名。')}
-            </p>
-            {/* 当前选的摘要：多选的触发器上只显示「连接后的一行文案」，清单长了会被省略号
-                收掉 —— 勾了哪几家 / 哪些模型要在这儿摊开。id 沿用旧实现的：page-gateway.css
-                按它给这行加了上边距（它是「当前选择」而不是「使用说明」）。 */}
-            <p id='key-restrict-summary'>{restrictionSummary(allowedProviders, allowedModels)}</p>
+            <FieldGroup className='gap-2.5'>
+              <Field orientation='horizontal' className='flex flex-row flex-wrap items-center gap-2.5 *:data-[slot=field-label]:flex-none' data-disabled={editing}>
+                <FieldLabel htmlFor='key-name' className='flex-none text-[12.5px] whitespace-nowrap text-subtle'>{t('名称')}</FieldLabel>
+                <Input id='key-name' type='text' maxLength={60} placeholder={t('例如 Cursor / 公司电脑')}
+                  autoComplete='off' value={name} disabled={editing}
+                  onChange={event => setName(event.currentTarget.value)} />
+              </Field>
+              {/* 编辑形态**不渲染** Key 输入行：那一行在改范围时没有意义（Key 值不可改）。
+                  这里既没有常驻需求也没有状态要保，条件渲染最省事 —— 属性式显隐留给
+                  节点必须常驻的场合（组件库 globals.css 的 [hidden][hidden] 已给它兜底）。 */}
+              {!editing && (
+                <Field orientation='horizontal' className='flex flex-row flex-wrap items-center gap-2.5 *:data-[slot=field-label]:flex-none'>
+                  <FieldLabel htmlFor='key-value' className='flex-none text-[12.5px] whitespace-nowrap text-subtle'>Key</FieldLabel>
+                  <Input id='key-value' type='text' placeholder={t('留空自动生成；手填至少 8 个字符')}
+                    autoComplete='off' spellCheck={false} value={keyValue}
+                    onChange={event => setKeyValue(event.currentTarget.value)}
+                    // 回车 = 提交（旧实现只绑在这一个输入框上）
+                    onKeyDown={event => { if (event.key === 'Enter') void save() }} />
+                </Field>
+              )}
+              {/* 两个多选走组件库的 MultiSelect（受控）。宽度规则（min 180 / max 260）原先是
+                  page-gateway.css 按 `#key-allowed-providers` / `#key-allowed-models` 给的，
+                  而这两处 MultiSelect 没有沿用旧 id —— 那条规则不再命中，
+                  等价的宽度锚只能自己带：flex-auto 就是旧 CSS 里的 `flex: 1 1 auto`。
+                  触发器通过 aria-labelledby 关联可见标签；同时保留 aria-label，
+                  与旧版本的读屏命名保持兼容。 */}
+              <Field orientation='horizontal' className='flex flex-row flex-wrap items-center gap-2.5 *:data-[slot=field-label]:flex-none'>
+                <FieldLabel id='key-providers-label' className='flex-none text-[12.5px] whitespace-nowrap text-subtle'>{t('可用提供商')}</FieldLabel>
+                <MultiSelect
+                  value={allowedProviders}
+                  onValueChange={setPickedProviders}
+                  options={providerOptions}
+                  placeholder={t('留空 = 不限制')}
+                  searchPlaceholder={t('搜索提供商…')}
+                  aria-label={t('可用提供商')}
+                  aria-labelledby='key-providers-label'
+                  className='flex-auto min-w-[180px] max-w-[260px]'
+                />
+              </Field>
+              <Field orientation='horizontal' className='flex flex-row flex-wrap items-center gap-2.5 *:data-[slot=field-label]:flex-none'>
+                <FieldLabel id='key-models-label' className='flex-none text-[12.5px] whitespace-nowrap text-subtle'>{t('可用模型')}</FieldLabel>
+                <MultiSelect
+                  value={allowedModels}
+                  onValueChange={setPickedModels}
+                  options={modelCandidates}
+                  placeholder={t('留空 = 不限制')}
+                  emptyHint={modelEmptyHint}
+                  searchPlaceholder={t('搜索模型…')}
+                  aria-label={t('可用模型')}
+                  aria-labelledby='key-models-label'
+                  className='flex-auto min-w-[180px] max-w-[260px]'
+                />
+              </Field>
+              <p>
+                {t('留空表示不限制；同时设置时请求需同时满足两个条件（模型在白名单内且路由到允许的提供商）。 「可用模型」的候选跟着上面勾选的提供商走：没勾提供商时它是空的（还没有约束范围）， 勾了几家就列出这几家能收的全部对外名。')}
+              </p>
+              {/* 当前选的摘要：多选的触发器上只显示「连接后的一行文案」，清单长了会被省略号
+                  收掉 —— 勾了哪几家 / 哪些模型要在这儿摊开。id 沿用旧实现的：page-gateway.css
+                  按它给这行加了上边距（它是「当前选择」而不是「使用说明」）。 */}
+              <p id='key-restrict-summary'>{restrictionSummary(allowedProviders, allowedModels)}</p>
+            </FieldGroup>
           </DialogSection>
           <div className='min-h-[18px] text-[11.5px] text-muted-foreground'>{status}</div>
         </DialogBody>
@@ -784,7 +801,7 @@ function QuickQrCard({ payload, fileName }: { payload: string; fileName: string 
         {/* 下载走 a[download]：DataURL 同源可直接落盘；DataURL 没就绪前先禁点
             （buttonVariants 只出样式串，禁用态在这里手工补） */}
         <a
-          className={`${buttonVariants({ variant: 'outline', size: 'sm' })}${url ? '' : ' pointer-events-none opacity-45'}`}
+          className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), url ? '' : 'pointer-events-none opacity-45')}
           href={url || undefined}
           download={fileName}
           aria-disabled={!url}
@@ -796,6 +813,49 @@ function QuickQrCard({ payload, fileName }: { payload: string; fileName: string 
   )
 }
 
+/** Compact actions keep the secret masked by default and use the existing clipboard delegate. */
+export function KeyValue({ value, masked, shown, onToggle }: { value: string; masked: string; shown: boolean; onToggle(): void }) {
+  const revealLabel = t(shown ? '隐藏 Key 明文' : '显示 Key 明文')
+  return <TooltipProvider><div className='flex min-w-0 items-center gap-1'>
+    <code className='min-w-0 truncate font-mono text-xs'>{shown ? value : masked}</code>
+    <Tooltip>
+      <TooltipTrigger render={<Button size='icon-xs' variant='ghost' aria-label={revealLabel} aria-pressed={shown} onClick={onToggle} />}>
+        {shown ? <EyeOffIcon data-icon='inline-start' /> : <EyeIcon data-icon='inline-start' />}
+      </TooltipTrigger>
+      <TooltipContent>{revealLabel}</TooltipContent>
+    </Tooltip>
+    <Tooltip>
+      <TooltipTrigger render={<Button size='icon-xs' variant='ghost' data-copy={value} aria-label={t('复制 Key')} />}>
+        <CopyIcon data-icon='inline-start' />
+      </TooltipTrigger>
+      <TooltipContent>{t('复制 Key')}</TooltipContent>
+    </Tooltip>
+  </div></TooltipProvider>
+}
+
+export function KeyRowActions({ disabled, onQuickAccess, onRestrictions, onQuota, onRemove }: {
+  disabled: boolean; onQuickAccess(): void; onRestrictions(): void; onQuota(): void; onRemove(): void
+}) {
+  return <div className='flex flex-wrap items-center justify-end gap-1'>
+    <Button size='sm' variant='outline' disabled={disabled} onClick={onQuickAccess}>
+      <RocketIcon data-icon='inline-start' />{t('快速接入')}
+    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<Button size='icon-sm' variant='ghost' disabled={disabled} aria-label={t('更多操作')} />}>
+        <EllipsisIcon data-icon='inline-start' />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align='end' className='min-w-40'>
+        <DropdownMenuGroup>
+          <DropdownMenuItem onClick={onRestrictions}><ShieldCheckIcon />{t('可用范围')}</DropdownMenuItem>
+          <DropdownMenuItem onClick={onQuota}><GaugeIcon />{t('额度管理')}</DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup><DropdownMenuItem variant='destructive' onClick={onRemove}><Trash2Icon />{t('删除')}</DropdownMenuItem></DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  </div>
+}
+
 function QuickAccessModal({ target, onClose }: { target: KeyEntry; onClose: () => void }) {
   const [tab, setTab] = React.useState<QuickTabKind>('openai')
   /** 明文显示开关：默认掩码，眼睛按钮切全量（与列表行的 显示/隐藏 同一意图） */
@@ -803,7 +863,6 @@ function QuickAccessModal({ target, onClose }: { target: KeyEntry; onClose: () =
 
   const keyValue = target.key ?? ''
   const base = window.location.origin
-  const snippet = quickSnippet(tab, base, keyValue)
 
   return (
     <Dialog
@@ -820,46 +879,24 @@ function QuickAccessModal({ target, onClose }: { target: KeyEntry; onClose: () =
           <DialogSection>
             {/* Key 行复用列表 keycell 的结构钩子（page-gateway.css 全局可用）：
                 .kv 自带省略号折叠，明文再长也不撑破弹窗 */}
-            <div className='keycell'>
-              <Label className='text-[12.5px] whitespace-nowrap text-subtle'>Key</Label>
-              <code className='kv'>{shown ? keyValue : maskedKeyOf(target)}</code>
-              <Button size='icon-xs' variant='ghost'
-                aria-label={shown ? '隐藏 Key 明文' : '显示 Key 明文'}
-                title={shown ? '隐藏 Key 明文' : '显示 Key 明文'}
-                onClick={() => setShown(value => !value)}>
-                {shown ? '🙈' : '👁'}
-              </Button>
-              {/* data-copy 是 clipboard.js 的委托钩子（弹窗虽 portal 到 body，委托在
-                  document 上照样命中）；复制永远带明文，与掩码显示互不影响 */}
-              <Button size='sm' variant='ghost' data-copy={keyValue} title='复制 Key'>复制</Button>
+            <div className='flex min-w-0 items-center gap-2'>
+              <Label className='shrink-0'>Key</Label>
+              <KeyValue value={keyValue} masked={maskedKeyOf(target)} shown={shown} onToggle={() => setShown(value => !value)} />
             </div>
             <p className='text-[11.5px] text-muted-foreground'>⚠ Key 即凭证，请勿外传；泄露后请在本页删除并重建。</p>
           </DialogSection>
           <DialogSection>
-            <div className='flex flex-wrap items-center gap-2.5'>
-              <SegmentedControl value={tab} onValueChange={setTab}
-                options={QUICK_TABS} aria-label='选择客户端类型' />
-            </div>
-            {keyValue ? (
-              <div className='relative'>
-                <pre
-                  className='m-0 overflow-x-auto rounded-[var(--r-sm)] bg-[var(--surface-inset)] p-[14px] font-mono text-[12px] leading-[1.7] whitespace-pre'
-                >{snippet}</pre>
-                {/* 复制的是当前分段的完整片段（含真实 Key）：文本挂在 data-copy 属性上，
-                    显示与复制解耦 —— 以后就算把片段里的 Key 也做掩码，复制出的仍是可用的 */}
-                <Button
-                  variant='ghost'
-                  size='icon-xs'
-                  className='copy-btn absolute right-[10px] top-[10px] size-[24px] rounded-[var(--r-xs)] bg-[var(--surface)]'
-                  data-copy={snippet}
-                  title='复制配置'
-                >
-                  ⧉
-                </Button>
-              </div>
-            ) : (
-              <p className='text-[12px] text-muted-foreground'>这把 Key 的明文不在当前数据里，无法生成配置；请刷新页面后重试。</p>
-            )}
+            <Tabs value={tab} onValueChange={next => setTab(String(next) as QuickTabKind)}>
+              <TabsList aria-label='选择客户端类型'>
+                {QUICK_TABS.map(option => <TabsTrigger key={option.value} value={option.value}>{option.label}</TabsTrigger>)}
+              </TabsList>
+              {QUICK_TABS.map(option => <TabsContent key={option.value} value={option.value} keepMounted>
+                {keyValue ? <div className='relative'>
+                  <pre className='m-0 overflow-x-auto rounded-[var(--r-sm)] bg-[var(--surface-inset)] p-[14px] font-mono text-[12px] leading-[1.7] whitespace-pre'>{quickSnippet(option.value, base, keyValue)}</pre>
+                  <Button variant='copy-surface' size='icon-xs' className='copy-btn absolute right-[10px] top-[10px]' data-copy={quickSnippet(option.value, base, keyValue)} title='复制配置'>⧉</Button>
+                </div> : <p className='text-[12px] text-muted-foreground'>这把 Key 的明文不在当前数据里，无法生成配置；请刷新页面后重试。</p>}
+              </TabsContent>)}
+            </Tabs>
             <p className='text-[11.5px] text-muted-foreground'>
               Base URL 取当前页面地址（{base}）；跨机访问时换成网关所在主机的地址。
             </p>
@@ -981,13 +1018,15 @@ function CodexWriteSection({ keyValue }: { keyValue: string }) {
         </>
       ) : null}
       {phase === 'ready' && status ? (
-        <>
+        <FieldGroup className='gap-2.5'>
           <p>
             写入位置：<code>{dir}</code>；base_url 将写为 <code>{baseUrl || serverUrl}/v1</code>
             （写入的是网关服务所在电脑的配置；远程浏览器不会修改自己的电脑）。
           </p>
-          <Label htmlFor='codex-base-url'>网关地址（反向代理请填写外部 API 地址）</Label>
-          <Input id='codex-base-url' value={baseUrl} disabled={busy} onChange={event => setBaseUrl(event.currentTarget.value)} />
+          <Field className='flex flex-col gap-2.5' data-disabled={busy}>
+            <FieldLabel htmlFor='codex-base-url'>网关地址（反向代理请填写外部 API 地址）</FieldLabel>
+            <Input id='codex-base-url' value={baseUrl} disabled={busy} onChange={event => setBaseUrl(event.currentTarget.value)} />
+          </Field>
           <ul className='m-0 list-disc pl-5 text-[12px] leading-[1.7]'>
             <li>
               config.toml：
@@ -1001,10 +1040,10 @@ function CodexWriteSection({ keyValue }: { keyValue: string }) {
               <li>已有备份将保留，本次另存一份独立备份</li>
             ) : null}
           </ul>
-          <div className='keycell'>
-            <Label htmlFor='codex-api-key' className='text-[12.5px] whitespace-nowrap text-subtle'>
+          <Field orientation='horizontal' className='keycell flex flex-row items-center gap-1.5 *:data-[slot=field-label]:flex-none' data-disabled={busy}>
+            <FieldLabel htmlFor='codex-api-key' className='flex-none text-[12.5px] whitespace-nowrap text-subtle'>
               API Key（写入 auth.json）
-            </Label>
+            </FieldLabel>
             <Input id='codex-api-key' type={shown ? 'text' : 'password'}
               placeholder='粘贴网关 Key；留空则跳过 auth.json'
               autoComplete='off' spellCheck={false} value={apiKey} disabled={busy}
@@ -1015,7 +1054,7 @@ function CodexWriteSection({ keyValue }: { keyValue: string }) {
               onClick={() => setShown(value => !value)}>
               {shown ? '🙈' : '👁'}
             </Button>
-          </div>
+          </Field>
           <p className='text-[11.5px] text-muted-foreground'>
             默认预填本把 Key 的明文，可清空后另贴；留空则只写 config.toml、跳过 auth.json
             （Codex 沿用现有登录方式）。写入完成后需重启 Codex CLI 才会生效。
@@ -1024,13 +1063,15 @@ function CodexWriteSection({ keyValue }: { keyValue: string }) {
             <Button variant='outline' disabled={busy} onClick={() => setPhase('idle')}>取消</Button>
             <Button variant='default' disabled={busy} onClick={() => void write()}>写入配置</Button>
           </div>
-        </>
+        </FieldGroup>
       ) : null}
       {phase === 'done' && result ? (
-        <>
+        <FieldGroup className='gap-2.5'>
           <p>写入完成：</p>
-          <Label htmlFor='codex-base-url'>网关地址（反向代理请填写外部 API 地址）</Label>
-          <Input id='codex-base-url' value={baseUrl} disabled={busy} onChange={event => setBaseUrl(event.currentTarget.value)} />
+          <Field className='flex flex-col gap-2.5' data-disabled={busy}>
+            <FieldLabel htmlFor='codex-base-url'>网关地址（反向代理请填写外部 API 地址）</FieldLabel>
+            <Input id='codex-base-url' value={baseUrl} disabled={busy} onChange={event => setBaseUrl(event.currentTarget.value)} />
+          </Field>
           <ul className='m-0 list-disc pl-5 text-[12px] leading-[1.7]'>
             {(result.written ?? []).map(name => (
               <li key={`w-${name}`}>✅ 已写入 <code>{name}</code></li>
@@ -1059,7 +1100,7 @@ function CodexWriteSection({ keyValue }: { keyValue: string }) {
             onClick={() => { setResult(null); setPhase('idle') }}>
             重新检测
           </Button>
-        </>
+        </FieldGroup>
       ) : null}
       <div className='min-h-[18px] text-[11.5px] text-muted-foreground'>{note}</div>
     </DialogSection>
@@ -1148,9 +1189,7 @@ function msToLocalInputValue(ms: number | null | undefined): string {
  *
  * 数据源 quotaMap 优先（带已用读数），还没读到 / 读失败时回落列表自带的
  * quotaTokens / expiresAt：进度条要已用数，没有就只给文字，**不摆一条 0% 的
- * 空条冒充「还没用」**。自绘进度条而不是组件库 Progress：那件的指示器配色
- * 锁在 bg-primary，无法从外部按阈值换 --warn / --danger；role/aria 在这里
- * 手工补齐（与 Base UI 的 Progress 同一组无障碍属性）。
+ * 空条冒充「还没用」**。使用共享 Progress 的语义 tone 表达剩余额度阈值。
  */
 function KeyQuotaArea({ entry, quota }: { entry: KeyEntry; quota: KeyQuota | undefined }) {
   const read = quota ?? null
@@ -1165,7 +1204,7 @@ function KeyQuotaArea({ entry, quota }: { entry: KeyEntry; quota: KeyQuota | und
       className='flex min-w-0 flex-col gap-[3px] text-[11.5px] leading-[1.5]'
       title='配额按 Key 维度累计转发 Token 用量，用尽后这把 Key 的请求会被拒绝；到期后 Key 立即失效。'
     >
-      {read?.meteringError && <div role='alert' className='text-[var(--danger)]'>用量账本读取失败；受额度限制的新请求已暂停。</div>}
+      {read?.meteringError && <Alert variant='destructive'><AlertDescription>用量账本读取失败；受额度限制的新请求已暂停。</AlertDescription></Alert>}
       {quotaTokens === null ? (
         // 未设配额：不限额也要写出来；已用读数在手时顺带展示（one-api 不限额度也显示已用）
         <div className='text-[var(--text-3)]'>
@@ -1176,23 +1215,11 @@ function KeyQuotaArea({ entry, quota }: { entry: KeyEntry; quota: KeyQuota | und
         <div className='text-[var(--text-3)]'>限额 {formatTokens(quotaTokens)} tokens · 已用统计待读</div>
       ) : (
         <>
-          <div
-            role='progressbar'
+          <Progress
+            value={Math.min(Math.max(used / quotaTokens, 0), 1) * 100}
+            tone={quotaTone(used, quotaTokens) === 'danger' ? 'destructive' : quotaTone(used, quotaTokens) === 'warn' ? 'warning' : 'default'}
             aria-label={`额度使用 ${formatTokens(used)} / ${formatTokens(quotaTokens)} tokens`}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(Math.min(Math.max(used / quotaTokens, 0), 1) * 100)}
-            className='h-[5px] w-full overflow-hidden rounded-[var(--r-pill)] bg-[var(--surface-3)]'
-          >
-            {/* used 可能越过配额（超用），宽度封顶 100% */}
-            <div
-              className='h-full rounded-[inherit] transition-[width] duration-300 ease-out'
-              style={{
-                width: `${Math.min(Math.max(used / quotaTokens, 0), 1) * 100}%`,
-                background: BAR_COLOR[quotaTone(used, quotaTokens)],
-              }}
-            />
-          </div>
+          />
           <div className='tabular-nums'>
             已用 {formatTokens(used)} / {formatTokens(quotaTokens)}
             <span className='text-[var(--text-3)]'> tokens · 剩余 {formatTokens(Math.max(quotaTokens - used, 0))}</span>
@@ -1201,7 +1228,7 @@ function KeyQuotaArea({ entry, quota }: { entry: KeyEntry; quota: KeyQuota | und
       )}
       {(() => {
         const view = expiryView(expiresAt, expired)
-        if (!view) return <div className='text-[var(--text-3)]'>永久有效</div>
+        if (!view) return <div className='text-muted-foreground'>{t('永久有效')}</div>
         return <div style={{ color: EXPIRY_COLOR[view.tone] }}>{view.text}</div>
       })()}
     </div>
@@ -1301,37 +1328,41 @@ function QuotaModal({ target, quota, onClose, onSaved }: QuotaModalProps) {
           <DialogTitle>额度管理 · {target.name || '未命名'}</DialogTitle>
         </DialogHeader>
         <DialogBody>
-          {quota?.meteringError && <p role='alert' className='text-[var(--danger)]'>用量账本读取失败，请修复或恢复有效备份后再调整额度。{quota.meteringError}</p>}
+          {quota?.meteringError && <Alert variant='destructive'><AlertDescription>用量账本读取失败，请修复或恢复有效备份后再调整额度。{quota.meteringError}</AlertDescription></Alert>}
           <DialogSection>
-            <div className='flex flex-wrap items-center gap-2.5'>
-              <Label htmlFor='key-quota-input' className='text-[12.5px] whitespace-nowrap text-subtle'>配额 Token 数</Label>
-              <Input id='key-quota-input' type='text' inputMode='numeric' placeholder='留空 = 不限额'
-                autoComplete='off' className='max-w-[220px]' value={quotaText}
-                onChange={event => setQuotaText(event.currentTarget.value)} />
-            </div>
-            <p className='text-[11.5px] text-muted-foreground'>
-              配额按 <b>Key 维度</b>累计转发 Token 用量（所有经这把 Key 的请求加总），用尽后这把 Key
-              的请求会被拒绝。留空表示不限额。{used !== null ? `当前已用 ${formatTokens(used)} tokens。` : ''}
-            </p>
-            <div className='flex flex-wrap items-center gap-2.5'>
-              <Label htmlFor='key-expiry-input' className='text-[12.5px] whitespace-nowrap text-subtle'>到期时间</Label>
-              <Input id='key-expiry-input' type='datetime-local' className='max-w-[220px]'
-                value={expiryText} onChange={event => setExpiryText(event.currentTarget.value)} />
-            </div>
-            <p className='text-[11.5px] text-muted-foreground'>
-              留空表示永久有效；请求进入网关时校验有效期，已通过校验的在途请求不会被中断。
-            </p>
-            {/* Checkbox 的关联用 <label> 包裹（组件库的 Checkbox 是 button 形态，
-                htmlFor 关联不上；点击文字切换与账号页批量栏同一手法） */}
-            <label className='flex cursor-pointer flex-wrap items-center gap-2'>
-              <Checkbox checked={resetUsed} onCheckedChange={next => setResetUsed(next === true)}
-                aria-label='保存时同时清零已用计数' />
-              <span className='text-[12.5px]'>保存时同时清零已用计数（重新开始计量）</span>
-            </label>
-            <p>
-              保存立即生效：改配额不清零已用（历史事实），勾选上面一项才会清零；两项留空 / 不勾
-              就按输入框里的值保存（空 = 清除该限制）。
-            </p>
+            <FieldGroup className='gap-2.5'>
+              <Field orientation='horizontal' className='flex flex-row flex-wrap items-center gap-2.5 *:data-[slot=field-label]:flex-none'>
+                <FieldLabel htmlFor='key-quota-input' className='flex-none text-[12.5px] whitespace-nowrap text-subtle'>配额 Token 数</FieldLabel>
+                <Input id='key-quota-input' type='text' inputMode='numeric' placeholder='留空 = 不限额'
+                  autoComplete='off' className='max-w-[220px]' value={quotaText}
+                  onChange={event => setQuotaText(event.currentTarget.value)} />
+              </Field>
+              <p className='text-[11.5px] text-muted-foreground'>
+                配额按 <b>Key 维度</b>累计转发 Token 用量（所有经这把 Key 的请求加总），用尽后这把 Key
+                的请求会被拒绝。留空表示不限额。{used !== null ? `当前已用 ${formatTokens(used)} tokens。` : ''}
+              </p>
+              <Field orientation='horizontal' className='flex flex-row flex-wrap items-center gap-2.5 *:data-[slot=field-label]:flex-none'>
+                <FieldLabel htmlFor='key-expiry-input' className='flex-none text-[12.5px] whitespace-nowrap text-subtle'>到期时间</FieldLabel>
+                <Input id='key-expiry-input' type='datetime-local' className='max-w-[220px]'
+                  value={expiryText} onChange={event => setExpiryText(event.currentTarget.value)} />
+              </Field>
+              <p className='text-[11.5px] text-muted-foreground'>
+                留空表示永久有效；请求进入网关时校验有效期，已通过校验的在途请求不会被中断。
+              </p>
+              <Field orientation='horizontal' className='flex flex-row flex-wrap items-center gap-2 has-[>[data-slot=field-content]]:items-center'>
+                <Checkbox id='key-reset-used' checked={resetUsed} onCheckedChange={next => setResetUsed(next === true)}
+                  aria-label='保存时同时清零已用计数' />
+                <FieldContent>
+                  <FieldLabel htmlFor='key-reset-used' className='cursor-pointer text-[12.5px]'>
+                    保存时同时清零已用计数（重新开始计量）
+                  </FieldLabel>
+                </FieldContent>
+              </Field>
+              <p>
+                保存立即生效：改配额不清零已用（历史事实），勾选上面一项才会清零；两项留空 / 不勾
+                就按输入框里的值保存（空 = 清除该限制）。
+              </p>
+            </FieldGroup>
           </DialogSection>
           <div className='min-h-[18px] text-[11.5px] text-muted-foreground'>{status}</div>
         </DialogBody>
@@ -1556,7 +1587,7 @@ function KeysPage() {
   /* ─── 渲染 ─────────────────────────────── */
 
   const keys = keysOf(data)
-  /** 客户端分页（通用表格外壳）：Key 通常只有几把，但口径与其它四张表保持一致 */
+  /** 客户端分页（通用表格外壳）：Key 通常只有几把，但口径与其它五张表保持一致 */
   const paging = useClientPaging(keys.length, 'keys')
   const list = paging.paged ? paging.slice(keys) : keys
   const columns = visibleColumns()
@@ -1585,14 +1616,7 @@ function KeysPage() {
         return (
           // Key 列是全表最宽的一列，进度条放这里才铺得开（名称列还有限制摘要要摆）
           <div className='flex min-w-0 flex-col gap-[6px]'>
-            <div className='keycell'>
-              <code className='kv'>{shown ? k.key : k.masked}</code>
-              <Button size='sm' variant='ghost' onClick={() => toggleReveal(k.id)}>
-                {shown ? '隐藏' : '显示'}
-              </Button>
-              {/* data-copy 是 clipboard.js 的委托钩子 */}
-              <Button size='sm' variant='ghost' data-copy={k.key} title='复制 Key'>复制</Button>
-            </div>
+            <KeyValue value={k.key ?? ''} masked={maskedKeyOf(k)} shown={shown} onToggle={() => toggleReveal(k.id)} />
             <KeyQuotaArea entry={k} quota={quotaMap[k.id]} />
           </div>
         )
@@ -1609,21 +1633,9 @@ function KeysPage() {
         )
       case 'act':
         return (
-          <div className='row-actions'>
-            <Button size='sm' variant='ghost' disabled={busyRow} onClick={() => setQuickId(k.id)}>
-              快速接入
-            </Button>
-            <Button size='sm' variant='ghost' disabled={busyRow} onClick={() => setModal({ key: k })}>
-              {t('可用范围')}
-            </Button>
-            <Button size='sm' variant='ghost' disabled={busyRow} onClick={() => setQuotaId(k.id)}>
-              额度管理
-            </Button>
-            <Button size='sm' variant='destructive' disabled={busyRow}
-              onClick={() => void removeKey(k)}>
-              {t('删除')}
-            </Button>
-          </div>
+          <KeyRowActions disabled={busyRow} onQuickAccess={() => setQuickId(k.id)}
+            onRestrictions={() => setModal({ key: k })} onQuota={() => setQuotaId(k.id)}
+            onRemove={() => void removeKey(k)} />
         )
       default:
         return null
@@ -1631,11 +1643,10 @@ function KeysPage() {
   }
 
   return (
-    <section className='panel'>
-      <div className='panel-head'>
-        <h2>{t('API Key 列表')}</h2>
-        {/* id 与 data-tone 保留：app.js 的 renderTopbarStatus 按 id 镜像这枚徽标的文案
-            与配色（data-tone 有值走它，不去拆组件库 Badge 那串 Tailwind 类名） */}
+    <Card as='section' variant='panel' size='sm' className='panel'>
+      <CardHeader variant='panel' className='panel-head'>
+        <CardTitle>{t('API Key 列表')}</CardTitle>
+        {/* 页面自身保留鉴权状态，顶栏不再重复展示。 */}
         <Badge id='keys-status' variant={authRequired ? 'success' : 'warning'}
           data-tone={authRequired ? 'ok' : 'warn'}>
           {badgeText}
@@ -1647,10 +1658,9 @@ function KeysPage() {
             {t('＋ 新建 Key')}
           </Button>
         </div>
-      </div>
+      </CardHeader>
 
-      <div className='models-table-wrap'>
-        <table className='models-table keys-table'>
+      <Table className='models-table keys-table table-fixed' containerClassName='models-table-wrap'>
           {/* colgroup / thead 由本文件渲染，但 data-col 一个不少：列设置的就地重排
               （syncStaticHead）与列宽层（table-columns.js）都按它定位列 */}
           <colgroup>
@@ -1660,40 +1670,39 @@ function KeysPage() {
             <col className='k-state' data-col='state' />
             <col className='k-act' data-col='act' />
           </colgroup>
-          <thead>
-            <tr>
-              <th data-col='name'>{t('名称')}</th>
+          <TableHeader>
+            <TableRow>
+              <TableHead data-col='name'>{t('名称')}</TableHead>
               {/* 「Key」是产品固定叫法（无中文），不进词典 */}
-              <th data-col='key'>Key</th>
-              <th data-col='time'>{t('创建时间')}</th>
-              <th data-col='state'>{t('启用')}</th>
-              <th className='r' data-col='act'>{t('操作')}</th>
-            </tr>
-          </thead>
-          <tbody>
+              <TableHead data-col='key'>Key</TableHead>
+              <TableHead data-col='time'>{t('创建时间')}</TableHead>
+              <TableHead data-col='state'>{t('启用')}</TableHead>
+              <TableHead className='r' data-col='act'>{t('操作')}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {list.length ? list.map(k => {
               const busyRow = pending.has(k.id)
               return (
-                <tr key={k.id} className={k.enabled ? '' : 'off'} data-id={k.id}>
+                <TableRow key={k.id} className={cn(k.enabled ? '' : 'off')} data-id={k.id}>
                   {columns.map(column => (
-                    <td key={column.key} className={`${CELL_CLASS[column.key] ?? ''} ta-${column.align}`}>
+                    <TableCell key={column.key} className={cn(CELL_CLASS[column.key] ?? '', `ta-${column.align}`)}>
                       {cell(column.key, k, busyRow)}
-                    </td>
+                    </TableCell>
                   ))}
-                </tr>
+                </TableRow>
               )
             }) : (
               // 空态的 colspan 跟着可见列数走：写死 5 之后藏起两列，这一格会比表体宽出
               // 两格，把整张表顶出横向滚动
-              <tr>
-                <td colSpan={columns.length} className='empty'>
+              <TableRow>
+                <TableCell colSpan={columns.length} className='empty'><Empty variant='compact'><EmptyHeader><EmptyDescription>
                   {data ? t('还没有 Key，当前不鉴权') : t('加载中…')}
-                </td>
-              </tr>
+                </EmptyDescription></EmptyHeader></Empty></TableCell>
+              </TableRow>
             )}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+      </Table>
 
       <TableFooter
         leading={(
@@ -1749,7 +1758,7 @@ function KeysPage() {
           onSaved={next => handleQuotaSaved(quotaTarget.id, next)}
         />
       ) : null}
-    </section>
+    </Card>
   )
 }
 

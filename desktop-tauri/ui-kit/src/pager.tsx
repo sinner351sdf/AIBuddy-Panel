@@ -2,37 +2,21 @@ import * as React from 'react'
 import { Button } from './button'
 import { cn } from './lib/cn'
 import { t } from './i18n'
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink } from './pagination'
+import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 
-/**
- * 分页器（项目扩展，shadcn 标准里没有对应件）。
- *
- * 为什么另起一个而不是照搬 shadcn 的 Pagination：那个是「链接式页码条」
- * （一组带 href 的页码链接，按页码跳转），适合静态站点；本项目两处用分页的地方
- * （请求日志、运行日志）都是 **offset 真分页 + 后端只给总数**，
- * 界面形态是「上一页 / 下一页 / 第 N / M 页」，页码条既没有信息量、
- * 也会在几千页时铺满一行。
- *
- * 所以这里只封这一种形态：两颗按钮 + 一行读数。按钮的禁用逻辑（首页不能退、
- * 末页不能进）也一并收进来，免得每个调用点各写一遍边界判断。
- *
- * 视觉对齐 ui/css 的 `.log-pager` / `.log-pager-info`：两颗 sm 档 outline 按钮，
- * 读数用等宽数字（tabular-nums），翻页时数字宽度不跳。
- *
- * 用法：
- *   <Pager page={page} pageCount={pageCount} onPageChange={setPage} disabled={loading} />
- */
-
+/** Clickable page numbers, active-page styling and icon navigation. */
 type PagerProps = {
   /** 当前页，1 起数 */
   page: number
   /** 总页数（至少 1；调用方算不出来时传 1） */
   pageCount: number
   onPageChange: (page: number) => void
-  /** 整体禁用（例如请求在途）：两颗按钮都不响应 */
+  /** 请求在途时禁用全部页码和翻页按钮 */
   disabled?: boolean
-  /** 读数前的文案，默认「第」；整句形如「第 1 / 3 页」 */
+  /** 分页控件容器的布局类 */
   className?: string
-  /** 读数右对齐时用（面板底栏里读数在按钮右边） */
+  /** 保留旧调用方的辅助页码摘要顺序 */
   infoFirst?: boolean
 }
 
@@ -45,41 +29,62 @@ function Pager({
   infoFirst = false,
 }: PagerProps) {
   // 页数兜底：后端还没回话时 pageCount 可能是 0 或 NaN，别让它变成「第 1 / 0 页」
-  const total = Math.max(1, Number(pageCount) || 1)
-  const current = Math.min(Math.max(1, Number(page) || 1), total)
+  const total = Math.max(1, Number.isFinite(pageCount) ? Math.trunc(pageCount) : 1)
+  const current = Math.min(Math.max(1, Number.isFinite(page) ? Math.trunc(page) : 1), total)
+  // 保留首末页和当前页附近的数字，避免大量日志页码撑满底栏。
+  const start = total <= 7 ? 1 : current <= 4 ? 1 : current >= total - 3 ? total - 4 : current - 1
+  const end = total <= 7 ? total : current <= 4 ? 5 : current >= total - 3 ? total : current + 1
+  const numbers = [...new Set([1, ...Array.from({ length: end - start + 1 }, (_, index) => start + index), total])]
+  const pages: Array<number | 'ellipsis'> = []
+  for (const [index, number] of numbers.entries()) {
+    const previous = numbers[index - 1]
+    if (index > 0 && number - previous === 2) pages.push(previous + 1)
+    else if (index > 0 && number - previous > 2) pages.push('ellipsis')
+    pages.push(number)
+  }
 
   const info = (
     <span
       data-slot='pager-info'
-      // text-subtle（--text-2）而不是 muted-foreground（--text-3）：读数与旁边的
-      // 说明文字是同一档，用更淡的那档在浅色主题下会糊
-      className='text-[11.5px] text-subtle [font-variant-numeric:tabular-nums]'
+      aria-live='polite'
+      aria-atomic='true'
+      className='sr-only'
     >
       {t('第 {current} / {total} 页', { current, total })}
     </span>
   )
 
   return (
-    <div data-slot='pager' className={cn('flex items-center gap-2', className)}>
+    <div data-slot='pager' className={cn('flex min-w-0 max-w-full items-center gap-2', className)}>
       {infoFirst && info}
-      <Button
-        type='button'
-        variant='outline'
-        size='sm'
-        disabled={disabled || current <= 1}
-        onClick={() => onPageChange(current - 1)}
-      >
-        {t('上一页')}
-      </Button>
-      <Button
-        type='button'
-        variant='outline'
-        size='sm'
-        disabled={disabled || current >= total}
-        onClick={() => onPageChange(current + 1)}
-      >
-        {t('下一页')}
-      </Button>
+      <Pagination aria-label={t('分页')} className='mx-0 w-auto max-w-full'>
+        <PaginationContent className='flex-wrap justify-end'>
+          <PaginationItem>
+            <Button type='button' variant='outline' size='icon' className='max-sm:size-6' aria-label={t('上一页')} title={t('上一页')} disabled={disabled || current <= 1}
+              onClick={() => onPageChange(current - 1)}>
+              <ChevronLeftIcon data-icon='inline-start' />
+            </Button>
+          </PaginationItem>
+          {pages.map((number, index) => (
+            <PaginationItem key={number === 'ellipsis' ? `ellipsis-${index}` : number}>
+              {number === 'ellipsis' ? <PaginationEllipsis className='max-sm:size-6' /> : (
+                <PaginationLink href='#' isActive={number === current} disabled={disabled} className='max-sm:size-6'
+                  aria-label={t('第 {current} / {total} 页', { current: number, total })}
+                  onClick={event => {
+                    event.preventDefault()
+                    if (!disabled && number !== current) onPageChange(number)
+                  }}>{number}</PaginationLink>
+              )}
+            </PaginationItem>
+          ))}
+          <PaginationItem>
+            <Button type='button' variant='outline' size='icon' className='max-sm:size-6' aria-label={t('下一页')} title={t('下一页')} disabled={disabled || current >= total}
+              onClick={() => onPageChange(current + 1)}>
+              <ChevronRightIcon data-icon='inline-end' />
+            </Button>
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
       {!infoFirst && info}
     </div>
   )

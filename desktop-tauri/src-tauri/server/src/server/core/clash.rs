@@ -55,7 +55,7 @@ pub struct ClashSnapshot {
 }
 
 impl ClashSnapshot {
-    /// 「找不到配置」快照（三个候选目录都没有 verge.yaml 时的形态）
+    /// 「找不到配置」快照（候选目录都没有 verge.yaml 时的形态）
     fn unavailable(error: &str, dir: Option<PathBuf>) -> Self {
         Self {
             available: false,
@@ -99,11 +99,12 @@ fn home_dir() -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
-/// Clash Verge 配置目录：候选顺序照抄 Node 版 `clashConfigDir()`。
+/// Clash Verge 配置目录：优先使用平台原生位置，保留旧版候选目录兼容。
 ///
 ///   ① `%APPDATA%\<appId>`（Windows 的常规位置）
-///   ② `~/AppData/Roaming/<appId>`（APPDATA 缺失时的回落，兼容 Linux 上跑 Wine / 容器）
-///   ③ `~/.config/<appId>`（macOS / Linux）
+///   ② `~/Library/Application Support/<appId>`（macOS）
+///   ③ `~/AppData/Roaming/<appId>`（APPDATA 缺失时的回落，兼容 Linux 上跑 Wine / 容器）
+///   ④ `~/.config/<appId>`（Linux / 旧版配置）
 ///
 /// 判定标准是「目录里存在 verge.yaml」——只判目录存在会把 Clash 刚装好、
 /// 还没写配置的情况误判成可用。
@@ -116,6 +117,8 @@ pub fn clash_config_dir() -> Option<PathBuf> {
         }
     }
     if let Some(home) = home_dir() {
+        #[cfg(target_os = "macos")]
+        candidates.push(home.join("Library").join("Application Support").join(CLASH_APP_ID));
         candidates.push(home.join("AppData").join("Roaming").join(CLASH_APP_ID));
         candidates.push(home.join(".config").join(CLASH_APP_ID));
     }
@@ -171,7 +174,7 @@ fn yaml_text(value: Option<&Yaml>) -> String {
 ///
 /// Clash 未安装或配置不可读时 `available=false`，不抛异常 —— 这是正常状态
 /// （绝大多数用户机器上就是没装 Clash）。三种不可用形态与 Node 版逐字一致：
-///   ① 三个候选目录里都没有 verge.yaml → dir=null + error=未找到 Clash Verge 配置
+///   ① 候选目录里都没有 verge.yaml → dir=null + error=未找到 Clash Verge 配置
 ///   ② verge.yaml 解析失败 → dir 有值 + error=verge.yaml 解析失败
 ///   ③ 正常读取 → error=null + 监听器列表（可能是空的）
 pub fn read_clash_verge_config() -> ClashSnapshot {
@@ -256,7 +259,7 @@ pub fn read_clash_verge_config() -> ClashSnapshot {
 /// 进程内快照缓存：`(取快照的时刻, 快照)`。
 ///
 /// 只缓存**读到的结果**（包括「不可用」这种结果），这样 Clash 没装的机器上
-/// 也不会每次请求都去 stat 三个目录。持锁只做本地文件读取，不做网络 IO。
+/// 也不会每次请求都去 stat 候选目录。持锁只做本地文件读取，不做网络 IO。
 static CLASH_CACHE: Mutex<Option<(i64, ClashSnapshot)>> = Mutex::new(None);
 
 /// 取快照（默认走 3 秒 TTL 缓存）

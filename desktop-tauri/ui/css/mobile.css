@@ -61,14 +61,6 @@
   .task-grid,
   .retention-list { grid-template-columns: minmax(0, 1fr); }
 
-  /* 欢迎横幅纵向排列：问候与日期在上，三步指引整行换到下面
-     （≤1000px prefs.css 已放开换行并把 .ab-steps 的 margin-left 清零，
-     这里把排列方向也从横向改纵向；margin-left: 0 再钉一次防列向自动边距） */
-  .aibuddy-banner {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .ab-steps { margin-left: 0; }
 }
 
 /* Quota controls add width beyond the upstream column minimums. Keep the

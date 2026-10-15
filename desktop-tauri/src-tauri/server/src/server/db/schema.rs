@@ -161,12 +161,23 @@ pub const RESERVED_KV_KEYS: &[&str] = &[
     // 的已用量清零，配额形同虚设）。与 `proxyPool` 同类：整份读写、不落
     // 独立表，理由见 `core::key_quota` 的模块头。
     "keyQuotaUsage",
+    // 订阅（core::subscriptions）：整份 `{items: [...]}` 一个键 —— 「网络代理」
+    // 页「订阅」区块维护的订阅链接，内核（sub_kernel）拉起时从 api 层拿启用
+    // 清单。与 proxyPool 同类零散状态：不是配置项，配置写入绝不能动它。
+    "subscriptions",
     // OfficeAce 模型可用性探测的结论（core::providers::officeace::probe）：
     // 整份 `{unavailable:[…], probedAt, account}` 一个键。探测「目录里列着、这个
     // 号实际打不通」的模型（上游回 81004/81009），结论由 `advertise_models` 用来
     // 默认隐藏它们。属于「其它零散状态」——不是配置项，配置写入绝不能动它
     // （否则每次改配置都让隐藏集合清零、客户端又照着一个一个试）。
     "officeaceModelProbe",
+    // models.dev 模型元数据的刷新结果（core::model_meta::snapshot）：整份
+    // 「上次成功拉到的精简索引」一个键（文件形态与内嵌快照逐字相同，生成口径见
+    // `scripts/sync-modelsdev.mjs`）。**不是**配置项 —— 配置写入绝不能动它，
+    // 否则用户改一次 API Key 就退回发版时那份更旧的内嵌快照。
+    // 与上面的 `modelCatalogCache` 是两码事：那个存各家上游的**模型清单**，
+    // 这个存模型的**元数据**（能力位 / 思考档位），刷新链路与失效语义各不同。
+    "modelsDevCatalog",
 ];
 
 /// 这个键是否属于「其它零散状态」（即不归网关配置管）。
@@ -234,7 +245,7 @@ pub fn is_reserved(key: &str) -> bool {
 /// （领成功 / 已领过 / 失败及其错误原文 / 收益文案），补上改造前「只有
 /// config.json 里一条聚合同 lastResult」看不见的明细。写入方是
 /// `core::checkin_records`（记账点唯一：`core::billing::checkin::run_checkin`）。
-pub const SCHEMA_VERSION: i64 = 11;
+pub const SCHEMA_VERSION: i64 = 13;
 
 /// 版本 1 的全部表与索引：改造前所有 JSON / JSONL 文件的对应形态。
 ///
@@ -768,6 +779,46 @@ fn apply_version(conn: &Connection, version: i64) -> rusqlite::Result<()> {
         10 => conn.execute_batch(V10_SCHEMA),
         // v11：checkin_records 签到记录明细台账（签到记录页的数据源，见 V11_SCHEMA）
         11 => conn.execute_batch(V11_SCHEMA),
+        12 => conn.execute_batch(V12_SCHEMA),
+        13 => {
+            conn.execute_batch(V13_SCHEMA)?;
+            super::account_history::install(conn)
+        }
         _ => Ok(()),
     }
 }
+
+/// Credential-free identity archive. No account FK: logout/deletion and request
+/// retention must not remove historical provider or region information.
+const V13_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS account_history (
+  account_id TEXT PRIMARY KEY,
+  provider TEXT NOT NULL DEFAULT '',
+  provider_label TEXT NOT NULL DEFAULT '',
+  edition TEXT NOT NULL DEFAULT '',
+  edition_label TEXT NOT NULL DEFAULT ''
+);
+";
+
+/// Durable task history and per-account scheduled slot claims. No account foreign
+/// key: deleting credentials must not erase the execution history.
+const V12_SCHEMA: &str = r#"
+CREATE TABLE IF NOT EXISTS task_runs (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, batch_id TEXT NOT NULL,
+ account_id TEXT NOT NULL, account_name TEXT NOT NULL, provider TEXT NOT NULL,
+ kind TEXT NOT NULL, source TEXT NOT NULL, slot TEXT,
+ started_at INTEGER NOT NULL, finished_at INTEGER,
+ outcome TEXT NOT NULL DEFAULT 'running', message TEXT NOT NULL DEFAULT '',
+ lease_until INTEGER NOT NULL DEFAULT 0,
+ UNIQUE(account_id, kind, slot)
+);
+CREATE TABLE IF NOT EXISTS task_run_items (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, run_id INTEGER NOT NULL REFERENCES task_runs(id) ON DELETE CASCADE,
+ code TEXT NOT NULL, outcome TEXT NOT NULL, message TEXT NOT NULL,
+ attempt INTEGER NOT NULL DEFAULT 1, credit INTEGER, energy INTEGER,
+ reward_source TEXT, created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_task_runs_time ON task_runs(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_task_runs_account ON task_runs(account_id,kind,started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_task_items_run ON task_run_items(run_id,id);
+"#;

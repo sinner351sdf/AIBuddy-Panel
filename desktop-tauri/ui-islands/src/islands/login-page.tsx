@@ -5,8 +5,9 @@
  * 本岛渲染。但**登录逻辑仍归页面底部那段内联脚本**：它按 id 直接读写
  * #username / #password / #submit / #error / #mode-tip，还把 submit 处理器挂在
  * #form 上（capture 阶段，先于页面里其它 submit 监听）。所以本岛刻意做成
- * 「渲染一次就不再更新」—— 不持 state、不重渲染，脚本对这些节点的命令式改动
- * （按钮文案与禁用、错误行、占位符、提示行）才不会被 React 覆盖回去。
+ * 「表单骨架渲染一次就不再更新」—— LoginPage 不持 state、不重渲染，脚本对这些节点
+ * 的命令式改动（按钮文案与禁用、错误行、占位符、提示行）不会被 React 覆盖回去。
+ * 密码显隐的局部 state 只放在 PasswordInput 子树，不会重绘表单或提交按钮。
  * 动这个文件之前请先读那段脚本，它是这一页真正的行为来源。
  *
  * 首次提交必须同步（flushSync）：脚本是紧随本岛之后的经典脚本，求值时就要拿到
@@ -23,7 +24,11 @@
 import * as React from 'react'
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
-import { Button, Input, Label } from '@ui'
+import {
+  Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Field, FieldGroup, FieldLabel, Input,
+  InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput,
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from '@ui'
 import { t } from '../i18n'
 
 /** 挂载点 id：login.html 里唯一的岛容器 */
@@ -40,6 +45,41 @@ const HOST_ID = 'login-app'
  */
 const captchaWidget = React.createElement('panel-captcha', { id: 'captcha' })
 
+/** Only the password group re-renders; the login engine keeps its form and submit nodes. */
+function PasswordInput() {
+  const [visible, setVisible] = React.useState(false)
+  const inputRef = React.useRef<HTMLInputElement>(null)
+  const label = visible ? t('隐藏密码') : t('显示密码')
+  return (
+    <InputGroup>
+      <InputGroupInput ref={inputRef} id='password' type={visible ? 'text' : 'password'}
+        autoComplete='new-password' placeholder={t('至少 8 位')} />
+      <InputGroupAddon align='inline-end'>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger render={
+              <InputGroupButton size='icon-xs' aria-label={label} aria-pressed={visible}
+                onClick={() => { setVisible(current => !current); inputRef.current?.focus() }} />
+            }>
+              <svg data-icon='inline-end' viewBox='0 0 24 24' fill='none' stroke='currentColor'
+                strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' aria-hidden='true'>
+                {visible ? (
+                  <>
+                    <path d='m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 4.2A10.8 10.8 0 0 1 12 4c7 0 11 8 11 8a19 19 0 0 1-3.2 4.4M6.5 6.5A19 19 0 0 0 1 12s4 8 11 8a11 11 0 0 0 5.5-1.5' />
+                  </>
+                ) : (
+                  <><path d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z' /><circle cx='12' cy='12' r='3' /></>
+                )}
+              </svg>
+            </TooltipTrigger>
+            <TooltipContent>{label}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </InputGroupAddon>
+    </InputGroup>
+  )
+}
+
 /**
  * 卡片外壳与其中的表单。
  *
@@ -48,40 +88,37 @@ const captchaWidget = React.createElement('panel-captcha', { id: 'captcha' })
  */
 function LoginPage() {
   return (
-    <div className='w-[min(400px,100%)] rounded-lg border border-border bg-card p-[36px_34px_30px] shadow-3'>
-      {/* 品牌标与桌面端 / 面板侧栏同一造型（icons.js 的 brand 项），底色是品牌色常量而非主题令牌 */}
-      <div className='mb-[26px] flex flex-col items-center gap-3 text-center'>
-        <svg
-          viewBox='0 0 24 24'
-          role='img'
-          aria-label='Agent2API'
-          className='size-[52px] rounded-[12px] shadow-[0_6px_18px_rgba(124,92,252,0.4)]'
-        >
-          <rect width='24' height='24' rx='5.4' fill='#7C5CFC' />
-          <g fill='none' stroke='#fff' strokeWidth='2.2' strokeLinecap='round' strokeLinejoin='round'>
-            <path d='M5.23 9.24h10.71' />
-            <path d='M15.94 6.72 18.77 9.24 15.94 11.76' />
-            <path d='M18.77 14.76H8.06' />
-            <path d='M8.06 12.24 5.23 14.76 8.06 17.28' />
-          </g>
-        </svg>
+    <Card variant='auth' className='w-[min(400px,100%)]'>
+      {/* 同一份 SVG 供登录页、侧栏和桌面图标使用。 */}
+      <CardHeader className='mb-[26px] flex flex-col items-center gap-3 px-0 text-center'>
+        <img
+          data-brand-logo
+          src='brand/logo-icon.svg?v=b-mono-1'
+          alt='Agent2API'
+          width={52}
+          height={52}
+          className='size-[52px] rounded-[12px] shadow-1'
+        />
         <div>
-          <h1 className='m-0 text-[21px] font-bold tracking-[0.2px]'>Agent2API</h1>
-          <div className='text-[12.5px] text-muted-foreground'>{t('OpenAI 兼容网关 · 管理面板')}</div>
+          <CardTitle as='h1' variant='brand'>Agent2API</CardTitle>
+          <CardDescription>{t('OpenAI 兼容网关 · 管理面板')}</CardDescription>
         </div>
-      </div>
+      </CardHeader>
 
+      <CardContent className='px-0'>
       <div id='mode-tip' className='mb-[18px] text-center text-[13px] text-muted-foreground' />
 
       <form id='form' autoComplete='on'>
-        <Label htmlFor='username' className='mt-3.5 mb-[5px] text-[12.5px]'>
-          {t('账号')}
-        </Label>
-        <Input id='username' autoComplete='username' placeholder={t('管理员账号')} />
-        <Label htmlFor='password' className='mt-3.5 mb-[5px] text-[12.5px]'>
-          {t('密码')}
-        </Label>
-        <Input id='password' type='password' autoComplete='new-password' placeholder={t('至少 8 位')} />
+        <FieldGroup className='gap-3.5'>
+          <Field className='gap-1.5'>
+            <FieldLabel htmlFor='username'>{t('账号')}</FieldLabel>
+            <Input id='username' autoComplete='username' placeholder={t('管理员账号')} />
+          </Field>
+          <Field className='gap-1.5'>
+            <FieldLabel htmlFor='password'>{t('密码')}</FieldLabel>
+            <PasswordInput />
+          </Field>
+        </FieldGroup>
         {/* 领题求解放后台跑 → 绿勾已验证（组件见 ui/panel-captcha.js） */}
         {captchaWidget}
         {/* type='submit' 必须显式给：Base UI 的 useButton 会给原生 button 补一个
@@ -91,11 +128,12 @@ function LoginPage() {
         </Button>
         <div id='error' className='mt-3 min-h-5 text-center text-[13px] whitespace-pre-wrap text-destructive' />
       </form>
+      </CardContent>
 
       <div className='mt-[22px] text-center text-[12px] text-muted-foreground'>
         {t('登录后可在「网关 Key」页为 API 客户端创建密钥')}
       </div>
-    </div>
+    </Card>
   )
 }
 

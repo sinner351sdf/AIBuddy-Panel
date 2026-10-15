@@ -34,6 +34,7 @@
 @import 'tw-animate-css';
 @import './vendor/shadcn/tailwind.css';
 
+@import '../../ui/css/palette.css';
 @import './theme.css';
 
 @layer base {
@@ -66,3 +67,10 @@
 /* 组件库自己的源码：类名都写在 src 下的 tsx 里，必须显式声明才会生成。
    路径相对本文件（ui-kit/styles/ → ui-kit/src）。 */
 @source '../src';
+
+/* Local resets for official components: the legacy shell intentionally omits preflight. */
+@layer base {
+  [data-slot='field-set'] { min-width: 0; margin: 0; padding: 0; border: 0; }
+  [data-slot='field-legend'] { padding: 0; }
+  [data-slot='field-description'], [data-slot='field-error'] { margin: 0; }
+}

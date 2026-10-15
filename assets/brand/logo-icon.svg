@@ -1,28 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#a678ff"/>
-      <stop offset=".48" stop-color="#8654f0"/>
-      <stop offset="1" stop-color="#6123c0"/>
-    </linearGradient>
-    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity=".16"/>
-      <stop offset=".55" stop-color="#ffffff" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="dots" x1="181" y1="0" x2="331" y2="0" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#7a41e8"/>
-      <stop offset="1" stop-color="#b795fa"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="114" fill="url(#bg)"/>
-  <rect width="512" height="512" rx="114" fill="url(#sheen)"/>
-  <path fill="#ffffff" d="M 180 132 H 332 A 62 62 0 0 1 394 194 V 274 A 62 62 0 0 1 332 336 H 222
-    C 216 364 198 392 160 402 C 152 404 148 398 154 392 C 176 380 182 360 182 336 H 180
-    A 62 62 0 0 1 118 274 V 194 A 62 62 0 0 1 180 132 Z"/>
-  <g fill="url(#dots)">
-    <circle cx="198" cy="234" r="17"/>
-    <circle cx="256" cy="234" r="17"/>
-    <circle cx="314" cy="234" r="17"/>
-  </g>
-  <path fill="#ffffff" d="M 398 80 C 402.2 97.8 412.2 107.8 430 112 C 412.2 116.2 402.2 126.2 398 144
-    C 393.8 126.2 383.8 116.2 366 112 C 383.8 107.8 393.8 97.8 398 80 Z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"><rect width="512" height="512" rx="114" fill="#fff"/><g transform="translate(111.4 89.2) scale(1.2)"><g fill="#111111">
+  <path d="M66 0H115C171 0 213 40 213 89C213 103 211 114 207 121C196 113 184 108 170 104C170 82 155 67 134 67H105C81 67 66 50 66 28Z"/>
+  <path d="M6 278Q0 278 0 272V221C0 179 32 145 82 145C109 145 132 156 144 175C125 187 101 189 84 200C69 210 66 227 66 245V278Z"/>
+  <path d="M66 278H113C153 278 173 252 173 220C173 207 169 194 161 185C156 215 135 231 108 234C83 237 66 254 66 278Z"/>
+  <path d="M6 0H66V30C66 76 94 98 139 100C199 103 241 139 241 191C241 243 202 278 144 278H113C153 278 173 252 173 220C173 169 135 136 75 136C29 136 0 110 0 66V6Q0 0 6 0Z"/></g></g></svg>

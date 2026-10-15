@@ -11,6 +11,7 @@ import {
 } from '@ui'
 import { handleExternalClick, markdownHtml, shared, type UpdateInfo } from './update-shared'
 import { t } from '../i18n'
+import { Empty, EmptyHeader, EmptyDescription } from '@ui'
 
 /**
  * 「检测到更新」弹窗（按需建、关闭即卸）—— 从 update-panel.tsx 拆出。
@@ -133,7 +134,7 @@ function UpdateModal({ info, onGoUpdate, onClose }: UpdateModalProps) {
           <div className='max-h-[46vh] overflow-y-auto overscroll-contain pr-1.5' onClick={handleExternalClick}>
             {html ? <div className='md-body' dangerouslySetInnerHTML={{ __html: html }} /> : (
               <div className='md-body'>
-                <p className='md-body-empty'>{t('这个版本没有填写发布说明。')}</p>
+                <Empty variant='compact' className='md-body-empty'><EmptyHeader><EmptyDescription>{t('这个版本没有填写发布说明。')}</EmptyDescription></EmptyHeader></Empty>
               </div>
             )}
           </div>

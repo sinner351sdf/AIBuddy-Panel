@@ -70,24 +70,6 @@
     || typeof bridge.windowToggleMaximize !== 'function'
     || typeof bridge.windowClose !== 'function')) return;
 
-  // ── 三键图标（只给 Windows / Linux 用）─────────────────────
-  // 24×24 画布 + stroke 1.8 的内联 SVG，与 icons.js 的 arrowUp/arrowDown
-  // 同一风格（不用字体字形：不同机器基线与粗细不可控）。还原图标是两块
-  // 错开的方框，「前块」填标题栏底色遮住后块的相交线（.ico-restore .fg 的
-  // fill 由 CSS 变量下发，深浅主题各自正确）。macOS 不用这套 —— 那边三键
-  // 是系统画的红绿灯，圆点里的符号由 AppKit 悬停时自己浮现。
-  const stroke = 'fill="none" stroke="currentColor" stroke-width="1.8"'
-    + ' stroke-linecap="round" stroke-linejoin="round"';
-  const svg = inner =>
-    `<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false">${inner}</svg>`;
-  const ICONS = {
-    minimize: svg(`<g ${stroke}><path d="M5 12h14"/></g>`),
-    maximize: svg(`<g ${stroke}><rect x="5.5" y="5.5" width="13" height="13" rx="1.5"/></g>`),
-    restore: svg(`<g ${stroke}><rect x="8.5" y="4.5" width="11" height="11" rx="1.5"/>`
-      + `<rect class="fg" x="4.5" y="8.5" width="11" height="11" rx="1.5"/></g>`),
-    close: svg(`<g ${stroke}><path d="M6 6l12 12"/><path d="M18 6 6 18"/></g>`),
-  };
-
   // ── 组装 DOM：header 挂在 body 最顶部，sidebar / main 之外整宽一条 ──
   const bar = document.createElement('header');
   // macOS 那条形态（左边让出系统红绿灯占位）挂在 is-macos 上
@@ -114,69 +96,12 @@
   if (isMac) {
     bar.append(brand);
   } else {
-    // 窗口三键（普通 button，不带拖动属性：Tauri 只认带属性的元素）。
-    // 顺序与位置按 Windows 惯例：最小化 / 最大化(还原) / 关闭，整组被 CSS
-    // 的 margin-left:auto 推到右上角，标题在前。
+    // React owns all three Buttons and their Tooltip/maximum-state content.
     const actions = document.createElement('div');
+    actions.id = 'titlebar-window-controls';
     actions.className = 'titlebar-actions';
-    const makeBtn = (cls, label) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `titlebar-btn ${cls}`;
-      btn.title = label;
-      btn.setAttribute('aria-label', label);
-      return btn;
-    };
-    const minBtn = makeBtn('min', wbI18n.t('最小化'));
-    minBtn.innerHTML = ICONS.minimize;
-    const maxBtn = makeBtn('max', wbI18n.t('最大化'));
-    const closeBtn = makeBtn('close', wbI18n.t('关闭'));
-    closeBtn.innerHTML = ICONS.close;
-    actions.append(minBtn, maxBtn, closeBtn);
     bar.append(brand, actions);
-
-    // ── 最大化状态：图标 / 悬停文案随状态切换 ──
-    let maximized = false;
-    const paintMax = () => {
-      maxBtn.innerHTML = maximized ? ICONS.restore : ICONS.maximize;
-      maxBtn.classList.toggle('is-maximized', maximized);
-      maxBtn.title = maximized ? wbI18n.t('还原') : wbI18n.t('最大化');
-      maxBtn.setAttribute('aria-label', maxBtn.title);
-    };
-
-    // 重查一次最大化状态；查询失败（罕见）保持现状即可
-    const syncMaximized = async () => {
-      if (typeof bridge.windowIsMaximized !== 'function') return;
-      try {
-        maximized = !!(await bridge.windowIsMaximized());
-        paintMax();
-      } catch { /* 窗口正在销毁等瞬时错误：下一条 resize 事件会再来 */ }
-    };
-
-    paintMax();
-    syncMaximized();
-    // 尺寸变化（最大化 / 还原 / 拖拽缩放）后重查，让图标始终与实际状态一致
-    if (typeof bridge.onWindowResize === 'function') {
-      bridge.onWindowResize(() => { syncMaximized(); });
-    }
-
-    // ── 三键行为（失败静默：窗口动作没有可提示的去处，界面层不弹 toast）──
-    minBtn.addEventListener('click', () => {
-      bridge.windowMinimize().catch(() => {});
-    });
-    maxBtn.addEventListener('click', async () => {
-      try {
-        await bridge.windowToggleMaximize();
-        await syncMaximized();
-      } catch (error) {
-        console.warn('切换窗口大小失败:', error);
-      }
-    });
-    // 关闭 = CloseRequested，与系统关闭按钮同语义：close_to_tray 开启时被壳
-    // 拦成隐藏（托盘继续转发），否则正常退出（见 commands.rs 的 window_close）
-    closeBtn.addEventListener('click', () => {
-      bridge.windowClose().catch(() => {});
-    });
+    window.wbWindowControls?.mountTitlebar(actions);
   }
 
   document.body.insertBefore(bar, document.body.firstChild);

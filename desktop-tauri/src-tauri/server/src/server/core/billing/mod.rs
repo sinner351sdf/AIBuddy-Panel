@@ -70,6 +70,11 @@ use request::{
 };
 use activity::normalize_activity_status;
 pub use activity::WorkbuddyActivity;
+// 账号页那条链要**一次**查询同时拿到积分简报与逐份明细（见
+// `providers::workbuddy::adapter` 的 `query_usage`）：简报的摊平逻辑与在本模块里，
+// 明细的行形状也定义在本模块（`get_personal_usage` 组装的 resources），
+// 所以这两个纯函数对外可见，而不是让适配器去认资源包的键名。
+pub use usage::{credit_packs_from, credits_summary_from};
 
 /// 计费接口单请求总超时（对照 Node 版 REQUEST_TIMEOUT_MS）
 const REQUEST_TIMEOUT_MS: u64 = 20_000;
@@ -131,11 +136,13 @@ impl std::fmt::Display for BillingError {
 #[derive(Clone)]
 pub struct BillingService {
     auth: AuthService,
+    #[cfg(test)]
+    mock_transport:Option<std::sync::Arc<dyn Fn(&str,Option<&Value>)->Result<Value,BillingError>+Send+Sync>>,
 }
 
 impl BillingService {
     pub fn new(auth: AuthService) -> Self {
-        Self { auth }
+        Self { auth, #[cfg(test)] mock_transport:None }
     }
 
     /// 计费接口语言（Accept-Language）：zh | en。
@@ -214,6 +221,7 @@ impl BillingService {
         spec: BillingSpec,
         options: CallOptions<'_>,
     ) -> Result<BillingCall, BillingError> {
+        if spec.method!="GET" && crate::server::core::task_execution::should_stop(){return Err(BillingError::new("任务已停止，未发送后续请求",409));}
         let session = match options.session {
             Some(session) => session.clone(),
             None => self.require_session().await?,
@@ -237,6 +245,8 @@ impl BillingService {
             request::BillingBase::Web => request::WEB_BASE.to_string(),
         };
         let url = format!("{endpoint}{}{}", spec.path, options.query.unwrap_or(""));
+        #[cfg(test)]
+        if let Some(mock)=&self.mock_transport {let data=mock(&url,options.body)?;return Ok(BillingCall{code:Some(0),msg:None,request_id:None,data,raw:None});}
 
         let mut extra: Vec<(String, String)> = options.extra.clone();
         if let Some(locale) = options.locale {
@@ -652,3 +662,6 @@ mod tests {
         assert!(is_duplicate_claim(400, "签到功能已领取完毕待下期"));
     }
 }
+
+#[cfg(test)]
+impl BillingService {pub(crate) fn mock(handler:impl Fn(&str,Option<&Value>)->Result<Value,BillingError>+Send+Sync+'static)->Self {Self{auth:AuthService::for_store(crate::server::core::account_store::AccountStore::with_db(None)),mock_transport:Some(std::sync::Arc::new(handler))}}}

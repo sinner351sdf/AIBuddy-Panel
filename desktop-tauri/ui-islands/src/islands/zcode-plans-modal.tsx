@@ -323,7 +323,7 @@ function PlansModal({ options, onClose }: { options: OpenOptions; onClose: () =>
         <DialogHeader>
           <DialogTitle>{t('ZCode 套餐明细 — {name}', { name })}</DialogTitle>
         </DialogHeader>
-        <DialogBody className='space-y-4'>
+        <DialogBody className='flex flex-col gap-4'>
           <section>
             <div className='mb-1.5 flex items-center gap-2 text-[12px] font-semibold text-muted-foreground'>
               {t('可领取的套餐')}

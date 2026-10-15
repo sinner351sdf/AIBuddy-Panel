@@ -238,6 +238,13 @@ fn derive_from_legacy(fields: &serde_json::Map<String, Value>) -> Vec<LimiterRul
         .and_then(Value::as_str)
         .unwrap_or(crate::server::core::providers::DEFAULT_PROVIDER_ID);
     let Some(config) = fields.get("lowBalance") else {
+        // 自动套餐按模型/通道余额判断。Start 总额为 0 不能证明 Coding 也没额度；
+        // 用户显式设置的余额规则仍照常生效。
+        if matches!(provider, "zcode" | "zcode-intl")
+            && fields.get("zcodePlan").and_then(Value::as_str)
+                .is_none_or(|plan| plan.is_empty() || plan == "auto") {
+            return Vec::new();
+        }
         return default_rules(provider);
     };
     let mode = config

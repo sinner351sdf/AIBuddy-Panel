@@ -31,7 +31,7 @@ body.shell-collapsed .sidebar .sidebar-foot .sidebar-status { justify-content: c
 body.shell-collapsed .shell-toggle svg { transform: rotate(180deg); }
 
 /* 侧栏阴影 + 宽度过渡（vue-next-admin：width .3s ease） */
-.sidebar { transition: width .3s ease; box-shadow: 2px 0 6px rgba(0, 21, 41, 0.01); }
+.sidebar { transition: width .3s ease; box-shadow: none; }
 
 /* 折叠态提示：label 藏了，靠 title 属性给悬停提示（js 负责） */
 

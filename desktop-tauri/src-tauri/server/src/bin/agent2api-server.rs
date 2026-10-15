@@ -183,6 +183,8 @@ fn main() -> ExitCode {
     let _ = shutdown_tx.send(());
     // 给在途请求留出跑完的时间（start 内部会等 graceful shutdown 收尾）
     std::thread::sleep(std::time::Duration::from_millis(300));
+    // 显式清理订阅内核，避免后台任务超出优雅关闭等待期。
+    agent2api_server::server::core::sub_kernel::shutdown();
     ExitCode::SUCCESS
 }
 

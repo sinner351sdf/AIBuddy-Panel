@@ -346,6 +346,7 @@ impl RequestStats {
         let guard = self.guard();
         let _ = self.with_conn_mut(&guard, |conn| {
             let tx = conn.transaction()?;
+            crate::server::db::account_history::remember_provider(&tx, &record.account_id, &record.provider)?;
             // 先补全进行中行；没有进行中行（影响 0 行）才新插
             let updated = sql::update_running_request(&tx, &record)?;
             if updated == 0 {
@@ -594,11 +595,15 @@ impl RequestStats {
                 // 报表侧排除模型测试（见 `select_between` 的说明）：
                 // 趋势图与排行回答的是「真实流量长什么样」
                 let entries = sql::select_between(conn, now - SUMMARY_WINDOW_MS, now, true)?;
-                Ok((daily, entries))
+                let identities = crate::server::db::account_history::read_snapshots(conn)?;
+                Ok((daily, entries, identities))
             })
         };
-        let (daily, entries) = loaded.unwrap_or_default();
-        summarize(&daily, &entries, range, now)
+        let (daily, entries, identities) = loaded.unwrap_or_default();
+        // Keep chart/report computation outside the database mutex as before.
+        let mut summary = summarize(&daily, &entries, range, now);
+        crate::server::db::account_history::enrich_summary(&identities, &mut summary);
+        summary
     }
 
     /// 明细查询：倒序（新在前）分页。
@@ -808,6 +813,16 @@ impl RequestStats {
     /// 升级完成后由 `api::upgrade_api` 补调一次。两处都调不会做两遍活
     /// （标记 + 条数判据，见上）。
     pub fn remap_model_dimension_once(&self) {
+        // Also runs after a legacy import. Enrichment is idempotent and does not
+        // rebuild numeric aggregates, even when request retention has expired.
+        {
+            let guard = self.guard();
+            let _ = self.with_conn_mut(&guard, |conn| {
+                let tx = conn.transaction()?;
+                crate::server::db::account_history::backfill(&tx)?;
+                tx.commit()
+            });
+        }
         // 日志不能在持 `inner` 锁期间打（会写同一个库，`Mutex` 不可重入，
         // 见 `guard` 的说明），先把结果拿出来，锁释放后再记
         let outcome = {

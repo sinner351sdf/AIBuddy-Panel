@@ -21,11 +21,16 @@
 
 import * as React from 'react'
 import {
+  cn,
+  SelectGroup,
   Button,
   Checkbox,
   DialogSection,
   Input,
-  Label,
+  Field,
+  FieldContent,
+  FieldGroup,
+  FieldLabel,
   Select,
   SelectContent,
   SelectItem,
@@ -133,20 +138,21 @@ function NoAuthCheckbox({
   note: string
   onChange: (next: boolean) => void
 }): React.ReactElement {
+  const checkboxId = React.useId()
   return (
-    <div className='add-field'>
-      <Label>{t('鉴权')}</Label>
-      {/* 组件库的 Checkbox 不是原生 input（自绘的 role=checkbox 按钮），
-          用包一层 <label> 建立关联：button 是可标注元素，点文字即可切换 */}
-      <div className='col-start-2 row-start-1 flex h-[30px] items-center'>
-        <label className='inline-flex cursor-pointer items-center gap-2.5'>
-          <Checkbox checked={checked} aria-label={t('该上游无需鉴权')}
-            onCheckedChange={next => onChange(next === true)} />
-          <span className='text-xs text-subtle'>{t('该上游无需鉴权（不发送鉴权头）')}</span>
-        </label>
+    <Field orientation='horizontal' className='add-field grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3 gap-y-[5px]'>
+      <FieldLabel className='w-full flex-none' htmlFor={checkboxId}>{t('鉴权')}</FieldLabel>
+      <div className='col-start-2 row-start-1 flex h-[30px] items-center gap-2.5'>
+        <Checkbox id={checkboxId} checked={checked} aria-label={t('该上游无需鉴权')}
+          onCheckedChange={next => onChange(next === true)} />
+        <FieldContent>
+          <FieldLabel htmlFor={checkboxId} className='cursor-pointer text-xs text-subtle'>
+            {t('该上游无需鉴权（不发送鉴权头）')}
+          </FieldLabel>
+        </FieldContent>
       </div>
       <span className='hint'>{note}</span>
-    </div>
+    </Field>
   )
 }
 
@@ -235,12 +241,12 @@ export function CustomProviderBlock({
           <h3>{t('上游信息')}</h3>
           <span>{t('创建这个提供商，并同时建立它的第一个账号。')}</span>
         </div>
-        <div className='add-form'>
-          <div className='add-field'>
-            <Label htmlFor={NAME_ID}>
+        <FieldGroup className='add-form flex flex-col gap-[13px]'>
+          <Field orientation='horizontal' className='add-field grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3 gap-y-[5px]'>
+            <FieldLabel className='w-full flex-none' htmlFor={NAME_ID}>
               {t('名称')}
               <i className='req' aria-hidden='true'>*</i>
-            </Label>
+            </FieldLabel>
             <Input
               id={NAME_ID}
               type='text'
@@ -250,9 +256,9 @@ export function CustomProviderBlock({
               {...draftProps(NAME_ID)}
             />
             <span className='hint'>{t('1~64 个字符，账号列表里按它分组显示')}</span>
-          </div>
-          <div className='add-field'>
-            <Label htmlFor={PROTOCOL_ID}>{t('协议')}</Label>
+          </Field>
+          <Field orientation='horizontal' className='add-field grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3 gap-y-[5px]'>
+            <FieldLabel className='w-full flex-none' htmlFor={PROTOCOL_ID}>{t('协议')}</FieldLabel>
             {/* 协议换了下方的 Base URL 提示跟着换，因此这里受控 */}
             <Select
               value={protocol}
@@ -268,17 +274,19 @@ export function CustomProviderBlock({
                 <SelectValue>{options.find(item => item.value === protocol)?.label || protocol}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {options.map(item => (
-                  <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                ))}
+                <SelectGroup>
+                  {options.map(item => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
-          </div>
-          <div className='add-field'>
-            <Label htmlFor={BASEURL_ID}>
+          </Field>
+          <Field orientation='horizontal' className='add-field grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3 gap-y-[5px]'>
+            <FieldLabel className='w-full flex-none' htmlFor={BASEURL_ID}>
               Base URL
               <i className='req' aria-hidden='true'>*</i>
-            </Label>
+            </FieldLabel>
             <Input
               id={BASEURL_ID}
               type='text'
@@ -287,9 +295,9 @@ export function CustomProviderBlock({
               {...draftProps(BASEURL_ID)}
             />
             <span className='hint' id='custom-baseurl-hint'>{baseHint}</span>
-          </div>
-          <div className='add-field'>
-            <Label htmlFor={APIKEY_ID}>API Key</Label>
+          </Field>
+          <Field orientation='horizontal' className='add-field grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3 gap-y-[5px]' data-disabled={noAuth}>
+            <FieldLabel className='w-full flex-none' htmlFor={APIKEY_ID}>API Key</FieldLabel>
             <Input
               id={APIKEY_ID}
               type='password'
@@ -305,7 +313,7 @@ export function CustomProviderBlock({
                 ? t('不需要 Key：转发与拉取模型都不发送鉴权头')
                 : t('上游不要鉴权时留空，并勾选下面一项（留空又不勾会被当成未配置凭证）')}
             </span>
-          </div>
+          </Field>
           <NoAuthCheckbox
             checked={noAuth}
             note={noAuth
@@ -313,7 +321,7 @@ export function CustomProviderBlock({
               : t('本地 Ollama、OpenCode Zen 免费档这类上游要勾上，否则账号不可用')}
             onChange={toggleNoAuth(NOAUTH_ID, setNoAuth)}
           />
-        </div>
+        </FieldGroup>
       </DialogSection>
 
       <DialogSection hidden={mode !== 'existing'}>
@@ -325,9 +333,9 @@ export function CustomProviderBlock({
             {t('添加到 ')}<b>{pickedName}</b>{t('　同一家可以放多把 key，按优先级轮换。')}
           </span>
         </div>
-        <div className='add-form'>
-          <div className='add-field'>
-            <Label htmlFor={EXISTING_SELECT_ID}>{t('提供商')}</Label>
+        <FieldGroup className='add-form flex flex-col gap-[13px]'>
+          <Field orientation='horizontal' className='add-field grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3 gap-y-[5px]'>
+            <FieldLabel className='w-full flex-none' htmlFor={EXISTING_SELECT_ID}>{t('提供商')}</FieldLabel>
             <Select
               value={current}
               onValueChange={next => setPicked(String(next))}
@@ -336,14 +344,16 @@ export function CustomProviderBlock({
                 <SelectValue>{pickedName}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {list.map(item => (
-                  <SelectItem key={item.id} value={item.id}>{item.name || item.id}</SelectItem>
-                ))}
+                <SelectGroup>
+                  {list.map(item => (
+                    <SelectItem key={item.id} value={item.id}>{item.name || item.id}</SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
-          </div>
-          <div className='add-field'>
-            <Label htmlFor={EXISTING_APIKEY_ID}>API Key</Label>
+          </Field>
+          <Field orientation='horizontal' className='add-field grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3 gap-y-[5px]' data-disabled={existingNoAuth}>
+            <FieldLabel className='w-full flex-none' htmlFor={EXISTING_APIKEY_ID}>API Key</FieldLabel>
             <Input
               id={EXISTING_APIKEY_ID}
               type='password'
@@ -357,7 +367,7 @@ export function CustomProviderBlock({
                 ? t('不需要 Key：转发与拉取模型都不发送鉴权头')
                 : t('上游不要鉴权时留空，并勾选下面一项（留空又不勾会被当成未配置凭证）')}
             </span>
-          </div>
+          </Field>
           <NoAuthCheckbox
             checked={existingNoAuth}
             note={existingNoAuth
@@ -365,8 +375,8 @@ export function CustomProviderBlock({
               : t('同一家可以混着放：有 Key 的账号与无鉴权账号各按各的规则走')}
             onChange={toggleNoAuth(EXISTING_NOAUTH_ID, setExistingNoAuth)}
           />
-          <div className='add-field'>
-            <Label htmlFor={EXISTING_NAME_ID}>{t('备注名')}</Label>
+          <Field orientation='horizontal' className='add-field grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3 gap-y-[5px]'>
+            <FieldLabel className='w-full flex-none' htmlFor={EXISTING_NAME_ID}>{t('备注名')}</FieldLabel>
             <Input
               id={EXISTING_NAME_ID}
               type='text'
@@ -375,8 +385,8 @@ export function CustomProviderBlock({
               {...draftProps(EXISTING_NAME_ID)}
             />
             <span className='hint'>{t('留空则用提供商名称')}</span>
-          </div>
-        </div>
+          </Field>
+        </FieldGroup>
       </DialogSection>
     </>
   )
@@ -504,7 +514,7 @@ export function CustomFootActions({
 
   return (
     <>
-      <span className={`add-foot-hint${hint ? ' err' : ''}`} id='add-form-foot-hint'>{hint}</span>
+      <span className={cn('add-foot-hint', hint ? 'err' : '')} id='add-form-foot-hint'>{hint}</span>
       <span className='add-foot-actions' id='add-form-foot-actions'>
         {mode === 'existing' ? (
           <Button

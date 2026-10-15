@@ -1,8 +1,12 @@
+import { NavItem } from '@ui'
+import { InfoTip } from '../components/info-tip'
 import { localApi } from './local-api'
 import * as React from 'react'
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import {
+  cn,
+  SelectGroup,
   Badge,
   Button,
   Dialog,
@@ -11,6 +15,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Field,
+  FieldContent,
+  FieldGroup,
+  FieldLabel,
   Input,
   Label,
   SegmentedControl,
@@ -22,13 +30,14 @@ import {
   Spinner,
   Switch,
   Textarea,
+  ToggleGroup,
+  ToggleGroupItem,
 } from '@ui'
 import {
   CATEGORIES,
   CONTENT_MAX_KEY,
   CAPTCHA_POOL_FIELDS,
   NOTES,
-  NOTIFY_READ_KEY,
   NOTIFY_TYPES,
   PREFS_EVENT,
   PREFS_KEY,
@@ -62,6 +71,7 @@ import {
   notifyChannelSummary,
   notifyTypeLabel,
   notifyTypeSpec,
+  modelsDevStateText,
   openExternal,
   parseInteger,
   readThemeMode,
@@ -78,6 +88,7 @@ import {
   type ThemeMode,
 } from './settings-model'
 import { RemoteSyncSection } from './settings-remote-sync'
+import { NotificationSettingsCard } from './settings-notifications'
 import {
   addProviderPrompt,
   addRetryCode,
@@ -96,6 +107,7 @@ import {
   refreshClineHeaders,
   refreshCors,
   refreshNotify,
+  refreshModelsDev,
   refreshPrompt,
   refreshQueue,
   refreshRetention,
@@ -128,6 +140,7 @@ import {
   createNotifyChannel,
   updateNotifyChannel,
   saveNotifyQuiet,
+  saveModelsDev,
   savePromptFile,
   savePromptMode,
   saveProviderGatewayPrompt,
@@ -170,6 +183,7 @@ import {
   gatewayEditedText,
 } from './settings-prompt-editor'
 import { t } from '../i18n'
+import { CardHeader, CardTitle, Card, CardContent } from '@ui'
 
 /**
  * Agent2API · 设置页（React 岛）。
@@ -249,8 +263,8 @@ function StatusBadge({ tone, children }: { tone: 'idle' | 'ok' | 'bad'; children
 
 type PanelHeadProps = {
   title: string
-  /** 标题右侧问号的说明全文（沿用 `[data-tip]`） */
-  tip?: string
+  /** 标题右侧问号的说明内容（悬停、键盘聚焦或点击查看） */
+  tip?: React.ReactNode
   badge?: React.ReactNode
   actions?: React.ReactNode
 }
@@ -258,12 +272,12 @@ type PanelHeadProps = {
 /** 面板标题栏：标题 + 问号 + 徽章 + 右侧操作（DOM 顺序与静态骨架一致） */
 function PanelHead({ title, tip, badge, actions }: PanelHeadProps) {
   return (
-    <div className='panel-head'>
-      <h2>{title}</h2>
-      {tip ? <span className='tip-q' data-tip={tip}></span> : null}
+    <CardHeader variant='panel' className='panel-head'>
+      <CardTitle>{title}</CardTitle>
+      {tip ? <InfoTip label={t('{name}说明', { name: title })}>{tip}</InfoTip> : null}
       {badge}
       {actions ? <div className='head-actions'>{actions}</div> : null}
-    </div>
+    </CardHeader>
   )
 }
 
@@ -272,22 +286,23 @@ type SwitchRowProps = {
   label: string
   checked: boolean
   disabled?: boolean
-  /** 行内问号提示（与 PanelHead 同款 `[data-tip]`，tooltip.js 统一服务） */
+  /** 行内问号提示（与 PanelHead 共用 InfoTip） */
   tip?: string
   onCheckedChange: (next: boolean) => void
 }
 
 /**
- * 一行开关。开关与文字同在一个 `<label class="switch">` 里（与旧模板同构）：Base UI 的
- * Switch 会渲染一个隐藏 checkbox，label 的原生激活行为照样把点击转给它 —— 点文字也能拨动。
+ * 一行开关。FieldLabel 显式关联 Switch 的 id，保留点文字拨动开关的原生行为。
  */
 function SwitchRow({ id, label, checked, disabled, tip, onCheckedChange }: SwitchRowProps) {
   return (
-    <label className='switch'>
+    <Field orientation='horizontal' className='switch w-auto gap-[9px]' data-disabled={disabled || undefined}>
       <Switch id={id} checked={checked} disabled={disabled} onCheckedChange={next => onCheckedChange(next)} />
-      <span>{label}</span>
-      {tip ? <span className='tip-q' data-tip={tip}></span> : null}
-    </label>
+      <FieldContent className='flex-none'>
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      </FieldContent>
+      {tip ? <InfoTip label={t('{name}说明', { name: label })}>{tip}</InfoTip> : null}
+    </Field>
   )
 }
 
@@ -318,8 +333,11 @@ function NumberRow({ field, value, disabled, onCommit }: NumberRowProps) {
   }
 
   return (
-    <div className='retention-row'>
-      <label htmlFor={field.id}>{field.label}</label>
+    <Field orientation='horizontal' className='retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]' data-disabled={disabled || value === null || undefined}>
+      <div className='settings-help-label flex min-w-0 items-center gap-1'>
+        <FieldLabel htmlFor={field.id}>{field.label}</FieldLabel>
+        <InfoTip label={t('{name}说明', { name: field.label })}>{field.hint}</InfoTip>
+      </div>
       <span className='retention-input'>
         <Input
           id={field.id}
@@ -340,8 +358,7 @@ function NumberRow({ field, value, disabled, onCommit }: NumberRowProps) {
         />
         <span className='unit'>{field.unit}</span>
       </span>
-      <div className='hint'>{field.hint}</div>
-    </div>
+    </Field>
   )
 }
 
@@ -397,9 +414,9 @@ function LanguageRow() {
   )
 
   return (
-    <div className='retention-list'>
-      <div className='retention-row'>
-        <label htmlFor='settings-language'>{t('界面语言')}</label>
+    <FieldGroup className='retention-list gap-4'>
+      <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
+        <FieldLabel htmlFor='settings-language'>{t('界面语言')}</FieldLabel>
         <span className='prompt-input'>
           {/* 与「界面缩放」同一个 Select 形态：展示文案显式给 SelectValue，不依赖 value 自动显示。
               组件的 onValueChange 可能给 null（被清空），这里只在拿到非空值时切换 */}
@@ -408,15 +425,17 @@ function LanguageRow() {
               <SelectValue>{labelOf(value)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value='auto'>{t('跟随系统')}</SelectItem>
-              {locales.map(item => (
-                <SelectItem key={item.code} value={item.code}>{nameOf(item)}</SelectItem>
-              ))}
+              <SelectGroup>
+                <SelectItem value='auto'>{t('跟随系统')}</SelectItem>
+                {locales.map(item => (
+                  <SelectItem key={item.code} value={item.code}>{nameOf(item)}</SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </span>
-      </div>
-    </div>
+      </Field>
+    </FieldGroup>
   )
 }
 
@@ -434,15 +453,15 @@ function GeneralPane({ snap }: { snap: SettingsSnapshot }) {
 
   return (
     <>
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead title={t('语言设置')} tip={TIPS.displayLanguage} />
-        <div className='panel-body'>
+        <CardContent variant='panel' className='panel-body'>
           <LanguageRow />
           <div className='settings-state'>{STATES.languageHint}</div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead
           title={t('启动与托盘')}
           tip={TIPS.tray}
@@ -452,8 +471,8 @@ function GeneralPane({ snap }: { snap: SettingsSnapshot }) {
               ? <StatusBadge tone='bad'>{t('不可用')}</StatusBadge>
               : <StatusBadge tone='idle'>{t('检测中…')}</StatusBadge>}
         />
-        <div className='panel-body'>
-          <div className='settings-switches'>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='settings-switches gap-2.5'>
             {/* 主进程没返回启动设置时开关仍可拨（照旧实现）：拨了直接发全量 patch，
                 保存成功即回到「已应用」，不必让用户重开程序 */}
             <SwitchRow
@@ -479,16 +498,16 @@ function GeneralPane({ snap }: { snap: SettingsSnapshot }) {
               disabled={snap.busy === 'app'}
               onCheckedChange={next => void saveToggle('autostart', next)}
             />
-          </div>
+          </FieldGroup>
           <div className='settings-state'>{appState}</div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
       {!snap.panelLogin && (
-        <section className='panel'>
+        <Card as='section' variant='panel' size='sm' className='panel'>
           <PanelHead title={t('局域网访问')} tip={TIPS.lan} />
-          <div className='panel-body'>
-            <div className='settings-switches'>
+          <CardContent variant='panel' className='panel-body'>
+            <FieldGroup className='settings-switches gap-2.5'>
               {/* 开 / 关都不直接落盘：走确认框（→ 需要时注册管理员 → 写设置并重启），
                   流程与文案在 settings-state 的 toggleLan / resolveLanConfirm */}
               <SwitchRow
@@ -505,16 +524,16 @@ function GeneralPane({ snap }: { snap: SettingsSnapshot }) {
                 disabled={snap.busy === 'lan' || !snap.app.lanAccess}
                 onCheckedChange={toggleLanPanel}
               />
-            </div>
+            </FieldGroup>
             <div className='settings-state'>{lanStateText(snap)}</div>
-          </div>
-        </section>
+          </CardContent>
+        </Card>
       )}
 
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead title={t('Token 读数量级')} tip={TIPS.units} />
-        <div className='panel-body'>
-          <div className='settings-switches'>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='settings-switches gap-2.5'>
             {/* 标签不再写死「中文」：开启是「万 / 亿」式本地量级词，繁体 / 日文 / 韩文各自
                 有对应的量级词（萬 / 億、만 / 억），译文里这句话描述的正是那些语言用户看到的东西 */}
             <SwitchRow
@@ -523,12 +542,12 @@ function GeneralPane({ snap }: { snap: SettingsSnapshot }) {
               checked={snap.unitsChinese}
               onCheckedChange={applyUnits}
             />
-          </div>
+          </FieldGroup>
           <div className='settings-state'>
             {snap.unitsChinese ? STATES.unitsOn : STATES.unitsOff}
           </div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
     </>
   )
 }
@@ -579,9 +598,9 @@ function DisplayPane() {
 
   return (
     <>
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead title={t('显示模式')} tip={TIPS.displayTheme} />
-        <div className='panel-body'>
+        <CardContent variant='panel' className='panel-body'>
           <div>
             <SegmentedControl<ThemeMode>
               aria-label={t('显示模式')}
@@ -591,15 +610,18 @@ function DisplayPane() {
             />
           </div>
           <div className='settings-state'>{themeStateText(theme)}</div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead title={t('界面缩放')} tip={TIPS.displayZoom} />
-        <div className='panel-body'>
-          <div className='retention-list'>
-            <div className='retention-row'>
-              <label htmlFor='settings-zoom'>{t('缩放比例')}</label>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='retention-list gap-4'>
+            <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
+              <div className='settings-help-label flex min-w-0 items-center gap-1'>
+                <FieldLabel htmlFor='settings-zoom'>{t('缩放比例')}</FieldLabel>
+                <InfoTip label={t('{name}说明', { name: t('缩放比例') })}>{t('放大或缩小整个界面（文字与控件一起变），效果与浏览器 Ctrl +/- 相同：共 11 档，立即生效并记住。')}</InfoTip>
+              </div>
               <span className='prompt-input'>
                 {/* 档位是 80%–130% 的 11 个定值，用下拉而不是滑块：每一档都要能精确
                     复述（用户问「我现在多少」时答案是个整数），且组件库目前没有 Slider。
@@ -617,24 +639,23 @@ function DisplayPane() {
                     <SelectValue>{zoomLabel}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {ZOOM_PERCENTS.map(percent => (
-                      <SelectItem key={percent} value={String(percent)}>
-                        {percent === 100 ? t('100%（默认）') : `${percent}%`}
-                      </SelectItem>
-                    ))}
+                    <SelectGroup>
+                      {ZOOM_PERCENTS.map(percent => (
+                        <SelectItem key={percent} value={String(percent)}>
+                          {percent === 100 ? t('100%（默认）') : `${percent}%`}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </span>
-              <div className='hint'>
-                {t('放大或缩小整个界面（文字与控件一起变），效果与浏览器 Ctrl +/- 相同：共 11 档，立即生效并记住。')}
-              </div>
-            </div>
-          </div>
+            </Field>
+          </FieldGroup>
           <div className='settings-state'>
             {isWeb ? STATES.zoomWeb : zoom === 100 ? STATES.zoomDefault : t('当前按 {n}% 显示。', { n: zoom })}
           </div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
       <PagePrefsSection />
     </>
@@ -709,22 +730,26 @@ function PrefSelect({ id, label, hint, options, value, onChange }: {
   onChange: (next: string) => void
 }) {
   return (
-    <div className='retention-row'>
-      <label htmlFor={id}>{label}</label>
+    <Field orientation='horizontal' className='retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]'>
+      <div className='settings-help-label flex min-w-0 items-center gap-1'>
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
+        <InfoTip label={t('{name}说明', { name: label })}>{hint}</InfoTip>
+      </div>
       <span className='storage-line'>
         <Select value={value} onValueChange={next => onChange(String(next))}>
           <SelectTrigger id={id} className='w-[220px]'>
             <SelectValue>{options.find(item => item.value === value)?.label || value}</SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {options.map(item => (
-              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-            ))}
+            <SelectGroup>
+              {options.map(item => (
+                <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
       </span>
-      <div className='hint'>{hint}</div>
-    </div>
+    </Field>
   )
 }
 
@@ -739,10 +764,10 @@ function PagePrefsSection() {
     dataToast('✅ 已保存，下次打开面板生效', 'ok')
   }
   return (
-    <section className='panel'>
+    <Card as='section' variant='panel' size='sm' className='panel'>
       <PanelHead title='页面偏好' tip={NOTES.pagePrefs} />
-      <div className='panel-body'>
-        <div className='retention-list'>
+      <CardContent variant='panel' className='panel-body'>
+        <FieldGroup className='retention-list gap-4'>
           <PrefSelect
             id='pref-default-page'
             label='打开面板时默认停留在'
@@ -775,10 +800,9 @@ function PagePrefsSection() {
             value={docs}
             onChange={change(PREF_DOCS_KEY, setDocs)}
           />
-        </div>
-        <div className='hint'>{NOTES.pagePrefs}</div>
-      </div>
-    </section>
+        </FieldGroup>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -796,31 +820,34 @@ function RetryCodesField({ codes, status, busy }: {
   const locked = status === 'unavailable'
 
   return (
-    <div className='retention-row'>
-      <label htmlFor='settings-retry-no-codes-input'>{t('指定错误码直接换号')}</label>
+    <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
+      <div className='settings-help-label flex min-w-0 items-center gap-1'>
+        <FieldLabel htmlFor='settings-retry-no-codes-input'>{t('指定错误码直接换号')}</FieldLabel>
+        <InfoTip label={t('{name}说明', { name: t('指定错误码直接换号') })}>{NOTES.retryCodes}</InfoTip>
+      </div>
       <div className='retention-input'>
         {/* 点框体空白处 = 聚焦输入框（整框是一个输入控件的观感，旧实现同） */}
         <div
-          className={locked ? 'tag-input disabled' : 'tag-input'}
+          className={cn(locked ? 'tag-input disabled' : 'tag-input')}
           onClick={() => inputRef.current?.focus()}
         >
           {(codes || []).map(code => (
-            <span className='tag-chip' key={code}>
+            <Badge variant='secondary' key={code}>
               <span className='v'>{code}</span>
               {/* 徽章上的 ✕：小号圆角热区，悬停加深 —— 用组件库的小件档 + 语义色，
                   「能点删」的视觉暗示与旧实现一致 */}
               <Button
                 type='button'
-                variant='ghost'
+                variant='remove'
                 size='icon-2xs'
-                className='tag-x text-muted-foreground hover:bg-destructive-soft hover:text-destructive'
+                className='tag-x'
                 title={t('删除 {code}', { code })}
                 aria-label={t('删除状态码 {code}', { code })}
                 onClick={event => { event.stopPropagation(); void removeRetryCode(code) }}
               >
                 ✕
               </Button>
-            </span>
+            </Badge>
           ))}
           <Input
             ref={inputRef}
@@ -848,8 +875,7 @@ function RetryCodesField({ codes, status, busy }: {
           />
         </div>
       </div>
-      <div className='hint'>{NOTES.retryCodes}</div>
-    </div>
+    </Field>
   )
 }
 
@@ -868,8 +894,11 @@ function PromptFileRow({ prompt, locked, busy }: {
   }
 
   return (
-    <div className='retention-row'>
-      <label htmlFor='settings-prompt-file'>{t('提示词文件')}</label>
+    <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
+      <div className='settings-help-label flex min-w-0 items-center gap-1'>
+        <FieldLabel htmlFor='settings-prompt-file'>{t('提示词文件')}</FieldLabel>
+        <InfoTip label={t('{name}说明', { name: t('提示词文件') })}>{NOTES.promptFile}</InfoTip>
+      </div>
       <span className='prompt-input'>
         <Input
           id='settings-prompt-file'
@@ -883,8 +912,7 @@ function PromptFileRow({ prompt, locked, busy }: {
           onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }}
         />
       </span>
-      <div className='hint'>{NOTES.promptFile}</div>
-    </div>
+    </Field>
   )
 }
 
@@ -1008,6 +1036,7 @@ function ProviderGatewayRow({ item, option, over, locked, busy }: {
           id={`settings-prompt-gateway-${item.id}`}
           label={t('装上{size}的官方身份提示词', { size })}
           checked={on}
+          tip={option.gatewayNote}
           disabled={locked || busy}
           onCheckedChange={next => void saveProviderGatewayPrompt(item.id, next)}
         />
@@ -1015,10 +1044,7 @@ function ProviderGatewayRow({ item, option, over, locked, busy }: {
             但各走各的接口字段，改一个不会动另一个（见 settings-state 两个动作） */}
         <GatewayTextButton item={item} option={option} over={over} locked={locked} busy={busy} />
       </span>
-      <div className={on ? 'hint' : 'hint prompt-gateway-off'}>
-        {on ? option.gatewayNote : t('已关闭。{note}', { note: option.gatewayNote })}
-        {edited ? t(' 正文已改：{edited}（其余段用官方原文）。', { edited }) : ''}
-      </div>
+      {edited ? <div className='hint'>{t('正文已改：{edited}（其余段用官方原文）。', { edited })}</div> : null}
     </div>
   )
 }
@@ -1084,8 +1110,8 @@ function ProviderPromptRows({ prompt, locked, busy }: {
         const option = optionOf(item.id)
         return (
           <React.Fragment key={item.id}>
-            <div className='retention-row'>
-              <label htmlFor={`settings-prompt-mode-${item.id}`}>{label}</label>
+            <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
+              <FieldLabel htmlFor={`settings-prompt-mode-${item.id}`}>{label}</FieldLabel>
               <span className='prompt-input'>
                 <Select
                   value={item.mode}
@@ -1107,9 +1133,11 @@ function ProviderPromptRows({ prompt, locked, busy }: {
                     <SelectValue>{modeLabel}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {PROMPT_MODES.map(option => (
-                      <SelectItem key={option.value} value={option.value}>{option.optionLabel}</SelectItem>
-                    ))}
+                    <SelectGroup>
+                      {PROMPT_MODES.map(option => (
+                        <SelectItem key={option.value} value={option.value}>{option.optionLabel}</SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
                 <ProviderFileRow item={item} label={label} locked={locked} busy={busy} />
@@ -1127,7 +1155,7 @@ function ProviderPromptRows({ prompt, locked, busy }: {
                 ) : null}
               </span>
               <div className='hint'>{providerStateText(item, item.configured)}</div>
-            </div>
+            </Field>
             {/* 网关自带那段（只有 registry 标了 note 的家有）——单独一行开关，
                 与上面那行不是一回事：那个管客户端 system、这个管网关自己装什么 */}
             {option && note ? (
@@ -1143,8 +1171,11 @@ function ProviderPromptRows({ prompt, locked, busy }: {
         )
       })}
 
-      <div className='retention-row'>
-        <label htmlFor='settings-prompt-provider-add'>{t('添加提供商')}</label>
+      <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
+        <div className='settings-help-label flex min-w-0 items-center gap-1'>
+          <FieldLabel htmlFor='settings-prompt-provider-add'>{t('添加提供商')}</FieldLabel>
+          <InfoTip label={t('{name}说明', { name: t('添加提供商') })}>{NOTES.promptProviders}</InfoTip>
+        </div>
         <span className='prompt-input'>
           {/* 组件的 Select 不支持占位（必须有一个 value），所以第一个选项就是
               「选择要配置的提供商」这个动作本身；选完立刻重置回它。
@@ -1171,14 +1202,15 @@ function ProviderPromptRows({ prompt, locked, busy }: {
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {candidates.map(item => (
-                <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
-              ))}
+              <SelectGroup>
+                {candidates.map(item => (
+                  <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </span>
-        <div className='hint'>{NOTES.promptProviders}</div>
-      </div>
+      </Field>
     </>
   )
 }
@@ -1190,10 +1222,10 @@ function PromptPanel({ snap }: { snap: SettingsSnapshot }) {
   const modeLabel = PROMPT_MODES.find(item => item.value === prompt.mode)?.optionLabel ?? prompt.mode
 
   return (
-    <section className='panel'>
+    <Card as='section' variant='panel' size='sm' className='panel'>
       <PanelHead
         title={t('系统提示词')}
-        tip={TIPS.prompt}
+        tip={<>{TIPS.prompt}{' '}{NOTES.prompt}</>}
         badge={prompt.status === 'ready'
           ? <StatusBadge tone='ok'>{prompt.mode === 'passthrough' ? t('透传') : t('已接管')}</StatusBadge>
           : prompt.status === 'unavailable'
@@ -1201,8 +1233,8 @@ function PromptPanel({ snap }: { snap: SettingsSnapshot }) {
             : <StatusBadge tone='idle'>{t('检测中…')}</StatusBadge>}
         actions={<RefreshButton id='btn-prompt-refresh' onClick={() => void refreshPrompt()} />}
       />
-      <div className='panel-body'>
-        <div className='retention-list'>
+      <CardContent variant='panel' className='panel-body'>
+        <FieldGroup className='retention-list gap-4'>
           {/* 两个分组条把「默认」与「某家的例外」分开：上面那几行是所有未单独配置的
               家共用的默认值，下面那张表是逐家的例外 —— 不分开时它们是一串同构的行，
               用户读不出哪几行管全部、哪几行只管一家（见 page-settings.css 的 .prompt-group）。 */}
@@ -1210,8 +1242,11 @@ function PromptPanel({ snap }: { snap: SettingsSnapshot }) {
             {t('全局配置')}<span className='note'>{t('所有未单独配置的提供商都用这一份')}</span>
           </div>
 
-          <div className='retention-row'>
-            <label htmlFor='settings-prompt-mode'>{t('模式')}</label>
+          <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
+            <div className='settings-help-label flex min-w-0 items-center gap-1'>
+              <FieldLabel htmlFor='settings-prompt-mode'>{t('模式')}</FieldLabel>
+              <InfoTip label={t('{name}说明', { name: t('模式') })}>{NOTES.promptMode}</InfoTip>
+            </div>
             <span className='prompt-input'>
               {/* 旧实现是原生 <select>（select.js 增强 + wbSelect.sync）；这里换成组件库的
                   Select：触发器是按钮，page-settings.css 的 `.prompt-input select{width:240px}`
@@ -1231,26 +1266,29 @@ function PromptPanel({ snap }: { snap: SettingsSnapshot }) {
                   <SelectValue>{modeLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {PROMPT_MODES.map(item => (
-                    <SelectItem key={item.value} value={item.value}>{item.optionLabel}</SelectItem>
-                  ))}
+                  <SelectGroup>
+                    {PROMPT_MODES.map(item => (
+                      <SelectItem key={item.value} value={item.value}>{item.optionLabel}</SelectItem>
+                    ))}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </span>
-            <div className='hint'>{NOTES.promptMode}</div>
-          </div>
+          </Field>
 
           <PromptFileRow prompt={prompt} locked={locked} busy={busy} />
 
           {/* 提示词正文：与文件是同一件事的两个来源（正文优先），所以紧挨着文件那一行。
               行里只放按钮与状态 —— 几百行文本塞进行内输入框既看不清也没法编辑 */}
           <div className='retention-row'>
-            <label htmlFor='btn-prompt-edit-body'>{t('提示词正文')}</label>
+            <div className='settings-help-label flex min-w-0 items-center gap-1'>
+              <FieldLabel htmlFor='btn-prompt-edit-body'>{t('提示词正文')}</FieldLabel>
+              <InfoTip label={t('提示词正文说明')}>{NOTES.promptText}</InfoTip>
+            </div>
             <span className='prompt-input'>
               <PromptTextButton prompt={prompt} locked={locked} busy={busy} />
             </span>
             <div className='hint'>
-              {NOTES.promptText}
               {prompt.source === 'inline'
                 ? t('（当前生效的就是这一份，{n} 行）', { n: prompt.lines })
                 : prompt.text.trim()
@@ -1260,7 +1298,7 @@ function PromptPanel({ snap }: { snap: SettingsSnapshot }) {
           </div>
 
           <div className='prompt-group'>
-            {t('按提供商配置')}<span className='note'>{t('只列单独配置过的家，其余沿用上面的全局配置')}</span>
+            {t('按提供商配置')}<InfoTip label={t('按提供商配置说明')}>{t('只列单独配置过的家，其余沿用上面的全局配置')}</InfoTip>
           </div>
 
           <ProviderPromptRows prompt={prompt} locked={locked} busy={busy} />
@@ -1282,11 +1320,10 @@ function PromptPanel({ snap }: { snap: SettingsSnapshot }) {
               <div className='hint'>{degradeHint(prompt)}</div>
             </div>
           ) : null}
-        </div>
+        </FieldGroup>
         <div className='settings-state'>{promptStateText(prompt)}</div>
-        <div className='hint retention-note'>{NOTES.prompt}</div>
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -1305,15 +1342,15 @@ function debugStateText(debug: DebugState): string {
 /** 请求超时（拆出理由见 settings-model 的 CATEGORIES 说明） */
 function TimeoutPane({ snap }: { snap: SettingsSnapshot }) {
   return (
-    <section className='panel'>
+    <Card as='section' variant='panel' size='sm' className='panel'>
       <PanelHead
         title={t('请求超时')}
-        tip={TIPS.timeouts}
+        tip={<>{TIPS.timeouts}{' '}{NOTES.timeouts}</>}
         badge={numericBadge(snap.timeouts)}
         actions={<RefreshButton id='btn-timeouts-refresh' onClick={() => void refreshTimeouts()} />}
       />
-      <div className='panel-body'>
-        <div className='retention-list'>
+      <CardContent variant='panel' className='panel-body'>
+        <FieldGroup className='retention-list gap-4'>
           {TIMEOUT_FIELDS.map(field => (
             <NumberRow
               key={field.key}
@@ -1323,25 +1360,24 @@ function TimeoutPane({ snap }: { snap: SettingsSnapshot }) {
               onCommit={raw => saveTimeoutField(field, raw)}
             />
           ))}
-        </div>
-        <div className='hint retention-note'>{NOTES.timeouts}</div>
-      </div>
-    </section>
+        </FieldGroup>
+      </CardContent>
+    </Card>
   )
 }
 
 /** 请求重试：数字参数 + 「指定错误码」名单（两段共用同一份保存流程） */
 function RetryPane({ snap }: { snap: SettingsSnapshot }) {
   return (
-    <section className='panel'>
+    <Card as='section' variant='panel' size='sm' className='panel'>
       <PanelHead
         title={t('请求重试')}
-        tip={TIPS.retry}
+        tip={<>{TIPS.retry}{' '}{NOTES.retry}</>}
         badge={numericBadge(snap.retry)}
         actions={<RefreshButton id='btn-retry-refresh' onClick={() => void refreshRetry()} />}
       />
-      <div className='panel-body'>
-        <div className='retention-list'>
+      <CardContent variant='panel' className='panel-body'>
+        <FieldGroup className='retention-list gap-4'>
           {RETRY_FIELDS.map(field => (
             <NumberRow
               key={field.key}
@@ -1356,10 +1392,9 @@ function RetryPane({ snap }: { snap: SettingsSnapshot }) {
             status={snap.retry.status}
             busy={snap.busy === 'codes' || snap.busy === 'retry'}
           />
-        </div>
-        <div className='hint retention-note'>{NOTES.retry}</div>
-      </div>
-    </section>
+        </FieldGroup>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -1375,24 +1410,24 @@ function RoutingPane({ snap }: { snap: SettingsSnapshot }) {
   const sticky: RouteStickyValue =
     ROUTE_STICKY_OPTIONS.find(item => item.value === routing.sticky)?.value ?? 'auto'
   return (
-    <section className='panel'>
+    <Card as='section' variant='panel' size='sm' className='panel'>
       <PanelHead
         title={t('账号路由')}
-        tip={TIPS.routing}
+        tip={<>{TIPS.routing}{' '}{NOTES.routing}</>}
         badge={routing.status === 'ready' ? undefined
           : routing.status === 'unavailable'
             ? <StatusBadge tone='bad'>{t('不可用')}</StatusBadge>
             : <StatusBadge tone='idle'>{t('检测中…')}</StatusBadge>}
         actions={<RefreshButton id='btn-routing-refresh' onClick={() => void refreshRouting()} />}
       />
-      <div className='panel-body'>
-        <div className='retention-list'>
+      <CardContent variant='panel' className='panel-body'>
+        <FieldGroup className='retention-list gap-4'>
           {/* 两行的说明都收进行内问号（[data-tip]，tooltip.js 统一服务），并且**跟随当前档位**
               换内容 —— 每档干的事不一样，一段固定文案说不清 */}
-          <div className='retention-row'>
+          <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
             <label>{t('路由策略')}</label>
             <div className='routing-row'>
-              <span className='tip-q' data-tip={ROUTE_STRATEGIES.find(item => item.value === strategy)?.tip}></span>
+              <InfoTip label={t('路由策略说明')}>{ROUTE_STRATEGIES.find(item => item.value === strategy)?.tip}</InfoTip>
               <SegmentedControl
                 options={ROUTE_STRATEGIES.map(item => ({ value: item.value, label: item.label }))}
                 value={strategy}
@@ -1400,11 +1435,11 @@ function RoutingPane({ snap }: { snap: SettingsSnapshot }) {
                 aria-label={t('路由策略')}
                 onValueChange={value => void saveRoutingField({ routingStrategy: String(value) })} />
             </div>
-          </div>
-          <div className='retention-row'>
+          </Field>
+          <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
             <label>{t('会话粘性')}</label>
             <div className='routing-row'>
-              <span className='tip-q' data-tip={ROUTE_STICKY_OPTIONS.find(item => item.value === sticky)?.tip}></span>
+              <InfoTip label={t('会话粘性说明')}>{ROUTE_STICKY_OPTIONS.find(item => item.value === sticky)?.tip}</InfoTip>
               <SegmentedControl
                 options={ROUTE_STICKY_OPTIONS.map(item => ({ value: item.value, label: item.label }))}
                 value={sticky}
@@ -1412,11 +1447,10 @@ function RoutingPane({ snap }: { snap: SettingsSnapshot }) {
                 aria-label={t('会话粘性')}
                 onValueChange={value => void saveRoutingField({ routingSticky: String(value) })} />
             </div>
-          </div>
-        </div>
-        <div className='hint retention-note'>{NOTES.routing}</div>
-      </div>
-    </section>
+          </Field>
+        </FieldGroup>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -1425,15 +1459,15 @@ function RoutingPane({ snap }: { snap: SettingsSnapshot }) {
 function GatewayPane({ snap }: { snap: SettingsSnapshot }) {
   return (
     <>
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead
           title={t('排队等待')}
-          tip={TIPS.queue}
+          tip={<>{TIPS.queue}{' '}{NOTES.queue}</>}
           badge={numericBadge(snap.queue)}
           actions={<RefreshButton id='btn-queue-refresh' onClick={() => void refreshQueue()} />}
         />
-        <div className='panel-body'>
-          <div className='retention-list'>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='retention-list gap-4'>
             {QUEUE_FIELDS.map(field => (
               <NumberRow
                 key={field.key}
@@ -1443,22 +1477,21 @@ function GatewayPane({ snap }: { snap: SettingsSnapshot }) {
                 onCommit={raw => saveQueueField(field, raw)}
               />
             ))}
-          </div>
-          <div className='hint retention-note'>{NOTES.queue}</div>
-        </div>
-      </section>
+          </FieldGroup>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead
           title={t('验证码令牌池')}
-          tip={TIPS.captchaPool}
+          tip={<>{TIPS.captchaPool}{' '}{NOTES.captchaPool}</>}
           badge={numericBadge(snap.captchaPool)}
           actions={
             <RefreshButton id='btn-captcha-pool-refresh' onClick={() => void refreshCaptchaPool()} />
           }
         />
-        <div className='panel-body'>
-          <div className='retention-list'>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='retention-list gap-4'>
             {CAPTCHA_POOL_FIELDS.map(field => (
               <NumberRow
                 key={field.key}
@@ -1468,15 +1501,39 @@ function GatewayPane({ snap }: { snap: SettingsSnapshot }) {
                 onCommit={raw => saveCaptchaPoolField(field, raw)}
               />
             ))}
-          </div>
-          <div className='hint retention-note'>{NOTES.captchaPool}</div>
-        </div>
-      </section>
+          </FieldGroup>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
+        <PanelHead
+          title={t('models.dev 模型元数据')}
+          tip={<>{TIPS.modelsDev}{' '}{NOTES.modelsDev}</>}
+          badge={snap.modelsDev.status === 'ready'
+            ? <StatusBadge tone='ok'>{t('{count} 条', { count: Number(snap.modelsDev.count).toLocaleString('zh-CN') })}</StatusBadge>
+            : snap.modelsDev.status === 'unavailable'
+              ? <StatusBadge tone='bad'>{t('不可用')}</StatusBadge>
+              : <StatusBadge tone='idle'>{t('检测中…')}</StatusBadge>}
+          actions={
+            <RefreshButton id='btn-modelsdev-refresh' onClick={() => void refreshModelsDev()} />
+          }
+        />
+        <CardContent variant='panel' className='panel-body'>
+          <SwitchRow
+            id='settings-modelsdev'
+            label={t('用 models.dev 补齐上游没声明的模型能力与思考档位（联网刷新，内嵌快照始终生效）')}
+            checked={snap.modelsDev.enabled}
+            disabled={snap.modelsDev.status !== 'ready' || snap.busy === 'modelsDev'}
+            onCheckedChange={next => void saveModelsDev(next)}
+          />
+          <div className='settings-state'>{modelsDevStateText(snap.modelsDev)}</div>
+        </CardContent>
+      </Card>
+
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead
           title={t('指纹脱敏')}
-          tip={TIPS.sanitize}
+          tip={<>{TIPS.sanitize}{' '}{NOTES.sanitize}</>}
           badge={snap.sanitize.status === 'ready'
             ? <StatusBadge tone='ok'>{t('已生效')}</StatusBadge>
             : snap.sanitize.status === 'unavailable'
@@ -1484,8 +1541,8 @@ function GatewayPane({ snap }: { snap: SettingsSnapshot }) {
               : <StatusBadge tone='idle'>{t('检测中…')}</StatusBadge>}
           actions={<RefreshButton id='btn-sanitize-refresh' onClick={() => void refreshSanitize()} />}
         />
-        <div className='panel-body'>
-          <div className='settings-switches'>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='settings-switches gap-2.5'>
             <SwitchRow
               id='settings-sanitize'
               label={t('剥离上游审核黑名单指纹（改写请求体里的模板句与表头）')}
@@ -1494,7 +1551,7 @@ function GatewayPane({ snap }: { snap: SettingsSnapshot }) {
               disabled={snap.sanitize.status !== 'ready' || snap.busy === 'sanitize'}
               onCheckedChange={next => void saveSanitize(next)}
             />
-          </div>
+          </FieldGroup>
           <div className='settings-state'>
             {snap.sanitize.status === 'loading'
               ? STATES.appLoading
@@ -1502,18 +1559,17 @@ function GatewayPane({ snap }: { snap: SettingsSnapshot }) {
                 ? STATES.sanitizeUnavailable
                 : snap.sanitize.on ? STATES.sanitizeOn : STATES.sanitizeOff}
           </div>
-          <div className='hint retention-note'>{NOTES.sanitize}</div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
       <ClineHeadersPanel snap={snap} />
 
       <PromptPanel snap={snap} />
 
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead
           title={t('调试模式')}
-          tip={TIPS.debug}
+          tip={<>{TIPS.debug}{' '}{NOTES.debug}</>}
           badge={snap.debug.status === 'ready'
             ? <StatusBadge tone='ok'>{t('已生效')}</StatusBadge>
             : snap.debug.status === 'unavailable'
@@ -1521,8 +1577,8 @@ function GatewayPane({ snap }: { snap: SettingsSnapshot }) {
               : <StatusBadge tone='idle'>{t('检测中…')}</StatusBadge>}
           actions={<RefreshButton id='btn-debug-refresh' onClick={() => void refreshDebug()} />}
         />
-        <div className='panel-body'>
-          <div className='settings-switches'>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='settings-switches gap-2.5'>
             <SwitchRow
               id='settings-debug-mode'
               label={t('保存上游原始报文（请求头、请求体、响应头、响应体）')}
@@ -1530,11 +1586,10 @@ function GatewayPane({ snap }: { snap: SettingsSnapshot }) {
               disabled={snap.debug.status !== 'ready' || snap.busy === 'debug'}
               onCheckedChange={next => void saveDebug(next)}
             />
-          </div>
+          </FieldGroup>
           <div className='settings-state'>{debugStateText(snap.debug)}</div>
-          <div className='hint retention-note'>{NOTES.debug}</div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
     </>
   )
 }
@@ -1609,10 +1664,10 @@ function ClineHeadersPanel({ snap }: { snap: SettingsSnapshot }) {
   const dirty = ready && !sameOverrides(buildOverrides(), state.overrides)
 
   return (
-    <section className='panel'>
+    <Card as='section' variant='panel' size='sm' className='panel'>
       <PanelHead
         title={t('Cline 伪装头')}
-        tip={TIPS.clineHeaders}
+        tip={<>{TIPS.clineHeaders}{' '}{NOTES.clineHeaders}</>}
         badge={state.status === 'ready'
           ? <StatusBadge tone='ok'>{t('已生效')}</StatusBadge>
           : state.status === 'unavailable'
@@ -1620,8 +1675,8 @@ function ClineHeadersPanel({ snap }: { snap: SettingsSnapshot }) {
             : <StatusBadge tone='idle'>{t('检测中…')}</StatusBadge>}
         actions={<RefreshButton id='btn-cline-headers-refresh' onClick={() => void refreshClineHeaders()} />}
       />
-      <div className='panel-body'>
-        <div className='retention-list'>
+      <CardContent variant='panel' className='panel-body'>
+        <FieldGroup className='retention-list gap-4'>
           {ready
             ? rows.map((row, index) => (
               <div key={String(index)} className='flex items-center gap-2'>
@@ -1676,7 +1731,7 @@ function ClineHeadersPanel({ snap }: { snap: SettingsSnapshot }) {
               {t('保存')}
             </Button>
           </div>
-        </div>
+        </FieldGroup>
         <div className='settings-state'>
           {state.status === 'loading'
             ? STATES.appLoading
@@ -1689,9 +1744,8 @@ function ClineHeadersPanel({ snap }: { snap: SettingsSnapshot }) {
                     ? t('（{n} 项被覆盖）', { n: Object.keys(state.overrides).length })
                     : t('（全部为默认值）'))}
         </div>
-        <div className='hint retention-note'>{NOTES.clineHeaders}</div>
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -1709,10 +1763,10 @@ function SecurityPane({ snap }: { snap: SettingsSnapshot }) {
 
   return (
     <>
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead
           title={t('网关跨域访问（CORS）')}
-          tip={TIPS.cors}
+          tip={<>{TIPS.cors}{' '}{NOTES.cors}</>}
           badge={snap.cors.status === 'ready'
             // 极性与指纹脱敏相反：这个开关「关闭」才是不扩大暴露面的常态，
             // 所以开着时给提醒色（bad），关着才是 ok
@@ -1722,8 +1776,8 @@ function SecurityPane({ snap }: { snap: SettingsSnapshot }) {
               : <StatusBadge tone='idle'>{t('检测中…')}</StatusBadge>}
           actions={<RefreshButton id='btn-cors-refresh' onClick={() => void refreshCors()} />}
         />
-        <div className='panel-body'>
-          <div className='settings-switches'>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='settings-switches gap-2.5'>
             <SwitchRow
               id='settings-cors'
               label={t('允许浏览器里的页面跨来源调用网关（/v1/*）')}
@@ -1732,7 +1786,7 @@ function SecurityPane({ snap }: { snap: SettingsSnapshot }) {
               disabled={snap.cors.status !== 'ready' || snap.busy === 'cors'}
               onCheckedChange={next => void saveCors(next)}
             />
-          </div>
+          </FieldGroup>
           <div className='settings-state'>
             {snap.cors.status === 'loading'
               ? STATES.appLoading
@@ -1740,13 +1794,12 @@ function SecurityPane({ snap }: { snap: SettingsSnapshot }) {
                 ? STATES.corsUnavailable
                 : snap.cors.on ? STATES.corsOn : STATES.corsOff}
           </div>
-          <div className='hint retention-note'>{NOTES.cors}</div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
-        <PanelHead title={t('机器人校验')} />
-        <div className='panel-body'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
+        <PanelHead title={t('机器人校验')} tip={NOTES.captcha} />
+        <CardContent variant='panel' className='panel-body'>
           <SwitchRow
             id='settings-captcha'
             label={t('登录 / 注册需要通过 ALTCHA 人机验证（工作量证明）')}
@@ -1754,16 +1807,14 @@ function SecurityPane({ snap }: { snap: SettingsSnapshot }) {
             disabled={!snap.captcha.available || snap.busy === 'captcha'}
             onCheckedChange={next => void saveCaptcha(next)}
           />
-          <div className='hint'>{NOTES.captcha}</div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
       {/* 面板登录：仅网页端（桌面壳的面板跟着应用走，没有「登录面板」的概念） */}
       {snap.panelLogin ? (
-        <section className='panel' id='panel-login-section'>
-          <PanelHead title={t('面板登录')} />
-          <div className='panel-body'>
-            <div className='hint'>{NOTES.panelLogin}</div>
+        <Card as='section' variant='panel' size='sm' className='panel' id='panel-login-section'>
+          <PanelHead title={t('面板登录')} tip={NOTES.panelLogin} />
+          <CardContent variant='panel' className='panel-body'>
             <div className='mt-2.5'>
               <Button
                 id='btn-panel-logout'
@@ -1774,8 +1825,8 @@ function SecurityPane({ snap }: { snap: SettingsSnapshot }) {
                 {t('退出登录')}
               </Button>
             </div>
-          </div>
-        </section>
+          </CardContent>
+        </Card>
       ) : null}
     </>
   )
@@ -1884,39 +1935,43 @@ function EventLogSection() {
   const pct = total !== null && max ? Math.min(100, Math.round((total / max) * 100)) : null
 
   return (
-    <section className='panel'>
+    <Card as='section' variant='panel' size='sm' className='panel'>
       <PanelHead
         title='事件日志维护'
         tip={NOTES.logMaint}
         actions={<RefreshButton id='btn-logstats-refresh' onClick={() => void refresh()} />}
       />
-      <div className='panel-body'>
-        <div className='retention-list'>
+      <CardContent variant='panel' className='panel-body'>
+        <FieldGroup className='retention-list gap-4'>
           <div className='retention-row'>
-            <label htmlFor='logstats-total'>条目占用</label>
+            <div className='settings-help-label flex min-w-0 items-center gap-1'>
+              <FieldLabel htmlFor='logstats-total'>条目占用</FieldLabel>
+              <InfoTip label={t('{name}说明', { name: t("条目占用") })}>当前条目数与容量上限；写满后自动滚动淘汰最旧的条目。</InfoTip>
+            </div>
             <span className='storage-line'>
               <span className='storage-path' id='logstats-total'>
                 {total !== null ? `${formatCount(total)} / ${formatCount(max ?? 0)}${pct !== null ? `（${pct}%）` : ''}` : '—'}
               </span>
             </span>
-            <div className='hint'>当前条目数与容量上限；写满后自动滚动淘汰最旧的条目。</div>
           </div>
           <div className='retention-row'>
-            <label htmlFor='logstats-levels'>按级别分布</label>
+            <div className='settings-help-label flex min-w-0 items-center gap-1'>
+              <FieldLabel htmlFor='logstats-levels'>按级别分布</FieldLabel>
+              <InfoTip label={t('{name}说明', { name: t("按级别分布") })}>info / warn / error 各级别的条目数；排查故障时优先看 warn 与 error。</InfoTip>
+            </div>
             <span className='storage-line'>
               <span className='storage-path' id='logstats-levels'>{levelText || (total !== null ? '（暂无条目）' : '—')}</span>
             </span>
-            <div className='hint'>info / warn / error 各级别的条目数；排查故障时优先看 warn 与 error。</div>
           </div>
-        </div>
+        </FieldGroup>
         <div className='mt-2.5'>
           <Button id='btn-logs-clear' variant='outline' disabled={busy} onClick={() => void onClear()}>
             {busy ? '清空中…' : '清空全部事件日志'}
           </Button>
           <div className='hint'>{NOTES.logClear}</div>
         </div>
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -2010,24 +2065,26 @@ function RequestMaintenanceSection() {
   ]
 
   return (
-    <section className='panel'>
+    <Card as='section' variant='panel' size='sm' className='panel'>
       <PanelHead
         title='请求记录维护'
-        tip={NOTES.requestMaint}
+        tip={<>{NOTES.requestMaint}{' '}{NOTES.compact}</>}
         actions={<RefreshButton id='btn-clearpreview-refresh' onClick={() => void refresh()} />}
       />
-      <div className='panel-body'>
-        <div className='retention-list'>
+      <CardContent variant='panel' className='panel-body'>
+        <FieldGroup className='retention-list gap-4'>
           {rows.map(row => (
             <div className='retention-row' key={row.label}>
-              <label>{row.label}</label>
+              <div className='settings-help-label flex min-w-0 items-center gap-1'>
+                <label>{row.label}</label>
+                <InfoTip label={t('{name}说明', { name: row.label })}>{row.hint}</InfoTip>
+              </div>
               <span className='storage-line'>
                 <span className='storage-path'>{row.value}</span>
               </span>
-              <div className='hint'>{row.hint}</div>
             </div>
           ))}
-        </div>
+        </FieldGroup>
         <div className='mt-2.5 flex flex-wrap gap-2.5'>
           <Button
             id='btn-requests-clear-all'
@@ -2054,9 +2111,8 @@ function RequestMaintenanceSection() {
             {busy === 'compact' || preview?.vacuumRunning === true ? '后台压缩中…' : '压缩数据库'}
           </Button>
         </div>
-        <div className='hint'>{NOTES.compact}</div>
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -2077,7 +2133,7 @@ function DataPane({ snap }: { snap: SettingsSnapshot }) {
       {/* 整库备份 / 恢复：仅桌面端渲染（web shim 没有这两个桥方法）。
           排在「账号导入 / 导出」之前 —— 恢复是整库替换，两种语义别让用户混着看 */}
       {!isWebBridge && (
-        <section className='panel'>
+        <Card as='section' variant='panel' size='sm' className='panel'>
           <PanelHead
             title={t('整库备份 / 恢复')}
             tip={TIPS.backup}
@@ -2102,27 +2158,27 @@ function DataPane({ snap }: { snap: SettingsSnapshot }) {
               </>
             }
           />
-          <div className='panel-body'>
-            <div className='retention-row'>
-              <label htmlFor='settings-db-include-logs'>{t('包含日志与调试报文')}</label>
+          <CardContent variant='panel' className='panel-body'>
+            <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
+              <div className='settings-help-label flex min-w-0 items-center gap-1'>
+                <FieldLabel htmlFor='settings-db-include-logs'>{t('包含日志与调试报文')}</FieldLabel>
+                <InfoTip label={t('{name}说明', { name: t('包含日志与调试报文') })}>{t('取消勾选后只备份业务数据（账号、配置与余额记录），文件显著变小；事件日志、请求统计与调试报文不会进备份文件。')}</InfoTip>
+              </div>
               <Switch
                 id='settings-db-include-logs'
                 checked={snap.dbIncludeLogs}
                 disabled={io !== null}
                 onCheckedChange={toggleDbIncludeLogs}
               />
-              <div className='hint'>
-                {t('取消勾选后只备份业务数据（账号、配置与余额记录），文件显著变小；事件日志、请求统计与调试报文不会进备份文件。')}
-              </div>
-            </div>
+            </Field>
             <div className='danger-zone'>
               <strong>{NOTES.backupDanger}</strong>
             </div>
-          </div>
-        </section>
+          </CardContent>
+        </Card>
       )}
 
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead
           title={t('账号导入 / 导出')}
           tip={TIPS.io}
@@ -2149,7 +2205,7 @@ function DataPane({ snap }: { snap: SettingsSnapshot }) {
             </>
           }
         />
-        <div className='panel-body'>
+        <CardContent variant='panel' className='panel-body'>
           <div className='danger-zone'>
             <strong>{t('导出文件内含 accessToken / refreshToken / apiKey 等凭证与自定义提供商定义')}</strong>
             {t('，可直接用于登录。请妥善保管，不要外传或上传到公共位置。')}
@@ -2165,18 +2221,18 @@ function DataPane({ snap }: { snap: SettingsSnapshot }) {
               </span>
             </div>
           ) : null}
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead
           title={t('数据保留')}
           tip={TIPS.retention}
           badge={numericBadge(snap.retention)}
           actions={<RefreshButton id='btn-retention-refresh' onClick={() => void refreshRetention()} />}
         />
-        <div className='panel-body'>
-          <div className='retention-list'>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='retention-list gap-4'>
             {RETENTION_FIELDS.map(field => (
               <NumberRow
                 key={field.key}
@@ -2186,38 +2242,42 @@ function DataPane({ snap }: { snap: SettingsSnapshot }) {
                 onCommit={raw => saveRetentionField(field, raw)}
               />
             ))}
-          </div>
+          </FieldGroup>
           <div className='hint retention-note'>{NOTES.retention}</div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead
           title={t('数据存储')}
-          tip={TIPS.storage}
+          tip={<>{TIPS.storage}{' '}{NOTES.storage}</>}
           badge={storageBadge(storage)}
           actions={<RefreshButton id='btn-storage-refresh' onClick={() => void refreshStorage()} />}
         />
-        <div className='panel-body'>
-          <div className='retention-list'>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='retention-list gap-4'>
             <div className='retention-row'>
-              <label htmlFor='storage-db-path'>{t('数据库文件')}</label>
+              <div className='settings-help-label flex min-w-0 items-center gap-1'>
+                <FieldLabel htmlFor='storage-db-path'>{t('数据库文件')}</FieldLabel>
+                <InfoTip label={t('{name}说明', { name: t('数据库文件') })}>{NOTES.storageFile}</InfoTip>
+              </div>
               <span className='storage-line'>
                 {/* 悬停看完整路径（元素上是折行显示的，长路径会被截成好几行） */}
                 <span className='storage-path' id='storage-db-path' title={path}>{path}</span>
               </span>
-              <div className='hint'>{NOTES.storageFile}</div>
             </div>
             <div className='retention-row'>
-              <label htmlFor='storage-db-size'>{t('占用大小')}</label>
+              <div className='settings-help-label flex min-w-0 items-center gap-1'>
+                <FieldLabel htmlFor='storage-db-size'>{t('占用大小')}</FieldLabel>
+                <InfoTip label={t('{name}说明', { name: t('占用大小') })}>{NOTES.storageSize}</InfoTip>
+              </div>
               <span className='storage-line'>
                 <span className='storage-path' id='storage-db-size'>
                   {counts ? formatBytes(storage.bytes) : '—'}
                 </span>
               </span>
-              <div className='hint'>{NOTES.storageSize}</div>
             </div>
-          </div>
+          </FieldGroup>
           <div className='retention-list storage-counts'>
             <StorageCount label={t('账号')} value={count(storage.accounts)} />
             <StorageCount label={t('事件日志')} value={count(storage.logs)} />
@@ -2225,9 +2285,8 @@ function DataPane({ snap }: { snap: SettingsSnapshot }) {
             <StorageCount label={t('报表天数')} value={count(storage.dailyDays)} />
             <StorageCount label={t('调试报文')} value={count(storage.debug)} />
           </div>
-          <div className='hint retention-note'>{NOTES.storage}</div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
       <EventLogSection />
       <RequestMaintenanceSection />
@@ -2265,12 +2324,9 @@ const FEEDBACK_LINKS = [
 
 function FeedbackPane() {
   return (
-    <section className='panel'>
-      <PanelHead title={t('反馈与需求')} />
-      <div className='panel-body'>
-        <div className='hint'>
-          {t('点下面的入口会用系统默认浏览器打开 GitHub 的对应表单（需要 GitHub 账号，模板已预设好，填完直接提交即可）。')}
-        </div>
+    <Card as='section' variant='panel' size='sm' className='panel'>
+      <PanelHead title={t('反馈与需求')} tip={t('点下面的入口会用系统默认浏览器打开 GitHub 的对应表单（需要 GitHub 账号，模板已预设好，填完直接提交即可）。')} />
+      <CardContent variant='panel' className='panel-body'>
         <div className='mt-3 flex flex-col gap-2'>
           {FEEDBACK_LINKS.map(item => (
             <div
@@ -2287,8 +2343,8 @@ function FeedbackPane() {
             </div>
           ))}
         </div>
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -2459,10 +2515,14 @@ function LanDialog({ confirm, register }: { confirm: LanConfirm; register: LanRe
               <form
                 onSubmit={event => { event.preventDefault(); if (!register.busy) submitRegister() }}
               >
-                <Label htmlFor='lan-admin-name' className='mt-3.5 mb-[5px] block text-[12.5px]'>{t('账号')}</Label>
+                <FieldGroup className='mt-3.5 gap-3.5'>
+                <Field data-disabled={register.busy || undefined} className='gap-1.5'>
+                <FieldLabel htmlFor='lan-admin-name'>{t('账号')}</FieldLabel>
                 {/* 提交时壳侧按 ref 读值（submitLanRegister），ref 必须真的挂上 */}
                 <Input ref={nameRef} id='lan-admin-name' autoComplete='username' placeholder={t('管理员账号')} disabled={register.busy} />
-                <Label htmlFor='lan-admin-password' className='mt-3.5 mb-[5px] block text-[12.5px]'>{t('密码')}</Label>
+                </Field>
+                <Field data-disabled={register.busy || undefined} className='gap-1.5'>
+                <FieldLabel htmlFor='lan-admin-password'>{t('密码')}</FieldLabel>
                 <Input
                   ref={passwordRef}
                   id='lan-admin-password'
@@ -2471,6 +2531,8 @@ function LanDialog({ confirm, register }: { confirm: LanConfirm; register: LanRe
                   placeholder={t('至少 8 位')}
                   disabled={register.busy}
                 />
+                </Field>
+                </FieldGroup>
               </form>
               <div className='mt-3 min-h-5 text-[13px] whitespace-pre-wrap text-destructive'>
                 {register.error}
@@ -2517,11 +2579,13 @@ function LanDialog({ confirm, register }: { confirm: LanConfirm; register: LanRe
 function DeployRow({ label, value, hint }: { label: string; value: React.ReactNode; hint: string }) {
   return (
     <div className='retention-row'>
-      <label>{label}</label>
+      <div className='settings-help-label flex min-w-0 items-center gap-1'>
+        <label>{label}</label>
+        <InfoTip label={t('{name}说明', { name: label })}>{hint}</InfoTip>
+      </div>
       <span className='storage-line'>
         <span className='storage-path'>{value}</span>
       </span>
-      <div className='hint'>{hint}</div>
     </div>
   )
 }
@@ -2594,10 +2658,10 @@ function DeployPane({ snap }: { snap: SettingsSnapshot }) {
 
   return (
     <>
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead title='运行形态' tip='面板与网关的部署方式。网页端经反向代理访问服务器上的网关；桌面端的网关跑在应用进程内。' />
-        <div className='panel-body'>
-          <div className='retention-list'>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='retention-list gap-4'>
             <DeployRow
               label='运行形态'
               value={isWeb ? '网页端 · 服务器 / 容器部署' : '桌面端 · 应用内置网关'}
@@ -2628,14 +2692,14 @@ function DeployPane({ snap }: { snap: SettingsSnapshot }) {
                 hint='OpenAI 兼容端点；三种对话协议与模型清单的完整地址见「文档」页。'
               />
             ) : null}
-          </div>
-        </div>
-      </section>
+          </FieldGroup>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead title='引擎与安全' tip='引擎版本与面板安全状态的只读概览；可修改的项在各自分区。' />
-        <div className='panel-body'>
-          <div className='retention-list'>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='retention-list gap-4'>
             <DeployRow
               label='引擎版本'
               value={version || '…'}
@@ -2653,14 +2717,14 @@ function DeployPane({ snap }: { snap: SettingsSnapshot }) {
               value={isWeb ? '管理员会话 · 30 天自动续期' : '桌面端无需登录'}
               hint='会话只在登录设备上有效；「安全」分区的退出登录会撤销本设备的会话链。'
             />
-          </div>
-        </div>
-      </section>
+          </FieldGroup>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead title='数据概览' tip='SQLite 库的只读摘要；完整路径、大小与逐表计数见「数据」分区。' />
-        <div className='panel-body'>
-          <div className='retention-list'>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='retention-list gap-4'>
             <DeployRow
               label='存储状态'
               value={storageReady
@@ -2682,7 +2746,10 @@ function DeployPane({ snap }: { snap: SettingsSnapshot }) {
                 完整入口在「更新」分区（那个面板归 update-panel.tsx，见文件头）。行内 anatomy
                 与上面的 DeployRow 同构：label 命名、hint 是说明文字，值一栏放动作按钮。 */}
             <div className='retention-row'>
-              <label htmlFor='btn-deploy-check-update'>检查更新</label>
+              <div className='settings-help-label flex min-w-0 items-center gap-1'>
+                <FieldLabel htmlFor='btn-deploy-check-update'>检查更新</FieldLabel>
+                <InfoTip label={t('{name}说明', { name: t("检查更新") })}>检查面板是否有新版本（读取 GitHub Releases）。</InfoTip>
+              </div>
               <span className='storage-line'>
                 <Button
                   id='btn-deploy-check-update'
@@ -2693,11 +2760,10 @@ function DeployPane({ snap }: { snap: SettingsSnapshot }) {
                   {checking ? '检查中…' : '检查更新'}
                 </Button>
               </span>
-              <div className='hint'>检查面板是否有新版本（读取 GitHub Releases）。</div>
             </div>
-          </div>
-        </div>
-      </section>
+          </FieldGroup>
+        </CardContent>
+      </Card>
 
       <DangerZoneSection />
     </>
@@ -2741,12 +2807,12 @@ function DangerZoneSection() {
   }
 
   return (
-    <section className='panel'>
+    <Card as='section' variant='panel' size='sm' className='panel'>
       <PanelHead
         title='危险操作'
         tip='要彻底关闭对外服务时才用：停止后面板与 API 全部不可用，恢复必须登录服务器手动重启容器；日常停用单个账号请到「账号」页。'
       />
-      <div className='panel-body'>
+      <CardContent variant='panel' className='panel-body'>
         <div className='danger-zone'>
           <strong>停止后面板与 API 全部不可用</strong>
           ，恢复必须在服务器上手动执行 docker restart agent2api 或 docker compose up -d。
@@ -2758,8 +2824,8 @@ function DangerZoneSection() {
           </Button>
           <div className='hint'>立即退出网关进程并落盘统计；在途请求会中断。容器可能被 restart 策略自动拉起。</div>
         </div>
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -2950,15 +3016,15 @@ function BackupSettingsPanel() {
       : <StatusBadge tone='idle'>已关闭</StatusBadge>
 
   return (
-    <section className='panel'>
+    <Card as='section' variant='panel' size='sm' className='panel'>
       <PanelHead
         title='定时备份'
-        tip='每天自动生成完整、一致的 SQLite 备份文件，保存账号、设置、日志和请求统计。恢复 .db 文件时应先停止服务并保留当前数据副本；桌面端也可使用整库 SQL 备份与恢复入口。'
+        tip={<>{'每天自动生成完整、一致的 SQLite 备份文件，保存账号、设置、日志和请求统计。恢复 .db 文件时应先停止服务并保留当前数据副本；桌面端也可使用整库 SQL 备份与恢复入口。'}{' '}整库快照（.db 文件）连日志与请求统计一起备份，服务「坏库整体回滚」；只搬配置到另一台机器请用下面的「快照导出与导入」。</>}
         badge={badge}
         actions={<RefreshButton id='btn-backup-refresh' disabled={busy !== null} onClick={() => void refresh()} />}
       />
-      <div className='panel-body'>
-        <div className='retention-list'>
+      <CardContent variant='panel' className='panel-body'>
+        <FieldGroup className='retention-list gap-4'>
           <SwitchRow
             id='settings-backup-enabled'
             label='启用定时备份（每天一次整库快照）'
@@ -3006,7 +3072,10 @@ function BackupSettingsPanel() {
             hint='按每天一次自动排期；从关闭拨到开启会立刻排到当前时刻（开启即跑一次）。'
           />
           <div className='retention-row'>
-            <label htmlFor='btn-backup-run'>立即备份</label>
+            <div className='settings-help-label flex min-w-0 items-center gap-1'>
+              <FieldLabel htmlFor='btn-backup-run'>立即备份</FieldLabel>
+              <InfoTip label={t('{name}说明', { name: t("立即备份") })}>不等每天的计划，现在就生成一份快照。上一次刚结束（冷却中）或正在执行时会提示稍后再试 —— 提示原文来自后端，照它说的等一会儿即可。</InfoTip>
+            </div>
             <span className='storage-line'>
               <Button
                 id='btn-backup-run'
@@ -3017,16 +3086,10 @@ function BackupSettingsPanel() {
                 {busy === 'run' ? '备份中…' : '立即备份'}
               </Button>
             </span>
-            <div className='hint'>
-              不等每天的计划，现在就生成一份快照。上一次刚结束（冷却中）或正在执行时会提示稍后再试 —— 提示原文来自后端，照它说的等一会儿即可。
-            </div>
           </div>
-        </div>
-        <div className='hint retention-note'>
-          整库快照（.db 文件）连日志与请求统计一起备份，服务「坏库整体回滚」；只搬配置到另一台机器请用下面的「快照导出与导入」。
-        </div>
-      </div>
-    </section>
+        </FieldGroup>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -3136,13 +3199,13 @@ function SnapshotExportImportPanel() {
   const exportedAt = pending?.meta.exportedAt
 
   return (
-    <section className='panel'>
+    <Card as='section' variant='panel' size='sm' className='panel'>
       <PanelHead
         title='快照导出与导入'
         tip='把整台网关的配置与账号装进一个 JSON 文件带走（配置搬家 / 坏库重建），或从快照恢复。导出包含全部敏感数据，导入是整表覆盖 —— 两头都要当心。'
         badge={<Badge variant='destructive'>含敏感凭据</Badge>}
       />
-      <div className='panel-body'>
+      <CardContent variant='panel' className='panel-body'>
         <div className='danger-zone'>
           <strong>导出的快照包含全部账号凭证、API Key 与管理员口令哈希</strong>
           —— 等于把整台网关装进口袋。请只保存在你控制的安全位置，不要经聊天工具、网盘或邮件明文传输；泄露快照等于交出全部账号与管理员权限。
@@ -3177,7 +3240,7 @@ function SnapshotExportImportPanel() {
           快照里的登录令牌表会一并替换 —— <strong>导入后当前登录很可能被踢下线，需用快照里的管理员账号重新登录</strong>；
           所以导入成功后面板会自动刷新页面。后端校验快照格式版本；从旧版导入后请重启，并核对账号的提供商和地区归属。
         </div>
-      </div>
+      </CardContent>
 
       {/* 第二重确认：第一重（wbConfirm）只讲覆盖，这一步把「登录可能失效」点透并要求显式表态。
           焦点落在「取消」：不可恢复的覆盖操作，回车不该等于同意。导入在途时整个弹窗不可关闭。 */}
@@ -3212,7 +3275,7 @@ function SnapshotExportImportPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </section>
+    </Card>
   )
 }
 
@@ -3255,15 +3318,15 @@ function MaintenancePanel() {
       : <StatusBadge tone='ok'>正常转发</StatusBadge>
 
   return (
-    <section className='panel'>
+    <Card as='section' variant='panel' size='sm' className='panel'>
       <PanelHead
         title='维护模式'
-        tip='临时暂停对外转发服务的总闸：开启后所有 API 客户端打到 /v1/* 的请求都会立刻收到 503「系统维护中」（OpenAI 风格错误体，客户端能读懂并重试）；面板自己与 /api/* 管理接口不受影响 —— 管理员必须还能进面板把它关掉。'
+        tip={<>{'临时暂停对外转发服务的总闸：开启后所有 API 客户端打到 /v1/* 的请求都会立刻收到 503「系统维护中」（OpenAI 风格错误体，客户端能读懂并重试）；面板自己与 /api/* 管理接口不受影响 —— 管理员必须还能进面板把它关掉。'}{' '}维护期间客户端侧表现为 503（type: maintenance_mode），一般会按各自的退避策略重试；长时间维护建议提前通知调用方。</>}
         badge={badge}
         actions={<RefreshButton id='btn-maintenance-refresh' disabled={busy} onClick={() => void refresh()} />}
       />
-      <div className='panel-body'>
-        <div className='retention-list'>
+      <CardContent variant='panel' className='panel-body'>
+        <FieldGroup className='retention-list gap-4'>
           <SwitchRow
             id='settings-maintenance-enabled'
             label='开启维护模式（暂停对外转发，面板照常可用）'
@@ -3272,29 +3335,26 @@ function MaintenancePanel() {
             onCheckedChange={next => void onEnabledChange(next)}
           />
           <div className='retention-row'>
-            <label>影响范围</label>
+            <div className='settings-help-label flex min-w-0 items-center gap-1'>
+              <label>影响范围</label>
+              <InfoTip label={t('{name}说明', { name: t("影响范围") })}>只拦对外转发面；面板浏览、设置修改、日志查看、本页的全部操作都不受影响。开关持久化在配置里，重启后仍保持。</InfoTip>
+            </div>
             <span className='storage-line'>
               <span className='storage-path'>/v1/* → 503 系统维护中 · 面板与 /api/* 照常</span>
             </span>
-            <div className='hint'>
-              只拦对外转发面；面板浏览、设置修改、日志查看、本页的全部操作都不受影响。开关持久化在配置里，重启后仍保持。
-            </div>
           </div>
           <div className='retention-row'>
-            <label>典型用途</label>
+            <div className='settings-help-label flex min-w-0 items-center gap-1'>
+              <label>典型用途</label>
+              <InfoTip label={t('{name}说明', { name: t("典型用途") })}>比如要更换数据库或排查账号池异常：先开维护挡掉新流量，等手头操作完成再关。客户端在维护期间收到的是明确的 503 维护提示，不是超时或莫名的 5xx。</InfoTip>
+            </div>
             <span className='storage-line'>
               <span className='storage-path'>发版 / 数据迁移 / 故障排查时暂停对外服务</span>
             </span>
-            <div className='hint'>
-              比如要更换数据库或排查账号池异常：先开维护挡掉新流量，等手头操作完成再关。客户端在维护期间收到的是明确的 503 维护提示，不是超时或莫名的 5xx。
-            </div>
           </div>
-        </div>
-        <div className='hint retention-note'>
-          维护期间客户端侧表现为 503（type: maintenance_mode），一般会按各自的退避策略重试；长时间维护建议提前通知调用方。
-        </div>
-      </div>
-    </section>
+        </FieldGroup>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -3340,20 +3400,20 @@ function SessionsPanel() {
     : <StatusBadge tone={sessions.length > 1 ? 'bad' : 'ok'}>{sessions.length} 个在线</StatusBadge>
 
   return (
-    <section className='panel'>
+    <Card as='section' variant='panel' size='sm' className='panel'>
       <PanelHead
         title='在线会话'
-        tip='当前活跃的面板登录会话清单：每个登录过的浏览器 / 设备一条，吊销即强制下线。会话标识是会话链 id（随机数），不是任何令牌本体，展示与引用都安全。'
+        tip={<>{'当前活跃的面板登录会话清单：每个登录过的浏览器 / 设备一条，吊销即强制下线。会话标识是会话链 id（随机数），不是任何令牌本体，展示与引用都安全。'}{' '}列表只显示仍有活令牌的会话；已过期或已登出的会话不会出现。「强制下线」撤销该会话整条刷新链并落盘，重新登录才会恢复。</>}
         badge={badge}
         actions={<RefreshButton id='btn-sessions-refresh' disabled={revoking !== null} onClick={() => void refresh()} />}
       />
-      <div className='panel-body'>
+      <CardContent variant='panel' className='panel-body'>
         {data === null ? (
           <div className='hint'>正在读取在线会话…</div>
         ) : sessions.length === 0 ? (
           <div className='hint'>当前没有活跃会话（桌面端无需登录时这里通常是空的）。</div>
         ) : (
-          <div className='retention-list'>
+          <FieldGroup className='retention-list gap-4'>
             {sessions.map((session, index) => {
               const isCurrent = data.current !== null && session.sessionId === data.current
               return (
@@ -3391,13 +3451,10 @@ function SessionsPanel() {
                 </div>
               )
             })}
-          </div>
+          </FieldGroup>
         )}
-        <div className='hint retention-note'>
-          列表只显示仍有活令牌的会话；已过期或已登出的会话不会出现。「强制下线」撤销该会话整条刷新链并落盘，重新登录才会恢复。
-        </div>
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -3523,11 +3580,11 @@ function BrandPane({ snap }: { snap: SettingsSnapshot }) {
 
   return (
     <>
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead title='站点标题' tip={NOTES.brandingTitle} />
-        <div className='panel-body'>
-          <div className='flex flex-col gap-2'>
-            <Label htmlFor='branding-title'>自定义标题（留空 = 恢复「Agent2API」）</Label>
+        <CardContent variant='panel' className='panel-body'>
+          <Field className='gap-2'>
+            <FieldLabel htmlFor='branding-title'>自定义标题</FieldLabel>
             <Input
               id='branding-title'
               value={title}
@@ -3535,8 +3592,7 @@ function BrandPane({ snap }: { snap: SettingsSnapshot }) {
               placeholder='Agent2API'
               onChange={event => { setTitle(event.target.value); setDirty(true) }}
             />
-          </div>
-          <div className='hint'>{NOTES.brandingTitle}</div>
+          </Field>
           <div className='mt-2.5'>
             <Button
               id='btn-branding-title-save'
@@ -3547,12 +3603,12 @@ function BrandPane({ snap }: { snap: SettingsSnapshot }) {
               {busy ? '保存中…' : '保存标题'}
             </Button>
           </div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead title='站点 Logo' tip={NOTES.brandingLogo} />
-        <div className='panel-body'>
+        <CardContent variant='panel' className='panel-body'>
           <div className='flex items-center gap-4'>
             <div className='size-[64px] shrink-0 overflow-hidden rounded-[14px] border border-border bg-surface-2'>
               {logo
@@ -3587,20 +3643,21 @@ function BrandPane({ snap }: { snap: SettingsSnapshot }) {
               onChange={event => void onPickLogo(event.target.files?.[0])}
             />
           </div>
-          <div className='hint'>{NOTES.brandingLogo}</div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead title='生效范围' tip={NOTES.brandingScope} />
-        <div className='panel-body'>
-          <div className='retention-list'>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='retention-list gap-4'>
             <div className='retention-row'>
-              <label>标题应用位置</label>
+              <div className='settings-help-label flex min-w-0 items-center gap-1'>
+                <label>标题应用位置</label>
+                <InfoTip label={t('{name}说明', { name: t("标题应用位置") })}>保存后刷新页面生效，登录页和桌面面板共用此设置。</InfoTip>
+              </div>
               <span className='storage-line'>
                 <span className='storage-path'>浏览器标签 · 侧栏品牌区 · 面包屑 · 登录页</span>
               </span>
-              <div className='hint'>保存后刷新页面生效，登录页和桌面面板共用此设置。</div>
             </div>
             <div className='retention-row'>
               <label>保存通道</label>
@@ -3609,11 +3666,10 @@ function BrandPane({ snap }: { snap: SettingsSnapshot }) {
                   {isWeb ? '网页端 · PUT /api/branding（当前可用）' : '桌面端 · 本地网关'}
                 </span>
               </span>
-              <div className='hint'>{NOTES.brandingScope}</div>
             </div>
-          </div>
-        </div>
-      </section>
+          </FieldGroup>
+        </CardContent>
+      </Card>
     </>
   )
 }
@@ -3762,30 +3818,16 @@ function applyShellPrefs(prefs: ShellPrefs): void {
   root.setAttribute('data-pref-grouplabel', prefs.isGroupLabel ? 'on' : 'off')
   root.setAttribute('data-pref-topbar-grad', prefs.topbarGradient ? 'on' : 'off')
   root.setAttribute('data-pref-navhl', prefs.menuHighlight ? 'on' : 'off')
-  // 主题色派生规则与 prefs.js 逐字同源：衍生色用 color-mix 跟随，明暗两套主题都成立
-  if (prefs.primary) {
-    const c = prefs.primary
-    root.style.setProperty('--primary', c)
-    root.style.setProperty('--ui-primary', c)
-    root.style.setProperty('--primary-hover', `color-mix(in srgb, ${c} 86%, var(--text))`)
-    root.style.setProperty('--ui-primary-hover', `color-mix(in srgb, ${c} 86%, var(--text))`)
-    root.style.setProperty('--primary-soft', `color-mix(in srgb, ${c} 14%, transparent)`)
-    root.style.setProperty('--primary-bd', `color-mix(in srgb, ${c} 38%, transparent)`)
-    root.style.setProperty('--primary-fg', `color-mix(in srgb, ${c} 70%, var(--text))`)
-  } else {
-    for (const name of ['--primary', '--ui-primary', '--primary-hover', '--ui-primary-hover', '--primary-soft', '--primary-bd', '--primary-fg']) {
-      root.style.removeProperty(name)
-    }
-  }
+  // Both settings entry points share contrast calculation and reset cleanup.
+  const theme = (window as unknown as { wbTheme?: { applyPrimaryColor(color: string): void } }).wbTheme
+  theme?.applyPrimaryColor(prefs.primary)
   applyPrefWatermark(prefs.watermark)
   applyPrefFooter(prefs.isFooter)
   applyPrefTitle(prefs.dynamicTitle)
 }
 
 /**
- * 一行「开关 + 详细说明」。与 SwitchRow 的差别：说明独立成行下的 hint 段 ——
- * 这里的每一项都要放下 2-3 句的中文说明（是什么 / 怎么生效 / 注意什么），
- * 塞进开关旁的行内文字放不下。
+ * 一行偏好开关：详细说明由标签旁的 InfoTip 承载，保持开关、标签与保存行为不变。
  */
 function PrefSwitchRow({ id, label, checked, disabled, hint, onChange }: {
   id: string
@@ -3797,13 +3839,15 @@ function PrefSwitchRow({ id, label, checked, disabled, hint, onChange }: {
   onChange: (next: boolean) => void
 }) {
   return (
-    <div className='retention-row'>
-      <label htmlFor={id}>{label}</label>
+    <Field orientation='horizontal' className='retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]' data-disabled={disabled || undefined}>
+      <div className='settings-help-label flex min-w-0 items-center gap-1'>
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
+        <InfoTip label={t('{name}说明', { name: label })}>{hint}</InfoTip>
+      </div>
       <span className='retention-input'>
         <Switch id={id} checked={checked} disabled={disabled} onCheckedChange={onChange} />
       </span>
-      <div className='hint'>{hint}</div>
-    </div>
+    </Field>
   )
 }
 
@@ -3910,28 +3954,26 @@ function PrefsPane() {
 
   return (
     <>
-      <section className='panel'>
-        <PanelHead title='偏好设置抽屉' tip={TIPS.prefsDrawer} />
-        <div className='panel-body'>
-          <div className='hint'>
-            偏好抽屉是壳自带的完整偏好入口（外观 / 布局 / 通用 / 锁屏四个页签，外加
+      <Card as='section' variant='panel' size='sm' className='panel'>
+        <PanelHead title='偏好设置抽屉' tip={<>{TIPS.prefsDrawer}{' '}{NOTES.prefsPane}{' '}偏好抽屉是壳自带的完整偏好入口（外观 / 布局 / 通用 / 锁屏四个页签，外加
             「复制偏好 / 导入偏好 / 恢复默认」）；本分类下面各面板收录其中最常用的项目
-            —— 两边改的是同一份配置，改哪处另一处都看得到。
-          </div>
+            —— 两边改的是同一份配置，改哪处另一处都看得到。</>} />
+        <CardContent variant='panel' className='panel-body'>
           <div className='mt-2.5'>
             <Button id='prefs-open-drawer' variant='outline' onClick={openDrawer}>
               打开偏好设置抽屉
             </Button>
           </div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead title='主题模式' tip={TIPS.prefsTheme} />
-        <div className='panel-body'>
-          <div className='retention-list'>
-            <div className='retention-row'>
-              <label htmlFor='prefs-theme'>界面主题</label>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='retention-list gap-4'>
+            <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
+              <div className='settings-help-label flex min-w-0 items-center gap-1'><FieldLabel htmlFor='prefs-theme'>界面主题</FieldLabel><InfoTip label={t('{name}说明', { name: t("界面主题") })}>与侧边栏底部的主题三键、偏好抽屉、「显示 → 显示模式」是同一设置的不同入口：
+                改哪处，其它处立即跟上（本页同时写入应用主题与偏好存档两处）。</InfoTip></div>
               <span className='prompt-input'>
                 {/* 与「显示 → 显示模式」同款三档；展示文案显式给 SelectValue */}
                 <Select
@@ -3942,71 +3984,62 @@ function PrefsPane() {
                     <SelectValue>{THEME_MODES.find(item => item.value === prefs.theme)?.label || prefs.theme}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {THEME_MODES.map(item => (
-                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                    ))}
+                    <SelectGroup>
+                      {THEME_MODES.map(item => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </span>
-              <div className='hint'>
-                与侧边栏底部的主题三键、偏好抽屉、「显示 → 显示模式」是同一设置的不同入口：
-                改哪处，其它处立即跟上（本页同时写入应用主题与偏好存档两处）。
-              </div>
-            </div>
-          </div>
+            </Field>
+          </FieldGroup>
           <div className='settings-state'>{themeStateText(prefs.theme)}</div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead title='主题色' tip={TIPS.prefsPrimary} />
-        <div className='panel-body'>
-          <div className='flex flex-wrap gap-2'>
-            {PRIMARY_PRESETS.map(([hex, name]) => {
-              const active = prefs.primary.toLowerCase() === hex
-              return (
-                <button
-                  key={hex}
-                  type='button'
-                  title={`${name}（${hex}）`}
-                  onClick={() => commit({ primary: hex }, `✅ 主题色：${name}`)}
-                  className={'flex items-center gap-1.5 rounded-md border px-2 py-1 text-[12px] '
-                    + (active ? 'text-foreground' : 'border-hairline text-subtle')}
-                  style={active ? { borderColor: hex } : undefined}
-                >
-                  <span className='size-3.5 rounded-full border border-hairline' style={{ background: hex }} />
-                  {name}
-                </button>
-              )
-            })}
-          </div>
-          <div className='mt-2.5 flex flex-wrap items-center gap-2.5'>
-            <Label className='text-[12.5px] font-medium' htmlFor='prefs-primary-custom'>自定义</Label>
-            {/* 原生取色器（组件库没有 color input）：选色即应用，与抽屉的自定义色同源 */}
-            <input
+        <CardContent variant='panel' className='panel-body'>
+          <ToggleGroup variant='outline' size='sm' spacing={2} className='flex-wrap'
+            aria-label='主题色预设' value={prefs.primary ? [prefs.primary.toLowerCase()] : []}
+            onValueChange={next => {
+              const preset = PRIMARY_PRESETS.find(([hex]) => hex === next[0])
+              if (preset) commit({ primary: preset[0] }, `✅ 主题色：${preset[1]}`)
+            }}>
+            {PRIMARY_PRESETS.map(([hex, name]) => (
+              <ToggleGroupItem key={hex} value={hex} title={`${name}（${hex}）`}>
+                <span className='size-3.5 rounded-full border border-hairline' style={{ background: hex }} />
+                {name}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          <Field orientation='horizontal' className='mt-2.5 flex-wrap items-center gap-2.5'>
+            <FieldLabel className='flex-none' htmlFor='prefs-primary-custom'>自定义</FieldLabel>
+            {/* Input 透传 color 类型，保留浏览器原生取色器与即时应用行为。 */}
+            <Input
               id='prefs-primary-custom'
               type='color'
-              className='size-8 cursor-pointer rounded-md border border-hairline bg-transparent p-0.5'
+              className='size-8 cursor-pointer p-0.5'
               value={prefs.primary || PRIMARY_DEFAULT}
               onChange={event => commit({ primary: event.target.value })}
             />
-            <span className='tabular-nums text-[12px] text-subtle'>{prefs.primary || '跟随默认（紫罗兰）'}</span>
+            <span className='tabular-nums text-[12px] text-subtle'>{prefs.primary || '跟随默认（中性）'}</span>
             <Button
               id='prefs-primary-reset'
               variant='outline'
-              onClick={() => commit({ primary: '' }, '✅ 已恢复默认主题色（紫罗兰）')}
+              onClick={() => commit({ primary: '' }, '✅ 已恢复默认主题色（中性）')}
             >
-              恢复默认紫
+              恢复默认
             </Button>
-          </div>
-          <div className='hint'>{TIPS.prefsPrimary}</div>
-        </div>
-      </section>
+          </Field>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead title='深色与滤镜' />
-        <div className='panel-body'>
-          <div className='retention-list'>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='retention-list gap-4'>
             <PrefSwitchRow
               id='prefs-dark-sidebar'
               label='深色侧边栏'
@@ -4042,16 +4075,19 @@ function PrefsPane() {
               hint='反转明度并回旋色相，提升相近颜色之间的辨识度（CSS 滤镜）。与灰色模式互斥。'
               onChange={setFilter('weak')}
             />
-          </div>
-        </div>
-      </section>
+          </FieldGroup>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead title='内容宽度与切换动画' />
-        <div className='panel-body'>
-          <div className='retention-list'>
-            <div className='retention-row'>
-              <label htmlFor='prefs-content-width'>内容宽度</label>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='retention-list gap-4'>
+            <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
+              <div className='settings-help-label flex min-w-0 items-center gap-1'>
+                <FieldLabel htmlFor='prefs-content-width'>内容宽度</FieldLabel>
+                <InfoTip label={t('{name}说明', { name: t("内容宽度") })}>流式跟随窗口宽度铺满；定宽把内容收进 1200px 版心，宽屏上更易读。立即生效并记住。</InfoTip>
+              </div>
               <span className='prompt-input'>
                 <Select
                   value={prefs.contentWidth}
@@ -4065,18 +4101,20 @@ function PrefsPane() {
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {SHELL_CONTENT_WIDTHS.map(item => (
-                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                    ))}
+                    <SelectGroup>
+                      {SHELL_CONTENT_WIDTHS.map(item => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </span>
-              <div className='hint'>
-                流式跟随窗口宽度铺满；定宽把内容收进 1200px 版心，宽屏上更易读。立即生效并记住。
+            </Field>
+            <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
+              <div className='settings-help-label flex min-w-0 items-center gap-1'>
+                <FieldLabel htmlFor='prefs-page-anim'>页面切换动画</FieldLabel>
+                <InfoTip label={t('{name}说明', { name: t("页面切换动画") })}>切换页面时的过场效果：无 / 淡入 / 滑入；系统开启「减少动态效果」时自动禁用。</InfoTip>
               </div>
-            </div>
-            <div className='retention-row'>
-              <label htmlFor='prefs-page-anim'>页面切换动画</label>
               <span className='prompt-input'>
                 <Select
                   value={prefs.pageAnim}
@@ -4090,29 +4128,28 @@ function PrefsPane() {
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {SHELL_PAGE_ANIMS.map(item => (
-                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                    ))}
+                    <SelectGroup>
+                      {SHELL_PAGE_ANIMS.map(item => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </span>
-              <div className='hint'>
-                切换页面时的过场效果：无 / 淡入 / 滑入；系统开启「减少动态效果」时自动禁用。
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+            </Field>
+          </FieldGroup>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
-        <PanelHead title='界面显示项' />
-        <div className='panel-body'>
-          <div className='retention-list'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
+        <PanelHead title='界面显示项' tip={NOTES.prefDisplayItems} />
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='retention-list gap-4'>
             <PrefSwitchRow
               id='prefs-topbar-grad'
               label='顶栏渐变'
               checked={prefs.topbarGradient}
-              hint='顶栏背景改为「主色 → 紫蓝」横向渐变，浅色 / 深色主题下都协调。'
+              hint='顶栏背景改为「主色的明暗过渡」横向渐变，浅色 / 深色主题下都协调。'
               onChange={next => commit({ topbarGradient: next })}
             />
             <PrefSwitchRow
@@ -4164,15 +4201,15 @@ function PrefsPane() {
               hint='在内容区底部显示版权行「© 2026 品牌名 · 基于 agent2api」。'
               onChange={next => commit({ isFooter: next })}
             />
-          </div>
-          <div className='hint'>{NOTES.prefDisplayItems}</div>
-        </div>
-      </section>
+          </FieldGroup>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
-        <PanelHead title='锁屏管理' tip={TIPS.prefsLock} />
-        <div className='panel-body'>
-          <div className='retention-list'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
+        <PanelHead title='锁屏管理' tip={<>{TIPS.prefsLock}{' '}先落盘锁屏标记（aibuddy-lockscreen-active）再刷新页面：刷新后直接进入锁屏界面，
+              刚保存的密码与分钟数立即生效；解锁后标记自动清除。</>} />
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='retention-list gap-4'>
             <PrefSwitchRow
               id='prefs-lock-enabled'
               label='启用锁屏'
@@ -4180,8 +4217,9 @@ function PrefsPane() {
               hint='开启后 Ctrl+L 立即锁屏、空闲达到下方分钟数自动锁屏；刷新页面后由壳按保存值接管计时与解锁校验。'
               onChange={next => commit({ lockScreen: { ...prefs.lockScreen, enabled: next } })}
             />
-            <div className='retention-row'>
-              <label htmlFor='prefs-lock-password'>锁屏密码</label>
+            <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
+              <div className='settings-help-label flex min-w-0 items-center gap-1'><FieldLabel htmlFor='prefs-lock-password'>锁屏密码</FieldLabel><InfoTip label={t('{name}说明', { name: t("锁屏密码") })}>仅明文保存在本机 localStorage，用于本机解锁校验，不上传服务器；留空则锁屏后
+                点击即可解锁。失焦或回车保存。</InfoTip></div>
               <span className='prompt-input'>
                 {/* 草稿机制与提示词文件同款：聚焦抄入生效值，失焦 / 回车提交 */}
                 <Input
@@ -4196,31 +4234,22 @@ function PrefsPane() {
                   onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }}
                 />
               </span>
-              <div className='hint'>
-                仅明文保存在本机 localStorage，用于本机解锁校验，不上传服务器；留空则锁屏后
-                点击即可解锁。失焦或回车保存。
-              </div>
-            </div>
+            </Field>
             <NumberRow
               field={LOCK_MINUTES_FIELD}
               value={prefs.lockScreen.minutes}
               disabled={false}
               onCommit={commitLockMinutes}
             />
-          </div>
+          </FieldGroup>
           <div className='mt-2.5'>
             <Button id='prefs-lock-now' variant='default' onClick={lockNow}>
               立即锁屏
             </Button>
-            <div className='hint'>
-              先落盘锁屏标记（aibuddy-lockscreen-active）再刷新页面：刷新后直接进入锁屏界面，
-              刚保存的密码与分钟数立即生效；解锁后标记自动清除。
-            </div>
           </div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <div className='hint retention-note'>{NOTES.prefsPane}</div>
     </>
   )
 }
@@ -4246,12 +4275,6 @@ function readContentMax(): boolean {
   try { return localStorage.getItem(CONTENT_MAX_KEY) === '1' } catch { return false }
 }
 
-/** 未读告警数（通知中心的实时缓存；中心对象不在时给 null，界面显示「—」） */
-function readUnread(): number | null {
-  const unread = shared().wbNotifyCenter?.unread?.()
-  return typeof unread === 'number' ? unread : null
-}
-
 /**
  * 「通知与页签」：页签栏与通知中心都有壳官方的外部出口（wbTagsView / wbNotifyCenter），
  * 动作直接调它们 —— 是活的功能，不是只改存档的假开关；页签状态展示读 localStorage
@@ -4259,7 +4282,6 @@ function readUnread(): number | null {
  */
 function ShellPane() {
   const [tags, setTags] = React.useState<string[]>(readTags)
-  const [unread, setUnread] = React.useState<number | null>(readUnread)
   const [contentMax, setContentMax] = React.useState<boolean>(readContentMax)
 
   // Esc 退出内容区全屏由 tags-view.js 处理（写档 + 摘 class），这里只负责把本页
@@ -4272,7 +4294,6 @@ function ShellPane() {
 
   function refresh(): void {
     setTags(readTags())
-    setUnread(readUnread())
     setContentMax(readContentMax())
   }
 
@@ -4290,33 +4311,6 @@ function ShellPane() {
     setTags(readTags())
   }
 
-  function openNotify(): void {
-    const center = shared().wbNotifyCenter
-    if (center?.open) {
-      center.open()
-      return
-    }
-    // 中心对象不在时退化为点铃铛按钮（铃铛由 notify-center.js 自愈，常在）
-    const bell = document.getElementById('nc-btn-bell')
-    if (bell) { bell.click(); return }
-    toast('未找到通知中心（顶栏尚未就绪），请稍后重试', 'err')
-  }
-
-  function resetUnread(): void {
-    try { localStorage.removeItem(NOTIFY_READ_KEY) } catch { /* 存储不可用时无从清除 */ }
-    const center = shared().wbNotifyCenter
-    if (center?.refresh) {
-      // 清完立即重算：refresh 拉到数据后 firstRunSeed 按当前最新事件重建水位、
-      // 角标清零（拉取异步，稍后重读一次未读数把界面跟上来）
-      center.refresh()
-      toast('✅ 已重置未读：当前告警按已读处理，红点已清零')
-      window.setTimeout(() => setUnread(readUnread()), 2000)
-    } else {
-      toast('已清除已读水位，下一次轮询（60 秒内）后按新事件重新计数')
-    }
-    setUnread(readUnread())
-  }
-
   function toggleContentMax(on: boolean): void {
     // 与 tags-view.js toggleContentMax 同款：body class 立即生效，存档记住
     document.body.classList.toggle('pref-content-max', on)
@@ -4328,38 +4322,35 @@ function ShellPane() {
 
   return (
     <>
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead
           title='页签栏'
-          tip={TIPS.shellTags}
+          tip={<>{TIPS.shellTags}{' '}{NOTES.shellPane}</>}
           actions={<RefreshButton id='btn-shell-tags-refresh' onClick={refresh} />}
         />
-        <div className='panel-body'>
-          <div className='retention-list'>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='retention-list gap-4'>
             <div className='retention-row'>
-              <label>已打开页签</label>
+              <div className='settings-help-label flex min-w-0 items-center gap-1'><label>已打开页签</label><InfoTip label={t('{name}说明', { name: t("已打开页签") })}>页签栏的实时清单以内容区顶部的页签栏为准；本行在进入本页或点「刷新」时读取
+                （页签变化不会推送到这里）。</InfoTip></div>
               <span className='storage-line'>
                 <span className='storage-path' title={tagText}>
                   {`${formatCount(tags.length)} 个${tags.length ? `：${tagText}` : ''}`}
                 </span>
               </span>
-              <div className='hint'>
-                页签栏的实时清单以内容区顶部的页签栏为准；本行在进入本页或点「刷新」时读取
-                （页签变化不会推送到这里）。
-              </div>
             </div>
-          </div>
+          </FieldGroup>
           <div className='mt-2.5'>
             <Button id='btn-shell-tags-clear' variant='outline' onClick={clearTags}>
               清空页签（回到首页）
             </Button>
           </div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead title='内容区全屏' />
-        <div className='panel-body'>
+        <CardContent variant='panel' className='panel-body'>
           <PrefSwitchRow
             id='prefs-content-max'
             label='隐藏侧栏 / 顶栏 / 页签栏'
@@ -4367,40 +4358,11 @@ function ShellPane() {
             hint='只留当前页内容 —— 与页签右键菜单的「当前页全屏」是同一个功能，按 Esc 退出；状态记住，刷新后保持。'
             onChange={toggleContentMax}
           />
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className='panel'>
-        <PanelHead
-          title='通知中心'
-          tip={TIPS.shellNotify}
-          actions={<RefreshButton id='btn-shell-notify-refresh' onClick={() => setUnread(readUnread())} />}
-        />
-        <div className='panel-body'>
-          <div className='retention-list'>
-            <div className='retention-row'>
-              <label>未读告警</label>
-              <span className='storage-line'>
-                <span className='storage-path'>
-                  {unread === null ? '—' : `${formatCount(unread)} 条（仅统计 error / warn）`}
-                </span>
-              </span>
-              <div className='hint'>顶栏铃铛上的红点角标读数；打开通知中心面板即全部记为已读。</div>
-            </div>
-          </div>
-          <div className='mt-2.5 flex flex-wrap gap-2.5'>
-            <Button id='btn-shell-notify-open' variant='default' onClick={openNotify}>
-              打开通知中心
-            </Button>
-            <Button id='btn-shell-notify-reset' variant='outline' onClick={resetUnread}>
-              重置未读
-            </Button>
-          </div>
-          <div className='hint'>{NOTES.shellResetUnread}</div>
-        </div>
-      </section>
+      <NotificationSettingsCard />
 
-      <div className='hint retention-note'>{NOTES.shellPane}</div>
     </>
   )
 }
@@ -4474,13 +4436,13 @@ function ChannelCard({ channel, busy, onEdit, onDelete }: {
       </div>
       <div className='flex shrink-0 items-center gap-2'>
         {/* 启停开关：拨动即全量保存（随时可拨回，不需要确认框） */}
-        <label className='switch' title={channel.enabled ? '已启用（点击停用）' : '已停用（点击启用）'}>
+        <FieldLabel className='switch' title={channel.enabled ? '已启用（点击停用）' : '已停用（点击启用）'}>
           <Switch
             checked={channel.enabled}
             disabled={busy}
             onCheckedChange={next => void toggleNotifyChannel(channel.id, next)}
           />
-        </label>
+        </FieldLabel>
         <Button variant='outline' size='sm' disabled={busy || testing} onClick={() => void onTest()}>
           {testing ? <Spinner className='size-3.5' /> : null}
           {testing ? '测试中…' : '测试'}
@@ -4517,8 +4479,11 @@ function ChannelFieldRow({ draft, field, onChange }: {
   const [revealed, setRevealed] = React.useState(false)
   const inputType = field.number ? 'number' : field.secret && !revealed ? 'password' : 'text'
   return (
-    <div className='retention-row'>
-      <label htmlFor={id}>{field.label}</label>
+    <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
+      <div className='settings-help-label flex min-w-0 items-center gap-1'>
+        <FieldLabel htmlFor={id}>{field.label}</FieldLabel>
+        <InfoTip label={t('{name}说明', { name: field.label })}>{field.hint}</InfoTip>
+      </div>
       <span className='prompt-input flex items-center gap-2'>
         {field.multiline ? (
           <Textarea
@@ -4545,8 +4510,7 @@ function ChannelFieldRow({ draft, field, onChange }: {
           </Button>
         ) : null}
       </span>
-      <div className='hint'>{field.hint}</div>
-    </div>
+    </Field>
   )
 }
 
@@ -4572,8 +4536,11 @@ function QuietTimeRow({ alerts, locked, busy }: {
   }
 
   return (
-    <div className='retention-row'>
-      <label htmlFor='notify-quiet-start'>静默时段</label>
+    <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
+      <div className='settings-help-label flex min-w-0 items-center gap-1'>
+        <FieldLabel htmlFor='notify-quiet-start'>静默时段</FieldLabel>
+        <InfoTip label={t('{name}说明', { name: t("静默时段") })}>{NOTES.notifyQuiet}</InfoTip>
+      </div>
       <span className='prompt-input flex items-center gap-2'>
         <Input
           id='notify-quiet-start'
@@ -4601,8 +4568,7 @@ function QuietTimeRow({ alerts, locked, busy }: {
           onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }}
         />
       </span>
-      <div className='hint'>{NOTES.notifyQuiet}</div>
-    </div>
+    </Field>
   )
 }
 
@@ -4695,10 +4661,10 @@ function NotifyPane({ snap }: { snap: SettingsSnapshot }) {
   return (
     <>
       {/* ── 面板一：通知渠道 ── */}
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead
           title='通知渠道'
-          tip={TIPS.notifyChannels}
+          tip={<>{TIPS.notifyChannels}{' '}{NOTES.notifyChannels}</>}
           badge={notifyChannelsBadge(notify)}
           actions={
             <>
@@ -4723,7 +4689,7 @@ function NotifyPane({ snap }: { snap: SettingsSnapshot }) {
             </>
           }
         />
-        <div className='panel-body'>
+        <CardContent variant='panel' className='panel-body'>
           {/* 渠道卡片列表（Uptime-Kuma 形态）；读不到时整块禁用 */}
           {channels.length === 0 ? (
             <div className='hint'>
@@ -4754,9 +4720,12 @@ function NotifyPane({ snap }: { snap: SettingsSnapshot }) {
                 </strong>
                 <Badge variant='brand' shape='tag'>{notifyTypeLabel(draft.channel.type)}</Badge>
               </div>
-              <div className='retention-list'>
-                <div className='retention-row'>
-                  <label htmlFor='notify-channel-name'>渠道名称</label>
+              <FieldGroup className='retention-list gap-4'>
+                <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
+                  <div className='settings-help-label flex min-w-0 items-center gap-1'>
+                    <FieldLabel htmlFor='notify-channel-name'>渠道名称</FieldLabel>
+                    <InfoTip label={t('{name}说明', { name: t("渠道名称") })}>只显示在面板里（卡片、测试与告警文案都用它），随便起；同一类型配多条时靠名字区分。</InfoTip>
+                  </div>
                   <span className='prompt-input'>
                     <Input
                       id='notify-channel-name'
@@ -4770,12 +4739,11 @@ function NotifyPane({ snap }: { snap: SettingsSnapshot }) {
                       })}
                     />
                   </span>
-                  <div className='hint'>
-                    只显示在面板里（卡片、测试与告警文案都用它），随便起；同一类型配多条时靠名字区分。
-                  </div>
-                </div>
-                <div className='retention-row'>
-                  <label htmlFor='notify-channel-type'>渠道类型</label>
+                </Field>
+                <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
+                  <div className='settings-help-label flex min-w-0 items-center gap-1'><FieldLabel htmlFor='notify-channel-type'>渠道类型</FieldLabel><InfoTip label={t('{name}说明', { name: t("渠道类型") })}>{draft.editing
+                      ? '编辑时类型不可改：要换类型请删除后重新添加（凭据是跟着类型走的）。'
+                      : draftTypeDesc}</InfoTip></div>
                   <span className='prompt-input'>
                     <Select
                       value={draft.channel.type}
@@ -4792,18 +4760,15 @@ function NotifyPane({ snap }: { snap: SettingsSnapshot }) {
                         <SelectValue>{notifyTypeLabel(draft.channel.type)}</SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        {NOTIFY_TYPES.map(spec => (
-                          <SelectItem key={spec.type} value={spec.type}>{spec.label}</SelectItem>
-                        ))}
+                        <SelectGroup>
+                          {NOTIFY_TYPES.map(spec => (
+                            <SelectItem key={spec.type} value={spec.type}>{spec.label}</SelectItem>
+                          ))}
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                   </span>
-                  <div className='hint'>
-                    {draft.editing
-                      ? '编辑时类型不可改：要换类型请删除后重新添加（凭据是跟着类型走的）。'
-                      : draftTypeDesc}
-                  </div>
-                </div>
+                </Field>
                 {draftSpec
                   ? draftSpec.fields.map(field => (
                     <ChannelFieldRow
@@ -4832,7 +4797,7 @@ function NotifyPane({ snap }: { snap: SettingsSnapshot }) {
                       })}
                     />
                   ))}
-              </div>
+              </FieldGroup>
               <div className='mt-2.5 flex gap-2.5'>
                 <Button
                   id='btn-notify-save-channel'
@@ -4846,24 +4811,23 @@ function NotifyPane({ snap }: { snap: SettingsSnapshot }) {
                   取消
                 </Button>
               </div>
-              <div className='hint'>{NOTES.notifyChannels}</div>
             </div>
           ) : null}
 
           <div className='settings-state'>{channelsStateText(notify)}</div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
       {/* ── 面板二：告警事件路由 ── */}
-      <section className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
         <PanelHead
           title='告警事件路由'
-          tip={TIPS.notifyAlerts}
+          tip={<>{TIPS.notifyAlerts}{' '}{NOTES.notifyQuiet}</>}
           badge={notifyAlertsBadge(notify)}
           actions={<RefreshButton id='btn-notify-alerts-refresh' onClick={() => void refreshNotify()} />}
         />
-        <div className='panel-body'>
-          <div className='retention-list'>
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='retention-list gap-4'>
             <PrefSwitchRow
               id='notify-alerts-enabled'
               label='外部推送总开关'
@@ -4902,58 +4866,49 @@ function NotifyPane({ snap }: { snap: SettingsSnapshot }) {
             {alerts ? (
               <QuietTimeRow alerts={alerts} locked={alertsLocked} busy={alertsBusy} />
             ) : null}
-          </div>
+          </FieldGroup>
           <div className='settings-state'>{alertsStateText(notify)}</div>
-          <div className='hint retention-note'>{NOTES.notifyQuiet}</div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
       {/* ── 面板三：使用说明 ── */}
-      <section className='panel'>
-        <PanelHead title='使用说明' />
-        <div className='panel-body'>
-          <div className='retention-list'>
+      <Card as='section' variant='panel' size='sm' className='panel'>
+        <PanelHead title='使用说明' tip={NOTES.notifyChannels} />
+        <CardContent variant='panel' className='panel-body'>
+          <FieldGroup className='retention-list gap-4'>
             <div className='retention-row'>
-              <label>支持渠道</label>
+              <div className='settings-help-label flex min-w-0 items-center gap-1'><label>支持渠道</label><InfoTip label={t('{name}说明', { name: t("支持渠道") })}>共 {NOTIFY_TYPES.length} 种；同一类型可以配多条（比如两个不同的钉钉群），每条独立启用、独立测试。
+                各类型要填什么、到哪里拿凭据，见添加表单里逐字段的中文说明。</InfoTip></div>
               <span className='storage-line'>
                 <span className='storage-path'>{NOTIFY_TYPES.map(spec => spec.label).join('、')}</span>
               </span>
-              <div className='hint'>
-                共 {NOTIFY_TYPES.length} 种；同一类型可以配多条（比如两个不同的钉钉群），每条独立启用、独立测试。
-                各类型要填什么、到哪里拿凭据，见添加表单里逐字段的中文说明。
-              </div>
             </div>
             <div className='retention-row'>
-              <label>测试方法</label>
+              <div className='settings-help-label flex min-w-0 items-center gap-1'><label>测试方法</label><InfoTip label={t('{name}说明', { name: t("测试方法") })}>测试用与真实告警完全相同的通道发一条测试消息，收到即配置正确；失败时错误信息会指明原因
+                （常见：Token 抄错、机器人没和目标聊天说过话、URL 抄漏路径）。每次改完配置建议立即测一次。</InfoTip></div>
               <span className='storage-line'>
                 <span className='storage-path'>渠道卡片「测试」 / 「测试全部启用渠道」</span>
               </span>
-              <div className='hint'>
-                测试用与真实告警完全相同的通道发一条测试消息，收到即配置正确；失败时错误信息会指明原因
-                （常见：Token 抄错、机器人没和目标聊天说过话、URL 抄漏路径）。每次改完配置建议立即测一次。
-              </div>
             </div>
             <div className='retention-row'>
-              <label>与铃铛的关系</label>
+              <div className='settings-help-label flex min-w-0 items-center gap-1'>
+                <label>与铃铛的关系</label>
+                <InfoTip label={t('{name}说明', { name: t("与铃铛的关系") })}>{NOTES.notifyBell}</InfoTip>
+              </div>
               <span className='storage-line'>
                 <span className='storage-path'>铃铛 = 站内事件流 · 渠道 = 站外推送</span>
               </span>
-              <div className='hint'>{NOTES.notifyBell}</div>
             </div>
             <div className='retention-row'>
-              <label>告警触发时机</label>
+              <div className='settings-help-label flex min-w-0 items-center gap-1'><label>告警触发时机</label><InfoTip label={t('{name}说明', { name: t("告警触发时机") })}>三类事件的详细触发时机见上面「告警事件路由」各开关的说明。事件永远会写入事件日志并出现在
+                顶栏铃铛；这里的开关只决定**要不要推送到渠道**，静默时段只影响推送、不影响记录。</InfoTip></div>
               <span className='storage-line'>
                 <span className='storage-path'>429 降级 · 账号掉线 · 探活自动禁用</span>
               </span>
-              <div className='hint'>
-                三类事件的详细触发时机见上面「告警事件路由」各开关的说明。事件永远会写入事件日志并出现在
-                顶栏铃铛；这里的开关只决定**要不要推送到渠道**，静默时段只影响推送、不影响记录。
-              </div>
             </div>
-          </div>
-          <div className='hint retention-note'>{NOTES.notifyChannels}</div>
-        </div>
-      </section>
+          </FieldGroup>
+        </CardContent>
+      </Card>
     </>
   )
 }
@@ -5008,20 +4963,11 @@ function SettingsPage() {
     <div className='settings-layout'>
       <nav className='settings-nav' id='settings-nav'>
         {NAV_CATEGORIES.map(item => (
-          <button
-            key={item.id}
-            type='button'
-            className={(item.id === OPS_CATEGORY.id ? opsActive : !opsActive && snap.category === item.id)
-              ? 'settings-nav-item active'
-              : 'settings-nav-item'}
-            data-cat={item.id}
+          <NavItem key={item.id} data-cat={item.id} className='max-[900px]:w-auto max-[900px]:shrink-0'
+            active={item.id === OPS_CATEGORY.id ? opsActive : !opsActive && snap.category === item.id}
             onClick={() => openCategory(item.id)}
-          >
-            {/* 分类图标（icons.js）：与主侧栏同款 17px 图标盒，颜色随 currentColor
-                （选中态自动变主题色） */}
-            <span className='ico' dangerouslySetInnerHTML={{ __html: iconHtml(item.icon, 17) }} />
-            {item.label}
-          </button>
+            icon={<span className='ico' dangerouslySetInnerHTML={{ __html: iconHtml(item.icon, 17) }} />}
+          >{item.label}</NavItem>
         ))}
       </nav>
 
@@ -5064,7 +5010,7 @@ function SettingsPage() {
           <DeployPane snap={snap} />
         </div>
         {/* 备份与运维：选中态在 SettingsPage 的 opsActive（不经 store，见上面说明） */}
-        <div className={opsActive ? 'settings-pane active' : 'settings-pane'} data-cat='backup'>
+        <div className={cn(opsActive ? 'settings-pane active' : 'settings-pane')} data-cat='backup'>
           <BackupOpsPane />
         </div>
         <div className={paneClass('feedback')} data-cat='feedback'>

@@ -74,6 +74,7 @@ impl GiftKind {
 /// 领取结果。
 #[derive(Debug, Clone)]
 pub struct GiftOutcome {
+    pub credit_known:bool,
     /// true = 本次领取成功（credit 为到账积分）
     pub claimed: bool,
     /// true = 已领过/无可领（幂等中性结果，非错误）
@@ -104,10 +105,11 @@ pub async fn claim_gift(
     if call.code == Some(0) {
         let credit = call.data.get("credit").and_then(Value::as_i64).unwrap_or(0);
         return Ok(GiftOutcome {
+            credit_known:call.data.get("credit").and_then(Value::as_i64).is_some(),
             claimed: true,
             already: false,
             credit,
-            message: format!("{}领取成功（+{credit}c）", kind.label()),
+            message: if call.data.get("credit").and_then(Value::as_i64).is_some(){format!("{}领取成功（+{credit}c）", kind.label())}else{format!("{}领取成功（上游未提供积分数）",kind.label())},
         });
     }
     // 非 0 code：上游 msg 含「已领取/已领过」时按面板既有口径翻成中性结果
@@ -116,6 +118,7 @@ pub async fn claim_gift(
     let message = call.msg.clone().unwrap_or_default();
     if message.contains("已领取") || message.contains("已领过") {
         return Ok(GiftOutcome {
+            credit_known:false,
             claimed: false,
             already: true,
             credit: 0,

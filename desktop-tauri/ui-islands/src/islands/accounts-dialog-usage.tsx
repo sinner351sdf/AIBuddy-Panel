@@ -18,8 +18,13 @@
 
 import * as React from 'react'
 import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  SelectGroup,
   Input,
-  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -103,17 +108,18 @@ export function UsageSettingsSection({
 }) {
   const patch = (next: Partial<UsageDraft>): void => onChange({ ...draft, ...next })
   return (
-    <>
-      <div className='field-row mt-2.5'>
-        <Label className='inline-flex cursor-pointer items-center gap-2.5 font-normal'>
-          <Switch checked={draft.enabled} onCheckedChange={next => patch({ enabled: next === true })}
-            aria-label={t('自动查询余额')} />
-          <span className='text-xs text-subtle'>{t('自动查询余额（按下面的间隔自动刷新余额列的读数）')}</span>
-        </Label>
-      </div>
+    <FieldGroup className='gap-0'>
+      <Field orientation='horizontal' className='field-row mt-2.5 flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+        <Switch id='account-usage-enabled' checked={draft.enabled} onCheckedChange={next => patch({ enabled: next === true })}
+          aria-label={t('自动查询余额')} />
+        <FieldContent className='flex-none'>
+          <FieldLabel htmlFor='account-usage-enabled'>{t('自动查询余额')}</FieldLabel>
+          <FieldDescription>{t('按下面的间隔自动刷新余额列的读数')}</FieldDescription>
+        </FieldContent>
+      </Field>
       {draft.enabled ? (
-        <div className='field-row mt-2.5'>
-          <label htmlFor='account-usage-interval'>{t('查询间隔')}</label>
+        <Field orientation='horizontal' className='field-row mt-2.5 flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+          <FieldLabel htmlFor='account-usage-interval'>{t('查询间隔')}</FieldLabel>
           <Input id='account-usage-interval' type='number' min={1} step={1}
             className='max-w-[110px]' value={draft.intervalInput}
             onChange={event => patch({ intervalInput: event.currentTarget.value })} />
@@ -122,14 +128,16 @@ export function UsageSettingsSection({
               <SelectValue>{draft.unit === 'hours' ? t('小时') : draft.unit === 'minutes' ? t('分钟') : t('秒')}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value='seconds'>{t('秒')}</SelectItem>
-              <SelectItem value='minutes'>{t('分钟')}</SelectItem>
-              <SelectItem value='hours'>{t('小时')}</SelectItem>
+              <SelectGroup>
+                <SelectItem value='seconds'>{t('秒')}</SelectItem>
+                <SelectItem value='minutes'>{t('分钟')}</SelectItem>
+                <SelectItem value='hours'>{t('小时')}</SelectItem>
+              </SelectGroup>
             </SelectContent>
           </Select>
           <span className='detail'>{t('30 秒 ~ 24 小时；手动查询会顺延下一轮')}</span>
-        </div>
+        </Field>
       ) : null}
-    </>
+    </FieldGroup>
   )
 }

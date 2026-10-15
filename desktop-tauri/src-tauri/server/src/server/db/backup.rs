@@ -450,11 +450,12 @@ pub fn import_from_file(db: &Db, source: &Path, config_dir: &Path) -> Result<Val
         .map_err(|e| format!("设置暂存库 WAL 失败: {e}"))?;
 
     // authorizer 只覆盖外部 SQL；紧随其后的 schema::migrate 是本程序自己的
-    // 语句，不属于需要设防的输入，摘掉再跑。（两次设置在连接未执行语句时
-    // 不会失败，Result 按惯例收掉。）
-    let _ = conn.authorizer(Some(import_authorizer));
+    // 语句，不属于需要设防的输入，摘掉再跑。授权器设置失败时拒绝导入。
+    conn.authorizer(Some(import_authorizer))
+        .map_err(|e| format!("启用 SQL 恢复保护失败: {e}"))?;
     let batch_result = conn.execute_batch(sql_content);
-    let _ = conn.authorizer(None::<fn(AuthContext<'_>) -> Authorization>);
+    conn.authorizer(None::<fn(AuthContext<'_>) -> Authorization>)
+        .map_err(|e| format!("解除暂存库 SQL 恢复保护失败: {e}"))?;
     batch_result.map_err(|e| format!("执行备份 SQL 失败: {e}"))?;
     // 未回到自动提交 = 事务没有走到 COMMIT，文件多半被截断 —— 拒绝。
     if !conn.is_autocommit() {
@@ -601,19 +602,22 @@ struct TempRestoreDb {
 
 impl TempRestoreDb {
     fn new() -> Result<Self, String> {
-        let path = std::env::temp_dir().join(format!(
-            "agent2api-restore-{}-{}.db",
-            std::process::id(),
-            logging::now_ms()
-        ));
-        for suffix in ["", "-wal", "-shm"] {
-            let _ = std::fs::remove_file(format!("{}{}", path.display(), suffix));
-        }
+        let mut nonce = [0u8; 16];
+        getrandom::getrandom(&mut nonce)
+            .map_err(|e| format!("生成暂存库文件名失败: {e}"))?;
+        let suffix: String = nonce.iter().map(|byte| format!("{byte:02x}")).collect();
+        let path = std::env::temp_dir().join(format!("agent2api-restore-{suffix}.db"));
+        // 先排他创建空文件，再让 SQLite 打开；不删除可能属于另一次恢复的文件。
+        std::fs::OpenOptions::new().write(true).create_new(true).open(&path)
+            .map_err(|e| format!("创建暂存库文件失败: {e}"))?;
         let conn = Connection::open_with_flags(
             &path,
             OpenFlags::SQLITE_OPEN_READ_WRITE,
         )
-        .map_err(|e| format!("创建暂存库失败: {e}"))?;
+        .map_err(|e| {
+            let _ = std::fs::remove_file(&path);
+            format!("打开暂存库失败: {e}")
+        })?;
         Ok(Self { path, conn })
     }
 }
@@ -639,12 +643,29 @@ pub fn snapshot_to_file(db: &Db, path: &Path) -> Result<(), String> {
 mod safety_tests {
     use super::*;
     #[test]
+    fn restore_staging_files_are_created_independently_and_cleaned_up() {
+        let first = TempRestoreDb::new().unwrap();
+        let second = TempRestoreDb::new().unwrap();
+        assert_ne!(first.path, second.path);
+        first.conn.execute_batch("CREATE TABLE fixture (value TEXT); INSERT INTO fixture VALUES ('preserved');").unwrap();
+        second.conn.execute_batch("CREATE TABLE fixture (value TEXT);").unwrap();
+        let value: String = first.conn.query_row("SELECT value FROM fixture", [], |r| r.get(0)).unwrap();
+        assert_eq!(value, "preserved");
+        let first_path = first.path.clone();
+        let second_path = second.path.clone();
+        drop(first);
+        assert!(!first_path.exists());
+        assert!(second_path.exists());
+        drop(second);
+        assert!(!second_path.exists());
+    }
+    #[test]
     fn guarded_dump_roundtrip_preserves_quotes_blobs_and_nulls() {
         let source = Connection::open_in_memory().unwrap();
         source.execute_batch("CREATE TABLE fixture (id INTEGER PRIMARY KEY, value TEXT, bytes BLOB); INSERT INTO fixture VALUES (1, 'it''s safe', X'00FF'); INSERT INTO fixture VALUES (2, NULL, NULL);").unwrap();
         let sql = dump_sql(&source, &[]).unwrap();
         let target = Connection::open_in_memory().unwrap();
-        target.authorizer(Some(import_authorizer));
+        target.authorizer(Some(import_authorizer)).unwrap();
         target.execute_batch(&sql).unwrap();
         let value: String = target.query_row("SELECT value FROM fixture WHERE id=1", [], |r| r.get(0)).unwrap();
         assert_eq!(value, "it's safe");
@@ -656,7 +677,7 @@ mod safety_tests {
     #[test]
     fn import_cannot_attach_files_or_change_dangerous_pragmas() {
         let target = Connection::open_in_memory().unwrap();
-        target.authorizer(Some(import_authorizer));
+        target.authorizer(Some(import_authorizer)).unwrap();
         assert!(target.execute_batch("ATTACH DATABASE ':memory:' AS escaped").is_err());
         assert!(target.execute_batch("PRAGMA writable_schema=ON").is_err());
         assert!(target.execute_batch("CREATE VIRTUAL TABLE escaped USING fts5(content)").is_err());

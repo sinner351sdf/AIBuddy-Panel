@@ -84,6 +84,8 @@ pub struct LoginTaskState {
     /// 空串在回调侧按「不认识」拒绝，不会静默落到某一家。
     pub provider: String,
     pub canceled: bool,
+    pub phase: String,
+    pub expires_at: i64,
     finished_at: Option<i64>,
 }
 
@@ -92,12 +94,12 @@ impl LoginTaskState {
     /// `{pending:true}` / `{done:true,error}` / `{done:true,session}`
     pub fn to_wait_response(&self) -> Value {
         if !self.done {
-            return json!({ "pending": true });
+            return json!({ "pending": true, "phase":self.phase,"expiresAt":self.expires_at });
         }
         if let Some(error) = &self.error {
-            return json!({ "done": true, "error": error });
+            return json!({ "done": true, "error": error,"phase":"error","errorKind":if error.contains("超时"){"expired"}else if error.contains("保存"){"save_failed"}else{"network"} });
         }
-        json!({ "done": true, "session": self.session.clone().unwrap_or(Value::Null) })
+        json!({ "done": true, "phase":"success", "session": self.session.clone().unwrap_or(Value::Null) })
     }
 }
 
@@ -217,7 +219,7 @@ impl LoginTasks {
         };
         {
             let mut task = handle.lock();
-            if task.done {
+            if task.done || task.phase=="saved" {
                 return false;
             }
             task.canceled = true;
@@ -372,6 +374,8 @@ impl LoginService {
                 edition: info.id.to_string(),
                 provider: provider.to_string(),
                 canceled: false,
+                phase: "requesting".into(),
+                expires_at: logging::now_ms()+LOGIN_TIMEOUT_MS as i64,
                 finished_at: None,
             })),
             ticket,
@@ -941,6 +945,8 @@ impl LoginService {
                     // 让 /start 的等待与 /wait 的轮询都能看到
                     let state = state.map(str::to_string);
                     handle_for_callback.update(|task| {
+                        task.phase = "waiting".into();
+                        task.expires_at=logging::now_ms()+LOGIN_TIMEOUT_MS as i64;
                         task.auth_url = Some(url.to_string());
                         task.state = state.clone();
                     });
@@ -1011,7 +1017,7 @@ impl LoginService {
             .get("authUrl")
             .and_then(Value::as_str)
             .map(str::to_string);
-        if state.is_none() && auth_url.is_none() {
+        if state.as_deref().is_none_or(|s| s.is_empty()) || auth_url.as_deref().is_none_or(|s| s.is_empty()) {
             return Err(WorkBuddyAuthError::new(
                 "auth/state 未返回 state/authUrl，无法发起登录",
             ));
@@ -1056,25 +1062,36 @@ impl LoginService {
                 .and_then(Value::as_str)
                 .unwrap_or("");
             if !access_token.is_empty() {
-                let session = self
+                let mut session = self
                     .build_session_from_token(&token_data, &state, &context)
                     .await?;
                 let uid = session
                     .get("account")
                     .and_then(|account| account.get("uid"))
                     .and_then(Value::as_str)
-                    .unwrap_or("");
+                    .unwrap_or("").to_string();
                 if uid.is_empty() {
                     return Err(WorkBuddyAuthError::new(
                         "登录成功但获取账号信息失败（缺少 uid），请重试",
                     ));
                 }
+                // Cancellation and the local commit are serialized. Once saved,
+                // cancel returns false and never removes the account.
+                let mut commit=handle.lock();
+                if commit.canceled {return Err(WorkBuddyAuthError::new("登录已取消"));}
+                commit.phase="saving".into();
+                let account_id=format!("user-{uid}");
+                let updated=self.store.get_session_by_id(&account_id).is_some();
                 let saved = self
                     .store
                     .add_account(&session, None, Some(region.provider_id()))
                     .map_err(|error| {
-                        WorkBuddyAuthError::with_status(error.status_code, error.message)
+                        WorkBuddyAuthError::with_status(error.status_code, format!("保存账号失败: {}",error.message))
                     })?;
+                commit.phase="saved".into();
+                drop(commit);
+                session["_loginUpdated"]=json!(updated);
+                session["_accountId"]=json!(account_id);
                 let name = saved
                     .get("name")
                     .and_then(Value::as_str)
@@ -1084,7 +1101,7 @@ impl LoginService {
                     "[Auth]",
                     &format!(
                         "✅ 登录成功：{name}（{}…），已加入账号列表",
-                        crate::server::core::account_store::store_util::truncate_text(uid, 8)
+                        crate::server::core::account_store::store_util::truncate_text(&uid, 8)
                     ),
                 );
                 return Ok(session);
@@ -1242,6 +1259,8 @@ fn text_of(object: &Value, keys: &[&str]) -> String {
 /// 标记任务完成并写入会话摘要
 fn finish_task(handle: &LoginTaskHandle, session: &Value) {
     let summary = json!({
+        "updated":session.get("_loginUpdated").and_then(Value::as_bool).unwrap_or(false),
+        "accountId":session.get("_accountId"),
         "accountUid": session
             .get("account")
             .and_then(|account| account.get("uid"))
@@ -1359,4 +1378,14 @@ mod tests {
         // 手改/截断的 token 不能 panic（release 是 panic=abort）
         assert!(account_from_token_claims(&json!({ "accessToken": "a.!!!.c" })).is_none());
     }
+}
+
+#[cfg(test)]
+mod qr_lifecycle_tests {
+    use super::*;
+    fn task(phase:&str)->LoginTaskHandle {LoginTaskHandle{ticket:1,inner:Arc::new(Mutex::new(LoginTaskState{state:Some("fixture-state".into()),phase:phase.into(),expires_at:12345,..Default::default()}))}}
+    #[test]fn pending_cancel_removes_only_that_round(){let tasks=LoginTasks::new();let first=task("waiting");tasks.register("first",first.clone());let second=LoginTaskHandle{ticket:2,..task("waiting")};tasks.register("second",second);assert!(tasks.cancel("first"));assert!(first.snapshot().canceled);assert!(tasks.get("first").is_none());assert!(tasks.get("second").is_some());}
+    #[test]fn saved_commit_cannot_be_cancelled(){let tasks=LoginTasks::new();let handle=task("saved");tasks.register("done",handle.clone());assert!(!tasks.cancel("done"));assert!(!handle.snapshot().canceled);assert!(tasks.get("done").is_some());}
+    #[test]fn qr_wait_returns_summary_not_credentials(){let handle=task("saved");finish_task(&handle,&json!({"account":{"uid":"demo","nickname":"示例"},"auth":{"accessToken":"must-not-leak"},"_loginUpdated":true,"_accountId":"user-demo"}));let result=handle.snapshot().to_wait_response();assert_eq!(result["session"]["updated"],true);assert_eq!(result["session"]["accountId"],"user-demo");assert!(!result.to_string().contains("must-not-leak"));}
+    #[test]fn waiting_exposes_server_expiry(){let handle=task("waiting");let result=handle.snapshot().to_wait_response();assert_eq!(result["expiresAt"],12345);assert_eq!(result["phase"],"waiting");}
 }

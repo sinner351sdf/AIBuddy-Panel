@@ -37,12 +37,16 @@ type TooltipContentProps = Omit<React.ComponentProps<typeof BaseTooltip.Popup>, 
   sideOffset?: number
   /** 锚定方向，默认 top（气泡在锚点上方） */
   side?: 'top' | 'right' | 'bottom' | 'left'
+  align?: 'start' | 'center' | 'end'
+  alignOffset?: number
+  anchor?: BaseTooltip.Positioner.Props['anchor']
+  collisionPadding?: BaseTooltip.Positioner.Props['collisionPadding']
 }
 
-function TooltipContent({ className, sideOffset = 8, side = 'top', children, ...props }: TooltipContentProps) {
+function TooltipContent({ className, sideOffset = 8, side = 'top', align = 'center', alignOffset = 0, anchor, collisionPadding = 8, children, ...props }: TooltipContentProps) {
   return (
     <BaseTooltip.Portal>
-      <BaseTooltip.Positioner sideOffset={sideOffset} side={side} className='z-[35]'>
+      <BaseTooltip.Positioner sideOffset={sideOffset} side={side} align={align} alignOffset={alignOffset} anchor={anchor} collisionPadding={collisionPadding} className='z-[1200]'>
         <BaseTooltip.Popup
           data-slot='tooltip-content'
           className={cn(

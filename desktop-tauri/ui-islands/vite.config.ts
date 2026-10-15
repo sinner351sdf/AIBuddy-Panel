@@ -22,9 +22,10 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
+      '@agent2api/ui': fileURLToPath(new URL('../ui-kit/src', import.meta.url)),
       '@ui': fileURLToPath(new URL('../ui-kit/src', import.meta.url)),
     },
-    dedupe: ['react', 'react-dom', '@base-ui/react'],
+    dedupe: ['react', 'react-dom', '@base-ui/react', 'recharts'],
   },
   /**
    * lib 模式下 Vite 不替换 `process.env.NODE_ENV`（它假设库产物还要被消费方

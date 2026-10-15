@@ -3,6 +3,12 @@
 
 const api = window.workbuddyDesktop;
 const $ = id => document.getElementById(id);
+/**
+ * 是不是「网页端」形态（headless / Docker：面板由网关自己托管）。
+ * 判定口径与 titlebar.js 一致 —— 桥接层注入的 platform 为 'web' 即网页端；
+ * 桥还没就绪时按桌面形态处理（保守：桌面才是自绘窗口按钮那一套）。
+ */
+const isWebPanel = () => api?.platform === 'web';
 let state = null;
 // 最近一次 `refresh()` 的失败原因（成功时清空）。
 // 它是给顶栏状态区挂 title 用的：后端不可达时页面上其余数字都只是「上一次的值」，
@@ -22,6 +28,13 @@ function esc(value) {
 
 function toast(message, type = 'ok') {
   const element = $('toast');
+  // React 岛挂载后统一交给 shadcn/Base UI；bundle 不可用时保留原生提示入口。
+  if (window.wbToast?.show?.(message, type)) {
+    clearTimeout(toast.timer);
+    if (element) element.style.display = 'none';
+    return;
+  }
+  if (!element) return;
   element.textContent = message;
   element.className = type;
   element.style.display = 'block';
@@ -135,7 +148,7 @@ const PAGE_LABELS = {
   keys: wbI18n.t('网关 Key'),
   docs: wbI18n.t('文档'),
   logs: wbI18n.t('日志'),
-  tasks: wbI18n.t('定时任务'),
+  tasks: wbI18n.t('任务中心'),
   requests: wbI18n.t('请求日志'),
   settings: wbI18n.t('设置'),
   credits: wbI18n.t('积分构成'),
@@ -155,6 +168,7 @@ function showPage(name, { persist = true } = {}) {
   });
   const crumb = $('crumb-page');
   if (crumb) crumb.textContent = PAGE_LABELS[page] || page;
+  window.wbShell?.syncPage?.();
   if (persist) localStorage.setItem(PAGE_KEY, page);
   // 列的设置面板常驻 body（.panel 是 overflow:hidden，留在原处会被裁掉，
   // 见 table-col-settings.js），不随宿主页面的 display:none 一起消失 ——
@@ -232,10 +246,14 @@ function showPage(name, { persist = true } = {}) {
 /** 顶栏右侧状态区：随当前页给出该页最关心的两三个状态 */
 function renderTopbarStatus() {
   const box = $('topbar-status');
-  if (!box) return;
+  if (!box || box.hidden) return;
   const session = state?.session || {};
   const accounts = state?.accounts?.accounts || [];
   const enabled = accounts.filter(a => a.enabled !== false).length;
+  // 「可用」= 启用且凭证完整。`available` 就是后端选路用的那个键
+  // （account_store 的 public_account 写的），所以徽章与「转发时会不会用这个账号」
+  // 同一判据；缺该键的老数据按可用处理（宁可不误报「不可用」）。
+  const available = accounts.filter(a => a.enabled !== false && a.available !== false).length;
   // accounts-model.js 在 app.js 之后加载，首屏这次调用可能早于它就绪，故用可选链。
   // 计数用 isLimited（含「余额不足已跳过」档，与账号页「已限流」分段同一口径）；
   // 契约上没有该成员时退回 isRateLimited（只数模型限流），宁少报不报错
@@ -247,41 +265,54 @@ function renderTopbarStatus() {
   // 网关监听，端口被占也不影响账号存在 —— 混用会让用户对着「未就绪」去查账号。
   const gatewayUp = window.wbPortPanel?.isReady?.() === true;
   const chip = (text, kind = '', optional = false) =>
-    `<span class="badge ${kind}${optional ? ' optional' : ''}"><span class="dot"></span>${esc(text)}</span>`;
+    ({ text, tone: kind, optional, dot: true });
   const port = window.wbPortPanel?.portLabel?.() || '';
   /** 直接复用某面板已渲染的徽标文案（词表 / 日志面板自持状态，这里不重复计算） */
-  const mirror = id => {
+  const mirror = (id, label, description) => {
     const badge = $(id);
-    if (!badge || !badge.textContent || badge.textContent === '—') return '';
+    if (!badge || !badge.textContent || badge.textContent === '—') return [];
     // 语义色优先读 data-tone：徽标可能已是组件库的 Badge，它的 className 是一串
     // Tailwind 工具类（inline-flex / bg-*-soft …），按「className 去掉 badge」拆修饰
     // 会拆出一串垃圾类名塞进顶栏。迁到组件库的面板都挂 data-tone（ok / warn / bad，
     // 无修饰为空串）；还没迁的老徽标没有该属性，回落到原来的 className 拆法。
     const kind = badge.dataset.tone ?? badge.className.replace('badge', '').trim();
-    return `<span class="badge ${kind}">${esc(badge.textContent)}</span>`;
+    return [{ text: `${wbI18n.t(label)} · ${badge.textContent}`, tone: kind, description }];
   };
 
   const views = {
-    accounts: () => chip(wbI18n.t('{n} 个启用', { n: enabled }), enabled ? 'ok' : '')
-      + (limited ? chip(wbI18n.t('{n} 个已限流', { n: limited }), 'warn') : ''),
-    gateway: () => (gatewayUp ? chip(wbI18n.t('监听 127.0.0.1'), 'ok') : chip(wbI18n.t('未就绪'), 'bad')) + chip(port, '', true),
-    keys: () => mirror('keys-status'),
+    accounts: () => [chip(wbI18n.t('{n} 个启用', { n: enabled }), enabled ? 'ok' : ''),
+      ...(limited ? [chip(wbI18n.t('{n} 个已限流', { n: limited }), 'warn')] : [])],
+    // 「监听 127.0.0.1」只在桌面模式成立：web 模式（Docker / 反代）下网关监听的是
+    // 容器内的 0.0.0.0，面板访问它走的是映射 / 代理后的地址 —— 那里照实说「网关运行中」
+    // 就好，后面的 port 徽标给的才是真正的地址。（文案复用已有的同一句话，不新增键）
+    gateway: () => [(gatewayUp
+      ? chip(isWebPanel() ? wbI18n.t('网关运行中') : wbI18n.t('监听 127.0.0.1'), 'ok')
+      : chip(wbI18n.t('未就绪'), 'bad')), chip(port, '', true)],
+    keys: () => mirror('keys-status', '网关 Key'),
     // 文档页没有自己的徽标（它只有一组复制的地址），跟着网关的运行状态走 ——
     // 地址在页面上的意义就是「现在能不能连」，网关没起来时那个状态最要紧
-    docs: () => (gatewayUp ? chip(wbI18n.t('网关运行中'), 'ok') : chip(wbI18n.t('未就绪'), 'bad')) + chip(port, '', true),
-    logs: () => mirror('logs-badge'),
-    requests: () => mirror('req-badge'),
+    docs: () => [(gatewayUp ? chip(wbI18n.t('网关运行中'), 'ok') : chip(wbI18n.t('未就绪'), 'bad')), chip(port, '', true)],
+    logs: () => mirror('logs-badge', '系统日志'),
+    requests: () => mirror('req-badge', '运行日志', wbI18n.t('请求日志：当前筛选匹配数 / 保留的总记录数；相同时只显示总数。')),
     // 定时任务页的徽标由 tasks-panel 自己渲染（「N / M 个已开启」），直接镜像
-    tasks: () => mirror('tasks-badge'),
+    tasks: () => mirror('tasks-badge', '任务中心'),
     // 签到中心的徽标由 checkin-page 自己渲染（自动签到开启状态），直接镜像
-    checkin: () => mirror('checkin-badge'),
-    settings: () => (gatewayUp ? chip(wbI18n.t('网关运行中'), 'ok', true) : chip(wbI18n.t('未就绪'), 'bad', true))
-      + (enabled ? chip(wbI18n.t('{n} 个账号启用', { n: enabled })) : ''),
-    overview: () => (gatewayUp ? chip(wbI18n.t('网关运行中'), 'ok') : chip(wbI18n.t('未就绪'), 'bad'))
-      + (session.loggedIn ? chip(wbI18n.t('已登录'), 'ok') : chip(wbI18n.t('未登录'), 'warn')),
+    checkin: () => mirror('checkin-badge', '签到中心'),
+    settings: () => [(gatewayUp ? chip(wbI18n.t('网关运行中'), 'ok', true) : chip(wbI18n.t('未就绪'), 'bad', true)),
+      ...(enabled ? [chip(wbI18n.t('{n} 个账号启用', { n: enabled }))] : [])],
+    // 「已登录 / 未登录」说的是**旧式单账号登录态**（WorkBuddy 的 auth.json），
+    // 它与「能不能转发」在库模式下是两件事：没有 WorkBuddy 账号的多账号部署会
+    // 恒显黄色「未登录」，而路由、转发、签到一切正常（issue #178）。有可用账号时
+    // 报账号数；一个可用账号都没有才回落登录态 —— 那时「未登录」是准确的说法。
+    overview: () => [(gatewayUp ? chip(wbI18n.t('网关运行中'), 'ok') : chip(wbI18n.t('未就绪'), 'bad')),
+      (available
+        ? chip(wbI18n.t('{n} 个账号可用', { n: available }), 'ok')
+        : (session.loggedIn ? chip(wbI18n.t('已登录'), 'ok') : chip(wbI18n.t('未登录'), 'warn')))],
   };
 
-  box.innerHTML = views[currentPage]?.() ?? views.overview();
+  const items = views[currentPage]?.() ?? views.overview();
+  if (window.wbTopbarStatus) window.wbTopbarStatus.render(items);
+  else box.textContent = items.map(item => item.text).join(' · ');
   // 加载失败的原因挂在这里（会话状态卡片删除后它没有别的落点）：此时下面各页面
   // 显示的都是上一次的值，顶栏是唯一常驻可见的位置。成功一次即清空。
   box.title = stateError ? wbI18n.t('加载失败：{error}', { error: stateError }) : '';
@@ -320,8 +351,13 @@ function markLogsSeen(id) {
   }
 }
 
+/** Navigation components retain badge state even while the mobile Sheet is unmounted. */
+function navigationBadgeHandle(id) {
+  return window.wbShell?.badgeHandle?.(id) || $(id);
+}
+
 function clearLogsBadge() {
-  const badge = $('nav-count-logs');
+  const badge = navigationBadgeHandle('nav-count-logs');
   if (badge) badge.style.display = 'none';
   const stats = window.wbLogsPanel?.lastStats?.();
   if (stats?.lastId) markLogsSeen(stats.lastId);
@@ -339,7 +375,7 @@ function clearLogsBadge() {
  * 级别，等价于「仅 error」）。日志上限 500 条且全在内存里，这个查询代价可忽略。
  */
 function updateLogsBadge(stats) {
-  const badge = $('nav-count-logs');
+  const badge = navigationBadgeHandle('nav-count-logs');
   // stats 缺失（接口失败）时什么都不做：不能拿默认的 lastId=0 去判断水位，
   // 否则会被下面「日志被清空」那条分支误判成 id 归零，把水位一起抹掉
   if (!badge || !stats) return;
@@ -444,7 +480,7 @@ function markRequestsSeen(ts) {
 }
 
 function clearRequestsBadge() {
-  const badge = $('nav-count-requests');
+  const badge = navigationBadgeHandle('nav-count-requests');
   if (badge) badge.style.display = 'none';
   markRequestsSeen(Date.now());
   // 水位推到当下 = 在此之前的失败都算已读：把内存里的计数一并归零，
@@ -458,7 +494,7 @@ function clearRequestsBadge() {
  * 避免「20 秒一拍的失败查询把刚亮出的进行中数字又改回去」这种互相覆盖。
  */
 function paintRequestsBadge() {
-  const badge = $('nav-count-requests');
+  const badge = navigationBadgeHandle('nav-count-requests');
   if (!badge) return;
   // 人就在请求日志页：页内已有「· M 进行中」读数，导航徽标不再重复
   if (currentPage === 'requests') {
@@ -562,7 +598,7 @@ let seenUpdateVersion = '';
  * 人已经在设置页时也不显示 —— 面板里的「有新版本」徽标已经把话说完了。
  */
 function syncUpdateBadge() {
-  const badge = $('nav-count-update');
+  const badge = navigationBadgeHandle('nav-count-update');
   if (!badge) return;
   const info = lastUpdateInfo;
   const latest = String(info?.latestVersion || '').trim();
@@ -808,11 +844,7 @@ window.wbApp = {
 
 // ─── 初始化 ───────────────────────────────────
 
-// 导航：点击切换页面，记住上次所在页
-$('nav').addEventListener('click', event => {
-  const item = event.target.closest('.nav-item[data-page]');
-  if (item) showPage(item.dataset.page);
-});
+// Navigation clicks are handled by the shadcn Sidebar island through wbApp.showPage.
 
 /**
  * 图标注入：index.html 里的 .ico 与 .brand-logo 只留空占位，图形从这里填。

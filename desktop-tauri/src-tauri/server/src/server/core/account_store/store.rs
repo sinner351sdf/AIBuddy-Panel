@@ -542,6 +542,9 @@ impl AccountStore {
         .is_some()
         {
             if let Some(object) = session.as_object_mut() {
+                object.insert("id".to_string(), Value::String(record.id().to_string()));
+                object.insert("provider".to_string(), Value::String(record.provider()));
+                object.insert("rateLimits".to_string(), record.get("rateLimits").cloned().unwrap_or_else(|| json!({})));
                 for (key, value) in [
                     ("jwt", record.jwt()),
                     ("deviceMid", record.device_mid()),

@@ -43,6 +43,10 @@ use super::stream::{self, Delta, Frame, LineBuffer};
 /// 会话式转发用到的翻译器（`mod.rs` 构造它）
 pub use super::stream::Translator;
 
+#[cfg(test)]
+#[path = "chat_tests.rs"]
+mod tests;
+
 /// 一次转发的完整计划（构造阶段不含网络，可在账号循环里对每个候选账号各跑一次）
 pub struct ChatPlan {
     pub url: String,
@@ -326,22 +330,45 @@ fn tail_frames(translator: &mut Translator) -> String {
 pub(super) async fn prefetch_stream_head(
     response: reqwest::Response,
     limit: &LimitContext,
+    telemetry: &std::sync::Arc<RequestTelemetry>,
 ) -> Result<(Vec<Frame>, futures::stream::BoxStream<'static, Result<bytes::Bytes, std::io::Error>>), GatewayError> {
     let source = response.bytes_stream().map(|item| {
         item.map_err(|error| std::io::Error::other(egress::describe_error_detail(&error)))
     });
-    let mut source = crate::server::core::upstream::stall::idle_guard(
+    let source = crate::server::core::upstream::stall::idle_guard(
         Box::pin(source),
         std::time::Duration::from_millis(crate::server::config::timeout_settings().stream_idle_ms()),
     );
-    let mut buffer = LineBuffer::new();
+    prefetch_source(source, limit, telemetry).await
+}
+
+async fn prefetch_source(
+    mut source: futures::stream::BoxStream<'static, Result<bytes::Bytes, std::io::Error>>,
+    limit: &LimitContext,
+    telemetry: &std::sync::Arc<RequestTelemetry>,
+) -> Result<(Vec<Frame>, futures::stream::BoxStream<'static, Result<bytes::Bytes, std::io::Error>>), GatewayError> {
+    // Preserve the exact unconsumed bytes, including complete lines AND partial
+    // UTF-8 characters. LineBuffer::push drains all complete lines at once; returning
+    // from its for-loop used to silently discard the rest of the same chunk.
+    let mut pending = Vec::new();
     let mut frames: Vec<Frame> = Vec::new();
+    let mut first_byte = Some(telemetry.begin_stage("first_byte"));
+    let mut first_content = None;
     while let Some(item) = source.next().await {
         let chunk = item.map_err(|error| {
             GatewayError::with_status(502, format!("Accio 上游流式传输中断: {error}"))
         })?;
-        let text = String::from_utf8_lossy(&chunk).to_string();
-        for line in buffer.push(&text) {
+        if chunk.is_empty() { continue; }
+        if let Some(stage) = first_byte.take() {
+            stage.finish();
+            first_content = Some(telemetry.begin_stage("first_content"));
+        }
+        pending.extend_from_slice(&chunk);
+        let mut consumed = 0;
+        while let Some(newline) = pending[consumed..].iter().position(|byte| *byte == b'\n') {
+            let end = consumed + newline + 1;
+            let line = String::from_utf8_lossy(&pending[consumed..end]);
+            consumed = end;
             let Some(data) = line.strip_prefix("data:") else {
                 continue;
             };
@@ -359,9 +386,8 @@ pub(super) async fn prefetch_stream_head(
             let finished = frame.turn_complete;
             if has_content || finished {
                 frames.push(frame);
-                // 半行换手：把缓冲区里还没成行的尾巴拼回流头（见 `take_pending`
-                // 的说明）—— 不做这一步，被切在 chunk 边界的帧会静默丢内容
-                let leftover = buffer.take_pending();
+                if let Some(stage) = first_content.take() { stage.finish(); }
+                let leftover = pending.split_off(consumed);
                 let source: futures::stream::BoxStream<'static, Result<bytes::Bytes, std::io::Error>> =
                     if leftover.is_empty() {
                         source
@@ -374,6 +400,7 @@ pub(super) async fn prefetch_stream_head(
                 return Ok((frames, source));
             }
         }
+        pending.drain(..consumed);
     }
     // 流在没有任何内容帧之前就结束了：交给下游按「空回答」收尾
     Ok((frames, source))
@@ -388,6 +415,7 @@ pub async fn drive_stream(
     sender: tokio::sync::mpsc::Sender<Result<bytes::Bytes, std::io::Error>>,
     prefetched: Vec<Frame>,
 ) {
+    let response_stage = telemetry.begin_stage("stream_response");
     let mut buffer = LineBuffer::new();
     let mut failed: Option<GatewayError> = None;
     // 预读到的帧先补发（它们的字节已经被消费掉了）
@@ -400,6 +428,7 @@ pub async fn drive_stream(
         }
         if frame.turn_complete {
             let tail = tail_frames(&mut translator);
+            response_stage.finish();
             let _ = sender.send(Ok(bytes::Bytes::from(tail))).await;
             return;
         }
@@ -415,8 +444,7 @@ pub async fn drive_stream(
                 break;
             }
         };
-        let text = String::from_utf8_lossy(&chunk).to_string();
-        for line in buffer.push(&text) {
+        for line in buffer.push_bytes(&chunk) {
             let Some(data) = line.strip_prefix("data:") else {
                 continue;
             };
@@ -443,6 +471,7 @@ pub async fn drive_stream(
             }
             if frame.turn_complete {
                 let tail = tail_frames(&mut translator);
+                response_stage.finish();
                 let _ = sender.send(Ok(bytes::Bytes::from(tail))).await;
                 return;
             }
@@ -453,6 +482,8 @@ pub async fn drive_stream(
     if let Some(error) = failed {
         telemetry.note_error(&error.message);
         logging::verbose("[Accio]", &format!("流中途失败：{}", error.message));
+    } else {
+        response_stage.finish();
     }
     let tail = tail_frames(&mut translator);
     let _ = sender.send(Ok(bytes::Bytes::from(tail))).await;
@@ -465,7 +496,15 @@ pub async fn drive_aggregate(
     telemetry: std::sync::Arc<RequestTelemetry>,
     limit: &LimitContext,
 ) -> Result<Value, GatewayError> {
-    let mut source = response.bytes_stream();
+    let (prefetched, mut source) = prefetch_stream_head(response, limit, &telemetry).await?;
+    let response_stage = telemetry.begin_stage("stream_response");
+    for frame in prefetched {
+        translator.consume(&frame, Some(&telemetry));
+        if frame.turn_complete {
+            response_stage.finish();
+            return Ok(completion_body(&translator));
+        }
+    }
     let mut buffer = LineBuffer::new();
     loop {
         let Some(item) = source.next().await else {
@@ -474,11 +513,10 @@ pub async fn drive_aggregate(
         let chunk = item.map_err(|error| {
             GatewayError::with_status(
                 502,
-                format!("Accio 上游流式传输中断: {}", egress::describe_error_detail(&error)),
+                format!("Accio 上游流式传输中断: {error}"),
             )
         })?;
-        let text = String::from_utf8_lossy(&chunk).to_string();
-        for line in buffer.push(&text) {
+        for line in buffer.push_bytes(&chunk) {
             let Some(data) = line.strip_prefix("data:") else {
                 continue;
             };
@@ -495,10 +533,12 @@ pub async fn drive_aggregate(
             }
             translator.consume(&frame, Some(&telemetry));
             if frame.turn_complete {
+                response_stage.finish();
                 return Ok(completion_body(&translator));
             }
         }
     }
+    response_stage.finish();
     Ok(completion_body(&translator))
 }
 

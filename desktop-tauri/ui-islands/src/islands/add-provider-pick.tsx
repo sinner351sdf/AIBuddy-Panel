@@ -1,3 +1,4 @@
+import { Button, Item, ItemMedia, ItemContent, ItemTitle, ItemDescription, ItemActions, ItemGroup } from '@ui'
 /**
  * Agent2API · 「添加账号」弹窗第 1 步：选提供商（账号类型分段 + 搜索 + 卡片网格）。
  *
@@ -18,6 +19,7 @@ import type { CustomProviderRecord } from './add-account-bridge'
 import { WORKBUDDY_ENTRY_LABEL, WORKBUDDY_PROVIDER } from './add-account-configs'
 import { ADD_SEG_CLASS } from './add-provider-blocks'
 import { t } from '../i18n'
+import { Empty, EmptyHeader, EmptyDescription } from '@ui'
 
 /** 第 1 步的账号类型：Agent（内置家）/ 预置 API / 自定义 / 导入 */
 export type AccountType = 'proxy' | 'preset' | 'custom' | 'import'
@@ -210,48 +212,25 @@ function cardMeta(item: CardItem): string {
 }
 
 function ProviderCard({ item, onPick }: { item: CardItem; onPick: (id: string) => void }): React.ReactElement {
-  return (
-    <button
-      type='button'
-      className='add-provider-card'
-      data-provider={item.id}
-      role='option'
-      onClick={() => onPick(item.id)}
-    >
-      <Logo item={item} />
-      <span className='add-provider-info'>
-        <span className='add-provider-name'>
-          {item.label}
-          {item.beta ? <span className='add-provider-beta'>(beta)</span> : null}
-        </span>
-        <span className='add-provider-meta'>{cardMeta(item)}</span>
-      </span>
-      <span className='add-provider-go'>›</span>
-    </button>
-  )
+  return <Item variant='outline' size='sm' role='listitem' data-provider={item.id}>
+    <ItemMedia><Logo item={item} /></ItemMedia>
+    <ItemContent className='min-w-0'>
+      <ItemTitle>{item.label}{item.beta ? <span>(beta)</span> : null}</ItemTitle>
+      <ItemDescription>{cardMeta(item)}</ItemDescription>
+    </ItemContent>
+    <ItemActions><Button variant='ghost' size='icon-sm' data-provider={item.id} aria-label={t('选择 {name}', { name: item.label })} onClick={() => onPick(item.id)}>›</Button></ItemActions>
+  </Item>
 }
 
-/**
- * 「新建自定义提供商」卡：落在自定义块上，由那个块切到「新建」模式。
- * 说明文案短到一行（与其它卡片同宽）：「OpenAI / Anthropic 兼容」那层约束留给表单页去讲。
- */
 function NewProviderCard({ onPick }: { onPick: (id: string) => void }): React.ReactElement {
-  return (
-    <button
-      type='button'
-      className='add-provider-card is-new'
-      data-provider={NEW_PROVIDER_CARD_ID}
-      role='option'
-      onClick={() => onPick(NEW_PROVIDER_CARD_ID)}
-    >
-      <span className='add-provider-logo is-new'>＋</span>
-      <span className='add-provider-info'>
-        <span className='add-provider-name'>{t('新建自定义提供商')}</span>
-        <span className='add-provider-meta'>{t('接入一个兼容上游')}</span>
-      </span>
-      <span className='add-provider-go'>›</span>
-    </button>
-  )
+  return <Item variant='outline' size='sm' role='listitem' data-provider={NEW_PROVIDER_CARD_ID}>
+    <ItemMedia><span className='add-provider-logo is-new'>＋</span></ItemMedia>
+    <ItemContent className='min-w-0'>
+      <ItemTitle>{t('新建自定义提供商')}</ItemTitle>
+      <ItemDescription>{t('接入一个兼容上游')}</ItemDescription>
+    </ItemContent>
+    <ItemActions><Button variant='ghost' size='icon-sm' data-provider={NEW_PROVIDER_CARD_ID} aria-label={t('新建自定义提供商')} onClick={() => onPick(NEW_PROVIDER_CARD_ID)}>›</Button></ItemActions>
+  </Item>
 }
 
 export type PickStepProps = {
@@ -322,19 +301,18 @@ export function PickStep({
       {/* 导入面板插在卡片网格的位置上（与网格互斥显隐），放在网格之前 ——
           两屏内容同一块区域，滚动位置也就跟着换，不会串 */}
       {importPanel}
-      <div
-        className='add-provider-grid'
+      <ItemGroup
+        className='grid grid-cols-[repeat(auto-fill,minmax(min(100%,210px),1fr))] gap-2'
         id='add-provider-grid'
-        role='listbox'
         aria-label={t('选择要添加账号的提供商')}
         style={importing ? { display: 'none' } : undefined}
       >
         {newCard ? <NewProviderCard onPick={onPick} /> : null}
         {hit.map(item => <ProviderCard key={item.id} item={item} onPick={onPick} />)}
         {!hit.length && keyword ? (
-          <div className='add-provider-empty'>{t('没有匹配「{keyword}」的提供商', { keyword: search.trim() })}</div>
+          <Empty variant='compact' className='add-provider-empty'><EmptyHeader><EmptyDescription>{t('没有匹配「{keyword}」的提供商', { keyword: search.trim() })}</EmptyDescription></EmptyHeader></Empty>
         ) : null}
-      </div>
+      </ItemGroup>
     </DialogSection>
   )
 }

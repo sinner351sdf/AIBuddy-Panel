@@ -45,7 +45,7 @@ function AlertDialogOverlay({ className, ...props }: AlertDialogPrimitive.Backdr
     <AlertDialogPrimitive.Backdrop
       data-slot='alert-dialog-overlay'
       className={cn(
-        'fixed inset-0 isolate z-[38] bg-mask backdrop-blur-[3px]',
+        'fixed inset-0 isolate z-[38] bg-mask',
         'transition-opacity duration-150',
         'data-open:animate-in data-open:fade-in-0',
         'data-closed:animate-out data-closed:fade-out-0 data-closed:fill-mode-forwards',
@@ -137,7 +137,7 @@ function AlertDialogFooter({ className, ...props }: React.ComponentProps<'div'>)
     <div
       data-slot='alert-dialog-footer'
       className={cn(
-        'flex items-center gap-2 border-t border-hairline bg-surface-2 px-5 py-[13px]',
+        'flex items-center gap-2 border-t border-hairline bg-surface px-5 py-[13px]',
         className
       )}
       {...props}

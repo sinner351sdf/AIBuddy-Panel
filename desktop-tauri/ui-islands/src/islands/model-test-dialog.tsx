@@ -1,3 +1,4 @@
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@ui'
 /**
  * Agent2API · 「测试模型」两层弹窗 —— React 岛。
  *
@@ -40,8 +41,12 @@
 
 import * as React from 'react'
 import {
+  cn,
+  Alert, AlertDescription,
+  SelectGroup,
   Badge, Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-  Label, MultiSelect, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Spinner,
+  Field, FieldContent, FieldGroup, FieldLabel,
+  MultiSelect, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Spinner,
   Switch, Textarea, Tooltip, TooltipContent, TooltipTrigger,
 } from '@ui'
 import {
@@ -251,14 +256,21 @@ export function testBlockReason(provider: string, model: ManageModel): string {
 /** 「i + 一句话」提示（圈的用法与页面上其它提示一致）。box 是结果区的处置建议块；
  *  plain 是参数弹窗底部的一行常驻口径 —— 精简文案后弹窗里唯一「必须看见」的说明（会消耗额度） */
 function NoteBlock({ children, plain = false }: { children: React.ReactNode; plain?: boolean }) {
+  if (!plain) {
+    return (
+      <Alert role='note'>
+        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' aria-hidden='true'>
+          <circle cx='12' cy='12' r='10' />
+          <path d='M12 11v6M12 7h.01' />
+        </svg>
+        <AlertDescription>{children}</AlertDescription>
+      </Alert>
+    )
+  }
   return (
-    <p className={plain
-      ? 'flex items-center gap-2 text-xs leading-[1.6] text-subtle'
-      : 'flex gap-2 rounded-md border border-border bg-surface-2 px-3 py-2.5 text-xs leading-[1.65] text-subtle'}>
+    <p className='flex items-center gap-2 text-xs leading-[1.6] text-subtle'>
       <span aria-hidden='true'
-        className={plain
-          ? 'size-4 flex-none rounded-full border border-border-strong text-center text-[10px] leading-[14px]'
-          : 'mt-px size-4 flex-none rounded-full border border-border-strong text-center text-[10px] leading-[14px]'}>i</span>
+        className='size-4 flex-none rounded-full border border-border-strong text-center text-[10px] leading-[14px]'>i</span>
       <span>{children}</span>
     </p>
   )
@@ -274,17 +286,17 @@ function Fold({ open, label, text, onToggle }: {
   open: boolean; label: string; text: string; onToggle: () => void
 }) {
   return (
-    <div className='overflow-hidden rounded-sm border border-border'>
-      <Button variant='ghost' size='xs' className='w-full' aria-expanded={open} onClick={onToggle}>
+    <Collapsible open={open} onOpenChange={onToggle} className='overflow-hidden rounded-sm border border-border'>
+      <CollapsibleTrigger render={<Button variant='ghost' size='xs' className='w-full' />}>
         <span className='truncate'>{label}</span>
         <span aria-hidden='true' className='ml-auto text-[10px]'>{open ? '▴' : '▾'}</span>
-      </Button>
-      {open ? (
+      </CollapsibleTrigger>
+      <CollapsibleContent keepMounted>
         <div className='border-t border-hairline bg-surface px-2.5 py-2'>
           <pre className='whitespace-pre-wrap font-mono text-[11.5px] leading-[1.65] text-subtle'>{text}</pre>
         </div>
-      ) : null}
-    </div>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
 
@@ -446,7 +458,11 @@ export function ModelTestDialog({ target, onClose }: { target: ModelTestTarget; 
   // 「关闭思考」两档（off / none）不给：它们在**映射**上的含义是「不注入」，而写进**请求体**
   // 就是一个上游不认识的档位 —— CatPaw 的 resolve_effort 对表外值当场 400。要「不注入」，
   // 选「跟随映射」这一项（映射上没绑等级时它本来就不注入）
-  const levelOptions = reasoningLevels(getSnapshot().data)
+  //
+  // 候选按**这一个模型**自己认识的档位取（见 `models-reasoning.levels` 的三级回落）：
+  // 测试弹窗是「这一家 × 这一个模型」的探针，给它列一堆该模型不认的档位，
+  // 测出来的 400 是档位选错了、不是链路问题 —— 那正是这颗按钮最没用的用法。
+  const levelOptions = reasoningLevels(getSnapshot().data, model)
     .filter(level => level !== 'off' && level !== 'none')
   const followLabel = defaultClosed
     ? t('跟随映射（该行未启用，本次不注入）')
@@ -587,8 +603,8 @@ export function ModelTestDialog({ target, onClose }: { target: ModelTestTarget; 
         {/* 单账号同上：结果块的徽章与指标已经说明一切；非 0 的读数才上色，注意力给问题 */}
         {slots.length > 1 ? (
           <p className='text-xs text-subtle'>
-            <b className={okCount ? 'text-success' : 'text-foreground'}>{okCount}</b>{t(' 成功 ·')}
-            <b className={slots.length - okCount ? 'text-destructive' : 'text-foreground'}> {slots.length - okCount}</b>{t(' 失败')}
+            <b className={cn(okCount ? 'text-success' : 'text-foreground')}>{okCount}</b>{t(' 成功 ·')}
+            <b className={cn(slots.length - okCount ? 'text-destructive' : 'text-foreground')}> {slots.length - okCount}</b>{t(' 失败')}
           </p>
         ) : null}
         {slots.map(slot => slotBlock(slot))}
@@ -624,68 +640,74 @@ export function ModelTestDialog({ target, onClose }: { target: ModelTestTarget; 
             </Tooltip>
           </div>
 
-          <div className='flex flex-col gap-1.5'>
-            <Label htmlFor='model-test-system'>{t('系统提示词')}</Label>
-            <Textarea id='model-test-system' rows={2} maxLength={MAX_PROMPT_CHARS}
-              placeholder={t('留空则不携带；设置页的提示词模式照常生效')}
-              value={systemPrompt}
-              onChange={event => setSystemPrompt(event.currentTarget.value)} />
-          </div>
+          <FieldGroup className='gap-4'>
+            <Field className='flex flex-col gap-1.5'>
+              <FieldLabel htmlFor='model-test-system'>{t('系统提示词')}</FieldLabel>
+              <Textarea id='model-test-system' rows={2} maxLength={MAX_PROMPT_CHARS}
+                placeholder={t('留空则不携带；设置页的提示词模式照常生效')}
+                value={systemPrompt}
+                onChange={event => setSystemPrompt(event.currentTarget.value)} />
+            </Field>
 
-          <div className='flex flex-col gap-1.5'>
-            <Label htmlFor='model-test-prompt'>{t('用户提示词')}</Label>
-            <Textarea id='model-test-prompt' rows={2} maxLength={MAX_PROMPT_CHARS}
-              placeholder={t('留空用默认问候「你好」')}
-              value={prompt}
-              onChange={event => setPrompt(event.currentTarget.value)} />
-          </div>
+            <Field className='flex flex-col gap-1.5'>
+              <FieldLabel htmlFor='model-test-prompt'>{t('用户提示词')}</FieldLabel>
+              <Textarea id='model-test-prompt' rows={2} maxLength={MAX_PROMPT_CHARS}
+                placeholder={t('留空用默认问候「你好」')}
+                value={prompt}
+                onChange={event => setPrompt(event.currentTarget.value)} />
+            </Field>
 
-          <div className='grid grid-cols-2 gap-4'>
-            <div className='flex flex-col gap-1.5'>
-              <Label htmlFor='model-test-reasoning'>{t('思考等级')}</Label>
-              <Select value={reasoning} onValueChange={next => setReasoning(String(next))}>
-                <SelectTrigger id='model-test-reasoning' className='w-full'>
-                  <SelectValue>{reasoning ? t('{level}（本次指定）', { level: reasoning }) : followLabel}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value=''>{followLabel}</SelectItem>
-                  {levelOptions.map(level => (
-                    <SelectItem key={level} value={level}>{t('{level}（本次指定）', { level })}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className='flex flex-col gap-1.5'>
-              <div className='flex items-center gap-1.5'>
-                <Label htmlFor='model-test-stream'>{t('流式请求')}</Label>
+            <FieldGroup className='grid grid-cols-2 gap-4'>
+              <Field className='flex flex-col gap-1.5'>
+                <FieldLabel htmlFor='model-test-reasoning'>{t('思考等级')}</FieldLabel>
+                <Select value={reasoning} onValueChange={next => setReasoning(String(next))}>
+                  <SelectTrigger id='model-test-reasoning' className='w-full'>
+                    <SelectValue>{reasoning ? t('{level}（本次指定）', { level: reasoning }) : followLabel}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value=''>{followLabel}</SelectItem>
+                      {levelOptions.map(level => (
+                        <SelectItem key={level} value={level}>{t('{level}（本次指定）', { level })}</SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field orientation='horizontal' className='flex flex-col items-start gap-1.5'>
+                <FieldContent className='flex-none'>
+                  <div className='flex items-center gap-1.5'>
+                    <FieldLabel htmlFor='model-test-stream'>{t('流式请求')}</FieldLabel>
+                    <Tooltip>
+                      <TooltipTrigger render={<span className='tip-q' tabIndex={0} aria-label={t('流式请求的说明')} />}>?</TooltipTrigger>
+                      <TooltipContent>{t('默认开，与真实请求一致：可同时验证 SSE 链路与首字延迟。')}</TooltipContent>
+                    </Tooltip>
+                  </div>
+                </FieldContent>
+                <Switch id='model-test-stream' checked={stream}
+                  onCheckedChange={value => setStream(Boolean(value))} />
+              </Field>
+            </FieldGroup>
+
+            <Field className='flex flex-col gap-1.5'>
+              <div className='flex items-center gap-2'>
+                <FieldLabel htmlFor='model-test-accounts'>{t('测试账号')}</FieldLabel>
                 <Tooltip>
-                  <TooltipTrigger render={<span className='tip-q' tabIndex={0} aria-label={t('流式请求的说明')} />}>?</TooltipTrigger>
-                  <TooltipContent>{t('默认开，与真实请求一致：可同时验证 SSE 链路与首字延迟。')}</TooltipContent>
+                  <TooltipTrigger render={<span className='tip-q' tabIndex={0} aria-label={t('测试账号的说明')} />}>?</TooltipTrigger>
+                  <TooltipContent>{t('勾几个就并行测几次；默认选队列里最靠前的一个。')}</TooltipContent>
                 </Tooltip>
+                <Button variant='ghost' size='xs' className='ml-auto'
+                  disabled={!usable.length || picked.length === usable.length}
+                  onClick={() => setPicked(usable.map(account => account.id))}>
+                  {t('全选（{n}）', { n: usable.length })}
+                </Button>
               </div>
-              <Switch id='model-test-stream' checked={stream}
-                onCheckedChange={value => setStream(Boolean(value))} />
-            </div>
-          </div>
-
-          <div className='flex flex-col gap-1.5'>
-            <div className='flex items-center gap-2'>
-              <Label htmlFor='model-test-accounts'>{t('测试账号')}</Label>
-              <Tooltip>
-                <TooltipTrigger render={<span className='tip-q' tabIndex={0} aria-label={t('测试账号的说明')} />}>?</TooltipTrigger>
-                <TooltipContent>{t('勾几个就并行测几次；默认选队列里最靠前的一个。')}</TooltipContent>
-              </Tooltip>
-              <Button variant='ghost' size='xs' className='ml-auto'
-                disabled={!usable.length || picked.length === usable.length}
-                onClick={() => setPicked(usable.map(account => account.id))}>
-                {t('全选（{n}）', { n: usable.length })}
-              </Button>
-            </div>
-            <MultiSelect id='model-test-accounts' value={picked} onValueChange={setPicked}
-              options={accountOptions} placeholder={t('选一个账号（至少一个）')}
-              searchPlaceholder={t('搜索账号…')}
-              emptyHint={t('这家没有可用账号（要在账号页启用一个、且凭证完整）')} />
-          </div>
+              <MultiSelect id='model-test-accounts' value={picked} onValueChange={setPicked}
+                options={accountOptions} placeholder={t('选一个账号（至少一个）')}
+                searchPlaceholder={t('搜索账号…')}
+                emptyHint={t('这家没有可用账号（要在账号页启用一个、且凭证完整）')} />
+            </Field>
+          </FieldGroup>
 
           <NoteBlock plain>{t('真实链路 · 消耗少量额度 · 日志带「测试」标记，不计报表')}</NoteBlock>
         </DialogBody>

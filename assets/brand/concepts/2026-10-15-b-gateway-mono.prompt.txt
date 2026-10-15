@@ -1,0 +1,10 @@
+Use case: logo-brand / precise-object-edit.
+Edit the provided AIBuddy Panel brand presentation sheet to explore a white-background, black-logo identity.
+Change only the color palette. Preserve the exact B gateway / flowing ribbon logo silhouette, negative spaces, shape, placement, sizes, wordmark typography, all wording and overall presentation layout.
+Make the hero B symbol solid near-black #111111 on the existing clean white / very pale neutral top background. Keep AIBuddy black and Panel neutral dark gray.
+Most important: the bottom center APP ICON must become a WHITE rounded-square tile with the same exact B symbol in BLACK. Use only an extremely subtle neutral gray edge or shadow to make the white tile legible against the dark presentation strip. No teal tile.
+The bottom right SMALL SIZE tile must also be white with the same black B symbol.
+The bottom left MONO example stays a white B symbol on a pure neutral near-black presentation strip, to demonstrate its inverse use.
+Replace any teal, green, purple, or colored tints everywhere with true neutral black, white, and gray. The dark bottom strip should be neutral #151515. The top area should be white #FFFFFF. Flat solid logo color with crisp clean edges. No gradient shading within the black mark, no colored accents. Keep the mark's intentional interior white gaps exactly intact.
+Text verbatim unchanged: "AIBuddy Panel", "AIBuddy", "Panel", "MONO", "APP ICON", "SMALL SIZE".
+Do not change the logo design or add new elements. A professional monochrome identity presentation, showing the requested WHITE app-icon background and BLACK logo.

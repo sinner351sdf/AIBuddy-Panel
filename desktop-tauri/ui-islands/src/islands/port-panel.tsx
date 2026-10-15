@@ -10,7 +10,9 @@ import {
   DialogSection,
   DialogTitle,
   Input,
-  Label,
+  Field,
+  FieldGroup,
+  FieldLabel,
 } from '@ui'
 import { t } from '../i18n'
 
@@ -68,6 +70,33 @@ import { t } from '../i18n'
 const FALLBACK_PORT = 3065
 
 /**
+ * web 模式（面板由网关自己托管）下**地址栏就是权威的网关地址**。
+ *
+ * 为什么不能沿用「壳侧上报的端口」：`getBackendStatus` 给的是**进程自己监听的端口**，
+ * 而 Docker 端口映射、反向代理、内网穿透之后，外面的真实地址进程从原理上不可知
+ * —— 拿容器内的 `127.0.0.1:3065` 拼出来的地址，指向的是访问者自己的电脑。浏览器
+ * 自带的那一份（`location.origin`）天然穿透这三层，是唯一正确的答案。
+ *
+ * 项目自己已经这么用过：小浣熊网页登录的回调 URL 就是用 `location.origin` 拼的
+ * （`web_shim::buildRaccoonWebAuthUrl`）。两处口径从这里起一致。
+ *
+ * **桌面模式必须保持现状**：那时 origin 是 Tauri 的自定义协议（`tauri://localhost`
+ * 之类），不是网关地址，真端口只能问壳侧。所以这个函数在非 web 模式返回 null，
+ * 由调用方回落到端口路径。
+ */
+function webOrigin(): string | null {
+  if (shared().workbuddyDesktop?.platform !== 'web') return null
+  const origin = typeof window === 'undefined' ? '' : window.location?.origin
+  // 非 http(s) 场景（file:// 等）origin 是字面量 "null"，那不是可用地址
+  return origin && origin !== 'null' ? origin : null
+}
+
+/** 本次该展示的网关基址：web 模式信地址栏，桌面模式用壳侧上报的真实端口 */
+function gatewayBaseFor(port: number, current: string): string {
+  return webOrigin() ?? (port ? `http://127.0.0.1:${port}` : current)
+}
+
+/**
  * 壳侧 `backend_status` 返回的启动失败详情（Rust 的 StartupFailure，
  * camelCase 序列化）。`label` 是侧栏那一行用的短标签（「端口被占用」这类），
  * 由后端给 —— 界面不自己拼，否则侧栏、弹窗、日志里会出现三套说法。
@@ -106,8 +135,10 @@ type PortOccupantInfo = {
 
 /** 本岛用到的壳侧接口：端口探测、结束占用进程、写盘、重启（见 bridge.rs） */
 type PortBridge = {
-  /** 运行环境标识：桌面壳注入真实平台名（windows/macos…），网页端 web_shim 注入 'web' */
-  platform?: string
+  /** 桥接层注入的平台标识（'windows' / 'macos' / 'linux' / 'web'）。
+   *  本面板读它是为了区分「网页端托管面板」与桌面壳 —— 两者算网关地址的
+   *  依据不同（见 webOrigin）。 */
+  readonly platform?: string
   getBackendStatus(): Promise<BackendStatus | null | undefined>
   getPortOccupant(): Promise<PortOccupantInfo | null | undefined>
   endPortOccupant(): Promise<{ released?: boolean } | null | undefined>
@@ -166,26 +197,11 @@ type PortSnapshot = {
   gatewayBase: string
 }
 
-/**
- * 按运行环境算网关对外地址：
- * · 桌面壳（platform 是真实平台名）：网关在本机进程里，`http://127.0.0.1:<port>`；
- * · 网页端（web_shim 注入 platform='web'）且不是从回环地址打开：面板经反向代理
- *   与网关同源，Base URL 就用当前页面的 origin —— 否则远程部署下面板会把
- *   127.0.0.1 写进「文档」页，客户端拿去必然连不上（用户看到的正是这个 bug）；
- * · 浏览器直开本机网关调试（http://127.0.0.1:3065，platform 也是 'web'）：
- *   回环判断命中，仍然显示 127.0.0.1:<port>，与实际一致。
- */
-function detectGatewayBase(port: number): string {
-  const host = window.location.hostname
-  const loopback = host === '127.0.0.1' || host === 'localhost' || host === '::1' || host === '[::1]'
-  const isWeb = shared().workbuddyDesktop?.platform === 'web'
-  if (isWeb && !loopback) return window.location.origin
-  return `http://127.0.0.1:${port || FALLBACK_PORT}`
-}
-
 let snapshot: PortSnapshot = {
   backend: null,
-  gatewayBase: detectGatewayBase(FALLBACK_PORT),
+  // web 模式下到这里就已经能拿到地址栏（web_shim 注入在 `<head>` 之后、所有界面脚本
+  // 之前），所以初值直接给真地址 —— 不必先闪一下 `127.0.0.1:3065` 再改成对的
+  gatewayBase: gatewayBaseFor(0, `http://127.0.0.1:${FALLBACK_PORT}`),
 }
 
 /** 快照的订阅者（当前只有状态条那一个 root） */
@@ -258,8 +274,9 @@ async function sync(): Promise<void> {
     const next: PortSnapshot = {
       // 就绪与否、失败原因都可能在这一刻变化；字段缺失按「没查过」处理
       backend: status ?? null,
-      // 取不到端口就保持原值：页面照常显示，不留空也不报错
-      gatewayBase: port ? detectGatewayBase(port) : current.gatewayBase,
+      // web 模式取地址栏（端口映射 / 反代 / 穿透后的真实地址）；桌面模式取端口，
+      // 取不到就保持原值：页面照常显示，不留空也不报错
+      gatewayBase: gatewayBaseFor(port, current.gatewayBase),
     }
     if (next.gatewayBase !== current.gatewayBase) paintGatewayAddress(next.gatewayBase)
     publish(next)
@@ -597,36 +614,38 @@ function PortModal({ status, onClose }: PortModalProps) {
 
           <DialogSection>
             <h3>{t('新端口')}</h3>
-            {/* 原来是 .field-row（标签自然宽度 + 控件吃剩余），这里用同样的
-                弹性行表达；数字输入框由 ui/css 的 input[type=number] 限宽 130px */}
-            <div className='flex flex-wrap items-center gap-2.5'>
-              <Label htmlFor='port-input' className='text-[12.5px] whitespace-nowrap text-subtle'>
-                {t('端口号')}
-              </Label>
-              <Input
-                id='port-input'
-                type='number'
-                min={1024}
-                max={65535}
-                step={1}
-                placeholder={t('例如 3066')}
-                autoComplete='off'
-                className='max-w-[130px]'
-                value={value}
-                onChange={event => { setValue(event.currentTarget.value) }}
-                onKeyDown={event => { if (event.key === 'Enter') void handleSave() }}
-                autoFocus
-                // 与旧实现打开时的 input.select() 等价：焦点由弹窗给出，
-                // 全选只在这一次焦点事件里做
-                onFocus={event => {
-                  if (!selectOnFocusRef.current) return
-                  selectOnFocusRef.current = false
-                  event.currentTarget.select()
-                }}
-              />
-            </div>
-            {hint ? <p>{hint}</p> : null}
-            <p>{t('端口需在 1024-65535 之间。1023 及以下是系统保留范围，普通程序无法监听。')}</p>
+            <FieldGroup className='gap-2.5'>
+              {/* 原来是 .field-row（标签自然宽度 + 控件吃剩余），这里用同样的
+                  弹性行表达；数字输入框由 ui/css 的 input[type=number] 限宽 130px */}
+              <Field orientation='horizontal' className='flex flex-row flex-wrap items-center gap-2.5 *:data-[slot=field-label]:flex-none'>
+                <FieldLabel htmlFor='port-input' className='text-[12.5px] whitespace-nowrap text-subtle'>
+                  {t('端口号')}
+                </FieldLabel>
+                <Input
+                  id='port-input'
+                  type='number'
+                  min={1024}
+                  max={65535}
+                  step={1}
+                  placeholder={t('例如 3066')}
+                  autoComplete='off'
+                  className='max-w-[130px]'
+                  value={value}
+                  onChange={event => { setValue(event.currentTarget.value) }}
+                  onKeyDown={event => { if (event.key === 'Enter') void handleSave() }}
+                  autoFocus
+                  // 与旧实现打开时的 input.select() 等价：焦点由弹窗给出，
+                  // 全选只在这一次焦点事件里做
+                  onFocus={event => {
+                    if (!selectOnFocusRef.current) return
+                    selectOnFocusRef.current = false
+                    event.currentTarget.select()
+                  }}
+                />
+              </Field>
+              {hint ? <p>{hint}</p> : null}
+              <p>{t('端口需在 1024-65535 之间。1023 及以下是系统保留范围，普通程序无法监听。')}</p>
+            </FieldGroup>
           </DialogSection>
 
           <DialogSection>

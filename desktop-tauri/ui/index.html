@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" href="brand/favicon.ico">
+  <link rel="icon" href="brand/favicon.ico?v=b-mono-1">
   <title data-i18n="Agent2API · 多提供商本地网关">Agent2API · 多提供商本地网关</title>
   <script>
     // 与主题持久化配合：在 CSS 解析前先贴上 data-theme，避免深色模式首屏闪烁
@@ -62,7 +62,6 @@
   <style>.pref-hamburger{display:none!important}</style>
   <link rel="stylesheet" href="css/prefs.css">
   <link rel="stylesheet" href="css/notify-center.css">
-  <link rel="stylesheet" href="css/shell.css">
   <link rel="stylesheet" href="css/tags-view.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/components.css">
@@ -98,116 +97,37 @@
        排在最后：工具类带 !important（原因见 ui-kit/styles/globals.css 顶部），
        顺序其实已不影响结果，但保持「后加载的是更新的体系」这条阅读线索。 -->
   <link rel="stylesheet" href="islands/ui.css">
+  <link rel="stylesheet" href="css/sidebar-navigation.css">
   <!-- 多语言运行时：查表 t() + 静态文案扫描器（data-i18n 系列）。
        域清单（manifest.js）已由上面 head 里的引导脚本注入（document.write），各域词典
        由 i18n.js 执行时补写。这里只放运行时逻辑。
        必须排在 units.js / app.js 等业务脚本之前 —— 它们在加载期就可能读 window.wbI18n；
        排在 head 末尾天然满足。 -->
+  <script src="theme.js"></script>
   <script src="i18n.js"></script>
 </head>
 <body>
-  <div class="shell">
-    <!-- ─── 左侧导航 ─── -->
-    <aside class="sidebar">
-      <div class="brand">
-        <!-- 品牌标由 icons.js 注入（与应用图标 icon.png 同一造型，见 icons.js 的 brand 项） -->
-        <div class="brand-logo"></div>
-        <div class="brand-text">
-          <h1>Agent2API</h1>
-        </div>
-      </div>
-
-      <!-- 图标由 icons.js + app.js 注入（内联 SVG，见 icons.js 顶部说明） -->
-      <nav class="nav" id="nav">
-        <div class="nav-group-label nav-group-toggle" data-group="pool">账号池<span class="nav-group-arrow">▾</span></div>
-        <button class="nav-item active" data-page="overview" data-icon="overview" data-group="pool"><span class="ico"></span><span class="label">用量</span></button>
-        <button class="nav-item" data-page="accounts" data-icon="accounts" data-group="pool"><span class="ico"></span><span class="label">账号池</span></button>
-        <!-- 积分构成：逐账号积分包明细 + 到期分布（数据 = 积分查询的 resources，见 credits-page 岛） -->
-        <button class="nav-item" data-page="credits" data-icon="packages" data-group="pool"><span class="ico"></span><span class="label">积分构成</span></button>
-
-        <button class="nav-item" data-page="checkin" data-icon="checkin" data-group="pool"><span class="ico"></span><span class="label" data-i18n="签到中心">签到中心</span></button>
-
-        <div class="nav-group-label nav-group-toggle" data-group="forward">模型与档位<span class="nav-group-arrow">▾</span></div>
-        <button class="nav-item" data-page="gateway" data-icon="gateway" data-group="forward"><span class="ico"></span><span class="label">模型与档位</span></button>
-        <!-- 网络代理：出网出口的管理页（代理池 CRUD + 连通性测试 + Clash 出口引用）。
-             挨着「模型管理」是因为它管的是同一个问题的另一半：模型管理决定
-             「请求发往哪家上游」，这里决定「从哪条线路出去」。账号弹窗里的
-             「出网代理」仍可用，但推荐在这里配好、账号按名字引用 ——
-             改一次地址，所有引用的账号一起生效。 -->
-        <button class="nav-item" data-page="proxies" data-icon="proxies" data-group="forward"><span class="ico"></span><span class="label">网络代理</span></button>
-        <button class="nav-item" data-page="keys" data-icon="key" data-group="forward"><span class="ico"></span><span class="label">网关 Key</span></button>
-        <!-- 文档：接口地址（Base URL / 三种对话协议 / 模型列表）与将来的使用说明。
-             它原先在「网关 Key」页里，R8 按需求搬成独立一级菜单 —— 接口地址是
-             「接客户端」这件事本身要查的东西，与「管理 Key」不是同一类操作，
-             混在一页里用户要在两件事之间来回滚。图标用 logs（文档 + 文本行），
-             语义上就是「文档」，不新画 SVG（见 icons.js）。 -->
-        <button class="nav-item" data-page="docs" data-icon="logs" data-group="forward"><span class="ico"></span><span class="label">接入文档</span></button>
-
-        <div class="nav-group-label nav-group-toggle" data-group="ops">运维<span class="nav-group-arrow">▾</span></div>
-        <button class="nav-item" data-page="requests" data-icon="requests" data-group="ops"><span class="ico"></span><span class="label">运行日志</span><span class="count" id="nav-count-requests" style="display:none">0</span></button>
-        <button class="nav-item" data-page="logs" data-icon="logs" data-group="ops"><span class="ico"></span><span class="label">系统日志</span><span class="count" id="nav-count-logs" style="display:none">0</span></button>
-        <button class="nav-item" data-page="tasks" data-icon="tasks" data-group="ops"><span class="ico"></span><span class="label">任务中心</span></button>
-        <button class="nav-item" data-page="settings" data-icon="settings" data-group="ops"><span class="ico"></span><span class="label">配置</span><span class="count" id="nav-count-update" style="display:none">新</span></button>
-      </nav>
-      <script>
-      // 侧栏分组折叠/展开（手风琴）
-      (function(){
-        document.querySelectorAll('.nav-group-toggle').forEach(function(toggle){
-          toggle.addEventListener('click', function(){
-            var group = toggle.getAttribute('data-group');
-            var items = document.querySelectorAll('.nav-item[data-group="' + group + '"]');
-            var isOpen = toggle.classList.contains('expanded');
-            toggle.classList.toggle('expanded', !isOpen);
-            items.forEach(function(item){
-              item.style.display = isOpen ? 'none' : '';
-            });
-            try { localStorage.setItem('nav-group-' + group, isOpen ? 'closed' : 'open'); } catch(e){}
-          });
-          // 恢复上次状态（默认展开）
-          var group = toggle.getAttribute('data-group');
-          try {
-            var state = localStorage.getItem('nav-group-' + group);
-            if (state === 'closed') {
-              toggle.classList.remove('expanded');
-              document.querySelectorAll('.nav-item[data-group="' + group + '"]').forEach(function(item){ item.style.display = 'none'; });
-            } else {
-              toggle.classList.add('expanded');
-            }
-          } catch(e){}
-        });
-      })();
-      </script>
-
-      <div class="sidebar-foot">
-        <!-- 网关状态：常驻显示，不必切到「网关」页也能确认服务是否在监听。
-             只说**网关进程**这一件事（进程在不在监听，判据来自壳侧，
-             不依赖 HTTP 能否应答）。曾经还有第二条「可用账号」，与它拆成
-             两个独立事实；账号那行已按需求移除 —— 有没有账号、几个可用，
-             账号页的筛选器与状态列本来就是权威出处。 -->
-        <div class="sidebar-status" id="sidebar-status" title="本地网关监听状态" data-i18n-title="本地网关监听状态">
-          <!-- 状态行与两个出口由 React 岛渲染（ui-islands/src/islands/port-panel.tsx）：
-               岛直接挂在这个 div 上（.sidebar-status 的子元素是 flex 布局，中间插一层
-               宿主会破坏排版），所以这里不再有静态子节点，class / id / title 保留。
-               对外仍是 window.wbPortPanel = { render, sync, portLabel, isReady }。 -->
-        </div>
-        <div class="theme-switch" id="theme-switch">
-          <button data-mode="system" data-i18n="跟随系统">跟随系统</button>
-          <button data-mode="light" data-i18n="浅色">浅色</button>
-          <button data-mode="dark" data-i18n="深色">深色</button>
-        </div>
-      </div>
-    </aside>
+  <div class="shell shell-sidebar-07">
+    <!-- Navigation is composed by the shadcn Sidebar island. Retained roots survive desktop/Sheet transitions. -->
+    <div id="shell-sidebar-root"></div>
+    <div id="shell-sidebar-assets" hidden>
+      <div class="brand" id="shell-brand"><div class="brand-logo"></div><div class="brand-text"><h1>Agent2API</h1></div></div>
+      <div class="sidebar-status" id="sidebar-status" title="本地网关监听状态" data-i18n-title="本地网关监听状态"></div>
+      <div id="sidebar-user"></div>
+    </div>
 
     <!-- ─── 主区域 ─── -->
     <main class="main">
       <header class="topbar">
-        <div class="crumb">
-          <span>Agent2API</span>
-          <span class="sep">/</span>
-          <span class="cur" id="crumb-page" data-i18n="报表">报表</span>
+        <div class="topbar-navigation">
+          <div id="shell-sidebar-trigger-host"></div>
+          <div class="crumb" id="shell-breadcrumb"></div>
         </div>
+        <span id="crumb-page" data-i18n="报表" hidden>报表</span>
         <div class="spacer"></div>
-        <div class="topbar-actions" id="topbar-status"></div>
+        <div id="shell-window-controls"></div>
+        <!-- Hidden compatibility host for existing page bridges; header status badges are removed. -->
+        <div id="topbar-status" hidden></div>
       </header>
 
       <div class="content">

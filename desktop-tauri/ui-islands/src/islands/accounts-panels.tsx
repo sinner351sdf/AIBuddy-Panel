@@ -1,3 +1,5 @@
+import { Empty, EmptyHeader, EmptyDescription } from '@ui'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator } from '@ui'
 /**
  * 账号表的**行与单元格**（替换 ui/accounts-table.js 的单元格渲染 + ui/accounts-model.js
  * 的 ⋯ 菜单 / 行内面板 HTML + ui/accounts-view.js 的菜单交互）。
@@ -20,6 +22,7 @@
 
 import * as React from 'react'
 import {
+  SelectGroup,
   Badge,
   BadgeDot,
   Button,
@@ -35,6 +38,7 @@ import {
   PopoverContent,
   PopoverTrigger,
   Progress,
+  Separator,
   Select,
   SelectContent,
   SelectItem,
@@ -42,6 +46,7 @@ import {
   SelectValue,
   Spinner,
   Switch,
+  Toggle,
   Tooltip,
   TooltipArrow,
   TooltipContent,
@@ -55,11 +60,12 @@ import {
   displayNameOf, expiryMillis, formatIntervalSeconds, formatResetText,
   formatTokenCount, identifierOf, isDesktopAccount, isEnabled, isFreePlan, planBadgeLabel,
   providerFeatures,
-  providerOf, RESET_UNKNOWN, supportsClaim, supportsUsage, supportsUsageDetail,
+  providerOf, RESET_UNKNOWN, supportsClaim, supportsCreditDetail, supportsUsage, supportsUsageDetail,
   tokenBlockedOf, tokenCountdownText, tokenDisableTriggeredOf, tokenReadingForRule,
-  tokenRulesOf, tokenWindowInfo, zcodePlanStateLabel,
+  tokenRulesOf, tokenWindowInfo, zcodePlanStateLabel, zcodeLimitLabel, supportsPlanChannel,
   supportsApiKeys,
 } from './accounts-domain'
+import { CreditDetailButton, creditRowsOf } from './accounts-credit-detail'
 import {
   PROXY_CUSTOM_CURRENT, PROXY_CUSTOM_EDIT, applyProxyPick,
   connectionsOf, maskName, openBatchDialog, openSettingsDialog, openZcodePlans,
@@ -110,41 +116,45 @@ export function OrderCell({ account, rank }: { account: AccountRecord; rank: num
  * 分组带的 ⋯ 菜单：整组启用 / 禁用、批量操作本组、折叠本组。
  *
  * 「整组启用 / 禁用」直接落批量端点（一次改一组，与单行开关同一口径）；
- * 「批量操作本组…」打开既有的批量弹窗并**预选本组**（改代理这类要挑参数的动作用它，
- * 不必再新造一套界面）；折叠那一项与组头那颗箭头同一个状态 —— **它是个开关**，
- * 所以文案必须跟着当前状态变：已经收起的那一组，这一项写「展开这一组」才是它真做的事。
+ * 「批量操作本组」打开既有那一个批量弹窗（改代理、设置并发上限这类要挑参数的
+ * 动作用它）—— 挑参数的动作个个都要在弹窗里给一档，但**入口只留这一个**，
+ * 不为每件参数化动作在菜单里再各开一项；折叠那一项与组头那颗箭头同一个状态 ——
+ * **它是个开关**，所以文案必须跟着当前状态变：已经收起的那一组，这一项写
+ * 「展开这一组」才是它真做的事。
+ *
+ * 这一项**不带省略号**（别照「开弹窗就加 …」的惯例补回来）：同菜单其余项都不带，
+ * 而它后面还空着半截宽度，尾巴上那一个 … 只会被读成「文字被截断了」。
  */
 function GroupMenu({ group, ids, collapsed }: { group: AccountGroup; ids: string[]; collapsed: boolean }) {
   const [open, setOpen] = React.useState(false)
-  const itemClass = 'w-full justify-start px-2 font-normal'
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<button type='button' className='grp-iconbtn' title={t('本组操作')} />}>⋯</PopoverTrigger>
-      <PopoverContent align='end' sideOffset={4} className='w-[196px] p-1.5'>
-        <div className='flex flex-col gap-0.5'>
-          <Button variant='ghost' size='sm' className={itemClass}
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger render={<Button variant='ghost' size='icon-xs' title={t('本组操作')} aria-label={t('本组操作')} />}>⋯</DropdownMenuTrigger>
+      <DropdownMenuContent align='end' sideOffset={4} className='w-[196px] p-1.5'>
+        <DropdownMenuGroup>
+          <DropdownMenuItem
             title={t('启用这一组里的全部账号（含被筛选隐藏的）')}
             onClick={() => { setOpen(false); void setGroupEnabled(ids, true) }}>
             {t('全部启用（{n}）', { n: ids.length })}
-          </Button>
-          <Button variant='ghost' size='sm' className={itemClass}
+          </DropdownMenuItem>
+          <DropdownMenuItem
             title={t('禁用这一组里的全部账号（含被筛选隐藏的）')}
             onClick={() => { setOpen(false); void setGroupEnabled(ids, false) }}>
             {t('全部禁用（{n}）', { n: ids.length })}
-          </Button>
-          <Button variant='ghost' size='sm' className={itemClass}
+          </DropdownMenuItem>
+          <DropdownMenuItem
             title={t('打开批量操作弹窗，并预选这一组的账号（改代理等动作在弹窗里挑参数）')}
             onClick={() => { setOpen(false); openBatchDialog(ids, 'proxy') }}>
-            {t('批量操作本组…')}
-          </Button>
-          <div className='my-1 h-px bg-hairline' />
-          <Button variant='ghost' size='sm' className={itemClass}
+            {t('批量操作本组')}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
             onClick={() => { setOpen(false); toggleGroupCollapsed(group.provider) }}>
             {collapsed ? t('展开这一组') : t('折叠这一组')}
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -187,7 +197,7 @@ export function GroupBandRow({ group, collapsed, colSpan }: {
             limited: group.limited > 0 ? t(' · 限流 {n}', { n: group.limited }) : '',
           })}</span>
           <span className='grp-spacer' />
-          <button type='button' className='grp-iconbtn grp-fold' aria-expanded={!collapsed}
+          <Button variant='ghost' size='icon-xs' className='grp-fold' aria-expanded={!collapsed}
             title={collapsed ? t('展开这一组') : t('折叠这一组')}
             onClick={() => toggleGroupCollapsed(group.provider)}
             dangerouslySetInnerHTML={{ __html: iconHtml('chevronDown', 14) }} />
@@ -277,10 +287,10 @@ export function LimitsCell({ account, open }: { account: AccountRecord; open: bo
   return (
     <>
       <Badge variant='warning' shape='tag' render={<button type='button' />}
-        className={open ? 'ring-2 ring-warning-soft' : undefined}
+        className={cn(open ? 'ring-2 ring-warning-soft' : undefined)}
         title={t('点击{action}各模型的限流明细', { action: open ? t('收起') : t('查看') })}
         onClick={() => setPanelOpen(account.id, 'limits', !open)}>
-        {t('{n} 个模型 ▾', { n: entries.length })}
+        {supportsPlanChannel(account) ? t('{n} 项通道冷却 ▾', { n: entries.length }) : t('{n} 个模型 ▾', { n: entries.length })}
       </Badge>
       <span className='lim-sub' title={t('最早恢复')}>
         {t('最早 {soonest} 恢复', { soonest: soonest === RESET_UNKNOWN ? t('待定') : soonest })}
@@ -336,6 +346,18 @@ function numberText(value: unknown): string {
   if (value === null || value === undefined || value === '') return '—'
   const number = Number(value)
   return Number.isFinite(number) ? String(number) : String(value)
+}
+
+/**
+ * 余额读数 → 明细弹层头部那一行（套餐 / 状态 / 到期 / 余量）。
+ *
+ * 与悬停提示共用 `subscriptionText`：那一行的措辞是既有产物，弹层里再写一份
+ * 迟早会与悬停说的不一样（同一份数据两种说法，用户只能猜哪个对）。
+ * 形状判据照旧按字段探测（不是按 provider）。
+ */
+function creditSubscriptionOf(entry: UsageEntry): string {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return ''
+  return subscriptionText((entry as Record<string, unknown>).subscription)
 }
 
 /**
@@ -923,7 +945,7 @@ function prominentTokenLimit(account: AccountRecord): React.ReactNode {
     + (hit ? t('，已达到上限') : t('，{countdown}重置', { countdown: tokenCountdownText(info.remainingMs, info.daily) }))
   return (
     <span className='usage-token-sub' title={title}>
-      {scope} <span className={hit ? 'hit' : undefined}>{formatTokenCount(reading.used)}</span>
+      {scope} <span className={cn(hit ? 'hit' : undefined)}>{formatTokenCount(reading.used)}</span>
       {' '}/ {formatTokenCount(rule.threshold)}{countdown}
     </span>
   )
@@ -961,6 +983,19 @@ export function UsageCell({ account }: { account: AccountRecord }) {
       {t('待生效 {n} 份', { n: pending.length })}
     </Badge>
   ) : null
+  // 积分明细入口（`creditDetail` 能力位：WorkBuddy 两家与 Trae）。同一档「读数可用」
+  // 的判据：查询失败 / 未配置时连读数本身都没有，挂一个点开是空框的入口更糟。
+  // 空数组同样不挂 —— 后端不写 `credits` 键就是「这家这次没有逐份读数」
+  // （企业账号、上游没给包），界面不去证明一个空清单。
+  const creditRows = summary.kind === 'ok' || summary.kind === 'warn' ? creditRowsOf(entry) : []
+  const creditDetail = supportsCreditDetail(account) && creditRows.length
+    ? {
+      rows: creditRows,
+      subscriptionLine: creditSubscriptionOf(entry),
+      kind: summary.kind,
+      title: summary.title,
+    }
+    : null
   if (supportsUsageDetail(account)) {
     const usable = summary.kind === 'ok' || summary.kind === 'warn'
     const detail = usable ? usageDetailOf(entry) : null
@@ -970,7 +1005,7 @@ export function UsageCell({ account }: { account: AccountRecord }) {
     // 还没查到 / 查询失败 / 没拼出明细：维持单行读数的老样子
     return (
       <span className='usage-sum-wrap'>
-        <span className={`usage-sum ${summary.kind}`} title={summary.title}>{summary.text}</span>
+        <span className={cn('usage-sum', summary.kind)} title={summary.title}>{summary.text}</span>
         <UsageNotices>{blockedBadge}{pendingBadge}{tokenSub}</UsageNotices>
       </span>
     )
@@ -982,15 +1017,22 @@ export function UsageCell({ account }: { account: AccountRecord }) {
   if (!usable) {
     return (
       <span className='usage-sum-wrap'>
-        <span className={`usage-sum ${summary.kind}`} title={summary.title}>{summary.text}</span>
+        <span className={cn('usage-sum', summary.kind)} title={summary.title}>{summary.text}</span>
         <UsageNotices>{blockedBadge}{pendingBadge}{tokenSub}</UsageNotices>
       </span>
     )
   }
+  const poolLine = (
+    <>
+      <BalanceRows rows={balanceDisplayRows(entry, pool, t('积分'))} tone={summary.kind} />
+    </>
+  )
   return (
     <span className='usage-pool' title={summary.title}>
       {pool?.planName ? <span className='usage-pool-name'>{pool.planName}</span> : null}
-      <BalanceRows rows={balanceDisplayRows(entry, pool, t('积分'))} tone={summary.kind} />
+      {creditDetail ? (
+        <CreditDetailButton variant='pool' {...creditDetail}>{poolLine}</CreditDetailButton>
+      ) : poolLine}
       <UsageNotices>{blockedBadge}{pendingBadge}{tokenSub}</UsageNotices>
     </span>
   )
@@ -1011,7 +1053,7 @@ function BalanceRows({ rows, tone }: { rows: BalanceDisplayRow[]; tone: string }
       return <span className='balance-reading' key={row.key} data-balance-kind={row.key} title={title}>
         {row.key === 'cycle' && row.percent !== null
           ? <Progress value={row.percent} className='usage-pool-bar' aria-label={label} /> : null}
-        <span className={`usage-pool-view ${tone}`}>{row.text}</span>
+        <span className={cn('usage-pool-view', tone)}>{row.text}</span>
         {tone === 'warn' && index === 0 ? <span aria-label={t('余额数据不完整')}>⚠</span> : null}
       </span>
     })}
@@ -1041,10 +1083,10 @@ function UsageDetailCell({ summary, detail, blockedBadge, tokenSub }: {
   const [open, setOpen] = React.useState(false)
   const usable = summary.kind === 'ok' || summary.kind === 'warn'
   return (
-    <span className={open ? 'usage-cell open' : 'usage-cell'}>
+    <span className={cn(open ? 'usage-cell open' : 'usage-cell')}>
       <span className='usage-plan'>
         {detail.plan
-          ? <span className={`plan-chip${detail.free ? ' free' : ''}`}>{detail.plan}</span>
+          ? <Badge variant={detail.free ? 'secondary' : 'brand'} shape='tag'>{detail.plan}</Badge>
           : null}
         {detail.resetDate
           ? <span className='plan-sub' title={t('套餐积分的重置日期')}>{t('重置 {date}', { date: detail.resetDate })}</span>
@@ -1052,7 +1094,7 @@ function UsageDetailCell({ summary, detail, blockedBadge, tokenSub }: {
       </span>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
-          render={<button type='button' className={`usage-toggle ${summary.kind}`}
+          render={<Button variant='ghost' size='xs' className='h-auto min-w-0 justify-start px-0'
             title={summary.title} aria-label={t('积分明细')} />}
         >
           <BalanceRows rows={[{ key: 'balance', text: detail.total === null ? '—' : `${numberText(detail.total)} ${detail.unit}`, percent: null }]} tone={summary.kind} />
@@ -1078,10 +1120,7 @@ function UsageDetailCell({ summary, detail, blockedBadge, tokenSub }: {
               福利 token 池 —— available 为 null，摘要那行显示「可用 —」）不加这句
               弹层就是一个空框，「弹不出来」的观感比缺数据更让人怀疑是故障 */}
           {!detail.credit.length && detail.total === null ? (
-            <div className='usage-pop-empty'
-              title={t('该账号的额度只有福利 token 池（见余额格那两行），订阅统计没有积分类计量表')}>
-              {t('该账号没有积分类读数（额度只有福利 token 池）')}
-            </div>
+            <Empty variant='compact' title={t('该账号的额度只有福利 token 池（见余额格那两行），订阅统计没有积分类计量表')}><EmptyHeader><EmptyDescription>{t('该账号没有积分类读数（额度只有福利 token 池）')}</EmptyDescription></EmptyHeader></Empty>
           ) : null}
         </PopoverContent>
       </Popover>
@@ -1091,12 +1130,10 @@ function UsageDetailCell({ summary, detail, blockedBadge, tokenSub }: {
         <span className='usage-flat-line' key={row.name} title={row.title}>
           <span className='usage-flat-head'>
             <span className='usage-flat-name'>{row.name}</span>
-            <span className={`usage-flat-view ${row.tone}`}>{row.valueText}</span>
+            <span className={cn('usage-flat-view', row.tone)}>{row.valueText}</span>
           </span>
           {row.percentageOnly && row.percent !== null ? (
-            <span className={`usage-flat-track${row.over ? ' over' : ''}`}>
-              <i style={{ width: `${row.percent}%` }} aria-label={t('剩余 {percent}%', { percent: Math.round(row.percent) })} />
-            </span>
+            <Progress value={row.percent} tone={row.over ? 'warning' : 'default'} aria-label={t('剩余 {percent}%', { percent: Math.round(row.percent) })} />
           ) : null}
         </span>
       ))}
@@ -1118,12 +1155,10 @@ function UsageDetailRowView({ row }: { row: UsageDetailRow }) {
     <div className='usage-pop-row' title={row.title}>
       <div className='usage-pop-line'>
         <span className='usage-pop-name'>{row.name}</span>
-        <span className={`usage-pop-view ${row.tone}`}>{row.view}</span>
+        <span className={cn('usage-pop-view', row.tone)}>{row.view}</span>
       </div>
       {row.percent !== null ? (
-        <span className={`usage-pop-track${row.over ? ' over' : ''}`}>
-          <i style={{ width: `${row.percent}%` }} aria-label={t('剩余 {percent}%', { percent: Math.round(row.percent) })} />
-        </span>
+        <Progress value={row.percent} tone={row.over ? 'warning' : 'default'} aria-label={t('剩余 {percent}%', { percent: Math.round(row.percent) })} />
       ) : null}
     </div>
   )
@@ -1285,9 +1320,11 @@ export function ProxyCell({ account }: { account: AccountRecord }) {
         <SelectValue>{selected?.label || t('直连')}</SelectValue>
       </SelectTrigger>
       <SelectContent>
-        {items.map(item => (
-          <SelectItem key={item.value} value={item.value} disabled={item.disabled}>{item.label}</SelectItem>
-        ))}
+        <SelectGroup>
+          {items.map(item => (
+            <SelectItem key={item.value} value={item.value} disabled={item.disabled}>{item.label}</SelectItem>
+          ))}
+        </SelectGroup>
       </SelectContent>
     </Select>
   )
@@ -1373,45 +1410,43 @@ export function MoreMenu({ account, atFront }: { account: AccountRecord; atFront
   const [open, setOpen] = React.useState(false)
   const enabled = isEnabled(account)
   const maxConcurrent = Number(account.maxConcurrent) || 0
-  const itemClass = 'w-full justify-start px-2 font-normal'
-  const dangerClass = `${itemClass} text-destructive hover:text-destructive`
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<Button variant='outline' size='xs' title={t('更多操作')} />}>⋯</PopoverTrigger>
-      <PopoverContent align='end' sideOffset={4} className='w-[172px] p-1.5'>
-        <div className='flex flex-col gap-0.5'>
-          <Button variant='ghost' size='sm' className={dangerClass}
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger render={<Button variant='outline' size='xs' title={t('更多操作')} />}>⋯</DropdownMenuTrigger>
+      <DropdownMenuContent align='end' sideOffset={4} className='w-[172px] p-1.5'>
+        <DropdownMenuGroup>
+          <DropdownMenuItem variant='destructive'
             onClick={() => { setOpen(false); void setAccountEnabled(account.id, !enabled) }}>
             {enabled ? t('禁用') : t('启用')}
-          </Button>
-          <Button variant='ghost' size='sm' className={itemClass} disabled={atFront}
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={atFront}
             title={atFront ? t('已在全局队列第一位') : t('仅将优先级调整到全局第一位，不改变启用状态')}
             onClick={() => { setOpen(false); shared().wbApp?.runAccountAction?.('switch', account.id) }}>
             {t('设为首选')}
-          </Button>
-          <Button variant='ghost' size='sm' className={itemClass}
+          </DropdownMenuItem>
+          <DropdownMenuItem
             title={t('在账号设置的「基本」分组里设置该账号同时最多处理的请求数')}
             onClick={() => { setOpen(false); openSettingsDialog(account.id) }}>
             {t('并发上限：{value}', { value: maxConcurrent > 0 ? maxConcurrent : t('不限') })}
-          </Button>
+          </DropdownMenuItem>
           {account.hasRefreshToken ? (
-            <Button variant='ghost' size='sm' className={itemClass}
+            <DropdownMenuItem
               onClick={() => { setOpen(false); shared().wbApp?.runAccountAction?.('refresh', account.id) }}>
               {t('刷新 Token')}
-            </Button>
+            </DropdownMenuItem>
           ) : null}
-          <div className='my-1 h-px bg-hairline' />
-          <Button variant='ghost' size='sm' className={dangerClass}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant='destructive'
             title={isDesktopAccount(account)
               ? t('删除这条账号记录（不会影响客户端自己的登录态；之后可再点「导入桌面端登录态」加回来）')
               : undefined}
             onClick={() => { setOpen(false); shared().wbApp?.runAccountAction?.('remove', account.id) }}>
             {t('删除账号')}
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -1445,7 +1480,7 @@ function LimitPanel({ account, onClose, onClear }: {
       {close}
       <div className='lp-head'>
         <b>{displayNameOf(account)}</b>
-        <span className='muted'>{t('{n} 个模型限流中 · 记录来自上游 429 / 限额码，到恢复时间自动解除', { n: entries.length })}</span>
+        <span className='muted'>{supportsPlanChannel(account) ? t('按套餐通道分别冷却，另一通道仍按该模型额度选择') : t('{n} 个模型限流中 · 记录来自上游 429 / 限额码，到恢复时间自动解除', { n: entries.length })}</span>
         <Button variant='outline' size='xs' title={t('清掉该账号全部模型的限流标记')}
           onClick={() => onClear('')}>{t('全部清除')}</Button>
       </div>
@@ -1454,7 +1489,7 @@ function LimitPanel({ account, onClose, onClear }: {
         const reason = entry.message || (entry.status ? t('上游返回 {status}', { status: entry.status }) : '')
         return (
           <div className='lp-row' key={entry.model}>
-            <span className='lp-model' title={entry.model}>{entry.model}</span>
+            <span className='lp-model' title={zcodeLimitLabel(account, entry.model)}>{zcodeLimitLabel(account, entry.model)}</span>
             <Badge variant='warning' shape='tag'>{t('限流中')}</Badge>
             <span className='lp-reset' title={t('到恢复时间后自动解除，无需手动操作')}>
               {reset === RESET_UNKNOWN ? t('恢复时间未知') : t('{time} 恢复', { time: reset })}
@@ -1569,8 +1604,8 @@ export function TableHead({ namesHidden, allPicked, somePicked, disabled, onTogg
 export function NameEyeButton({ hidden }: { hidden: boolean }) {
   const label = hidden ? t('显示账号名') : t('隐藏账号名（名字显示为星号）')
   return (
-    <button type='button' className={`name-eye${hidden ? ' on' : ''}`} title={label} aria-label={label}
-      aria-pressed={hidden} onClick={() => toggleNamesHidden()}
+    <Toggle size='xs' pressed={hidden} title={label} aria-label={label}
+      onPressedChange={() => toggleNamesHidden()}
       dangerouslySetInnerHTML={{ __html: iconHtml(hidden ? 'eyeOff' : 'eye', 13) }} />
   )
 }

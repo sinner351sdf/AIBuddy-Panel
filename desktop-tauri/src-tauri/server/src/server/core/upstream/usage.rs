@@ -29,6 +29,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use serde_json::Value;
 
 use crate::server::logging;
+use super::timing::{StageGuard, StageTiming};
 
 /// 一次上报的用量（四种 token 计数，字段名对应存储契约）
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -75,8 +76,8 @@ fn number_field(value: Option<&Value>) -> Option<i64> {
 /// ── 四个取值的含义 ──────────────────────────────────────────
 ///   - `Connecting` 连接中：请求刚受理，选路 / 取凭证 / 建立连接 / 构造请求体
 ///     都在这段里（上游请求还没发出去）；
-///   - `Waiting` 等待响应：本轮上游请求**已发出**，等第一个字节回来
-///     （模型思考的时间也在这一段，与 OmniProxy 的「等待响应（含模型思考）」同义）；
+///   - `Waiting` 等待响应：已经进入本轮上游尝试，直到首个有效帧回来。
+///     这不是 TCP 已连接的证明；Accio 的细分耗时见 AttemptDetail.timings。
 ///   - `Streaming` 响应中：首帧已到、内容正在下发；
 ///   - `Retrying` 重试中：本轮失败了，退避等待 / 换号前的过渡（下一轮发出即回到
 ///     `Waiting`）。
@@ -344,6 +345,8 @@ pub struct AttemptDetail {
     /// 只记体积、不记内容：体积是运维事实，正文是用户数据。
     #[serde(rename = "bodyBytes", default)]
     pub body_bytes: Option<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub timings: Vec<StageTiming>,
 }
 
 /// 一次**尝试内部**的退避重试（`AttemptDetail::retries` 的元素）。
@@ -476,6 +479,8 @@ struct LiveStamp {
     last_error: bool,
     last_retries: usize,
     last_notice: bool,
+    last_body_bytes: Option<i64>,
+    last_timings: Vec<StageTiming>,
     sensitive: usize,
 }
 
@@ -496,6 +501,8 @@ impl LiveStamp {
             last_error: last.map(|item| item.error.is_some()).unwrap_or(false),
             last_retries: last.map(|item| item.retries.len()).unwrap_or(0),
             last_notice: last.map(|item| item.notice.is_some()).unwrap_or(false),
+            last_body_bytes: last.and_then(|item| item.body_bytes),
+            last_timings: last.map(|item| item.timings.clone()).unwrap_or_default(),
             sensitive: snapshot.sensitive_hits.len(),
         }
     }
@@ -793,11 +800,11 @@ impl RequestTelemetry {
             retries: Vec::new(),
             notice: None,
             body_bytes: None,
+            timings: Vec::new(),
         });
         // 阶段：新一轮的请求**即将发出** → 等待响应（含模型思考）。
-        // 位置与 OmniProxy 的「连接已建立、请求即将发出」同一时点：本函数就在
-        // 发送之前被调用（选路与凭证已就绪），所以「连接中」覆盖的是
-        // 排队 / 选路 / 取凭证 / 建连这一段 —— 与那边的分界一致。
+        // 本函数在调用适配器之前执行，连接/上传仍可能发生在之后；
+        // 不从这个粗阶段推断网络耗时，具体边界由适配器的 timings 记录。
         self.enter_phase(&mut guard, LogPhase::Waiting);
         // 在途回写：新的一轮进了尝试链（换号时这一步就让「重试」列出现）
         self.flush_live(&guard);
@@ -816,6 +823,51 @@ impl RequestTelemetry {
         if let Some(last) = guard.attempts_detail.last_mut() {
             last.body_bytes = Some(bytes.max(0));
             self.flush_live(&guard);
+        }
+    }
+
+    /// Timings are attached to the attempt that started them, including on drop.
+    /// Only stage boundaries flush to SQLite; no per-chunk writes are added.
+    pub fn begin_stage(self: &Arc<Self>, stage: &str) -> StageGuard {
+        let mut guard = self.lock();
+        let position = if guard.attempts as usize > guard.attempts_detail.len() {
+            None // details were capped; never attach this attempt to an older one
+        } else {
+            let attempt = guard.attempts_detail.len().checked_sub(1);
+            attempt.and_then(|attempt| {
+                let timings = &mut guard.attempts_detail[attempt].timings;
+                if timings.len() >= 16 { return None; }
+                let index = timings.len();
+                timings.push(StageTiming {
+                    stage: stage.to_string(),
+                    started_at: logging::now_ms(),
+                    duration_ms: None,
+                    completed: None,
+                    clock: Some(std::time::Instant::now()),
+                });
+                Some((attempt, index))
+            })
+        };
+        self.flush_live(&guard);
+        StageGuard { telemetry: self.clone(), position }
+    }
+
+    pub(super) fn finish_stage(&self, attempt: usize, stage: usize, completed: bool) {
+        let mut guard = self.lock();
+        if let Some(timing) = guard.attempts_detail.get_mut(attempt)
+            .and_then(|item| item.timings.get_mut(stage)) {
+            timing.finish(completed);
+        }
+        self.flush_live(&guard);
+    }
+
+    /// Called before final persistence even when the forwarding future is cancelled.
+    pub fn seal_stages(&self) {
+        let mut guard = self.lock();
+        for attempt in &mut guard.attempts_detail {
+            for timing in &mut attempt.timings {
+                timing.finish(false);
+            }
         }
     }
 

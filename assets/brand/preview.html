@@ -6,51 +6,51 @@
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:"Segoe UI","Microsoft YaHei",sans-serif; }
-  .hero { background:linear-gradient(160deg,#1d1430 0%,#171021 55%,#120d1c 100%); padding:64px 72px 56px; }
-  .hero .tag { color:#9a73ff; font-size:13px; letter-spacing:.28em; text-transform:uppercase; margin-bottom:28px; font-weight:600; }
+  .hero { background:linear-gradient(160deg,#202020 0%,#111111 55%,#101010 100%); padding:64px 72px 56px; }
+  .hero .tag { color:#cccccc; font-size:13px; letter-spacing:.28em; text-transform:uppercase; margin-bottom:28px; font-weight:600; }
   .hero img.lockup { width:640px; display:block; }
   .hero .stacked-row { display:flex; align-items:flex-end; gap:64px; margin-top:56px; }
   .hero .stacked-row img.st { height:190px; }
-  .light { background:#faf9fc; padding:56px 72px 64px; }
-  .light .tag { color:#8654f0; font-size:13px; letter-spacing:.28em; text-transform:uppercase; margin-bottom:28px; font-weight:600; }
+  .light { background:#f7f7f7; padding:56px 72px 64px; }
+  .light .tag { color:#111111; font-size:13px; letter-spacing:.28em; text-transform:uppercase; margin-bottom:28px; font-weight:600; }
   .light img.lockup { width:640px; display:block; }
   .light .stacked-row { display:flex; align-items:flex-end; gap:64px; margin-top:48px; }
   .light .stacked-row img.st { height:190px; }
   .sizes { display:flex; align-items:flex-end; gap:36px; margin-top:48px; }
   .sizes .item { text-align:center; }
   .sizes img { display:block; margin:0 auto 10px; }
-  .sizes .cap { font-size:12px; color:#8a8494; }
+  .sizes .cap { font-size:12px; color:#777777; }
   /* panel sidebar mock */
   .mocks { display:flex; gap:40px; margin-top:56px; }
-  .sidebar { width:280px; border-radius:16px; background:#ffffff; border:1px solid #e9e4f5; box-shadow:0 12px 32px -18px rgba(97,35,192,.25); overflow:hidden; }
+  .sidebar { width:280px; border-radius:16px; background:#ffffff; border:1px solid #e5e5e5; box-shadow:0 12px 32px -18px rgba(0,0,0,.15); overflow:hidden; }
   .sidebar .brand { display:flex; align-items:center; gap:12px; padding:16px 18px; }
   .sidebar .brand img { width:34px; height:34px; border-radius:9px; }
-  .sidebar .brand .t1 { font-size:15.5px; font-weight:700; color:#241d33; }
-  .sidebar .brand .t2 { font-size:11px; color:#9a73ff; font-weight:600; letter-spacing:.06em; }
+  .sidebar .brand .t1 { font-size:15.5px; font-weight:700; color:#111111; }
+  .sidebar .brand .t2 { font-size:11px; color:#cccccc; font-weight:600; letter-spacing:.06em; }
   .sidebar .nav { padding:6px 10px 16px; }
-  .sidebar .nav div { padding:9px 12px; border-radius:9px; font-size:13.5px; color:#5b5470; margin-bottom:2px; }
-  .sidebar .nav div.on { background:#f1ebff; color:#6d3ce8; font-weight:600; }
-  .tabbar { flex:1; border-radius:16px; background:#ffffff; border:1px solid #e9e4f5; box-shadow:0 12px 32px -18px rgba(97,35,192,.25); overflow:hidden; }
-  .tabbar .tabs { display:flex; background:#eceaf2; padding:8px 12px 0; gap:6px; }
-  .tabbar .tab { display:flex; align-items:center; gap:8px; background:#fff; border-radius:10px 10px 0 0; padding:9px 16px; font-size:13px; color:#241d33; font-weight:600; width:230px; }
+  .sidebar .nav div { padding:9px 12px; border-radius:9px; font-size:13.5px; color:#555555; margin-bottom:2px; }
+  .sidebar .nav div.on { background:#eeeeee; color:#111111; font-weight:600; }
+  .tabbar { flex:1; border-radius:16px; background:#ffffff; border:1px solid #e5e5e5; box-shadow:0 12px 32px -18px rgba(0,0,0,.15); overflow:hidden; }
+  .tabbar .tabs { display:flex; background:#eeeeee; padding:8px 12px 0; gap:6px; }
+  .tabbar .tab { display:flex; align-items:center; gap:8px; background:#fff; border-radius:10px 10px 0 0; padding:9px 16px; font-size:13px; color:#111111; font-weight:600; width:230px; }
   .tabbar .tab img { width:16px; height:16px; }
-  .tabbar .tab .x { margin-left:auto; color:#b6aec7; font-weight:400; }
+  .tabbar .tab .x { margin-left:auto; color:#aaaaaa; font-weight:400; }
   .tabbar .page { padding:26px; }
-  .tabbar .page .h { font-size:19px; font-weight:700; color:#241d33; display:flex; align-items:center; gap:10px; }
+  .tabbar .page .h { font-size:19px; font-weight:700; color:#111111; display:flex; align-items:center; gap:10px; }
   .tabbar .page .h img { width:26px; height:26px; border-radius:7px; }
-  .tabbar .page .sub { color:#8a8494; font-size:13px; margin-top:6px; }
+  .tabbar .page .sub { color:#777777; font-size:13px; margin-top:6px; }
   .tabbar .page .cards { display:flex; gap:14px; margin-top:20px; }
-  .tabbar .page .c { flex:1; border:1px solid #ece8f6; border-radius:12px; padding:14px; }
-  .tabbar .page .c .k { font-size:12px; color:#8a8494; }
-  .tabbar .page .c .v { font-size:20px; font-weight:700; color:#6d3ce8; margin-top:4px; }
-  .darkbar { width:280px; border-radius:16px; background:#1d1826; border:1px solid #2c2440; overflow:hidden; }
+  .tabbar .page .c { flex:1; border:1px solid #e5e5e5; border-radius:12px; padding:14px; }
+  .tabbar .page .c .k { font-size:12px; color:#777777; }
+  .tabbar .page .c .v { font-size:20px; font-weight:700; color:#111111; margin-top:4px; }
+  .darkbar { width:280px; border-radius:16px; background:#111111; border:1px solid #303030; overflow:hidden; }
   .darkbar .brand { display:flex; align-items:center; gap:12px; padding:16px 18px; }
   .darkbar .brand img { width:34px; height:34px; border-radius:9px; }
-  .darkbar .brand .t1 { font-size:15.5px; font-weight:700; color:#efeef6; }
-  .darkbar .brand .t2 { font-size:11px; color:#9a73ff; font-weight:600; letter-spacing:.06em; }
+  .darkbar .brand .t1 { font-size:15.5px; font-weight:700; color:#f7f7f7; }
+  .darkbar .brand .t2 { font-size:11px; color:#cccccc; font-weight:600; letter-spacing:.06em; }
   .darkbar .nav { padding:6px 10px 16px; }
-  .darkbar .nav div { padding:9px 12px; border-radius:9px; font-size:13.5px; color:#a49dbb; margin-bottom:2px; }
-  .darkbar .nav div.on { background:#2c2440; color:#c9b2ff; font-weight:600; }
+  .darkbar .nav div { padding:9px 12px; border-radius:9px; font-size:13.5px; color:#aaaaaa; margin-bottom:2px; }
+  .darkbar .nav div.on { background:#303030; color:#ffffff; font-weight:600; }
 </style>
 </head>
 <body>

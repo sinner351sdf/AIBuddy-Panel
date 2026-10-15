@@ -39,7 +39,7 @@
   </script>
   <!-- 组件库产物（ui-kit + Tailwind，由 ui-islands 构建）：与主面板同一份。
        页面外壳的取值也改走它的 --ui-* 令牌，不再自己硬编码一套深色变量。 -->
-  <link rel="icon" href="brand/favicon.ico">
+  <link rel="icon" href="brand/favicon.ico?v=b-mono-1">
   <script>
       // 登录页主题：与主面板共用 aibuddy-prefs / 主题偏好，跟随用户上次选择
       (function () {
@@ -52,28 +52,7 @@
           theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
         document.documentElement.setAttribute('data-theme', theme);
-        document.addEventListener('DOMContentLoaded', function () {
-          var btn = document.getElementById('login-theme-toggle');
-          if (!btn) return;
-          var moon = '🌙', sun = '☀️';
-          var sync = function () {
-            var t = document.documentElement.getAttribute('data-theme');
-            btn.textContent = t === 'dark' ? sun : moon;
-            btn.title = t === 'dark' ? '切换到浅色' : '切换到深色';
-          };
-          btn.addEventListener('click', function () {
-            var t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-theme', t);
-            try {
-              var prefs = JSON.parse(localStorage.getItem('aibuddy-prefs') || '{}');
-              prefs.theme = t; localStorage.setItem('aibuddy-prefs', JSON.stringify(prefs));
-              localStorage.setItem('workbuddy-desktop-theme', t);
-            } catch (e) {}
-            sync();
-          });
-          sync();
-          // 默认沿用 Agent2API 标识；自定义品牌由共享 branding.js 应用。
-        });
+
       })();
     </script>
   <link rel="stylesheet" href="css/login-extras.css">
@@ -96,9 +75,7 @@
       font: 14px/1.6 var(--ui-font-sans, system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif);
       color: var(--ui-foreground);
       /* 顶部主色光晕 + 页面底色：原独立页那层深蓝渐变的等价物，取值改走令牌 */
-      background: radial-gradient(1200px 600px at 50% -10%,
-        color-mix(in srgb, var(--ui-primary) 26%, var(--ui-background)) 0%,
-        var(--ui-background) 55%);
+      background: var(--ui-background);
     }
     /* 挂载点自身不生成盒子：卡片直接作为 body 的 flex 子项参与居中（与主面板的 .island
        同一手法）—— 中间多一层 div 的话，卡片的 min(400px,100%) 会按那一层的收缩宽度
@@ -168,7 +145,7 @@
        一起加载；岛直接渲染卡片本身，不在这里写静态骨架）。
        这个 <script> 必须排在 #login-app 之后、且不能加 defer/async：下面那段登录脚本
        要同步拿到岛渲染出来的 #username / #password / #submit / #error / #mode-tip。 -->
-  <button id="login-theme-toggle" title="切换主题" style="position:fixed;top:16px;right:18px;z-index:50;width:36px;height:36px;border-radius:10px;border:1px solid var(--ui-border,transparent);background:var(--ui-surface,transparent);color:var(--ui-foreground);cursor:pointer;font-size:15px">🌙</button>
+  <div id="login-theme-toggle-host"></div>
   <div id="login-app"></div>
   <script src="islands/ui.js"></script>
 

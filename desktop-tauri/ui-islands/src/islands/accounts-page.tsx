@@ -64,17 +64,17 @@ import * as React from 'react'
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import { t } from '../i18n'
-import { Button, Checkbox, Input, SegmentedControl, cn } from '@ui'
+import { SelectGroup, Badge, BadgeDot, Separator, Spinner, Toggle, Button, Checkbox, Input, SegmentedControl, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, cn } from '@ui'
 import { TableFooter, useClientPaging } from './table-shell'
 import { shared, toast, type AccountRecord, type ColSettingsHandle } from './accounts-shared'
 import { isDesktopAccount, isEnabled, providerOf, isRateLimited, tokenExpiryOf, supportsUsage } from './accounts-domain'
 import { ACCOUNT_COLUMNS, bindColumnGrips, columnWidths, tableMinWidth } from './accounts-columns'
 import {
   allAccounts, clearFilter, clearLimits, clearSelection, ensureProxyPoolOptions, filterActive,
-  getStore, groupView, installAccountsApi, providerSummaryList, setProviderFilter, openBatchDialog, panelOpen, queryAllUsage, reorderQueue,
-  rowContext, seats, segmentCounts, setAllGroupsCollapsed, setAllPicked, setSearchFilter,
-  setSegmentFilter, snapshot, startConnectionsPolling, subscribe, tokenUsageOf, togglePick,
-  usageEntryOf,
+  getStore, groupView, installAccountsApi, normalizeProviderFilter, openBatchDialog, panelOpen,
+  providerSummaryList, queryAllUsage, reorderQueue, rowContext, seats, segmentCounts,
+  setAllGroupsCollapsed, setAllPicked, setProviderFilter, setSearchFilter, setSegmentFilter,
+  snapshot, startConnectionsPolling, subscribe, tokenUsageOf, togglePick, usageEntryOf,
 } from './accounts-data'
 import {
   AccountCell, ActionsCell, ConnectionsCell, ExpiryCell, GroupBandRow, LimitsCell, OrderCell,
@@ -83,6 +83,7 @@ import {
 import { bindQueueDrag, type QueueDrop } from './accounts-queue-drag'
 import { moveQueueGroup } from './accounts-queue-order'
 import { AccountsDialogs } from './accounts-dialogs'
+import { Card, Empty, EmptyHeader, EmptyDescription } from '@ui'
 
 /** 列设置的句柄（注册在挂载后的布局 effect 里，见下方说明） */
 let colHandle: ColSettingsHandle | null = null
@@ -271,12 +272,12 @@ function PoolChip(props: {
   onClick: () => void
 }) {
   return (
-    <button type='button' className={cn('acct-pool-chip', props.tone, props.active && 'on')}
-      title={props.title} aria-pressed={props.active === true} onClick={props.onClick}>
-      <span className='acct-pool-dot' aria-hidden='true' />
+    <Toggle size='sm' variant='outline' pressed={props.active === true}
+      title={props.title} onPressedChange={() => props.onClick()}>
+      <BadgeDot aria-hidden='true' />
       {props.label}
       <b>{props.count}</b>
-    </button>
+    </Toggle>
   )
 }
 
@@ -334,14 +335,14 @@ function AccountPoolBar() {
             setSegmentFilter('limit', getStore().filter.limit === 'limited' ? 'all' : 'limited')
           }} />
         {expiringCount > 0 ? (
-          <span className='acct-pool-chip warn static'
+          <Badge variant='warning'
             title='剩余有效期不足 7 天（含已过期）的账号数，与「有效期」列徽章同口径'>
-            <span className='acct-pool-dot' aria-hidden='true' />
+            <BadgeDot aria-hidden='true' />
             临期
             <b>{expiringCount}</b>
-          </span>
+          </Badge>
         ) : null}
-        {providerChips.length > 0 ? <span className='acct-pool-divider' aria-hidden='true' /> : null}
+        {providerChips.length > 0 ? <Separator orientation='vertical' className='mx-1 h-4' /> : null}
         {providerChips.map(item => (
           <PoolChip key={item.id} tone='mute' title={`只看 ${item.label} 的账号`}
             label={item.label} count={item.count} active={filter.provider === item.id}
@@ -369,6 +370,14 @@ function AccountsPage() {
   // （isLimitedNow 的口径），所以筛选与计数要带上余额与 Token 两份读数的查找口
   // —— 缓存每次 bump 后这里重算
   const counts = segmentCounts(usageEntryOf, tokenUsageOf)
+  /**
+   * 提供商下拉的选项：`全部（N）` + 每一家（含 0 条的家 —— 清单要完整）。
+   * 数字是**家底的读数**（这家名下有几个账号），不随另外两档分段收窄：
+   * 它与分段徽标回答的不是同一个问题 ——「这一家里有多少个」而不是「点进去能看到几条」，
+   * 于是「哪家有账号、各有多少」不切页就能看到（家数动态，这也是它用下拉不用分段的原因）。
+   */
+  const providerOptions = [{ value: 'all', label: t('全部（{n}）', { n: all.length }) }]
+    .concat(providerSummaryList().map(item => ({ value: item.id, label: t('{label}（{count}）', { label: item.label, count: item.count }) })))
   /** 真正会渲染出来的行（组序 → 组内序）。全选 / 计数 / 分页都以它为基准：
    *  被隐藏的组（一个启用的都没有）不该算进「当前看到的这些」—— 否则「全选（8 个）」
    *  会连看不见的行一起勾上，数字也对不上。分段计数（工具条那几枚徽标）另一回事：
@@ -393,6 +402,10 @@ function AccountsPage() {
   // Clash 出口那一组已经不在这一页了 —— 出口统一由代理页的「同步 Clash Verge」
   // 导入池，这里只读池（见 accounts-panels 的 ProxyCell）
   React.useEffect(() => { ensureProxyPoolOptions() })
+
+  // 存盘里筛的那一家已经不在摘要里（账号删光、家也删了）就复位成「全部」—— 否则下拉
+  // 找不到那一项、回落显示「全部」，列表却仍按它过滤（见 store 的 normalizeProviderFilter）
+  React.useEffect(() => { normalizeProviderFilter() }, [store.version])
 
   // 列设置的注册必须在挂载后：按钮要插进本岛渲染出来的 `.batch-actions`，而
   // syncStaticHead 要求登记表已存在（它按 id 查配置）。用布局 effect 是为了让首屏的
@@ -542,7 +555,7 @@ function AccountsPage() {
         const badge = EXPIRY_TIER_TEXT[tier]
         return (
           <span className='acct-expiry-wrap'>
-            <span className={cn('acct-expiry-badge', tier)} title={badge.title}>{badge.label}</span>
+            <Badge variant={tier === 'urgent' ? 'destructive' : 'warning'} shape='tag' title={badge.title}>{badge.label}</Badge>
             <ExpiryCell account={account} />
           </span>
         )
@@ -560,12 +573,36 @@ function AccountsPage() {
     <>
       {/* 临期徽章样式（「有效期」列用，随页面渲染一次；账号池状态条的样式在其组件里） */}
       <style>{EXPIRY_BADGE_CSS}</style>
-      <section className='panel account-table'>
+      <Card as='section' variant='panel' size='sm' className='panel account-table'>
         {/* 账号池状态条（候选链总览）：在工具栏上方，计数与筛选都和工具栏联动 */}
         <AccountPoolBar />
         <div className='toolbar'>
+          {/* 提供商：分组模式把「哪一家」画在了页面上（一家一段），但「只看某一家」仍是
+              常用动作 —— 分组带收得掉一家、收不掉其余那几家。用下拉而不是分段按钮：家数
+              是**动态**的（后端注册表加一家就多一项），分段按钮会随家数增长把工具条挤成
+              一团；选项里带账号数（`WorkBuddy 国内版（14）`），于是「哪家有账号、各有多少」
+              不用切页就能看到。取值与计数都以 store 为准（受控） */}
+          <div className='group' data-provider-group='1'>
+            <span className='label'>{t('提供商')}</span>
+            <Select value={store.filter.provider} onValueChange={value => setProviderFilter(String(value))}>
+              <SelectTrigger className='max-w-[200px] min-w-[130px]' aria-label={t('按提供商筛选账号')}>
+                <SelectValue>
+                  {providerOptions.find(item => item.value === store.filter.provider)?.label || t('全部')}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {providerOptions.map(item => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
+          <Separator orientation='vertical' className='h-5' data-provider-divider='1' />
+
           {/* 搜索：分组之后「哪一家的哪个账号」是明确的两级，搜索用来在整套账号里
-              按名字 / 邮箱 / 标识定位。与两个筛选档位共用同一条可见性口径
+              按名字 / 邮箱 / 标识定位。与三个筛选档位共用同一条可见性口径
               （accounts-domain 的 matchesFilter），命中的行留在它自己的组里 */}
           <div className='group'>
             <span className='label'>{t('搜索')}</span>
@@ -573,12 +610,12 @@ function AccountsPage() {
               placeholder={t('账号名 / 邮箱 / 备注')} aria-label={t('搜索账号')}
               onChange={event => setSearchFilter(event.currentTarget.value)} />
           </div>
-          <div className='divider' />
+          <Separator orientation='vertical' className='h-5' />
 
           <div className='group'>
             <span className='label'>{t('状态')}</span>
-            {/* 两个筛选维度是**受控**的（取值与计数都以 store 为准），限流组在状态筛成
-                「禁用」时置灰 —— 已禁用账号既不算正常也不算已限流 */}
+            {/* 两个分段维度（状态 / 限额）是**受控**的（取值与计数都以 store 为准），
+                限流组在状态筛成「禁用」时置灰 —— 已禁用账号既不算正常也不算已限流 */}
             <SegmentedControl options={[
               { value: 'all', label: t('全部'), count: counts.enabledAll ?? 0 },
               { value: 'enabled', label: t('启用'), count: counts.enabled ?? 0 },
@@ -647,7 +684,7 @@ function AccountsPage() {
           ) : null}
           {filterActive() ? (
             <Button id='btn-clear-filter' variant='ghost' size='xs'
-              title={t('清空搜索与两个筛选档位，回到全部账号')}
+              title={t('清空搜索与三个筛选档位，回到全部账号')}
               onClick={() => clearFilter()}>{t('清除筛选')}</Button>
           ) : null}
           {hiddenByFilter ? (
@@ -667,16 +704,16 @@ function AccountsPage() {
 
         <div className='acct-scroll' id='account-list' ref={listRef}>
           {!loaded ? (
-            <div className='empty'><span className='spinner' />{t('正在加载…')}</div>
+            <Empty variant='compact' className='empty'><EmptyHeader><EmptyDescription><Spinner aria-hidden='true' />{t('正在加载…')}</EmptyDescription></EmptyHeader></Empty>
           ) : !all.length ? (
-            <div className='empty'>{t('暂无账号，请点击右上角「添加账号」')}</div>
+            <Empty variant='compact' className='empty'><EmptyHeader><EmptyDescription>{t('暂无账号，请点击右上角「添加账号」')}</EmptyDescription></EmptyHeader></Empty>
           ) : !shown.length ? (
-            <div className='empty'>
+            <Empty variant='compact' className='empty'><EmptyHeader><EmptyDescription>
               {t('当前筛选条件下没有账号')}
               {filterActive() ? (
-                <button type='button' className='link-btn' onClick={() => clearFilter()}>{t('清除筛选')}</button>
+                <Button variant='link' size='xs' onClick={() => clearFilter()}>{t('清除筛选')}</Button>
               ) : null}
-            </div>
+            </EmptyDescription></EmptyHeader></Empty>
           ) : (
             <table className='acct-table' ref={setTableElement}
               style={{ minWidth: `${tableMinWidth(columns.map(column => column.key))}px` }}>
@@ -702,7 +739,7 @@ function AccountsPage() {
                             data-id={account.id} data-provider={group.provider}
                             data-desktop={isDesktopAccount(account) ? '1' : undefined}>
                             {columns.map(column => (
-                              <td key={column.key} className={`cell-${column.key} ta-${column.align}`}>
+                              <td key={column.key} className={cn(`cell-${column.key}`, `ta-${column.align}`)}>
                                 {cell(column.key, account, ctx)}
                               </td>
                             ))}
@@ -732,7 +769,7 @@ function AccountsPage() {
           onSizeChange={paging.setSize}
           onPageChange={paging.goto}
         />
-      </section>
+      </Card>
       <AccountsDialogs />
     </>
   )

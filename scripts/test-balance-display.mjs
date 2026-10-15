@@ -1,4 +1,5 @@
 // Prefer numeric balances automatically; use bars only for percentage-only quotas.
+import { cn } from './ui-fixture-utils.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -41,7 +42,7 @@ const rowFunction=ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.te
 const detailFunctions=ast.statements.filter(n=>ts.isFunctionDeclaration(n)&&['usageDetailOf','numberOrNull','numberText'].includes(n.name?.text))
 const render={}
 vm.runInNewContext(transpile(`${rowFunction.getText(ast)}\n${detailFunctions.map(n=>n.getText(ast)).join('\n')}\nexport { BalanceRows, usageDetailOf };`),{
-  exports:render,React,
+  exports:render,React,cn,
   t:message=>message,
   compactNumber:String,flatMeterName:String,planBadgeLabel:String,isFreePlan:()=>false,
   Progress:props=>React.createElement('progress',{value:props.value,max:100,'aria-label':props['aria-label']}),

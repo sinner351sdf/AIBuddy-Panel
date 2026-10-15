@@ -21,13 +21,15 @@ function Progress({
   className,
   children,
   value,
+  tone = 'default',
   ...props
-}: ProgressPrimitive.Root.Props) {
+}: ProgressPrimitive.Root.Props & { tone?: 'default' | 'success' | 'warning' | 'destructive' }) {
   return (
     <ProgressPrimitive.Root
       value={value}
       data-slot='progress'
-      className={cn('flex w-full flex-wrap items-center gap-3', className)}
+      data-tone={tone}
+      className={cn('group/progress flex w-full flex-wrap items-center gap-3', className)}
       {...props}
     >
       {children}
@@ -55,7 +57,7 @@ function ProgressIndicator({ className, ...props }: ProgressPrimitive.Indicator.
   return (
     <ProgressPrimitive.Indicator
       data-slot='progress-indicator'
-      className={cn('h-full rounded-[inherit] bg-primary transition-[width] duration-300 ease-out', className)}
+      className={cn('h-full rounded-[inherit] bg-primary transition-[width] duration-300 ease-out group-data-[tone=success]/progress:bg-success group-data-[tone=warning]/progress:bg-warning group-data-[tone=destructive]/progress:bg-destructive', className)}
       {...props}
     />
   )

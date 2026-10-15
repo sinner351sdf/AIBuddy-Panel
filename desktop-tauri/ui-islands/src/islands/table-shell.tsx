@@ -1,6 +1,9 @@
 import * as React from 'react'
 import {
-  Input,
+  cn,
+  SelectGroup,
+  Field,
+  FieldLabel,
   Pager,
   Select,
   SelectContent,
@@ -9,6 +12,7 @@ import {
   SelectValue,
 } from '@ui'
 import { t } from '../i18n'
+import { CardFooter } from '@ui'
 
 /**
  * Agent2API · **通用表格外壳**：统一的页脚分页栏 + 客户端分页状态。
@@ -19,14 +23,10 @@ import { t } from '../i18n'
  *   · 页脚分页栏 —— 在本文件（React 层，五张表共用）。
  * 两半各自只有一份实现，行为不再按页漂。
  *
- * ── 页脚里有什么（用户口径）────────────────────────────────
- *   共 N 条 · 当前第 a–b 条   ← 「显示当前多少条、一共多少条」
- *   每页 [50 ▾] 条            ← 每页显示多少条
- *   跳至 [ 3 ] 页             ← 跳转到第几页
- *   [上一页] [下一页] 第 x / y 页（组件库的 Pager）
- *
- * 跳页框常驻（哪怕只有一页）：口径统一、位置固定，翻页器禁用即可 ——
- * 时有时无的控件比一个灰着的框更让人困惑。
+ * ── 页脚按数据量显示有用的操作 ──────────────────────────────
+ *   共 N 条：始终显示，当前行区间保留在提示中。
+ *   每页行数：各页面始终可调，客户端列表保留「全部」档。
+ *   翻页器：数字页码可直接跳转，当前页高亮；两侧保留图标上一页 / 下一页。
  *
  * ── 两种分页口径 ───────────────────────────────────────────
  *   · **客户端分页**（事件日志 / 模型管理 / 网关 Key / 账号）：数据一次全取回，
@@ -181,6 +181,8 @@ type TableFooterProps = {
   /** 页脚左侧的说明文字：沿用各页原有的提示，不因为加了控件就删掉 */
   leading?: React.ReactNode
   className?: string
+  /** 表格面板页脚或内容中的分页行 */
+  variant?: 'panel' | 'inline'
 }
 
 /**
@@ -201,74 +203,45 @@ function TableFooter({
   disabled = false,
   leading,
   className,
+  variant = 'panel',
 }: TableFooterProps) {
-  // 跳页框是**草稿态**：输入过程中不翻页，回车 / 失焦才提交（边打字边翻页会把
-  // 中间态（1 → 12 → 123）也发出去，请求日志那种真分页的表还会打三次接口）
-  const [draft, setDraft] = React.useState(String(page))
-  React.useEffect(() => setDraft(String(page)), [page])
-
-  const commit = (): void => {
-    const text = draft.trim()
-    if (!text) { setDraft(String(page)); return }
-    const next = Number(text)
-    if (!Number.isFinite(next)) { setDraft(String(page)); return }
-    const clamped = Math.min(Math.max(1, Math.round(next)), pageCount)
-    setDraft(String(clamped))
-    if (clamped !== page) onPageChange(clamped)
-  }
-
-  const single = pageCount <= 1
-  const countText = total === 0
-    ? t('共 0 条')
-    : range
-      ? t('共 {total} 条 · 当前第 {start}–{end} 条', { total, start: range.start, end: range.end })
-      : t('共 {total} 条（全部显示）', { total })
+  const sizeId = React.useId()
+  const Footer = variant === 'panel' ? CardFooter : 'div'
+  const countText = t('共 {total} 条', { total })
+  const rangeText = range && total > 0
+    ? t('共 {total} 条 · 当前第 {start}–{end} 条', { total, start: range.start, end: range.end })
+    : undefined
 
   return (
-    <div className={className ? `panel-foot table-foot-bar ${className}` : 'panel-foot table-foot-bar'}>
+    <Footer {...(variant === 'panel' ? { variant: 'panel' as const } : {})}
+      className={cn('table-foot-bar', variant === 'panel' ? 'panel-foot' : 'flex flex-wrap items-center gap-3', className)}>
       {leading}
       <div className='spacer' />
       <div className='table-foot-ctl'>
-        <span className='table-foot-count'>{countText}</span>
-        <span className='table-foot-size'>
-          {t('每页')}
+        <span className='table-foot-count' title={rangeText}>{countText}</span>
+        <Field orientation='horizontal' className='table-foot-size w-auto'>
+          <FieldLabel htmlFor={sizeId} className='whitespace-nowrap'>{t('每页行数')}</FieldLabel>
           <Select
             value={String(size)}
-            onValueChange={next => onSizeChange(next === 'all' ? 'all' : Number(next))}
+            onValueChange={next => {
+              if (next !== null && sizes.some(choice => String(choice) === next)) onSizeChange(next === 'all' ? 'all' : Number(next))
+            }}
           >
-            <SelectTrigger className='h-[26px] w-[86px]' disabled={disabled} aria-label={t('每页条数')}>
+            <SelectTrigger id={sizeId} className='h-8 w-[76px]' disabled={disabled} aria-label={t('每页条数')}>
               <SelectValue>{pageSizeText(size)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {sizes.map(choice => (
-                <SelectItem key={String(choice)} value={String(choice)}>{pageSizeText(choice)}</SelectItem>
-              ))}
+              <SelectGroup>
+                {sizes.map(choice => (
+                  <SelectItem key={String(choice)} value={String(choice)}>{pageSizeText(choice)}</SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
-          {t('条')}
-        </span>
-        <span className='table-foot-jump'>
-          {t('跳至')}
-          <Input
-            className='h-[26px] w-[52px] px-1 text-center'
-            value={draft}
-            disabled={disabled || single}
-            aria-label={t('跳转到指定页')}
-            title={single ? t('当前只有一页') : t('跳转到第 1–{pageCount} 页', { pageCount })}
-            inputMode='numeric'
-            onChange={event => setDraft(event.target.value)}
-            onKeyDown={event => {
-              if (event.key === 'Enter') { event.preventDefault(); commit() }
-              // 退出编辑：把草稿还原成真实页码（取消输入）
-              else if (event.key === 'Escape') setDraft(String(page))
-            }}
-            onBlur={commit}
-          />
-          {t('页')}
-        </span>
+        </Field>
         <Pager page={page} pageCount={pageCount} onPageChange={onPageChange} disabled={disabled} />
       </div>
-    </div>
+    </Footer>
   )
 }
 

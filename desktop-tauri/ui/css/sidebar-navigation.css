@@ -1,0 +1,43 @@
+/* App layout around the official Sidebar. Controls, menus and modal behavior belong to shadcn. */
+.shell-sidebar-07 { --sidebar-w: 256px; --topbar-h: 64px; }
+#shell-sidebar-root, #shell-sidebar-trigger-host { display: contents; }
+#shell-sidebar-assets[hidden] { display: none; }
+#shell-sidebar .brand { min-width: 0; height: 56px; gap: 8px; padding: 8px; border: 0; }
+#shell-sidebar .brand-logo svg, #shell-sidebar .brand-logo img { width: 32px; height: 32px; }
+#shell-sidebar .brand-text { display: block; }
+#shell-sidebar .brand h1 { margin: 0; font-size: 14px; font-weight: 600; line-height: 20px; }
+#shell-sidebar .brand-version { margin-top: 0; font-size: 12px; line-height: 16px; }
+#shell-sidebar .sidebar-status { min-width: 0; min-height: 28px; padding: 4px 8px; border: 0; background: transparent; box-shadow: none; font-size: 11px; }
+#sidebar-user { min-width: 0; }
+#sidebar-user .um-holder { display: block; width: 100%; }
+.shell-sidebar-07 .topbar { gap: 8px; padding: 0 16px; transition: height 200ms ease; }
+.topbar-navigation { display: flex; flex: 0 1 auto; align-items: center; gap: 12px; min-width: 0; }
+.shell-sidebar-07 .crumb { min-width: 0; }
+.shell-sidebar-07 .crumb [data-slot='breadcrumb-list'] { flex-wrap: nowrap; gap: 8px; }
+.shell-sidebar-07 .crumb [data-slot='breadcrumb-item'] { min-width: 0; }
+.shell-sidebar-07 .crumb [data-slot='breadcrumb-page'] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pref-buttons { display: flex; flex: none; align-items: center; gap: 4px; }
+#shell-window-controls { display: flex; flex: none; }
+body.has-titlebar [data-slot='sidebar-container'] { top: var(--titlebar-h); height: calc(100svh - var(--titlebar-h)); }
+@media (min-width: 1001px) {
+  body.shell-collapsed .shell-sidebar-07 { --sidebar-w: 48px; --topbar-h: 48px; grid-template-columns: 48px minmax(0,1fr); }
+  body.shell-collapsed #shell-sidebar .brand { height: 40px; justify-content: center; padding: 0; }
+  body.shell-collapsed #shell-sidebar .brand-logo svg, body.shell-collapsed #shell-sidebar .brand-logo img { width: 28px; height: 28px; }
+  body.shell-collapsed #shell-sidebar .brand-text, body.shell-collapsed #sidebar-status .txt { display: none; }
+  body.shell-collapsed #shell-sidebar .sidebar-status { justify-content: center; padding: 8px 0; }
+}
+@media (max-width: 1000px) {
+  .shell-sidebar-07, body.shell-collapsed .shell-sidebar-07 { --topbar-h: 56px; grid-template-columns: minmax(0,1fr); }
+  #shell-sidebar .brand { padding-right: 36px; }
+  .shell-sidebar-07 .topbar { padding: 0 12px; gap: 4px; }
+  .shell-sidebar-07 .topbar .crumb { display: flex; }
+  .topbar-navigation { gap: 10px; }
+  .shell-sidebar-07 .topbar-actions { display: none; }
+  .pref-buttons { gap: 2px; }
+}
+@media (max-width: 640px) {
+  .shell-sidebar-07 #pref-btn-link, .shell-sidebar-07 #shell-window-controls { display: none; }
+  .shell-sidebar-07 .topbar-navigation { flex: 1; overflow: hidden; }
+  .shell-sidebar-07 .topbar > .spacer { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .shell-sidebar-07 .topbar { transition: none; } }

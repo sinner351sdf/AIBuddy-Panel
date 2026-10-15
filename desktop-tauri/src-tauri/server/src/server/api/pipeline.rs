@@ -529,6 +529,7 @@ fn stored_attempt_details(list: &[usage::AttemptDetail]) -> Vec<AttemptDetail> {
             notice: item.notice.clone(),
             // 体字节数原样透传（None = 这一轮没发出去；采集侧的理由见 usage 的字段说明）
             body_bytes: item.body_bytes,
+            timings: item.timings.clone(),
         })
         .collect()
 }
@@ -559,6 +560,7 @@ fn stored_sensitive_hits(list: &[usage::SensitiveHit]) -> Vec<SensitiveHit> {
 ///   attempts    旁路槽里累计的上游请求数；一次都没发出去时回落 1
 ///   error       旁路槽里的原因优先（更接近根因），否则用调用方给的兜底文案
 pub fn record_entry(context: &RecordContext, fallback_error: Option<String>) {
+    context.telemetry.seal_stages();
     let snapshot = context.telemetry.snapshot();
     // Key 额度计量（`core::key_quota`）：本次真实消耗的 Token 累计进该 Key 的
     // 已用数，转发前的准入判定（`check_scope`）按它判「配额是否用尽」。放在
@@ -1055,6 +1057,33 @@ mod tests {
     //! 中断洗成成功（报表再也看不出断流）。所以这一组用例两头都要钉住。
 
     use super::{terminal, RecordContext, RecordingStream, TerminalFrames, TerminalScan};
+
+    #[test]
+    fn stage_timings_survive_live_updates_and_disconnect_persistence() {
+        let (stats, _dir) = temp_stats("timings");
+        let (context, telemetry) = context_for(stats.clone());
+        telemetry.ensure_id("stage-timing-test");
+        let id = telemetry.id();
+        stats.record_started(&id, context.started_at, "test", "test", "", false);
+        telemetry.set_live_sink(super::live_row_sink(stats.clone(), id, context.started_at));
+        telemetry.note_attempt_started("accio", "test");
+        telemetry.begin_stage("build_request").finish();
+        let waiting = telemetry.begin_stage("send_headers");
+        let live = only_row(&stats);
+        assert_eq!(live["attemptDetails"][0]["timings"][0]["completed"], true);
+        assert!(live["attemptDetails"][0]["timings"][1]["durationMs"].is_null());
+        super::record_entry(&context, Some("客户端在响应完成前断开连接".into()));
+        let final_row = only_row(&stats);
+        let timing = &final_row["attemptDetails"][0]["timings"][1];
+        assert_eq!(timing["stage"], "send_headers");
+        assert_eq!(timing["completed"], false);
+        assert!(timing["durationMs"].is_i64());
+        drop(waiting);
+        // Historical records with no timings remain readable without fake zeroes.
+        let old: crate::server::request_stats::AttemptDetail =
+            serde_json::from_value(serde_json::json!({"provider":"accio"})).unwrap();
+        assert!(old.timings.is_empty());
+    }
 
     /// 生产实测到的收尾帧写法（CodeArts 走字节透传，上游发什么就下发什么）：
     /// 冒号后面**没有**那个空格。取自 `request_raw.response_body` 的真实尾巴。

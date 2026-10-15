@@ -1,0 +1,3 @@
+# Committed Vite output is generated; keep source review separate from bundled dependencies.
+desktop-tauri/ui/islands/ui.js linguist-generated=true whitespace=-blank-at-eol
+desktop-tauri/ui/islands/ui.css linguist-generated=true

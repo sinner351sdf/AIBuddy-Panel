@@ -1,3 +1,5 @@
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@ui'
+import { Badge } from '@ui'
 /**
  * Agent2API · 积分构成页（对照 workbuddy2api-panel 的同名页三段结构）。
  *
@@ -39,7 +41,7 @@
 import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Spinner, cn } from '@ui'
+import { SelectGroup, Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Spinner, cn } from '@ui'
 import { shared, toast } from './settings-model'
 
 const PAGE_SELECTOR = '.page[data-page="credits"]'
@@ -460,9 +462,9 @@ function ExpiryCell({ expireAt, now }: { expireAt: number | null | undefined; no
     >
       {day}
       {tier ? (
-        <span className={cn('pk-exp-pill', tier !== 'soon' && 'danger')} title={TIER_TEXT[tier].title}>
+        <Badge variant={tier === 'soon' ? 'warning' : 'destructive'} shape='tag' className='ml-1.5' title={TIER_TEXT[tier].title}>
           {TIER_TEXT[tier].label}
-        </span>
+        </Badge>
       ) : null}
     </span>
   )
@@ -527,29 +529,17 @@ function detailRow(
 
 /** 折叠汇总行（参考站 pk-group-summary / pk-group-toggle 同交互）：
  *  收起时「……，展开」，展开时「收起……」，其余行随之显隐。 */
-function GroupToggleRow({
-  label,
-  expanded,
-  onToggle,
-}: {
-  label: string
-  expanded: boolean
-  onToggle: () => void
+function PackageGroup({ label, expanded, onToggle, children }: {
+  label: string; expanded: boolean; onToggle: () => void; children: React.ReactNode
 }): React.ReactElement {
-  return (
-    <tr className='border-t border-hairline bg-surface-2'>
-      <td colSpan={7} className='p-0'>
-        <button
-          type='button'
-          aria-expanded={expanded}
-          onClick={onToggle}
-          className='w-full px-2 py-1.5 text-left text-[11px] text-subtle transition-colors hover:text-foreground'
-        >
-          {expanded ? `收起${label}` : `${label}，展开`}
-        </button>
-      </td>
-    </tr>
-  )
+  return <Collapsible open={expanded} onOpenChange={onToggle} render={({ children }) => <>{children}</>}>
+    <tbody><tr className='border-t border-hairline bg-surface-2'><td colSpan={7} className='p-0'>
+      <CollapsibleTrigger render={<Button variant='ghost' size='xs' className='h-auto w-full justify-start px-2 py-1.5' />}>
+        {expanded ? `收起${label}` : `${label}，展开`}
+      </CollapsibleTrigger>
+    </td></tr></tbody>
+    <CollapsibleContent render={<tbody />} keepMounted>{children}</CollapsibleContent>
+  </Collapsible>
 }
 
 /** 逐账号明细表：默认最早到期 N 条（页面可调）+ 折叠汇总（其余未用完 / 已用完）。
@@ -608,38 +598,16 @@ function AccountDetail({
             </tr>
           </thead>
           <tbody>
-            {packs.length === 0 ? (
-              <tr>
-                <td colSpan={7} className='border-t border-hairline py-3 text-center text-subtle'>
-                  该账号没有积分包明细
-                </td>
-              </tr>
-            ) : (
-              <>
-                {groups.visible.map(rowOf)}
-                {groups.rest.length > 0 ? (
-                  <>
-                    <GroupToggleRow
-                      label={`其余未用完 ${groups.rest.length} 个包（面额合计 ${fmtTok(groups.restSize)} · 剩余 ${fmtTok(groups.restRemain)}）`}
-                      expanded={expanded.rest}
-                      onToggle={() => setExpanded(prev => ({ ...prev, rest: !prev.rest }))}
-                    />
-                    {expanded.rest ? groups.rest.map(rowOf) : null}
-                  </>
-                ) : null}
-                {groups.used.length > 0 ? (
-                  <>
-                    <GroupToggleRow
-                      label={`已用完 ${groups.used.length} 个包（面额合计 ${fmtTok(groups.usedSize)}）`}
-                      expanded={expanded.used}
-                      onToggle={() => setExpanded(prev => ({ ...prev, used: !prev.used }))}
-                    />
-                    {expanded.used ? groups.used.map(rowOf) : null}
-                  </>
-                ) : null}
-              </>
-            )}
+            {packs.length === 0 ? <tr><td colSpan={7} className='border-t border-hairline py-3 text-center text-subtle'>该账号没有积分包明细</td></tr> : groups.visible.map(rowOf)}
           </tbody>
+          {groups.rest.length > 0 ? <PackageGroup
+            label={`其余未用完 ${groups.rest.length} 个包（面额合计 ${fmtTok(groups.restSize)} · 剩余 ${fmtTok(groups.restRemain)}）`}
+            expanded={expanded.rest} onToggle={() => setExpanded(prev => ({ ...prev, rest: !prev.rest }))}
+          >{groups.rest.map(rowOf)}</PackageGroup> : null}
+          {groups.used.length > 0 ? <PackageGroup
+            label={`已用完 ${groups.used.length} 个包（面额合计 ${fmtTok(groups.usedSize)}）`}
+            expanded={expanded.used} onToggle={() => setExpanded(prev => ({ ...prev, used: !prev.used }))}
+          >{groups.used.map(rowOf)}</PackageGroup> : null}
         </table>
       </div>
     </section>
@@ -770,11 +738,13 @@ function CreditsPage(): React.ReactElement {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {DETAIL_LIMITS.map(limit => (
-                  <SelectItem key={limit} value={String(limit)}>
-                    {limit} 条
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  {DETAIL_LIMITS.map(limit => (
+                    <SelectItem key={limit} value={String(limit)}>
+                      {limit} 条
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </label>

@@ -353,6 +353,8 @@ pub struct AttemptDetail {
     /// 「只记体积不记内容」的口径见 `core::upstream::usage::AttemptDetail::body_bytes`。
     #[serde(rename = "bodyBytes", default)]
     pub body_bytes: Option<i64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub timings: Vec<crate::server::core::upstream::timing::StageTiming>,
 }
 
 /// 一次尝试内部的退避重试（存储契约，与采集侧同形各自定义）。
@@ -595,6 +597,7 @@ impl NewRequestEntry {
                     notice: item.notice.filter(|text| !text.is_empty()),
                     // 体字节数原样透传（None = 这一轮没发出去；采集侧的理由见 usage 的字段说明）
                     body_bytes: item.body_bytes,
+                    timings: item.timings,
                 })
                 .collect(),
             sensitive_hits: self

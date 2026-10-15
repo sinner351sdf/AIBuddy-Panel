@@ -397,6 +397,7 @@ pub async fn login_start(State(state): State<ServerState>, body: Bytes) -> Respo
         Ok((task_state, auth_url, task_edition)) => ok_json(json!({
             "state": task_state,
             "authUrl": auth_url,
+            "expiresAt":handle.snapshot().expires_at,
             "edition": task_edition,
             // 回显归属：前端按它把「这次登录的是哪一家」显示清楚（国际版的
             // 登录页与国内版不同，用户需要确认自己点对了）

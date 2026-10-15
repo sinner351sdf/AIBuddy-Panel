@@ -1,64 +1,6 @@
-/* ─────────────────────────────────────────────
-   文档页：接口条；模型管理页：模型表格 + 映射弹窗；网关 Key 页：Key 表格
+/* 模型管理与网关 Key 共用的表格、映射弹窗及工具栏样式。
+   接入文档由 docs-page.tsx 使用 Card、Item、CodeBlock 组件承载。 */
 
-   三个页面的样式同住一个文件，是因为它们共用同一套表格与面板骨架
-   （.models-table 是模型管理与网关 Key 共用，见下方注释）。
-   **接口条（.ep-*）R8 起住在「文档」页**：它原来在「网关 Key」页，
-   整块搬走后这些规则一字未改 —— 它们没有按 [data-page] 收窄（CSS 本来就是
-   全局加载的），所以换页面不需要动样式。这里只更正文件头的描述。
-   ───────────────────────────────────────────── */
-
-/* ─── 接口条：纵向列表，一行一条端点 ───
-   （Base URL / 三种对话协议 / 模型列表；替代原「一行三段」布局 ——
-   端点从 3 条涨到 5 条后，横排会把每条压到放不下完整 URL）
-   每行两排：上排「名字 + 用途」，下排「方法+URL + 复制」。
-   URL 独占一行才放得下完整地址，也不与说明抢宽度。 */
-.ep-panel .panel-head { padding-bottom: 12px; }
-
-/* 内部横线用 --hairline（比 --border 淡一档）：面板头用的也是它，
-   整块看起来才是「一个面板里的分行」而不是几条独立边框叠在一起 */
-.ep-list { border-top: 1px solid var(--hairline); }
-
-.ep-row {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--hairline);
-}
-.ep-row:last-child { border-bottom: 0; }
-/* 悬停整行淡底：复制按钮在行尾，行够宽时眼球容易跟丢是哪一条 */
-.ep-row:hover { background: var(--surface-inset); }
-
-.ep-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
-
-.ep-name { color: var(--text); font-size: 12.5px; font-weight: 600; }
-
-.ep-note { color: var(--text-3); font-size: 11.5px; }
-
-.ep-line { display: flex; align-items: center; gap: 9px; margin-top: 5px; }
-
-.ep-value {
-  flex: 0 1 auto;
-  min-width: 0;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  /* 值可选中：想手动挑一段比复制整条更常见（比如只拿路径） */
-  user-select: text;
-}
-
-/* 分组小标题：把「地址 / 对话协议 / 模型清单」三块视觉上分开，
-   否则五条同构的行读起来是一整片 */
-.ep-group {
-  padding: 7px 16px 6px;
-  border-bottom: 1px solid var(--hairline);
-  background: var(--surface-inset);
-  color: var(--text-3);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: .04em;
-}
 /* 工具栏：提供商分段 + 状态分段 + 搜索，排成一行。
    它挂在 .panel-body 上（那条规则是 flex 纵向），这里必须显式改回横向，
    否则三个控件会各占一行并居中 */
@@ -107,6 +49,11 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  /* 允许折行：这一行现在住着状态筛选 + 倍率排序（issue #161）+ 搜索框（240px）
+     + 勾选后的批量条，在最小窗口宽度（820px）下四者同时在场会超出通栏宽度 ——
+     折行比横向溢出好，与 .panel-head 的 flex-wrap 同一取舍（见上面的说明）。 */
+  flex-wrap: wrap;
+  row-gap: 8px;
   width: 100%;
   padding: 6px 16px 12px;
 }
@@ -192,7 +139,8 @@
 .page[data-page="gateway"] .models-table thead th { padding: 8px 10px; font-size: 11px; letter-spacing: 0; }
 .page[data-page="gateway"] .models-table td { padding: 7px 10px; }
 
-/* 「模型映射」表头的问号提示（完整口径从括号长标题挪进 title，见 models-page） */
+/* 表头的问号提示（完整口径从括号长标题挪进 title，见 models-page）——
+   「模型映射」「上下文 / 输出」「能力」三处共用；后两处讲的是来源标记怎么读 */
 .page[data-page="gateway"] .models-table .th-help {
   display: inline-flex;
   vertical-align: -2px;
@@ -229,11 +177,15 @@
 .models-table .c-caps { width: 11.5%; }
 .models-table .c-alias { width: 33%; }
 .models-table .c-act { width: 11%; }
-.keys-table .k-name { width: 22%; }
-.keys-table .k-key { width: 44%; }
-.keys-table .k-time { width: 16%; }
-.keys-table .k-state { width: 8%; }
-.keys-table .k-act { width: 10%; }
+/* Reserve space for controls; a percentage action column let buttons spill over the switch. */
+.keys-table { min-width: 840px; }
+.keys-table .k-name { width: 160px; }
+.keys-table .k-key { width: auto; }
+.keys-table .k-time { width: 160px; }
+.keys-table .k-state { width: 76px; }
+.keys-table .k-act { width: 156px; }
+.keys-table td.cell-state { vertical-align: middle; }
+.keys-table td.cell-act { white-space: normal; }
 
 /* 禁用 / 已删除的行整体压淡，开关与操作列保持可点 */
 .models-table tr.off td { opacity: .5; }
@@ -298,7 +250,7 @@
   margin: -3px -4px;
   padding: 3px 4px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: none;
   box-shadow: none;
   color: inherit;
@@ -321,6 +273,10 @@
 }
 /* 未声明：压淡而不是换成文字 —— 与「明确声明了 0 / 不支持」一眼可分 */
 .cap-num.unset { color: var(--text-3); opacity: .6; }
+/* 来源是 models.dev 的数值：虚线底边（文字上不能像圆点那样加环 —— 那会贴住
+   数字本身）。与圆点的内侧描边是同一套语义：这一项不是上游说的。
+   悬停提示里会写明「其中 最大输出 Token 由 models.dev 补齐」。 */
+.cap-num.filled { text-decoration: underline dotted var(--text-3); text-underline-offset: 3px; }
 .cap-sep { color: var(--text-3); font-size: 11px; }
 
 /* ── 「来源」列：色点 + 小字（2026-10 重设计）──────────────
@@ -352,6 +308,13 @@
 .cap-dot.on { background: var(--primary-soft); color: var(--primary-fg); }
 .cap-dot.off { background: var(--surface-3); color: var(--text-3); }
 .cap-dot.unset { border: 1px dashed var(--border-strong); color: var(--text-3); opacity: .75; }
+/* 来源是 models.dev 的那几项：在原有三态之上补一圈内侧描边（不改底色）。
+   底色表达的是「支持 / 不支持 / 未声明」（值本身），描边表达的是「这个值不是
+   上游说的、是社区库补的」（可信度）—— 两个维度压进一个样式就再也分不出来。
+   逐项的文字说明在悬停提示里（capabilityTip 会写「（由 models.dev 补齐）」）。
+   描边用静音文字色而不是 --border-strong —— 后者只有 20% 白，压在灰实底上
+   等于看不见（实测过）。 */
+.cap-dot.filled { box-shadow: inset 0 0 0 1px var(--text-3); }
 
 /* 覆盖标记：被用户改过的那一项挂一枚小点（title 说明「已覆盖上游值」）。
    基础 .cap-mark 是行内小点（「上下文 / 输出」格用）；圆点里的那枚绝对定位
@@ -571,7 +534,7 @@
   justify-content: center;
   width: 21px;
   height: 21px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: oklch(0.68 0.13 var(--av-h, 260) / 18%);
   color: oklch(0.70 0.14 var(--av-h, 260));
   font-size: 10.5px;
@@ -593,7 +556,7 @@
 :root[data-theme='light'] .pv-ico.img { background: var(--control-bg); color: initial; padding: 2px; }
 .pv-ico.img img { width: 100%; height: 100%; object-fit: contain; display: block; }
 /* 面板头标题上的那枚：大一档（它是这页的「页签」） */
-.mm-title .pv-ico { width: 26px; height: 26px; border-radius: 8px; font-size: 12px; }
+.mm-title .pv-ico { width: 26px; height: 26px; border-radius: var(--r-md); font-size: 12px; }
 .mm-title .pv-ico svg { width: 14px; height: 14px; }
 
 /* 计数改小药丸（2026-10 重设计）：NavItem 渲染的计数 span 加底色与圆角。

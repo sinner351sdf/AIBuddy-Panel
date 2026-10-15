@@ -67,6 +67,9 @@ pub mod codearts_welfare;
 // .bak，语义与安全边界见该文件模块头）
 pub mod codex_api;
 pub mod config_api;
+// WorkBuddy 成长任务（查询 / 执行 / 开学季 / 猫猫旅行）：从参考项目
+// workbuddy2api 的 task_runner.py 移植，见该文件模块头
+pub mod growth;
 // 网关面（`/v1/*`）跨域访问开关：`GET/PUT /api/cors`（与 `/api/sanitize`
 // 同形的单开关端点，见该文件模块头）
 pub mod cors;
@@ -90,10 +93,16 @@ pub mod health;
 pub mod import_sources;
 pub mod keys_api;
 pub mod key_quota_api;
+/// 保活换行丢弃开关（`/api/keepalive-strip`）：与 `/api/sanitize`、`/api/debug`
+/// 同形的单开关端点，独立成文件而不是塞进 config_api —— 理由见该模块头。
+pub mod keepalive;
 pub mod logs_api;
 pub mod notify_api;
 pub mod maintenance_api;
 pub mod model_manage;
+// models.dev 模型元数据（开关 / 状态 / 立即刷新）：与「逐家上游目录」的
+// /api/models/refresh 分开，理由见该文件模块头
+pub mod model_meta;
 // 模型测试（模型管理页操作列的「测试」）：挂管理面、走真实转发链路，
 // 只把候选收窄到「这一家 × 这一个账号」并把流量标成测试，见该文件模块头
 pub mod model_test;
@@ -119,6 +128,7 @@ pub mod shutdown_api;
 pub mod sessions_api;
 pub mod stats_api;
 pub mod storage_api;
+pub mod subscriptions;
 pub mod timeouts_api;
 pub mod update;
 pub mod upgrade_api;

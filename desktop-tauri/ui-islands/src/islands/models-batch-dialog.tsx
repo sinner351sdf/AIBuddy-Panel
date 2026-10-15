@@ -24,6 +24,12 @@
 
 import * as React from 'react'
 import {
+  Field,
+  FieldGroup,
+  FieldLegend,
+  FieldSet,
+  FieldLabel,
+  SelectGroup,
   Button,
   Dialog,
   DialogBody,
@@ -43,7 +49,7 @@ import {
   SelectValue,
 } from '@ui'
 import { isCustom, type ManageModel } from './models-custom-source'
-import { CUSTOM_LEVEL, levels as reasoningLevels } from './models-reasoning'
+import { CUSTOM_LEVEL, commonLevels } from './models-reasoning'
 import {
   accept, bindingsOf, errorMessage, getSnapshot, shared, toast, writeBinding, writeRemoveModel,
 } from './models-panel-state'
@@ -75,14 +81,20 @@ export function ModelBatchDialog({ models, onClose, onDone }: {
   onDone: () => void
 }) {
   const [action, setAction] = React.useState<BatchAction>('enable')
-  // 思考等级草稿（照 MappingDialog 的形态）：'' = 清除 / 不覆盖、候选等级、CUSTOM_LEVEL
-  const [reasoning, setReasoning] = React.useState(() => {
-    const candidates = reasoningLevels(getSnapshot().data)
-    return { select: candidates[0] || '', custom: '' }
-  })
+  /**
+   * 思考等级草稿（照 MappingDialog 的形态）：'' = 清除 / 不覆盖、候选等级、CUSTOM_LEVEL。
+   *
+   * 候选取所选模型的**交集**（`commonLevels`）：批量设的同一个档位，只要有一个目标
+   * 不认识就等于白设一个它不认的参数；任何目标未声明档位时回落通用表 —— 拿一个子集
+   * 去限制用户，等于替上游猜它认不认。
+   */
+  const candidates = commonLevels(getSnapshot().data, models)
+  const [reasoning, setReasoning] = React.useState(() => ({
+    select: candidates[0] || '',
+    custom: '',
+  }))
   const [busy, setBusy] = React.useState(false)
   const [result, setResult] = React.useState<React.ReactNode>('')
-  const candidates = reasoningLevels(getSnapshot().data)
   const level = reasoning.select === CUSTOM_LEVEL ? reasoning.custom.trim() : reasoning.select
   const removableCount = models.filter(isRemovable).length
   const label = ACTIONS.find(item => item.value === action)?.label || t('操作')
@@ -172,57 +184,64 @@ export function ModelBatchDialog({ models, onClose, onDone }: {
             <p style={{ maxHeight: 84, overflowY: 'auto' }}>{models.map(modelName).join(t('、'))}</p>
           </DialogSection>
           <DialogSection>
-            <h3>{t('操作')}</h3>
-            <RadioGroup value={action} onValueChange={next => setAction(next as BatchAction)}
-              className='flex-row flex-wrap items-center gap-5' aria-label={t('批量动作')}>
-              {ACTIONS.map(item => (
-                <Label key={item.value} className='inline-flex cursor-pointer items-center gap-2 font-normal'>
-                  <RadioGroupItem value={item.value} />{item.label}
-                </Label>
-              ))}
-            </RadioGroup>
-            {action === 'reasoning' ? (
-              <div className='mt-2.5'>
-                <div className='field-row'>
-                  <label htmlFor='batch-model-reasoning'>{t('思考等级')}</label>
-                  <Select value={reasoning.select} onValueChange={next => setReasoning(prev => ({ ...prev, select: String(next) }))}>
-                    <SelectTrigger id='batch-model-reasoning' className='min-w-[220px]'>
-                      <SelectValue>
-                        {reasoning.select === CUSTOM_LEVEL ? t('自定义等级…')
-                          : (reasoning.select || t('清除（不覆盖）'))}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value=''>{t('清除（不覆盖）')}</SelectItem>
-                      {candidates.map(levelName => (
-                        <SelectItem key={levelName} value={levelName}>{levelName}</SelectItem>
-                      ))}
-                      <SelectItem value={CUSTOM_LEVEL}>{t('自定义等级…')}</SelectItem>
-                    </SelectContent>
-                  </Select>
+            <FieldGroup className='gap-2.5'>
+              <h3>{t('操作')}</h3>
+              <FieldSet className='gap-0'>
+                <FieldLegend className='sr-only'>{t('批量动作')}</FieldLegend>
+                <RadioGroup value={action} onValueChange={next => setAction(next as BatchAction)}
+                  className='flex-row flex-wrap items-center gap-5' aria-label={t('批量动作')}>
+                  {ACTIONS.map(item => (
+                    <Label key={item.value} className='inline-flex cursor-pointer items-center gap-2 font-normal'>
+                      <RadioGroupItem value={item.value} />{item.label}
+                    </Label>
+                  ))}
+                </RadioGroup>
+              </FieldSet>
+              {action === 'reasoning' ? (
+                <div className='mt-2.5'>
+                  <Field orientation='horizontal' className='field-row flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+                    <FieldLabel htmlFor='batch-model-reasoning'>{t('思考等级')}</FieldLabel>
+                    <Select value={reasoning.select} onValueChange={next => setReasoning(prev => ({ ...prev, select: String(next) }))}>
+                      <SelectTrigger id='batch-model-reasoning' className='min-w-[220px]'>
+                        <SelectValue>
+                          {reasoning.select === CUSTOM_LEVEL ? t('自定义等级…')
+                            : (reasoning.select || t('清除（不覆盖）'))}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value=''>{t('清除（不覆盖）')}</SelectItem>
+                          {candidates.map(levelName => (
+                            <SelectItem key={levelName} value={levelName}>{levelName}</SelectItem>
+                          ))}
+                          <SelectItem value={CUSTOM_LEVEL}>{t('自定义等级…')}</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  {reasoning.select === CUSTOM_LEVEL ? (
+                    <Field orientation='horizontal' className='field-row mt-2 flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
+                      <FieldLabel htmlFor='batch-model-reasoning-custom'>{t('自定义等级')}</FieldLabel>
+                      <Input id='batch-model-reasoning-custom' maxLength={32} value={reasoning.custom}
+                        onChange={event => setReasoning(prev => ({ ...prev, custom: event.currentTarget.value }))} />
+                    </Field>
+                  ) : null}
+                  <p className='detail mt-1.5'>
+                    {t('设置 / 清除会应用到选中模型的')}<b>{t('全部映射')}</b>{t('（默认绑定与别名 chips）；「清除」= 不给这些映射指定等级（选「不覆盖」的口径与映射弹窗一致）')}
+                  </p>
                 </div>
-                {reasoning.select === CUSTOM_LEVEL ? (
-                  <div className='field-row mt-2'>
-                    <label htmlFor='batch-model-reasoning-custom'>{t('自定义等级')}</label>
-                    <Input id='batch-model-reasoning-custom' maxLength={32} value={reasoning.custom}
-                      onChange={event => setReasoning(prev => ({ ...prev, custom: event.currentTarget.value }))} />
-                  </div>
-                ) : null}
-                <p className='detail mt-1.5'>
-                  {t('设置 / 清除会应用到选中模型的')}<b>{t('全部映射')}</b>{t('（默认绑定与别名 chips）；「清除」= 不给这些映射指定等级（选「不覆盖」的口径与映射弹窗一致）')}
+              ) : null}
+              {action === 'delete' ? (
+                <p className='detail mt-2'>
+                  {removableCount === 0
+                    ? t('选中的都不是手动登记的模型，删除不可用（上游目录带回来的行由清单决定存在性）')
+                    : t('可删除 {n} 个（手动登记 / 自定义家）；', { n: removableCount })
+                      + (models.length > removableCount
+                        ? t('其余 {n} 个会被跳过。', { n: models.length - removableCount })
+                        : '')}
                 </p>
-              </div>
-            ) : null}
-            {action === 'delete' ? (
-              <p className='detail mt-2'>
-                {removableCount === 0
-                  ? t('选中的都不是手动登记的模型，删除不可用（上游目录带回来的行由清单决定存在性）')
-                  : t('可删除 {n} 个（手动登记 / 自定义家）；', { n: removableCount })
-                    + (models.length > removableCount
-                      ? t('其余 {n} 个会被跳过。', { n: models.length - removableCount })
-                      : '')}
-              </p>
-            ) : null}
+              ) : null}
+            </FieldGroup>
           </DialogSection>
           <div className='detail' style={{ minHeight: 18 }}>{result}</div>
         </DialogBody>

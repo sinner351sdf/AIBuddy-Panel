@@ -54,6 +54,8 @@ function RadioGroupItem({ className, ...props }: RadioGroupItemProps) {
         'hover:border-control-border-hover',
         'data-checked:border-primary data-checked:bg-primary',
         'focus-visible:shadow-focus',
+        'aria-invalid:border-destructive aria-invalid:hover:border-destructive aria-invalid:data-checked:border-destructive',
+        'aria-invalid:[--ui-focus-ring:0_0_0_3px_color-mix(in_srgb,var(--destructive)_20%,transparent)]',
         'data-disabled:cursor-not-allowed data-disabled:opacity-45',
         className
       )}

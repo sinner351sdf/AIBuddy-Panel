@@ -1,6 +1,8 @@
 import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 import {
+  cn,
+  SelectGroup,
   Badge,
   Button,
   Checkbox,
@@ -596,9 +598,11 @@ function ModelsFetchModal({ options, onClose }: { options: OpenOptions; onClose:
           <SelectValue>{current ? accountLabel(current) : '—'}</SelectValue>
         </SelectTrigger>
         <SelectContent>
-          {list.map(account => (
-            <SelectItem key={String(account.id)} value={String(account.id)}>{accountLabel(account)}</SelectItem>
-          ))}
+          <SelectGroup>
+            {list.map(account => (
+              <SelectItem key={String(account.id)} value={String(account.id)}>{accountLabel(account)}</SelectItem>
+            ))}
+          </SelectGroup>
         </SelectContent>
       </Select>
     )
@@ -617,7 +621,7 @@ function ModelsFetchModal({ options, onClose }: { options: OpenOptions; onClose:
     return shown.map(id => {
       const has = managed.has(norm(id))
       return (
-        <TableRow key={id} className={has ? 'opacity-50' : undefined}>
+        <TableRow key={id} className={cn(has ? 'opacity-50' : undefined)}>
           <TableCell>
             <Checkbox checked={picked.has(id)} disabled={has} aria-label={id}
               onCheckedChange={next => setPicked(prev => {
@@ -707,7 +711,7 @@ function ModelsFetchModal({ options, onClose }: { options: OpenOptions; onClose:
     >
       {/* 宽度：内置家是宽表（旧 .modal-wide ≈ 920px），自定义家只有三列（旧
           .modal-narrow ≈ 552px，与宽表区分开）；两侧各留 24px 与遮罩内边距对齐 */}
-      <DialogContent className={custom ? 'w-[min(552px,calc(100vw-48px))]' : 'w-[min(920px,calc(100vw-48px))]'}>
+      <DialogContent className={cn(custom ? 'w-[min(552px,calc(100vw-48px))]' : 'w-[min(920px,calc(100vw-48px))]')}>
         <DialogHeader>
           <DialogTitle>{t('获取模型 — {name}', { name })}</DialogTitle>
         </DialogHeader>
@@ -746,7 +750,7 @@ function ModelsFetchModal({ options, onClose }: { options: OpenOptions; onClose:
             {/* col / th 上的 data-col 是列宽层（table-columns.js）定位列的依据 */}
             <colgroup>
               {(custom ? COLS_CUSTOM : COLS_INTL).map(key => (
-                <col key={key} data-col={key} className={custom ? WIDTH_CUSTOM[key] : WIDTH_INTL[key]} />
+                <col key={key} data-col={key} className={cn(custom ? WIDTH_CUSTOM[key] : WIDTH_INTL[key])} />
               ))}
             </colgroup>
             <TableHeader>

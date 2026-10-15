@@ -58,7 +58,7 @@ function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) 
     <DialogPrimitive.Backdrop
       data-slot='dialog-overlay'
       className={cn(
-        'fixed inset-0 isolate z-30 bg-mask backdrop-blur-[3px]',
+        'fixed inset-0 isolate z-30 bg-mask',
         'transition-opacity duration-150',
         'data-open:animate-in data-open:fade-in-0',
         'data-closed:animate-out data-closed:fade-out-0 data-closed:fill-mode-forwards',
@@ -69,7 +69,16 @@ function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) 
   )
 }
 
+/** 成对承接遮罩与弹窗层级，消费方只选择用途，不分别覆盖两个 z-index。 */
+const dialogLayers = {
+  default: { overlay: 'z-30', popup: 'z-30' },
+  'above-drawer': { overlay: 'z-[1099]', popup: 'z-[1100]' },
+  'lock-screen': { overlay: 'z-[2000]', popup: 'z-[2000]' },
+} as const
+
 type DialogContentProps = DialogPrimitive.Popup.Props & {
+  /** above-drawer 用于从固定抽屉打开的任务弹窗；保留该入口既有的 1099 / 1100 层级。 */
+  layer?: keyof typeof dialogLayers
   /** Optional backdrop layer override for pages with fixed drawers above the default layer. */
   overlayClassName?: string
   /** 是否自带右上角关闭按钮，默认 true */
@@ -101,6 +110,7 @@ type DialogContentProps = DialogPrimitive.Popup.Props & {
 function DialogContent({
   className,
   overlayClassName,
+  layer = 'default',
   children,
   showCloseButton = true,
   keepMounted = false,
@@ -109,15 +119,16 @@ function DialogContent({
 }: DialogContentProps) {
   return (
     <DialogPortal keepMounted={keepMounted}>
-      <DialogOverlay className={overlayClassName} forceRender={overlayForceRender} />
+      <DialogOverlay className={cn(dialogLayers[layer].overlay, overlayClassName)} forceRender={overlayForceRender} />
       <DialogPrimitive.Popup
         data-slot='dialog-content'
         className={cn(
-          'fixed top-1/2 left-1/2 z-30 flex max-h-[calc(100vh-48px)] w-[min(620px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 flex-col',
+          'fixed top-1/2 left-1/2 flex max-h-[calc(100vh-48px)] w-[min(620px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 flex-col',
           'overflow-hidden rounded-lg border border-border bg-surface shadow-3 outline-none',
           'transition-[opacity,transform] duration-200 [transition-timing-function:cubic-bezier(.2,.9,.3,1)]',
           'data-open:animate-in data-open:fade-in-0 data-open:zoom-in-[.985] data-open:slide-in-from-bottom-2.5',
           'data-closed:animate-out data-closed:fade-out-0 data-closed:fill-mode-forwards',
+          dialogLayers[layer].popup,
           className
         )}
         {...props}
@@ -179,7 +190,7 @@ function DialogFooter({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot='dialog-footer'
       className={cn(
-        'flex items-center gap-2 border-t border-hairline bg-surface-2 px-5 py-[13px]',
+        'flex items-center gap-2 border-t border-hairline bg-surface px-5 py-[13px]',
         className
       )}
       {...props}

@@ -16,7 +16,7 @@ import urllib.parse
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-BINARY = ROOT / 'desktop-tauri/src-tauri/target/debug/agent2api-server'
+BINARY = ROOT / 'target/debug/agent2api-server'
 ID = 'AGENT2API_ANTIGRAVITY_CLIENT_ID'
 SECRET = 'AGENT2API_ANTIGRAVITY_CLIENT_SECRET'
 client = urllib.request.build_opener(urllib.request.ProxyHandler({}))

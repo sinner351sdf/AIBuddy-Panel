@@ -106,7 +106,7 @@
    掺 8% --surface 后两套主题都柔和），跟随主题而不是写死。 */
 .settings-nav-item.active .ico {
   background: var(--primary);
-  color: color-mix(in srgb, var(--surface) 8%, white);
+  color: var(--primary-foreground);
 }
 
 /* hover：抬升 1px + 主色软描边（--primary-bd 跟随 prefs.js 的主题色切换），
@@ -326,7 +326,8 @@
   gap: 5px 10px;
 }
 
-.retention-row > label {
+.retention-row > label,
+.retention-row > .settings-help-label > label {
   color: var(--text);
   font-size: 12.5px;
   font-weight: 500;

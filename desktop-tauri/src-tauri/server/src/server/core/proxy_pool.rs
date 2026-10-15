@@ -1,5 +1,5 @@
-//! 出网代理池：集中管理一组**命名代理**（手动填的 / 引用 Clash Verge 的），
-//! 账号的 proxy 字段可以按 id 引用它们（`{source:'pool', proxyId}`）。
+//! 出网代理池：集中管理一组**命名代理**（手动填的 / 引用 Clash Verge 的 /
+//! 订阅节点镜像），账号的 proxy 字段可以按 id 引用它们（`{source:'pool', proxyId}`）。
 //!
 //! ── 为什么要有它（对照 OmniProxy 的 proxies 表）──────────────
 //! 改造前代理只能**逐个账号**配：同一个出口用在三个账号上就要填三遍，
@@ -22,7 +22,12 @@
 //!           说明），因此**本地不可改不可删** —— 想改去 Clash Verge 改，想删去
 //!           Clash Verge 删（下一次同步会把它从池里摘掉）。这条只读语义照
 //!           OmniProxy 的 `imported_clash_listeners` 分支实现（它的 PUT/DELETE
-//!           对同步来的记录一律 400「请在 Clash Verge 中修改」）。
+//!           对同步来的记录一律 400「请在 Clash Verge 中修改」）；
+//!   subscription  **订阅节点镜像**（内核拉到订阅后同步进来，见 `core::sub_kernel`）：
+//!           条目存 `{providerId, node, port}`，地址是内核起的本地监听器
+//!           （http://127.0.0.1:端口），端口注册表持久在内核目录里、重启不漂移。
+//!           与 clash 同为**只读镜像** —— 名称 / 端口 / 启用跟随订阅与内核，
+//!           本地不可改不可删（要改去「订阅」区块操作，下一次同步会镜像回来）。
 //!
 //! ── 同步（`sync_clash`，对标 OmniProxy 的 syncClashVergeListeners）──
 //! 把 Clash 当前的出口集合**整体镜像**进池：新出口插入、已有出口按 uid 更新
@@ -55,6 +60,8 @@
 //! 的唯一权威是实际请求的结果，测试结果只回答「上次手测时通不通」）。
 
 use std::sync::OnceLock;
+
+use rusqlite::{OptionalExtension, TransactionBehavior};
 
 use serde_json::{json, Map, Value};
 
@@ -107,21 +114,50 @@ fn read_items() -> Vec<Value> {
     .unwrap_or_default()
 }
 
-/// 整份写回（增删改都走它；条目数量小，整份重写的开销可忽略）
-fn write_items(items: &[Value]) -> Result<(), String> {
-    let db = database()?;
-    let text = serde_json::to_string(&json!({ "items": items }))
-        .map_err(|error| format!("编码代理池失败: {error}"))?;
-    db.with(|conn| {
-        conn.execute(
-            "INSERT INTO kv (key, value) VALUES (?1, ?2)
-             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            rusqlite::params![KV_KEY, text],
-        )
-        .map(|_| ())
-        .map_err(|error| format!("保存代理池失败: {error}"))
+/// 在同一个 SQLite 写事务中读取、修改并保存代理池。
+/// 网络探测、配置读取与日志写入必须放在事务之外；多个进程也不会丢失彼此更新。
+fn mutate_items_on<T>(
+    db: &Db,
+    change: impl FnOnce(&mut Vec<Value>) -> Result<T, String>,
+) -> Result<T, String> {
+    db.with_mut(|conn| {
+        let tx = conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(|error| format!("开始代理池事务失败: {error}"))?;
+        let raw: Option<String> = tx
+            .query_row("SELECT value FROM kv WHERE key = ?1", [KV_KEY], |row| {
+                row.get(0)
+            })
+            .optional()
+            .map_err(|error| format!("读取代理池失败: {error}"))?;
+        let mut items = match raw {
+            None => Vec::new(),
+            Some(raw) => serde_json::from_str::<Value>(&raw)
+                .ok()
+                .and_then(|value| value.get("items").and_then(Value::as_array).cloned())
+                .ok_or_else(|| "代理池数据损坏，本次修改未保存，请恢复备份".to_string())?,
+        };
+        let previous = items.clone();
+        let result = change(&mut items)?;
+        if items != previous {
+            let encoded = serde_json::to_string(&json!({ "items": items }))
+                .map_err(|error| format!("编码代理池失败: {error}"))?;
+            tx.execute(
+                "INSERT INTO kv (key, value) VALUES (?1, ?2)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                rusqlite::params![KV_KEY, encoded],
+            )
+            .map_err(|error| format!("保存代理池失败: {error}"))?;
+        }
+        tx.commit()
+            .map_err(|error| format!("提交代理池失败: {error}"))?;
+        Ok(result)
     })
     .ok_or_else(|| "代理池数据库不可用".to_string())?
+}
+
+fn mutate_items<T>(change: impl FnOnce(&mut Vec<Value>) -> Result<T, String>) -> Result<T, String> {
+    mutate_items_on(database()?, change)
 }
 
 // ─── 正规化与校验 ───────────────────────────────────────────
@@ -147,7 +183,11 @@ fn valid_port(value: Option<&Value>) -> Option<u16> {
 }
 
 fn text_of(value: &Value, key: &str) -> String {
-    value.get(key).and_then(Value::as_str).unwrap_or("").to_string()
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string()
 }
 
 /// 把 API 输入（新建 / 编辑的整份表单）归一成一条**手动**池条目。
@@ -157,14 +197,19 @@ fn text_of(value: &Value, key: &str) -> String {
 /// 前端编辑时会回显密码，不存在「空 = 保留」的隐式行为）。
 ///
 /// **只产出 manual 条目**：clash 来源的条目由同步产生（见 `sync_clash`），
-/// 从 API 进来的 clash 形状一律拒绝 —— 否则会凭空造出一条「不属于任何 Clash
-/// 出口的镜像记录」，而它下次同步就会被摘掉，等于用户白填一次。
+/// subscription 来源的条目由内核的节点同步产生（见 `sync_subscription_nodes`），
+/// 从 API 进来的这两种形状一律拒绝 —— 否则会凭空造出一条「不属于任何同步
+/// 集合的镜像记录」，而它下次同步就会被摘掉，等于用户白填一次。
 fn normalize_item(input: &Value, existing: Option<&Value>) -> Result<Value, String> {
     let Some(object) = input.as_object() else {
         return Err("代理条目必须是对象".to_string());
     };
-    if clean_string(object.get("source"), 20) == "clash" {
+    let source_input = clean_string(object.get("source"), 20);
+    if source_input == "clash" {
         return Err("Clash Verge 出口由「同步 Clash Verge」自动导入，不能手工新建".to_string());
+    }
+    if source_input == "subscription" {
+        return Err("订阅节点由「订阅」功能自动导入，不能手工新建".to_string());
     }
     let name = clean_string(object.get("name"), MAX_NAME_LENGTH);
     if name.is_empty() {
@@ -172,9 +217,7 @@ fn normalize_item(input: &Value, existing: Option<&Value>) -> Result<Value, Stri
     }
 
     let now = logging::now_ms();
-    let id = existing
-        .map(|item| text_of(item, "id"))
-        .unwrap_or_default();
+    let id = existing.map(|item| text_of(item, "id")).unwrap_or_default();
     let id = if id.is_empty() { new_id() } else { id };
     let created_at = existing
         .and_then(|item| item.get("createdAt"))
@@ -191,7 +234,11 @@ fn normalize_item(input: &Value, existing: Option<&Value>) -> Result<Value, Stri
 
     let protocol = {
         let cleaned = clean_string(object.get("protocol"), 10).to_lowercase();
-        if cleaned.is_empty() { "http".to_string() } else { cleaned }
+        if cleaned.is_empty() {
+            "http".to_string()
+        } else {
+            cleaned
+        }
     };
     if protocol != "http" && protocol != "socks5" {
         return Err("代理协议只支持 http 或 socks5".to_string());
@@ -246,10 +293,33 @@ fn new_id() -> String {
 ///
 /// 返回 None 只发生在条目形状残缺到连 config 都拼不出时（手工改坏的库）；
 /// 正常条目一定拿到 `Resolved` / `Failed` 二选一。
+///
+/// **subscription 分支不经过账号代理那条链**：节点地址是内核起的本地监听器
+/// （http://127.0.0.1:端口），端口存在条目自身里（内核的端口注册表在同步时
+/// 写进来的），直接构造 Resolved —— 不查内核状态（内核停了时条目照常显示，
+/// 转发层的「连接被拒」错误自然会冒出来）；节点从订阅里消失（同步摘掉端口）
+/// 才是 Failed。
 pub fn resolve_item(item: &Value) -> Option<ProxyResolution> {
     let source = text_of(item, "source");
     let config = if source == "clash" {
         json!({ "source": "clash", "listenerUid": text_of(item, "listenerUid") })
+    } else if source == "subscription" {
+        let Some(port) = valid_port(item.get("port")) else {
+            return Some(ProxyResolution::Failed(
+                "订阅节点已不存在（订阅更新后节点被移除，等下一次同步或重新订阅）".to_string(),
+            ));
+        };
+        return Some(ProxyResolution::Resolved(
+            crate::server::core::proxies::ResolvedProxy {
+                source: "pool".to_string(),
+                protocol: "http".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: Some(port),
+                username: String::new(),
+                password: String::new(),
+                label: String::new(),
+            },
+        ));
     } else {
         json!({
             "source": "custom",
@@ -270,7 +340,9 @@ pub fn resolve_item(item: &Value) -> Option<ProxyResolution> {
 ///   `Ok(proxy)` 出口可用；
 ///   `Err(原因)` 条目不存在 / 被禁用 / 解析失败 —— 调用方原样报出去
 ///               （账号列表的「代理异常」气泡、转发时回退直连的日志）。
-pub fn resolve_reference(proxy_id: &str) -> Result<crate::server::core::proxies::ResolvedProxy, String> {
+pub fn resolve_reference(
+    proxy_id: &str,
+) -> Result<crate::server::core::proxies::ResolvedProxy, String> {
     let Some(item) = find_raw(proxy_id) else {
         return Err(format!("代理「{proxy_id}」不存在或已被删除"));
     };
@@ -286,7 +358,9 @@ pub fn resolve_reference(proxy_id: &str) -> Result<crate::server::core::proxies:
 /// 出口测试专用解析：与 `resolve_reference` 只差**不看禁用位** ——
 /// 「先测通、再启用」是常见操作顺序，禁用的条目也要能测（只有引用解析
 /// 那条链必须挡住禁用项，理由见 `resolve_reference`）。
-pub fn resolve_for_test(proxy_id: &str) -> Result<crate::server::core::proxies::ResolvedProxy, String> {
+pub fn resolve_for_test(
+    proxy_id: &str,
+) -> Result<crate::server::core::proxies::ResolvedProxy, String> {
     let Some(item) = find_raw(proxy_id) else {
         return Err(format!("代理「{proxy_id}」不存在或已被删除"));
     };
@@ -295,7 +369,11 @@ pub fn resolve_for_test(proxy_id: &str) -> Result<crate::server::core::proxies::
 
 fn display_name(item: &Value, fallback: &str) -> String {
     let name = text_of(item, "name");
-    if name.is_empty() { fallback.to_string() } else { name }
+    if name.is_empty() {
+        fallback.to_string()
+    } else {
+        name
+    }
 }
 
 fn resolve_entry(
@@ -347,6 +425,9 @@ fn describe_item(item: &Value) -> Value {
         "password": text_of(item, "password"),
         // clash 的引用 uid（编辑弹窗选中它 + 前端标注「来自 Clash Verge」）
         "listenerUid": text_of(item, "listenerUid"),
+        // subscription 的引用信息（前端标注节点属于哪条订阅 + 同步时定位条目）
+        "providerId": text_of(item, "providerId"),
+        "node": text_of(item, "node"),
         "createdAt": item.get("createdAt").cloned().unwrap_or(Value::from(0)),
         "updatedAt": item.get("updatedAt").cloned().unwrap_or(Value::from(0)),
         "lastTest": item.get("lastTest").cloned().unwrap_or(Value::Null),
@@ -374,10 +455,11 @@ fn find_raw(id: &str) -> Option<Value> {
 
 pub fn create(input: &Value) -> Result<Vec<Value>, String> {
     let item = normalize_item(input, None)?;
-    let mut items = read_items();
-    // 新条目排在最前（与账号页「新加的看得见」一致；代理数量少，没有再排序的价值）
-    items.insert(0, item.clone());
-    write_items(&items)?;
+    mutate_items(|items| {
+        // 新条目排在最前（与账号页「新加的看得见」一致；代理数量少，没有再排序的价值）
+        items.insert(0, item.clone());
+        Ok(())
+    })?;
     logging::log(
         "[Proxies]",
         &format!("✅ 新增代理「{}」", text_of(&item, "name")),
@@ -390,28 +472,51 @@ fn is_clash_item(item: &Value) -> bool {
     text_of(item, "source") == "clash"
 }
 
+/// 该条目是否为订阅节点镜像（只读镜像，见模块头 subscription 一节）
+fn is_subscription_item(item: &Value) -> bool {
+    text_of(item, "source") == "subscription"
+}
+
+/// 只读条目（Clash 同步 / 订阅镜像）的判定 —— 写操作与前端启停都按它挡。
+fn is_readonly(item: &Value) -> bool {
+    is_clash_item(item) || is_subscription_item(item)
+}
+
 /// 只读条目被写操作命中时的统一提示（照 OmniProxy 的文案）
 const CLASH_READONLY_HINT: &str =
     "该代理来自 Clash Verge 同步（名称 / 端口 / 启用都跟随 Clash），请到 Clash Verge 中修改";
+
+/// 订阅节点的只读提示（与 Clash 那条同一形态；改去「订阅」区块）
+const SUBSCRIPTION_READONLY_HINT: &str =
+    "该节点来自订阅（名称 / 端口 / 启用跟随订阅与内核），请在「订阅」区块修改";
+
+fn readonly_hint(item: &Value) -> String {
+    if is_subscription_item(item) {
+        SUBSCRIPTION_READONLY_HINT.to_string()
+    } else {
+        CLASH_READONLY_HINT.to_string()
+    }
+}
 
 pub fn update(input: &Value) -> Result<Vec<Value>, String> {
     let id = clean_string(input.get("id"), MAX_LABEL_LENGTH);
     if id.is_empty() {
         return Err("缺少代理 id".to_string());
     }
-    let mut items = read_items();
-    let Some(index) = items
-        .iter()
-        .position(|item| item.get("id").and_then(Value::as_str) == Some(id.as_str()))
-    else {
-        return Err(format!("代理「{id}」不存在"));
-    };
-    if is_clash_item(&items[index]) {
-        return Err(CLASH_READONLY_HINT.to_string());
-    }
-    let next = normalize_item(input, Some(&items[index]))?;
-    items[index] = next.clone();
-    write_items(&items)?;
+    let next = mutate_items(|items| {
+        let Some(index) = items
+            .iter()
+            .position(|item| item.get("id").and_then(Value::as_str) == Some(id.as_str()))
+        else {
+            return Err(format!("代理「{id}」不存在"));
+        };
+        if is_readonly(&items[index]) {
+            return Err(readonly_hint(&items[index]));
+        }
+        let next = normalize_item(input, Some(&items[index]))?;
+        items[index] = next.clone();
+        Ok(next)
+    })?;
     logging::log(
         "[Proxies]",
         &format!("✅ 更新代理「{}」", text_of(&next, "name")),
@@ -422,18 +527,19 @@ pub fn update(input: &Value) -> Result<Vec<Value>, String> {
 /// 删除条目；返回（最新列表, 被删条目的名称 —— 调用方拼日志/提示用）。
 /// Clash 同步来的条目不可删（照 OmniProxy）：去 Clash 里删出口，下次同步自然摘掉。
 pub fn remove(id: &str) -> Result<(Vec<Value>, String), String> {
-    let mut items = read_items();
-    let Some(index) = items
-        .iter()
-        .position(|item| item.get("id").and_then(Value::as_str) == Some(id))
-    else {
-        return Err(format!("代理「{id}」不存在"));
-    };
-    if is_clash_item(&items[index]) {
-        return Err(CLASH_READONLY_HINT.to_string());
-    }
-    let removed = items.remove(index);
-    write_items(&items)?;
+    let removed = mutate_items(|items| {
+        let Some(index) = items
+            .iter()
+            .position(|item| item.get("id").and_then(Value::as_str) == Some(id))
+        else {
+            return Err(format!("代理「{id}」不存在"));
+        };
+        if is_readonly(&items[index]) {
+            return Err(readonly_hint(&items[index]));
+        }
+        let removed = items.remove(index);
+        Ok(removed)
+    })?;
     let name = text_of(&removed, "name");
     logging::log("[Proxies]", &format!("🗑️ 删除代理「{name}」"));
     Ok((list(), name))
@@ -497,82 +603,92 @@ pub fn sync_clash() -> ClashSyncReport {
     }
 
     let now = logging::now_ms();
-    let mut items = read_items();
-    let mut changes = 0usize;
+    let changes = match mutate_items(|items| {
+        let mut changes = 0usize;
 
-    // ① 目标集合逐条 upsert
-    for target in &targets {
-        let existing = items.iter().position(|item| {
-            is_clash_item(item)
-                && item.get("listenerUid").and_then(Value::as_str) == Some(target.uid.as_str())
-        });
-        match existing {
-            Some(index) => {
-                // 先读完旧值再拿可变借用（同一元素不能同时借两次）
-                let name_changed = text_of(&items[index], "name") != target.name;
-                let current_enabled =
-                    !matches!(items[index].get("enabled"), Some(Value::Bool(false)));
-                if name_changed || current_enabled != target.enabled {
-                    if let Some(object) = items[index].as_object_mut() {
-                        object.insert("name".to_string(), Value::String(target.name.clone()));
-                        object.insert("enabled".to_string(), Value::Bool(target.enabled));
-                        object.insert("updatedAt".to_string(), Value::from(now));
+        // ① 目标集合逐条 upsert
+        for target in &targets {
+            let existing = items.iter().position(|item| {
+                is_clash_item(item)
+                    && item.get("listenerUid").and_then(Value::as_str) == Some(target.uid.as_str())
+            });
+            match existing {
+                Some(index) => {
+                    // 先读完旧值再拿可变借用（同一元素不能同时借两次）
+                    let name_changed = text_of(&items[index], "name") != target.name;
+                    let current_enabled =
+                        !matches!(items[index].get("enabled"), Some(Value::Bool(false)));
+                    if name_changed || current_enabled != target.enabled {
+                        if let Some(object) = items[index].as_object_mut() {
+                            object.insert("name".to_string(), Value::String(target.name.clone()));
+                            object.insert("enabled".to_string(), Value::Bool(target.enabled));
+                            object.insert("updatedAt".to_string(), Value::from(now));
+                        }
+                        changes += 1;
                     }
+                }
+                None => {
+                    // 端口不落库：clash 条目的地址每次从 Clash 实时解析（见 resolve_item）
+                    items.insert(
+                        0,
+                        json!({
+                            "id": new_id(),
+                            "name": target.name,
+                            "source": "clash",
+                            "listenerUid": target.uid,
+                            "enabled": target.enabled,
+                            "createdAt": now,
+                            "updatedAt": now,
+                            "lastTest": Value::Null,
+                        }),
+                    );
                     changes += 1;
                 }
             }
-            None => {
-                // 端口不落库：clash 条目的地址每次从 Clash 实时解析（见 resolve_item）
-                items.insert(
-                    0,
-                    json!({
-                        "id": new_id(),
-                        "name": target.name,
-                        "source": "clash",
-                        "listenerUid": target.uid,
-                        "enabled": target.enabled,
-                        "createdAt": now,
-                        "updatedAt": now,
-                        "lastTest": Value::Null,
-                    }),
-                );
-                changes += 1;
+        }
+
+        // ② Clash 侧已消失的镜像条目摘掉（严格镜像：池里不存在「半套」状态）
+        //
+        // 判据是「listenerUid 在不在本次目标集合里」：不在 = Clash 那边删了这个出口。
+        // 顺手去重（同一条 Clash 出口只留第一行）—— 正常路径产不出重复（create 不收
+        // clash，上一步的 upsert 按 uid 定位），防的是手工改库；没有 listenerUid 的
+        // 坏行也在这里被清掉。
+        let before = items.len();
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        items.retain(|item| {
+            if !is_clash_item(item) {
+                return true;
+            }
+            let Some(uid) = item.get("listenerUid").and_then(Value::as_str) else {
+                return false;
+            };
+            if !targets.iter().any(|target| target.uid == uid) {
+                return false;
+            }
+            seen.insert(uid.to_string())
+        });
+        changes += before - items.len();
+
+        Ok(changes)
+    }) {
+        Ok(changes) => changes,
+        Err(error) => {
+            return ClashSyncReport {
+                changes: 0,
+                error: Some(error),
             }
         }
-    }
-
-    // ② Clash 侧已消失的镜像条目摘掉（严格镜像：池里不存在「半套」状态）
-    //
-    // 判据是「listenerUid 在不在本次目标集合里」：不在 = Clash 那边删了这个出口。
-    // 顺手去重（同一条 Clash 出口只留第一行）—— 正常路径产不出重复（create 不收
-    // clash，上一步的 upsert 按 uid 定位），防的是手工改库；没有 listenerUid 的
-    // 坏行也在这里被清掉。
-    let before = items.len();
-    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
-    items.retain(|item| {
-        if !is_clash_item(item) {
-            return true;
-        }
-        let Some(uid) = item.get("listenerUid").and_then(Value::as_str) else {
-            return false;
-        };
-        if !targets.iter().any(|target| target.uid == uid) {
-            return false;
-        }
-        seen.insert(uid.to_string())
-    });
-    changes += before - items.len();
-
+    };
     if changes > 0 {
-        if let Err(error) = write_items(&items) {
-            return ClashSyncReport { changes: 0, error: Some(error) };
-        }
         logging::log(
             "[Proxies]",
             &format!("🔄 已同步 Clash Verge 出口（{changes} 项变更）"),
         );
     }
-    ClashSyncReport { changes, error: None }
+    ClashSyncReport {
+        changes,
+        error: None,
+    }
 }
 
 /// 一次出口测试的结果（字段与 `egress::ConnectivityResult` 对应）。
@@ -589,25 +705,171 @@ pub struct TestOutcome {
 
 /// 记下一次连通性测试的结果（前端行内「测试」与弹窗里的测试都走它）。
 pub fn record_test(id: &str, result: &TestOutcome) -> Result<Vec<Value>, String> {
-    let mut items = read_items();
-    let Some(index) = items
-        .iter()
-        .position(|item| item.get("id").and_then(Value::as_str) == Some(id))
-    else {
-        return Err(format!("代理「{id}」不存在"));
-    };
-    let Some(object) = items[index].as_object_mut() else {
-        return Err("代理条目形状异常".to_string());
-    };
-    let last_test = json!({
-        "success": result.success,
-        "ip": result.ip,
-        "durationMs": result.duration_ms,
-        "at": logging::now_ms(),
-        // 成功时也带 null（前端按 success 分支取值，不靠键是否存在）
-        "error": result.error,
-    });
-    object.insert("lastTest".to_string(), last_test);
-    write_items(&items)?;
+    mutate_items(|items| {
+        let Some(index) = items
+            .iter()
+            .position(|item| item.get("id").and_then(Value::as_str) == Some(id))
+        else {
+            return Err(format!("代理「{id}」不存在"));
+        };
+        let Some(object) = items[index].as_object_mut() else {
+            return Err("代理条目形状异常".to_string());
+        };
+        let last_test = json!({
+            "success": result.success,
+            "ip": result.ip,
+            "durationMs": result.duration_ms,
+            "at": logging::now_ms(),
+            // 成功时也带 null（前端按 success 分支取值，不靠键是否存在）
+            "error": result.error,
+        });
+        object.insert("lastTest".to_string(), last_test);
+        Ok(())
+    })?;
     Ok(list())
 }
+
+/// 删除一条订阅节点的**孤儿**条目（所属订阅已不存在）。
+///
+/// 只服务「手动清理」这一条出路：正常路径下订阅删除 / 禁用后条目会随
+/// 同步自动摘掉（见 `sync_subscription_nodes`），孤儿只出现在数据被外部
+/// 工具清掉的场景（例如旧版进程误删 `subscriptions` 存储键 —— 实测踩过）：
+/// 那时条目归属的订阅已经不存在，任何同步都不会再碰它，界面上需要一条
+/// 手动删掉它的路。仍然拒绝 clash 条目与手动条目 —— 它们不属于订阅，
+/// 不能借这个入口绕过各自的只读 / 正常写路径。
+///
+/// **是否孤儿由调用方（api 层）判定**：本模块不认识订阅存储（依赖方向
+/// 是 subscriptions/sub_kernel → proxy_pool），只认「source == subscription」
+/// 这一个形状约束。
+pub fn remove_subscription_orphan(id: &str) -> Result<(Vec<Value>, String), String> {
+    let removed = mutate_items(|items| {
+        let Some(index) = items
+            .iter()
+            .position(|item| item.get("id").and_then(Value::as_str) == Some(id))
+        else {
+            return Err(format!("代理「{id}」不存在"));
+        };
+        if !is_subscription_item(&items[index]) {
+            return Err(readonly_hint(&items[index]));
+        }
+        let removed = items.remove(index);
+        Ok(removed)
+    })?;
+    let name = text_of(&removed, "name");
+    logging::log(
+        "[Proxies]",
+        &format!("🗑️ 删除订阅节点「{name}」（所属订阅已不存在，手动清理）"),
+    );
+    Ok((list(), name))
+}
+
+// ─── 订阅节点同步（全量镜像，内核拉到订阅后调用）─────────────
+
+/// 一个待镜像的订阅节点（`core::sub_kernel` 在 provider 同步后构造）。
+///
+/// 定义在**本模块**而不是 sub_kernel：依赖方向是 sub_kernel → proxy_pool
+/// （内核把节点写进来），反向会让两个模块成环 —— 订阅条目的端口存在条目
+/// 自身里，本模块的解析（`resolve_item`）不需要回查内核。
+pub struct SubscriptionNodeTarget {
+    /// 订阅 id（与 `core::subscriptions` 条目的 id 一致；同步定位条目用它）
+    pub provider_id: String,
+    /// 订阅名（条目名的前半段）
+    pub sub_name: String,
+    /// 节点名（条目名的后半段；同时是内核配置里监听器绑定的出口名）
+    pub node: String,
+    /// 内核监听端口（http://127.0.0.1:端口）
+    pub port: u16,
+}
+
+/// 把订阅节点集合整体镜像进池（与 `sync_clash` 同一套只读镜像语义）：
+///
+///   · 集合里的节点 upsert（按 `providerId + node` 定位：**已存在的沿用 id**
+///     —— 账号按 id 引用池条目，重生成 id 会让引用全部悬空）；
+///   · 订阅侧已消失的（或订阅被删 / 被禁用后不再出现在集合里的）镜像条目摘掉；
+///   · manual 与 clash 条目从不被碰。
+///
+/// 返回变更条数（「已是最新」时为 0）。注意目标集合是**全部启用订阅的全部
+/// 节点**：只传一条订阅的节点时，其它订阅的条目会被当作「已消失」摘掉
+/// （调用方要传全量 —— sub_kernel 的同步总是构造全量）。
+pub fn sync_subscription_nodes(targets: &[SubscriptionNodeTarget]) -> Result<usize, String> {
+    let now = logging::now_ms();
+    mutate_items(|items| {
+        let mut changes = 0usize;
+
+        // ① 目标集合逐条 upsert（沿用已有条目的 id / createdAt / lastTest）
+        for target in targets {
+            let name = if target.sub_name.is_empty() {
+                target.node.clone()
+            } else {
+                format!("{} · {}", target.sub_name, target.node)
+            };
+            let existing = items.iter_mut().position(|item| {
+                is_subscription_item(item)
+                    && item.get("providerId").and_then(Value::as_str)
+                        == Some(target.provider_id.as_str())
+                    && item.get("node").and_then(Value::as_str) == Some(target.node.as_str())
+            });
+            match existing {
+                Some(index) => {
+                    let port_changed = items[index].get("port").and_then(Value::as_u64)
+                        != Some(target.port as u64);
+                    let name_changed = text_of(&items[index], "name") != name;
+                    if port_changed || name_changed {
+                        if let Some(object) = items[index].as_object_mut() {
+                            object.insert("name".to_string(), Value::String(name));
+                            object.insert("port".to_string(), Value::from(target.port));
+                            object.insert("updatedAt".to_string(), Value::from(now));
+                        }
+                        changes += 1;
+                    }
+                }
+                None => {
+                    items.insert(
+                        0,
+                        json!({
+                            "id": new_id(),
+                            "name": name,
+                            "source": "subscription",
+                            "providerId": target.provider_id,
+                            "node": target.node,
+                            "enabled": true,
+                            "port": target.port,
+                            "createdAt": now,
+                            "updatedAt": now,
+                            "lastTest": Value::Null,
+                        }),
+                    );
+                    changes += 1;
+                }
+            }
+        }
+
+        // ② 目标集合之外（且 providerId 不在集合里）的订阅镜像条目摘掉。
+        //
+        // 判据刻意按 **providerId** 而不是节点名：节点名随订阅内容变化（机场
+        // 改名很常见），按名判定会把改名后的节点删了重加（id 变了，账号引用
+        // 悬空）。providerId 不在本次集合 = 该订阅被删 / 被禁用 / 已无节点，
+        // 它名下的全部条目才真正该走。
+        let live_providers: std::collections::HashSet<&str> = targets
+            .iter()
+            .map(|target| target.provider_id.as_str())
+            .collect();
+        let before = items.len();
+        items.retain(|item| {
+            if !is_subscription_item(item) {
+                return true;
+            }
+            let Some(provider_id) = item.get("providerId").and_then(Value::as_str) else {
+                return false; // 没有引用信息的坏行（手工改库），清掉
+            };
+            live_providers.contains(provider_id)
+        });
+        changes += before - items.len();
+
+        Ok(changes)
+    })
+}
+
+#[cfg(test)]
+#[path = "proxy_pool_tests.rs"]
+mod tests;

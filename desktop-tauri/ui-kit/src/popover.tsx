@@ -65,6 +65,8 @@ type PopoverContentProps = Omit<PopoverPrimitive.Popup.Props, 'className'> & {
    * 传元素、ref 或返回元素的函数都行（Base UI 的 VirtualElement 也接受）。
    */
   anchor?: PopoverPrimitive.Positioner.Props['anchor']
+  variant?: 'default' | 'tooltip'
+  layer?: 'default' | 'tooltip'
 }
 
 function PopoverContent({
@@ -75,13 +77,15 @@ function PopoverContent({
   alignOffset,
   collisionPadding = 8,
   anchor,
+  variant = 'default',
+  layer = 'default',
   children,
   ...props
 }: PopoverContentProps) {
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Positioner
-        className='z-[35] outline-none'
+        className={cn('outline-none', layer === 'tooltip' ? 'z-[1200]' : 'z-[60]')}
         sideOffset={sideOffset}
         align={align}
         side={side}
@@ -93,7 +97,8 @@ function PopoverContent({
         <PopoverPrimitive.Popup
           data-slot='popover-content'
           className={cn(
-            'flex max-h-[min(70vh,560px)] flex-col overflow-hidden rounded-lg border border-border-strong bg-raised text-foreground shadow-3',
+            'flex max-h-[min(70vh,560px)] flex-col overflow-hidden shadow-3',
+            variant === 'tooltip' ? 'max-w-[288px] rounded-md border-0 bg-primary px-2.5 py-2 text-[11.5px] leading-[1.55] text-primary-on break-words' : 'rounded-lg border border-border-strong bg-raised text-foreground',
             'outline-none',
             // 入场：淡入 + 轻微上移。不做缩放 —— 浮层常常要「打开后立刻量尺寸摆位置」，
             // transform 会污染坐标（与 SelectContent 同一条取舍）

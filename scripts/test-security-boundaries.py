@@ -3,7 +3,7 @@
 import json, os, secrets, socket, sqlite3, subprocess, tempfile, time, urllib.request, urllib.error
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-BINARY=ROOT/'desktop-tauri/src-tauri/target/debug/agent2api-server'
+BINARY=ROOT/'target/debug/agent2api-server'
 client=urllib.request.build_opener(urllib.request.ProxyHandler({}))
 def free_port():
     with socket.socket() as s:
