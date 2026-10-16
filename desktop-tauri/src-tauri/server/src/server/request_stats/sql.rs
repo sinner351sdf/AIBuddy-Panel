@@ -210,6 +210,11 @@ impl FilterPlan {
             binds.push(SqlValue::Text(want.to_string()));
         }
 
+        if let Some(want) = filter.client.as_deref().filter(|text| !text.is_empty()) {
+            fragments.push("client = ?".to_string());
+            binds.push(SqlValue::Text(want.to_string()));
+        }
+
         // ② 成功 / 失败 / 进行中：与 `RequestEntry::is_success` **逐字等价**的
         // 复合条件（成功与失败），加上进行中行的专属条件。
         //

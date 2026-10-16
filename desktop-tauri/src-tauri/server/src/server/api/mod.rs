@@ -47,6 +47,10 @@ pub mod branding;
 pub mod accounts_usage;
 pub mod audit_api;
 pub mod sql_backup_api;
+pub mod assistant;
+pub mod assistant_history;
+mod assistant_input;
+mod assistant_stream;
 pub mod auto_checkin;
 // 长度截断的自动续写（开关 + 轮数上限）：`GET/PUT /api/auto-continue`。
 // 判据与执行链在 `core::upstream::continuation`，这里只是那两个数的读写入口；

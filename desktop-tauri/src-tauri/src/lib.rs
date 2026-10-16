@@ -263,6 +263,7 @@ pub fn run() {
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             commands::api_request,
+            commands::assistant_access,
             commands::api_request_text,
             commands::backend_status,
             commands::port_occupant,

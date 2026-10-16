@@ -1011,3 +1011,8 @@ fn timestamp_for_filename() -> String {
     format!("{year:04}-{month:02}-{day:02}-{hour:02}-{minute:02}-{second:02}")
 }
 
+
+#[tauri::command]
+pub fn assistant_access() -> Value {
+    json!({"x-agent2api-assistant": crate::server::access::native_assistant_token()})
+}

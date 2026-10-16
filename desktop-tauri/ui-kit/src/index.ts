@@ -286,3 +286,5 @@ export { Marker, MarkerIcon, MarkerContent, markerVariants } from './marker'
 export { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext, PaginationEllipsis } from './pagination'
 
 export { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, ChartStyle, type ChartConfig } from './chart'
+
+export * from "./message-scroller"

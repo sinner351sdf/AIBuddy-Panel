@@ -192,8 +192,8 @@ pub(super) fn retention_from(map: &Map<String, Value>) -> RetentionSettings {
     let defaults = RetentionSettings::default();
     RetentionSettings {
         log_days: days_field(map, KEY_LOG_RETENTION_DAYS, defaults.log_days),
-        request_days: days_field(map, KEY_REQUEST_RETENTION_DAYS, defaults.request_days),
-        daily_days: days_field(map, KEY_DAILY_RETENTION_DAYS, defaults.daily_days),
+        request_days: days_field(map, if map.contains_key(KEY_REQUEST_RETENTION_DAYS) { KEY_REQUEST_RETENTION_DAYS } else { "requestLogRetentionDays" }, defaults.request_days),
+        daily_days: days_field(map, if map.contains_key(KEY_DAILY_RETENTION_DAYS) { KEY_DAILY_RETENTION_DAYS } else { "dailyAggregateRetentionDays" }, defaults.daily_days),
     }
 }
 
@@ -710,4 +710,16 @@ mod tests {
             "文件里的字符串 true 不可用，落点必须与「文件没这项」逐字相同"
         );
     }
+}
+
+#[cfg(test)]
+mod retention_306_tests {
+ use super::*;
+ #[test] fn local_retention_wins_and_upstream_aliases_remain_readable() {
+  let raw=serde_json::from_value::<Map<String,Value>>(serde_json::json!({"requestRetentionDays":42,"requestLogRetentionDays":99999,"dailyRetentionDays":400})).unwrap();
+  let current=retention_from(&raw);assert_eq!(current.request_days,42);assert_eq!(current.daily_days,400);
+  let raw=serde_json::from_value::<Map<String,Value>>(serde_json::json!({"requestLogRetentionDays":99999,"dailyAggregateRetentionDays":99999})).unwrap();
+  let imported=retention_from(&raw);assert_eq!(imported.request_days,99999);assert_eq!(imported.daily_days,99999);
+  assert_eq!(retention_from(&Map::new()).request_days,30);
+ }
 }

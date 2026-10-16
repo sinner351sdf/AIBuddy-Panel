@@ -1122,6 +1122,7 @@ mod tests {
     //! 中断洗成成功（报表再也看不出断流）。所以这一组用例两头都要钉住。
 
     use super::{terminal, RecordContext, RecordingStream, TerminalFrames, TerminalScan};
+    use crate::server::request_stats::Retention;
 
     #[test]
     fn stage_timings_survive_live_updates_and_disconnect_persistence() {
@@ -1326,6 +1327,7 @@ mod tests {
     /// 取回那条明细（本次用例的库里只有一条）
     fn only_row(stats: &RequestStats) -> serde_json::Value {
         let query = RequestQuery {
+            client: None,
             offset: 0,
             limit: Some(5),
             model: None,

@@ -1,13 +1,14 @@
 import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 import { createPortal } from 'react-dom'
-import { Activity, Blocks, CalendarCheck, ChevronRight, FileText, Globe, KeyRound, LayoutGrid, List, Server, Settings, Users, Workflow, X } from '@ui/navigation-icons'
+import { Activity, Blocks, CalendarCheck, ChevronRight, FileText, Globe, KeyRound, LayoutGrid, List, Server, Settings, Users, Workflow, X, Sparkles } from '@ui/navigation-icons'
 import { cn, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Separator, Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarProvider, SidebarRail, SidebarTrigger, ToggleGroup, ToggleGroupItem, TooltipProvider, useSidebar } from '@ui'
 import { t } from '../i18n'
 
 type BadgeState = { text: string; title: string; visible: boolean; running: boolean }
-type GroupId = 'pool' | 'forward' | 'ops'
+type GroupId = 'intelligence' | 'pool' | 'forward' | 'ops'
 const groups = [
+  { id: 'intelligence' as const, label: '智能', icon: Sparkles, pages: [{ id: 'assistant', label: 'AI 助手', icon: Sparkles }] },
   { id: 'pool' as const, label: '账号与用量', icon: LayoutGrid, pages: [
     { id: 'overview', label: '用量', icon: LayoutGrid }, { id: 'accounts', label: '账号池', icon: Users },
     { id: 'credits', label: '积分构成', icon: Blocks }, { id: 'checkin', label: '任务中心', icon: CalendarCheck },

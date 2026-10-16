@@ -1,0 +1,166 @@
+/* Official AI Elements Base UI Chat / Prompt Input compositions; existing theme tokens. */
+.page.active[data-page="assistant"] { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
+.asst-layout { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 0 clamp(12px, 2vw, 28px) 14px; background: var(--surface); border-radius: var(--r-lg); }
+.asst-top { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 12px; width: 100%; max-width: none; margin-inline: auto; padding-block: 10px; }
+.asst-top h2 { margin: 0; font-size: 14px; font-weight: 600; }
+.asst-scroll { min-height: 0; }
+.asst-thread { width: 100%; max-width: 48rem; min-height: 100%; margin-inline: auto; padding: 24px 4px 32px; }
+.asst-thread [data-slot='message-content'] { max-width: 100%; }
+.asst-empty[data-slot='empty'] { flex: 1; justify-content: center; gap: 28px; min-height: 0; padding: 20px 0; border: 0; }
+.asst-empty [data-slot='empty-title'] { font-size: clamp(22px, 2.4vw, 28px); letter-spacing: -.025em; }
+.asst-empty [data-slot='empty-content'] { width: 100%; }
+.asst-suggestions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 10px; margin-bottom: 20px; }
+.asst-suggestions > button { justify-content: center; white-space: normal; text-align: center; height: auto; min-height: 48px; padding: 12px 14px; font-weight: 400; }
+.asst-markdown { font-size: 14px; line-height: 1.8; overflow-wrap: anywhere; }
+.asst-markdown p { margin: 0 0 12px; }
+.asst-markdown p:last-child { margin-bottom: 0; }
+.asst-markdown ul, .asst-markdown ol { padding-left: 22px; margin: 10px 0; }
+.asst-markdown code, .asst-markdown pre { font-family: var(--font-mono); font-size: 12px; }
+.asst-markdown code { background: var(--surface-2); border-radius: var(--r-xs); padding: 2px 4px; }
+.asst-markdown pre { background: var(--surface-2); padding: 12px; border-radius: var(--r-md); overflow-x: auto; }
+.asst-markdown pre code { background: transparent; padding: 0; }
+.asst-markdown table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+.asst-markdown th, .asst-markdown td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+.asst-composer { flex: none; width: 100%; max-width: 48rem; margin-inline: auto; padding-top: 12px; }
+.asst-input-group[data-slot='input-group'] { border-radius: var(--r-lg, 12px); }
+.asst-input-group[data-dragging] { outline: 2px dashed var(--ring); outline-offset: 3px; }
+.asst-input-group > textarea[data-slot='input-group-control'] { width: 100%; min-height: 88px; max-height: 180px; field-sizing: content; padding: 16px 16px 8px; line-height: 1.7; resize: none; }
+.asst-input-group .asst-input-toolbar { gap: 8px; padding: 4px 10px 10px; }
+.asst-model-control { width: fit-content; max-width: min(26rem, 100%); min-width: 0; }
+.asst-model-control > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) {
+ .asst-layout { padding-inline: 10px; padding-bottom: 6px; }
+ .asst-thread { padding: 12px 0 20px; }
+ .asst-empty[data-slot='empty'] { min-height: 140px; padding-block: 24px; }
+ .asst-input-group > textarea[data-slot='input-group-control'] { min-height: 72px; }
+ .asst-model-control { max-width: 100%; }
+}
+
+/* Conversation rail follows the Chatbot template, inside the existing app shell. */
+.asst-shell { display: flex; flex: 1; min-height: 0; min-width: 0; border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; background: var(--surface-2); }
+.asst-history-desktop { width: 224px; flex: 0 0 224px; min-height: 0; border-right: 1px solid var(--border); }
+.asst-history-list { display: flex; flex-direction: column; gap: 12px; min-height: 0; height: 100%; padding: 12px; }
+.asst-history-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; min-height: 28px; }
+.asst-title-row { display: flex; min-width: 0; align-items: center; gap: 6px; }
+.asst-top h2 { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; min-width: 0; }
+.asst-top > div:last-child { flex-shrink: 0; }
+.asst-save-status { font-size: 11px; color: var(--text-3); }
+.asst-history-search { position: relative; }
+.asst-history-search > svg { position: absolute; inset-inline-start: 9px; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
+.asst-history-search > input { padding-inline-start: 28px; background: var(--surface); }
+.asst-history-scroll { flex: 1; overflow-y: auto; min-height: 0; }
+.asst-history-scroll section { margin-bottom: 18px; }
+.asst-history-scroll h3 { font-size: 11px; font-weight: 500; color: var(--text-3); padding: 0 6px; margin: 4px 0 8px; }
+.asst-history-row { display: flex; align-items: center; gap: 0; border-radius: var(--r-sm); margin-block: 2px; }
+.asst-history-row:hover, .asst-history-row[data-active] { background: var(--surface-hover, var(--surface-inset)); }
+.asst-history-row > button:last-child { flex: none; }
+.asst-history-link { flex: 1; min-width: 0; width: 0; justify-content: flex-start; padding-inline: 6px; font-weight: 400; }
+.asst-history-link > span { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+.asst-history-hint { color: var(--text-3); font-size: 11px; line-height: 1.7; margin: 4px 0; }
+.asst-mobile-toggle { display: none; }
+.asst-history-sheet { width: min(300px, 85vw); padding: 0; gap: 0; }
+.asst-history-sheet .asst-history-list { flex: 1; }
+.asst-history-sheet .asst-history-head { display: none; }
+.asst-layout[data-empty] .asst-thread { display: flex; flex-direction: column; }
+@media (max-width: 1023px) {
+ .asst-history-desktop, .asst-desktop-toggle { display: none; }
+ .asst-mobile-toggle { display: inline-flex; }
+}
+@media (max-width: 640px) {
+ .asst-shell { border-radius: var(--r-md); }
+ .asst-save-status { display: none; }
+ .asst-top { gap: 4px; }
+ .asst-title-row { max-width: 55%; }
+ .asst-suggestions { gap: 6px; }
+ .asst-suggestions > button { padding: 8px; min-height: 44px; font-size: 12px; }
+}
+
+.asst-history-head > svg { width: 16px; height: 16px; color: var(--text-3); }
+.asst-history-label { font-size: 11px; font-weight: 400; color: var(--text-3); margin: 18px 6px 0; }
+.asst-history-hint { margin: 0 6px; }
+.asst-model-capabilities { display: flex; align-items: center; gap: 7px; }
+.asst-context-body { padding: 12px; display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; }
+.asst-context-summary { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.asst-context-summary strong { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.asst-context-summary > span, .asst-context-body > p { color: var(--text-3); font-size: 11px; line-height: 1.6; margin: 0; }
+.asst-context-breakdown { display: flex; flex-direction: column; gap: 10px; margin: 0; font-size: 12px; }
+.asst-context-breakdown > div, .asst-context-breakdown dt { display: flex; align-items: center; gap: 8px; }
+.asst-context-breakdown > div { justify-content: space-between; }
+.asst-context-breakdown dd { margin: 0; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.asst-context-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--chart-1); }
+.asst-context-dot[data-category='tools'] { background: var(--chart-2); }
+.asst-context-dot[data-category='conversation'] { background: var(--chart-3); }
+.asst-context-dot[data-category='draft'] { background: var(--chart-4); }
+.asst-model-capabilities span { display: inline-flex; }
+.asst-model-capabilities svg { width: 14px; height: 14px; }
+.asst-model-menu [data-slot='command-item'] { min-height: 36px; }
+.asst-model-menu [data-slot='command-input-wrapper'] { padding: 6px; }
+@media (max-height: 700px) {
+ .asst-suggestions { gap: 6px; margin-bottom: 10px; }
+ .asst-suggestions > button { min-height: 36px; padding-block: 8px; }
+ .asst-thread { padding-block: 10px; }
+}
+
+/* Chat keeps a bounded viewport on phones; other pages retain document scrolling. */
+@media (max-width: 767px) {
+ body:has(.page.active[data-page="assistant"]) .shell { height: 100dvh; overflow: hidden; }
+ body.has-titlebar:has(.page.active[data-page="assistant"]) .shell { height: calc(100dvh - var(--titlebar-h)); }
+ body:has(.page.active[data-page="assistant"]) .main, body:has(.page.active[data-page="assistant"]) .content { min-height: 0; overflow: hidden; }
+ body:has(.page.active[data-page="assistant"]) .content-inner { flex: 1; min-height: 0; }
+}
+
+/* ─── 设置页「AI 助手」分类（面板内的两块排版）─── */
+.asst-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.asst-row > label:first-child { color: var(--text-2); font-size: 12.5px; flex: 0 0 auto; }
+.asst-row .hint { flex: 1 1 260px; min-width: 0; color: var(--text-3); font-size: 11.5px; line-height: 1.65; }
+.asst-row .switch { display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-size: 12.5px; font-weight: 500; }
+.asst-row button svg { vertical-align: -2px; margin-right: 4px; }
+
+.asst-matrix {
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-inset);
+}
+.asst-matrix .mt-title { color: var(--text-3); font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+.asst-matrix .asst-mini-table { margin: 6px 0; }
+.asst-matrix .hint { color: var(--text-3); font-size: 11.5px; line-height: 1.7; }
+.asst-matrix .hint b { color: var(--text-2); }
+
+.asst-tools-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.asst-tool-group {
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--hairline);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 650;
+}
+.asst-tool-group .muted { font-weight: 400; font-size: 11px; }
+.asst-tool {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color .15s ease;
+}
+.asst-tool:hover { border-color: var(--control-border-hover); }
+.asst-tool input { flex: none; width: 14px; height: 14px; margin: 3px 0 0; accent-color: var(--primary); cursor: pointer; }
+.asst-tool .tt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.asst-tool .tt-name { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: var(--text); }
+.asst-tool .tt-desc { color: var(--text-3); font-size: 11.5px; line-height: 1.65; }
+
+/* 系统提示词编辑弹窗里的正文框 */
+.asst-prompt-ta {
+  width: 100%;
+  padding: 11px 13px;
+  resize: vertical;
+  border: 1px solid var(--control-border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 1.85;
+}

@@ -249,7 +249,7 @@ pub fn is_reserved(key: &str) -> bool {
 /// `core::checkin_records`（记账点唯一：`core::billing::checkin::run_checkin`）。
 // Local v12/v13 are task/history schemas. Upstream's colliding versions are NOT replayed.
 // v14 repairs branch-specific tables and adds client; v15 marks encrypted credentials.
-pub const SCHEMA_VERSION: i64 = 15;
+pub const SCHEMA_VERSION: i64 = 16;
 
 /// 版本 1 的全部表与索引：改造前所有 JSON / JSONL 文件的对应形态。
 ///
@@ -811,9 +811,22 @@ fn apply_version(conn: &Connection, version: i64) -> rusqlite::Result<()> {
             conn.execute_batch(V13_SCHEMA)?;
             super::account_history::install(conn)
         }
+        16 => conn.execute_batch(V16_SCHEMA),
         _ => Ok(()),
     }
 }
+
+// Durable local assistant UI messages. No account FK or request-retention coupling.
+// Deleted rows are tombstones, so an older browser cannot recreate a deleted chat.
+const V16_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS assistant_conversations (
+ id TEXT PRIMARY KEY, title TEXT NOT NULL,
+ messages TEXT NOT NULL DEFAULT '[]', bytes INTEGER NOT NULL DEFAULT 2, revision INTEGER NOT NULL DEFAULT 0,
+ created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_assistant_conversations_updated ON assistant_conversations(deleted, updated_at DESC);
+";
+
 
 /// Credential-free identity archive. No account FK: logout/deletion and request
 /// retention must not remove historical provider or region information.

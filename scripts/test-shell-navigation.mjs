@@ -165,7 +165,7 @@ try {
 
   assert.equal(document.body.classList.contains('shell-collapsed'), true, 'restore the existing collapsed storage key')
   assert.equal(trigger().getAttribute('aria-expanded'), 'false')
-  assert.equal(document.querySelectorAll('#nav .nav-item[data-page]').length, 12, 'collapsed rail renders all twelve route buttons')
+  assert.equal(document.querySelectorAll('#nav .nav-item[data-page]').length, 13, 'collapsed rail renders all routes including the assistant')
   assert.equal(group('forward').getAttribute('aria-expanded'), 'true')
   assert.equal(localStorage.getItem('nav-group-forward'), 'closed', 'rail expansion must not overwrite the saved group state')
   assert.equal(document.querySelector('#shell-sidebar #sidebar-user'), account)

@@ -53,7 +53,7 @@ use crate::server::core::account_store::state::{mark_name_custom, StoredAccount}
 use crate::server::core::account_store::store::{AccountStore, AccountStoreError};
 use crate::server::core::account_store::store_util::{token_tail_of, truncate_chars};
 use crate::server::core::custom_providers;
-use crate::server::core::proxies::{resolve_account_proxy, ResolvedProxy};
+use crate::server::core::proxies::{resolve_account_proxy_rotating, ResolvedProxy};
 use crate::server::logging;
 
 /// 账号 id 前缀。**与 provider id 的 `custom-` 不同形**（理由见模块头）。
@@ -246,6 +246,29 @@ impl AccountStore {
                 }
             }
         }
+        // 余额查询配置（`balanceQuery`，可选）：预置卡带来的余额方案要的那份
+        // 凭证（NewAPI 的访问令牌 / 商汤的控制台账号密码 / 智谱的控制台令牌）。
+        // 与 apiKey 同一层是刻意的：它也是「这条账号的凭证」，只是用于查询
+        // 而不是转发（见 `custom_balance_query_by_id` 的说明）。
+        if let Some(value) = object.get("balanceQuery") {
+            if !value.is_null() {
+                let Some(patch) = value.as_object() else {
+                    return Err(AccountStoreError::bad_request("balanceQuery 必须是 JSON 对象"));
+                };
+                let mut query = fields
+                    .get("balanceQuery")
+                    .and_then(Value::as_object)
+                    .cloned()
+                    .unwrap_or_default();
+                normalize_balance_query_patch(&mut query, patch)
+                    .map_err(AccountStoreError::bad_request)?;
+                if query.is_empty() {
+                    fields.remove("balanceQuery");
+                } else {
+                    fields.insert("balanceQuery".to_string(), Value::Object(query));
+                }
+            }
+        }
         fields.insert(
             "tokenTail".to_string(),
             Value::String(token_tail_of(&api_key)),
@@ -343,10 +366,17 @@ impl AccountStore {
     ///
     /// 代理在锁内只做**解析**（读 Clash 快照，本地文件 IO；与
     /// `get_session_by_id` 同一口径），真正的网络动作都在锁外。
+    /// Forwarding already selected one egress in get_session_by_id; reading auth must not rotate again.
+    pub fn custom_auth_by_id(&self, account_id: &str) -> Option<CustomCredential> {
+        let _guard = self.guard();
+        let record = self.record_by_id(&_guard, account_id)?;
+        Some(credential_of_record(&record, false))
+    }
+
     pub fn custom_credential_by_id(&self, account_id: &str) -> Option<CustomCredential> {
         let _guard = self.guard();
         let record = self.record_by_id(&_guard, account_id)?;
-        Some(credential_of_record(&record))
+        Some(credential_of_record(&record, true))
     }
 
     /// 该自定义提供商下第一个**可用**账号的凭证（`custom_providers::
@@ -367,7 +397,7 @@ impl AccountStore {
             .into_iter()
             .filter(|record| record.enabled() && (record.has_api_key() || record.no_auth()))
             .min_by_key(StoredAccount::order_key)
-            .map(|record| credential_of_record(&record))
+            .map(|record| credential_of_record(&record, true))
     }
 
     /// 改一条自定义账号的**凭证**：`apiKey`（可清除）与 `noAuth`（无需鉴权
@@ -492,6 +522,276 @@ impl AccountStore {
         );
         Ok(changes)
     }
+
+    // ─── 余额查询配置（`balanceQuery`）──────────────────────────
+
+    /// 读取一条自定义账号的**余额查询配置**（查询链路用）。
+    ///
+    /// **返回值可能含明文凭证，绝不进任何 HTTP 响应** —— 公开形态只有
+    /// `has*` 标记与两个非密字段（见 `store_view::to_custom_public_account`），
+    /// 与 `custom_credential_by_id` 是同一条纪律。
+    ///
+    /// 没有这条键（这一家的方案不需要凭证，或用户还没配）给 `None`。
+    pub fn custom_balance_query_by_id(&self, account_id: &str) -> Option<CustomBalanceQuery> {
+        let _guard = self.guard();
+        let record = self.record_by_id(&_guard, account_id)?;
+        Some(balance_query_of_record(&record))
+    }
+
+    /// 改一条自定义账号的余额查询配置。返回变更说明（供界面提示与日志），
+    /// 没有任何变化时返回空表。
+    ///
+    /// ── 语义（与 `update_custom_credentials` 同一套）────────────
+    ///   · 字段缺省 = 不修改；`null` 或空串 = **清除**（输入框留空是「不修改」，
+    ///     清除必须由显式动作表达，见界面上的「清除」按钮）；
+    ///   · 只认方案里登记的那五个字段（[`BALANCE_QUERY_FIELDS`]），其余键
+    ///     400 —— 静默忽略会让用户以为存进去了；
+    ///   · 非密字段原样落盘（`userId` / `username`），密字段同样落进记录
+    ///     ——整行落库已经是 `enc1:` 密文（见 `sql.rs` 模块头），不再做字段级
+    ///     信封（那会让读数多一层解包、也失去「整行一个信封」的统一处置）。
+    ///
+    /// ── 为什么换凭证要连 JWT 缓存一起清 ─────────────────────────
+    /// 商汤的查询票（`sensenovaJwt`）是用账号密码换来的：密码一换，旧票代表的
+    /// 还是旧账号 —— 留着它会让「改了密码」这件事看起来没生效（查询继续用旧
+    /// 身份成功）。清掉之后下一次查询自然重登。
+    pub fn update_custom_balance_query(
+        &self,
+        id: &str,
+        patch: &Value,
+    ) -> Result<Vec<String>, AccountStoreError> {
+        let id = id.trim();
+        let Some(object) = patch.as_object() else {
+            return Err(AccountStoreError::bad_request("请求内容必须是 JSON 对象"));
+        };
+        let _guard = self.guard();
+        let Some(mut record) = self.record_by_id(&_guard, id) else {
+            return Err(AccountStoreError::not_found("账号不存在"));
+        };
+        let provider = record.provider();
+        if !provider.starts_with(custom_providers::ID_PREFIX) {
+            return Err(AccountStoreError::bad_request(
+                "只有自定义提供商的账号有余额查询配置（balanceQuery）",
+            ));
+        }
+        // 方案是「这一家的哪条查询链路」的事实来源：没有方案的家没有可配的
+        // 凭证（预置卡的方案在创建时写进提供商记录，见 custom_providers）
+        if custom_providers::balance_scheme_of(&provider).is_none() {
+            return Err(AccountStoreError::bad_request(
+                "该提供商没有登记余额查询方案，无法配置查询凭证",
+            ));
+        }
+        let before = record
+            .fields()
+            .get("balanceQuery")
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        let mut after = before.clone();
+        normalize_balance_query_patch(&mut after, object).map_err(AccountStoreError::bad_request)?;
+        if after == before {
+            return Ok(Vec::new());
+        }
+        let changes = describe_balance_query_changes(&before, &after);
+        if after.is_empty() {
+            record.remove("balanceQuery");
+        } else {
+            record.set("balanceQuery", Value::Object(after));
+        }
+        record.set_updated_at(logging::now_ms());
+        let name = record.name();
+        self.with_conn(&_guard, |conn| sql::update_in_place(conn, &record))?;
+        logging::log(
+            "[Accounts]",
+            &format!("🔎 自定义账号余额查询配置已更新: {name}（{}）", changes.join("，")),
+        );
+        Ok(changes)
+    }
+
+    /// 回写商汤登录换来的 JWT 缓存（查询路径用；失败只影响下一次重登）。
+    ///
+    /// 走与凭证更新同一条落盘路径，但不产生变更日志、不动 `updatedAt` 之外的
+    /// 任何字段 —— 它是一次**缓存**写入，不是用户动作。
+    pub fn store_custom_balance_jwt(
+        &self,
+        id: &str,
+        expected: &CustomBalanceQuery,
+        jwt: &str,
+        expires_at_ms: i64,
+    ) -> Result<(), AccountStoreError> {
+        let _guard = self.guard();
+        let Some(mut record) = self.record_by_id(&_guard, id.trim()) else {
+            return Err(AccountStoreError::not_found("账号不存在"));
+        };
+        // The login request ran outside the store lock. Never attach its ticket to
+        // credentials edited (or cleared) while that request was in flight.
+        let current = balance_query_of_record(&record);
+        if current.username != expected.username || current.password != expected.password {
+            return Err(AccountStoreError::new("余额查询凭据已更新，请重新查询", 409));
+        }
+        let mut query = record
+            .fields()
+            .get("balanceQuery")
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        query.insert(
+            "sensenovaJwt".to_string(),
+            Value::String(jwt.trim().to_string()),
+        );
+        query.insert(
+            "sensenovaJwtExpiresAt".to_string(),
+            Value::from(expires_at_ms),
+        );
+        record.set("balanceQuery", Value::Object(query));
+        record.set_updated_at(logging::now_ms());
+        let _ = self.with_conn(&_guard, |conn| sql::update_in_place(conn, &record))?;
+        Ok(())
+    }
+}
+
+/// 自定义账号的**余额查询配置快照**（`custom_balance_query_by_id` 的返回值）。
+///
+/// 字段与记录里的键一一对应（`userId` → `user_id`…）。`sensenova_jwt` 是
+/// **缓存**而不是用户输入：商汤方案登录一次换来的票，过期前复用、过期后重登
+/// （见 `providers::custom::balance` 的模块头）。
+pub struct CustomBalanceQuery {
+    /// NewAPI：New-Api-User 头的取值（新版可空）
+    pub user_id: String,
+    /// NewAPI：控制台访问令牌（必填）
+    pub access_token: String,
+    /// 商汤：控制台账号（必填）
+    pub username: String,
+    /// 商汤：控制台密码（必填）
+    pub password: String,
+    /// 智谱：bigmodel.cn 控制台令牌（必填）
+    pub token: String,
+    /// 商汤：缓存的登录票（空 = 还没登过）
+    pub sensenova_jwt: String,
+    /// 商汤：缓存票的到期时刻（毫秒，0 = 未知）
+    pub sensenova_jwt_expires_at: i64,
+}
+
+/// 记录 → 余额查询快照（读侧只做容错取值，不校验合法性 —— 写入侧已归一）
+fn balance_query_of_record(record: &StoredAccount) -> CustomBalanceQuery {
+    let fields = record
+        .fields()
+        .get("balanceQuery")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    let text_of = |key: &str| {
+        fields
+            .get(key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .unwrap_or("")
+            .to_string()
+    };
+    CustomBalanceQuery {
+        user_id: text_of("userId"),
+        access_token: text_of("accessToken"),
+        username: text_of("username"),
+        password: text_of("password"),
+        token: text_of("token"),
+        sensenova_jwt: text_of("sensenovaJwt"),
+        sensenova_jwt_expires_at: fields
+            .get("sensenovaJwtExpiresAt")
+            .and_then(Value::as_i64)
+            .unwrap_or(0),
+    }
+}
+
+/// 方案可配置的字段（顺序即报错文案与界面顺序）。
+///
+/// 五个字段横跨三种方案（NewAPI 用前两个、商汤用中间两个、智谱用最后一个），
+/// 合成一张表而不是按方案分开：写入侧不认识方案（它只认字段），按方案建表会
+/// 让「同一字段属于谁」在两处各写一遍。
+pub const BALANCE_QUERY_FIELDS: &[&str] = &["userId", "accessToken", "username", "password", "token"];
+
+/// 字段的界面/日志名（变更说明与错误文案用；键名对用户没有意义）
+fn balance_query_field_label(key: &str) -> &'static str {
+    match key {
+        "userId" => "用户 ID",
+        "accessToken" => "访问令牌",
+        "username" => "账号",
+        "password" => "密码",
+        "token" => "控制台令牌",
+        _ => "查询凭证",
+    }
+}
+
+/// 换凭证时要连缓存票一起清的字段（见 `update_custom_balance_query` 的说明）
+const BALANCE_QUERY_IDENTITY_FIELDS: &[&str] = &["accessToken", "username", "password", "token"];
+/// 单个字段的长度上限（防御：粘贴进一整段文档时不落盘；与 apiKey 同量级）
+const MAX_BALANCE_QUERY_FIELD_CHARS: usize = 8192;
+
+/// 把一份补丁套到余额查询配置上（`add_custom_account` 与
+/// `update_custom_balance_query` **共用同一套语义**：缺省不动、null / 空串清除）。
+fn normalize_balance_query_patch(
+    query: &mut Map<String, Value>,
+    patch: &Map<String, Value>,
+) -> Result<(), String> {
+    let mut identity_changed = false;
+    for key in BALANCE_QUERY_FIELDS {
+        let Some(value) = patch.get(*key) else { continue };
+        let next = match value {
+            Value::Null => String::new(),
+            Value::String(text) => text.trim().to_string(),
+            _ => {
+                return Err(format!(
+                    "balanceQuery.{} 必须是字符串（传 null 表示清除）",
+                    balance_query_field_label(key)
+                ))
+            }
+        };
+        if next.chars().count() > MAX_BALANCE_QUERY_FIELD_CHARS {
+            return Err(format!(
+                "balanceQuery.{} 过长（最多 {MAX_BALANCE_QUERY_FIELD_CHARS} 个字符）",
+                balance_query_field_label(key)
+            ));
+        }
+        let before = query.get(*key).and_then(Value::as_str).unwrap_or("");
+        if before == next {
+            continue;
+        }
+        if BALANCE_QUERY_IDENTITY_FIELDS.contains(key) {
+            identity_changed = true;
+        }
+        if next.is_empty() {
+            query.remove(*key);
+        } else {
+            query.insert((*key).to_string(), Value::String(next));
+        }
+    }
+    // 身份字段变过 → 缓存的登录票作废（见调用点的说明）
+    if identity_changed {
+        query.remove("sensenovaJwt");
+        query.remove("sensenovaJwtExpiresAt");
+    }
+    Ok(())
+}
+
+/// 两次快照的差异 → 变更说明（**只说字段名与动作，不带值**）。
+/// 缓存票（sensenovaJwt）不进说明：它不是用户动作。
+fn describe_balance_query_changes(
+    before: &Map<String, Value>,
+    after: &Map<String, Value>,
+) -> Vec<String> {
+    let mut changes: Vec<String> = Vec::new();
+    for key in BALANCE_QUERY_FIELDS {
+        let old = before.get(*key).and_then(Value::as_str).unwrap_or("");
+        let new = after.get(*key).and_then(Value::as_str).unwrap_or("");
+        if old == new {
+            continue;
+        }
+        let label = balance_query_field_label(key);
+        changes.push(match (old.is_empty(), new.is_empty()) {
+            (true, false) => format!("查询凭证 → {label} 已配置"),
+            (false, true) => format!("查询凭证 → {label} 已清除"),
+            _ => format!("查询凭证 → {label} 已更新"),
+        });
+    }
+    changes
 }
 
 /// 自定义账号的**内部凭证快照**（`custom_credential_by_id` /
@@ -515,17 +815,21 @@ pub struct CustomCredential {
     pub base_url_override: Option<String>,
     /// 出网代理（None = 未配置 / 解析失败 → 直连）
     pub proxy: Option<ResolvedProxy>,
+    pub proxy_error: Option<String>,
 }
 
 /// 一条记录 → 凭证快照（两个入口共用一份取数口径，不会各漂一份）
-fn credential_of_record(record: &StoredAccount) -> CustomCredential {
+fn credential_of_record(record: &StoredAccount, resolve_proxy: bool) -> CustomCredential {
     let fields = record.fields();
-    let proxy = match resolve_account_proxy(Some(&record.proxy())) {
-        Some(resolution) => resolution.resolved().cloned(),
-        // 无代理配置 → 直连（与「解析失败回退直连」在出网行为上等价，
-        // 区别只在日志：这里没有请求上下文可挂 notice，静默直连即可）
-        None => None,
-    };
+    // 轮询档取下一个出口：凭证快照的消费方（余额查询、拉清单）都是**真实出网**，
+    // 与转发同一条口径；展示那一路（公开形态）走 `describe_account_proxy`，
+    // 它不动游标（见 `core::proxies` 的两个解析入口）。
+    let resolution = if resolve_proxy { resolve_account_proxy_rotating(Some(&record.proxy()), record.id()) } else { None };
+    // Rotation is an explicit egress choice; never silently send balance/model queries direct.
+    let proxy_error = if crate::server::core::proxies::is_rotate_config(&record.proxy()) {
+        resolution.as_ref().and_then(|value| value.error()).map(str::to_string)
+    } else { None };
+    let proxy = resolution.as_ref().and_then(|value| value.resolved()).cloned();
     CustomCredential {
         account_id: record.id().to_string(),
         account_name: record.name(),
@@ -541,6 +845,7 @@ fn credential_of_record(record: &StoredAccount) -> CustomCredential {
             .map(str::to_string)
             .filter(|text| !text.is_empty()),
         proxy,
+        proxy_error,
     }
 }
 
@@ -575,4 +880,42 @@ fn account_id_for(provider_id: &str, api_key: &str, no_auth: bool) -> Result<Str
 fn short_hash(seed: &str) -> String {
     let digest = Sha256::digest(seed.as_bytes());
     format!("{digest:x}").chars().take(12).collect()
+}
+
+#[cfg(test)]
+mod balance_cache_tests {
+    use super::*;
+    use serde_json::json;
+    use crate::server::db::test_temp::TempDb;
+
+    #[test]
+    fn stale_balance_login_cannot_restore_a_ticket_after_credentials_change() {
+        let (db, _cleanup) = TempDb::open("balance-cache-identity-race");
+        let store = AccountStore::with_db(Some(db));
+        let add = |username: &str, password: &str| {
+            store.add_custom_account("custom-cache-fixture", &json!({
+                "apiKey":"synthetic-cache-key",
+                "balanceQuery":{"username":username,"password":password}
+            }), Some("cache fixture")).unwrap()["id"].as_str().unwrap().to_string()
+        };
+        let id = add("first", "password-one");
+        let first = store.custom_balance_query_by_id(&id).unwrap();
+        store.store_custom_balance_jwt(&id, &first, "first-ticket", 1000).unwrap();
+        assert_eq!(store.custom_balance_query_by_id(&id).unwrap().sensenova_jwt, "first-ticket");
+        add("second", "password-one");
+        assert_eq!(store.store_custom_balance_jwt(&id, &first, "late-first-ticket", 2000).unwrap_err().status_code, 409);
+        assert!(store.custom_balance_query_by_id(&id).unwrap().sensenova_jwt.is_empty());
+        let second = store.custom_balance_query_by_id(&id).unwrap();
+        store.store_custom_balance_jwt(&id, &second, "second-ticket", 3000).unwrap();
+        add("second", "password-two");
+        assert_eq!(store.store_custom_balance_jwt(&id, &second, "late-second-ticket", 4000).unwrap_err().status_code, 409);
+        assert!(store.custom_balance_query_by_id(&id).unwrap().sensenova_jwt.is_empty());
+        let third = store.custom_balance_query_by_id(&id).unwrap();
+        store.store_custom_balance_jwt(&id, &third, "current-ticket", 5000).unwrap();
+        add("", "");
+        assert_eq!(store.store_custom_balance_jwt(&id, &third, "late-cleared-ticket", 6000).unwrap_err().status_code, 409);
+        assert!(store.custom_balance_query_by_id(&id).unwrap().sensenova_jwt.is_empty());
+        store.remove_custom_accounts("custom-cache-fixture").unwrap();
+        assert_eq!(store.store_custom_balance_jwt(&id, &third, "late-deleted-ticket", 7000).unwrap_err().status_code, 404);
+    }
 }

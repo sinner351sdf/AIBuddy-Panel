@@ -1,0 +1,1420 @@
+{
+  "reviewedAt": "2026-10-16T16:47:48.938996+08:00",
+  "baseCommit": "0528cb74e294ed7469a4e3da1425b5003835b6d2",
+  "upstreamTag": "v3.0.6",
+  "upstreamTarget": "319f640e383150f85c9025b907e3b41b8b7565b1",
+  "remoteTagVerified": true,
+  "upstreamPaths": 152,
+  "missingPaths": [],
+  "comparison": {
+    "adapted-or-regenerated": 111,
+    "identical-upstream": 41
+  },
+  "paths": [
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/accounts.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "bdc23d082f93019a367ebf72bade6183ce9e764dfdf94606a7a1583970e8f88c"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/add-account.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "d039c6f349dec693857555a9fff6e8ced81357620bad950d3de3f88fcb7e7859"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/assistant.json",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "ff854f81f4770d933d5145e3f06dc937bc70d17d0665c13c02dbbaaa6e52dfc1"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/common.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "179fbd5e86d99715e8988b5be0308dbab3f60ab2b74cb7ea193d2767623cc5d6"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/proxies.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "674eb7d45cc476cdd24c4259032613bdb5f39ac209cb3401ef3ad70b6a43bafd"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/settings.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "47eaf781852b79d15299b244d9863038a85a0f90cedd6740a0ebb50b0057e984"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/accounts.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "76e8be231eb6e4c83651e19890cd1573464c3133030f04a337814a0f7b76439e"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/add-account.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "5bc51a3cbb196a2fe8493818750e9552527e680a7582576c8915f45c41b8e001"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/assistant.json",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "5bb7d4f388c14ea7caac7d47084deadb8ba70cc3b3fd5acdad8e2e0b86ab8d83"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/common.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "e2a93acca6e17e220b912763a9ce59e95e979a222e1603b97e6faba6ba44eaf0"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/proxies.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "c0723db5bd3bbbd45faf21f346bcd1dd504f4bbcd458b55b1e0b68d30e13f93a"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/settings.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "fe9af8f7e14452d10c1a5d424ac3191e1afc7234e3855746c01a42529c06dac0"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/accounts.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "fd8d07c3791cca5134458dc31efa8d779be9e65eada1cfbd555ea2bbec295284"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/add-account.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "3fb4585e742471e2f3f327077f44b022e5ab3e1da78df562359fb521e9bc61f8"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/assistant.json",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "44d5657c867064a1364e530c65a1e2ae4cee611924c4eb9e780ff12da5788d0d"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/common.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "980645d4ac61a9522eb05aedfd1eafa0a49969ee5c62361f39404ff4d9706060"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/proxies.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "267d328766fb502af50f67aeccee6902e6ee111917e22bfbe2c8a5d4e8d1f043"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/settings.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "949d531da0c356675d533431ac937608cac103d368de29d6c78b09cf2c7ee82c"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/accounts.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "6458a4a173e9a2a04070a8fdb0ae83125c7dd20c92dbe2466f52a571d0d23e04"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/add-account.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "0a85ca6b28d069bc5cc1cb0b6c9e6a149462696a334327d462a1ae08c6cdd6b0"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/assistant.json",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "40ec27ea3e350ef430612e9031011caf04dfa529306803326be42a2c72210412"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/common.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "1b1b55226e6b1a1e8ea6806c21dc95d088ac5d1465d63e2b76dc72a55e550273"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/proxies.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "11997ad7f372da96dea99c3b2c3eef5554cec148d82240b186cd8a12374acd45"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/settings.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "f81de4c51b0b58812788ff4fbfedbcea181c4bb88cb67c6b1d9adbc3d2bf7446"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/accounts.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "167ae1a7db16086bcf13de9394d9d223fe9bf603c29a71d6bad9d92356074d83"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/add-account.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "bdfc551ca51a7b26b5ad638ee0d40b6e0c26bcdd30112ad9c9355e9843e2dbd7"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/assistant.json",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "cea992a734a77796103614cd67adeef4721cdaee89ad9a0c2a610fa0f55a1e34"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/common.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "e15ff2eb837558e444029b04a824ad2785ac0d4ebe665576f3a1e236f86dd538"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/proxies.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "f30c5074002bb926d193b3722b69f53f83a308b557a2474eacbf3ac648f097ce"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/settings.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "138cf9268f374f0f0b960a82cf6e58299b034d8b49cc5362f31f9ffb779ff121"
+    },
+    {
+      "path": "desktop-tauri/i18n/scan.mjs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "b7b012bd95225e7c3d134d004f564cc9e47d9015d58d497df926c239f0c84867"
+    },
+    {
+      "path": "desktop-tauri/package.json",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "0244a0a9dfde04675b632d8a9c45982d9311b03fb8fb69f903d9d9f8433ba107"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/Cargo.lock",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "2c2b28f7ffaf0f68b3ae7624fbb09d2b4abc38c61e6bb0759e108154246469cf"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/Cargo.toml",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "69376a32500c3feacc8c3eb010f3609c407a3e18b661ad6e0e2784a27afb0b80"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/Cargo.toml",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "7f466382a58ae5d70ecc514223d15a967e06b541dd6803e93e6c4189387cefdd"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/accounts.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "c34a698e49526b10fded53daae5caf3af6211ee2e31f3f65cf20ec1c3ef508ad"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/assistant.rs",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按用户选择启用，并适配权限、统计与本地组件",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "1e8270b6b55a44152da8f00f487086a750e2b9d8c6411011329718f3ec150dca"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/custom_providers.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "63b575317d06fa0a4db72851202032762f20c5f96a2c20c5693ec43e59992679"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/mod.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "c839cd15fe1a6deb0b4dd8e11f78166795f957eb7832d7357d09acef25d36edd"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/pipeline.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "7d8c5384acb52f2ddf00bc85cd8789edf82465a851c1855919069d67f8711006"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/proxies.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "cb8fb35a95d2ba5d5bfca2847c1bb2283e079fc8afb0e62331391959f192728f"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/stats_api.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "保留本地保留策略与历史数据，接入别名、助手真实用量及来源筛选",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "1d018fc6c8b4e3c21ebaa3b33a469d7c563a702961472f6eb8efe307fef8cc7e"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/subscriptions.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "4f775c0d5fbc321f55f85b44f66a6266778d1d645f4df111de47d7efa0a8ea20"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/update.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "7157fc10959071b8685bf5132f30a3a099b476f4b5d5e56e78c201a1621531c0"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/config/assistant_config.rs",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按用户选择启用，并适配权限、统计与本地组件",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "2a9d07ae42848f0ccaebed8d1451d0009fbbc56c61dbd4f70b79f30327614065"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/config/mod.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "13bda09d52c4310aac5cf68c57573d5e7d5f3adcb89014fbe6fae4443d909fa5"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/config/parse.rs",
+      "status": "already-identical",
+      "resolution": "identical",
+      "reason": "目标内容已存在",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "e0c8b0af7e02f979310e990ee05b01f01094a1cf2106c87401d98fa260d126de"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/config/types.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "保留本地保留策略与历史数据，接入别名、助手真实用量及来源筛选",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "798561ec6731b8e7693d20bc7aa7368803fbb98cfd56058722db5e30465b6ccc"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/custom_accounts.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "77d632625268b102381195ada90501723d64ee6e350cdfdd99be8ef586292cb3"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/store.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "b754290c515ad5321a40b4079aa8ca698c887e83459223563e7fe2914364ad2c"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/store_crud.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "fbd9d470b7ecbfeb163043865dd731e7f10f910865390284d7e414fbe0395e2a"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/store_view.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "b6f67001ad898509fb68982903d425d182c2d6371986389baa5c987b8b9bcf3c"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/custom_providers.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "727625983716bf275ab7ffdec8938108ad5ec172ffd649fc74221aca84ca7b66"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/egress.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "78e8401deebabeb9e6c73a83de746ed5bc452990e3d7a068e2499d2f04648727"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/mod.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "7554151e482e0273a2129ebad53f72b72065ecca0bf7ff86bb0d7727dfe03af1"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/adapter.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "9786bf96f3c4f244c1e57d5259c03312d419dfdb6c456d6b186007833b00e62c"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/adapter.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "7083907f37dba3c23f039b82574f50ee4db4c96c66bc19b5c8178dbb1171017c"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/balance.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "8027932ee1a7ccbc5318fc3de63e47fe16a18386188b795dcdcb3294703e6b63"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/endpoints.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "95940d18e681c9e44835c04d736f94f15a9a0863ef7608c7b8e6023b0fdff97b"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/mod.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "b6fb76050343f0e9b7744bf8687c89a5a85fece215448f14da4944a244e05de4"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/models.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "347a2640a4763bec157cc816ea67b920d786177eab311d8a134871cb58ad47d6"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/project.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "fd50c3848af7be310da5d5e0ac15fcef1dca7342e102f3cbdb2538baeaa515bc"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/autoclaw/checkin.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "7d87ff6baebc9a82c7a0013894c652b219c89c8d6327af031f94c4dca24f1398"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/autoclaw/mod.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "48204d8e034de22cbdf734225c87a33fe0de4485f33412c88aefcc5b7ee5207c"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/autoclaw/promotion.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "18ced3738249940cc0e601ef0a6400fd49dd320c8a886ff2f168886fecb3d821"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/custom/balance.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "3c0a624441c69cc88404b5e22340076edc09854c59819abfe9fe67494a800860"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/custom/balance_parse.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "c903935b9b22eed6f1fea88667f4681943e1eae5a1acfcb9bdfeee036b0b4140"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/custom/forward.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "d0b6fdadc78e35d60918b31612650043aca258c1412bd1c8c184a33cb0b633f7"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/custom/mod.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "46524947326b24af0988e7705eb5313fd78ab28096e4eaf7fb6c064ed5bb80c4"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/custom/sensenova_auth.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "4c3d6fb793afe4019f4e03eb4269d05592abbb303b75028dcbcca7c034bf250b"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/proxies.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "07e81b3773637bbbd06acc8e8ada8327af2cb8591614cab01b16b790f718e63f"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/proxy_pool.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "fcb4d7f2b94aa31b429d8aac57bff6ea796fb6f02d86e6a1c3b86c00f50b822f"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/proxy_rotate.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "d8bbb8799a7d36fe516eabba77bf5139d732d1fb0d59da337386e4284714e1f7"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/sub_kernel/mod.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "62ae84b5206a5bd245eb0b615e34751e2c4ac2de07ffd4f2c4bd5fd91b09b666"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/sub_kernel/runtime.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "e581861ace2f551fa01ac4ceff2a540b7aa6721438b948feb47730a64c85146d"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/subscriptions.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "bf8b879641e2769eadead087bda7f940c71f510d2a8301f4d864b7b90c00e3cc"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/provider_loop.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "94abc058127c1c8b05de50ca6a682af97e1dbf39203f4588a0f2d6d034ed69c8"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/usage_query.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "78e67873a6e82e5200c443073263b960dd8e1033cc579e6e79af10601787c7a1"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/http.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "4476561c3c6a385828482760759020eb52b4762bbfd07ab116fa3859ce615a6a"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/mod.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "e089a44c51df1b0a7a41f31945bc9a78b8c0d56210b0e39ca9f0b1e71f83fda2"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/request_stats.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "保留本地保留策略与历史数据，接入别名、助手真实用量及来源筛选",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "6887edbf9d7b95f7a810102e4eba459623ada7885f710c2995daaffe5dce4d5e"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/request_stats/daily.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "保留本地保留策略与历史数据，接入别名、助手真实用量及来源筛选",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "291564780571cd7a43fbc815adc811b491796fffb60c2cbd5d4f54efda963cc9"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/request_stats/record.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "保留本地保留策略与历史数据，接入别名、助手真实用量及来源筛选",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "719f5ffe17fc6940bfd74502f9b5cbd145d254223fa253efb11a35db932f8319"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/request_stats/sql.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "保留本地保留策略与历史数据，接入别名、助手真实用量及来源筛选",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "1386828e1f1eb14de5ae23ae186d6363c019e6f902cf0174248897e524dd941e"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/web_shim.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "1ef53dd29dac8a423e4ca6a8744327b68f0547f46459741b0dac765241a3d2a2"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/src/bridge.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "b0780c9273634a71c2543b0cc5ef8a04d9da5d6d18447d3e20f07c22cdb6ab90"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/tauri.conf.json",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "fd02b7acac29322c30ea62bbe2a193fae81f936193d659cad56f97c2049fb046"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-dialogs.tsx",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "3edb4806bc3a3eca225a47ac637677b087f96b0bfdbfe3e4f3f4f7fd01ea6a88"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-domain.ts",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "f14a8e2816910a8c27c3a90cfd845da8004645f2228640838d55207246261341"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-panels.tsx",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "6e01c4aa289c28a03b855849cde2a0b0667198cf3b9330a5c7590a81c08ae1e9"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-shared.ts",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "886404f97b8d25ef2563afb0d6d719042d9ba1720c527062e426136c83894f73"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-account-bridge.ts",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "37673c42c40ac5a6d8733387afe9230e9ca0901652805cc610e8f45af6740490"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-account-configs.ts",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "043d57b624d2700e11b77b3a375ec654bb0868f096d1e1ea02bd3d4df63d70a5"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-account-modal.tsx",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "650c5023d92df007a1de6418a728cf44115f18e90edeb9f7c0e25175bbff0cf9"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-custom-provider.tsx",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "cca266be2eb33078a1de0722a0069897cd40554bfdc66bcedaea1eb3e381c968"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-provider-pick.tsx",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "91793f15f0a1bd6ac12338c9583ca0797de5b71ef72be5cab5cd9b18a0fd11d2"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/assistant-page.tsx",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按用户选择启用，并适配权限、统计与本地组件",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "a4520ee58eb1a7f61379998a0d7d2989270ec543a3a205dd4660a03cff573221"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/assistant-settings-pane.tsx",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按用户选择启用，并适配权限、统计与本地组件",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "a4aa9292c012d729a6df526e59033c8315f88a2175a0bb8372dafac75b08c1ba"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/assistant-state.ts",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按用户选择启用，并适配权限、统计与本地组件",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "edf9f3dab3e82ac87ce0d9f02fa968d461958ace118466f2ee530453771f9da7"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/assistant-tools.ts",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按用户选择启用，并适配权限、统计与本地组件",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "6c574f5f861adfaea011abf1c50b2563bcfdcfa11274687dc6286b176f13825b"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/balance-query.tsx",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "190132cfa51881b3b74a5a65210cd4702bd8be84ac39925e9c8e6bf1f71114fa"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/proxies-page.tsx",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "940da15ebb0124618ee0bb588d56e982c8c04f7807e352ecb4dd5eb960f177de"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/proxies-state.ts",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "7cc3133d3f1beb4945fca9136fd15ad556ce9f55fb6e3dc7aee860b045da3d22"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/proxies-sub-state.ts",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "234e4c5f60cf182f110722d3266e12303df772e32baf31437611b5a65f383440"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/proxies-sub-view.tsx",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "d1109bb03566cd8937e8458c11b9b983ad64d5f6a6d9dcbcf1e3a4541bbd6e9f"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/report-charts.ts",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "a30dda45db06459901d18b75fb5546d49043a0551a3005148374aacfb7511d3c"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/report-page.tsx",
+      "status": "text-conflict",
+      "resolution": "retain-local",
+      "reason": "保留 shadcn Charts；日柱密集标签在 report-chart-components.tsx 移植",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "3b40b74410d6ce9e0bb315530e9c18eba7e220d723539b92fa7ef124c6da59cf"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/settings-model.ts",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "保留本地完整 shadcn 设置、备份与通知，接入助手和保留期兼容",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "0800e73af614d73ace04a3854eadecf7e511ed8f0ea4978de42cdf39fb94c4aa"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/settings-page.tsx",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "保留本地完整 shadcn 设置、备份与通知，接入助手和保留期兼容",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "029caab5da63f6efb87359df2ac410e077f6ac6ee842a38e3a51cd2d766adc0a"
+    },
+    {
+      "path": "desktop-tauri/ui-kit/src/select.tsx",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "f6e3ca21d05ddb02e8f99659ef97538ac057ab581d77a9f160e1bd2807846bf9"
+    },
+    {
+      "path": "desktop-tauri/ui/app.js",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "bb00721003fdb11345a473a0bf73c63ab5bd6118b52fd6d9f8e7bc6bd82c1d13"
+    },
+    {
+      "path": "desktop-tauri/ui/assets/providers/newapi.png",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "349cf37f74477aa10cb3ec097a2896b01bcc75dbc8b4dc353ab7dc69532a6acf"
+    },
+    {
+      "path": "desktop-tauri/ui/assets/providers/ollama-local.png",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "44c821f33100fc310e7eadf9774233df0708994e0cf1c720a3858893a8e094ed"
+    },
+    {
+      "path": "desktop-tauri/ui/assets/providers/sensenova.png",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "f887d9fd902297b70476d4283af9d3f0339bfdadb6972e6cf80387338f6533b1"
+    },
+    {
+      "path": "desktop-tauri/ui/assets/providers/sub2api.png",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "61a5f009035b483755b404c73f46db3473bd648b9c47917001509db5d20ef979"
+    },
+    {
+      "path": "desktop-tauri/ui/css/page-accounts-providers.css",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "0d590e4ab4865cdae15c3cc1f0a7fa7120023d4359c761e7b24a48569f03fbd7"
+    },
+    {
+      "path": "desktop-tauri/ui/css/page-accounts-table.css",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "8835ea9916daede3e813839b0287bddbc5aede52a3a1cd6424e87668c182e256"
+    },
+    {
+      "path": "desktop-tauri/ui/css/page-assistant.css",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按用户选择启用，并适配权限、统计与本地组件",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "c7939c6999018b5e6d88c9a32402a99f3d7beb73c4959aff8bbe3b4f6b37be92"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/accounts.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "457be3e444be00ae141e50d2d8718e83ff7074fc8f99ffb38d56ad3fd6d0a942"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/add-account.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "aae03f232b96557bf0fff6c50ee8ba1e5d1ee75c82644a37900b0b05081ecff8"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/assistant.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "bb9d408402f4cea2efe76997a20a6e8b0cd00a602c36949828d1a8c4b58a3a3c"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/common.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "69b4ae03a15c7a699a2f7b18603a84c62ddbb1a19dff5948b8f3dcc22e2e8f5b"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/proxies.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "f93b89012c8baa2682f33c91551a2304d04f49a3185c85ca56f00ee2bd08347f"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/settings.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "35f536e0be05de3e98be720456e315d7c44c5a217908c85a198c3d93e256b293"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/accounts.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "e30a3b7d2790a9e9f80eebd03ca2b72088b4dec51652117d36ed2031372202e9"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/add-account.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "f6b758bfc049210f9807b821e360c952a9ae356a8f674f45347e26a06711afc8"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/assistant.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "bdb62e0879c4dd061f842f585a034c381b641c8ac88acdd7b26cc0167e34407a"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/common.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "c667443b094ef6d462e17fcec84e374e25e975d642880d8634bbb0f9350c16fd"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/proxies.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "79e70e7837fdc42d5730682bb84f536c68c8a698bcb091817b6d4e9542734d20"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/accounts.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "15e7859579ab8c245e48f8288e04455d836f70acc68ebf9ec958660bd4b30558"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/add-account.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "2c37d747324efa435483c12be50dae407e8ac306a6afc9f241e9af1b8173b530"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/assistant.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "d868ab5c4e98999b1adc307a19c0624b3a148f9ed4b326380decf4820f0dade3"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/common.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "920b34673068a048854a75d3e6199edb6fb93ab22b1445a65dca926fa7e87c6b"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/proxies.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "b86314410405f2de509aa98218b82e443a002ca8f5c33e02f4aeac06eb0e985c"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/manifest.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "3b4ac612c97b7be097b7336d512bad6d4d1ec186b66d6ee8f1e6fd2c136eaf76"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/accounts.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "d6ef1f2bd1c17b525860af886ea7227b31982e739a5c914ea3fa2a09e84d6921"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/add-account.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "f877a562effd3b699e5882658424b26d8b427ec924bd93f44816be3d8c0eb4df"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/assistant.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "2a2add81839d54a05fb8acd53ab1b8dc1d991307e1333090b2f4ef176abe5343"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/common.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "a4bbf8f889f03a4deefbdd9207247f02ae10119b5ad605bd3994b2b9651e2bba"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/proxies.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "dc39d818712ff693553053ce134f346ded60bd2efccce2ab804baa7d83f46065"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/accounts.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "6d2604ea530ac0bef87c4a3c8e17a9e9c32bcd48ca6fee081561a43447d96b92"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/add-account.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "20364c33a7b75c534d49d62b00ff9f48aa369bd57177c6c420e5be5a76f7e003"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/assistant.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "20841e9aa950549ed05cf2f36524278c22e9e185f06e6184554e2935232b6226"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/common.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "3deaeb5d02738f0abde7c7e5554179ccfe942cac1f8cdbdc328588ed7a8dc883"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/proxies.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "57d6485493641881f0d13731a488131681a4b576170cdea1c969b4b20c8b9da8"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/settings.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "ca4de5bd34333eac8fe0bbb51a2625d0b52d4fef50cf9d0d44fb12af466c28f0"
+    },
+    {
+      "path": "desktop-tauri/ui/icons.js",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "0fd7c09dd2d37d07b86fadcc2714ca7f00e84f6e2840bdc2bf4fb554a56e3641"
+    },
+    {
+      "path": "desktop-tauri/ui/index.html",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "a722a64c139a603590b4cf5410202fd8aa439dcb4d311ff541d4b3c3cae98a4d"
+    },
+    {
+      "path": "desktop-tauri/ui/islands/ui.css",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "ea6d3a7dead4052a0cefc27080f5510acda94db7bd28673b2da0e31f5165f78a"
+    },
+    {
+      "path": "desktop-tauri/ui/islands/ui.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物",
+      "present": true,
+      "comparison": "adapted-or-regenerated",
+      "sha256": "e2c900e2c7d383748917001b05355bae167fb13c5749e5694676bda2b0dd0bc4"
+    },
+    {
+      "path": "desktop-tauri/ui/preset-providers.js",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "2366da9cb3a54b3859f0a5b82719b6efc0165fd86f691b5aec0d42f221a84563"
+    },
+    {
+      "path": "package.json",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查",
+      "present": true,
+      "comparison": "identical-upstream",
+      "sha256": "a9275000754a2e34a3b47a32bcfa043bfc8f08cf28e3e97628d550cdde14c064"
+    }
+  ],
+  "fixedDuringReview": [
+    "Reject stale SenseNova balance JWT writes after query username/password changes or deletion; cache not rebound to new identity",
+    "Upgrade regression now expects schema 16, removes pre-existing history table from old-version fixtures and covers v15 migration"
+  ],
+  "validation": {
+    "rust": {
+      "passed": 673,
+      "failed": 0,
+      "ignored": 7
+    },
+    "frontendSuites": 26,
+    "upstream306Checks": 51,
+    "assistantApiChecks": 69,
+    "upstream305MigrationAssertions": 171,
+    "accountHistory": "23 builtin providers and custom passed",
+    "securityBoundaries": "passed",
+    "legacyPortAssertions": 113,
+    "oauthEnvironmentAssertions": 37,
+    "releaseScriptScenarios": 19,
+    "privateGhcrTests": 13,
+    "frontendArtifacts": {
+      "checked": 93,
+      "changed": 0
+    },
+    "serverBuild": "passed",
+    "macDesktopCheck": "passed",
+    "uiKitTypecheck": "passed",
+    "shadcn": "passed",
+    "i18n": "passed"
+  },
+  "limits": [
+    "No new live provider calls; fixture tests only",
+    "No service restart during review; new backend cache guard activates on next restart",
+    "Windows/Linux installers and container matrix not rebuilt in this source submission",
+    "No Release or tag publication"
+  ],
+  "backup": "data/backups/pre-3.0.6-github-20261016-164143"
+}

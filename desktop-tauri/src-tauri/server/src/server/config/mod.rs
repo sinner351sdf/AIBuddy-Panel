@@ -65,10 +65,12 @@ use serde_json::{Map, Value};
 
 use crate::server::db::Db;
 
+mod assistant_config;
 pub(crate) mod parse;
 pub(crate) mod sql;
 mod types;
 
+pub use assistant_config::*;
 pub use types::*;
 
 use parse::*;
@@ -153,6 +155,11 @@ pub struct RuntimeConfig {
     /// 生效，不重启进程），解析一次存下来最省事。默认 `false`，见 `KEY_CORS_ENABLED`。
     /// 只作用于网关面，面板路由不受它影响。
     cors_enabled: bool,
+    /// AI 助手配置（设置页「AI 助手」分类：对话模型 / 系统提示词 / 工具勾选）。
+    ///
+    /// 与 `prompt` 同一模式：低频读取 + 整块进出（只有设置页与助手的对话入口取它），
+    /// 解析一次存下来即可。整块存在一个配置键下（见 `assistant_config` 模块头）。
+    assistant: AssistantConfig,
     /// 「丢弃保活换行分片」开关（`/api/keepalive-strip`，默认关）。
     ///
     /// 与 `sanitize_fingerprints` 同一理由：装配下发策略时每轮都要问一次，
@@ -530,6 +537,9 @@ fn build(raw: Map<String, Value>) -> RuntimeConfig {
             .get(KEY_CORS_ENABLED)
             .and_then(Value::as_bool)
             .unwrap_or(false),
+        // AI 助手配置：容忍度与 cline_upstream_headers 一致（逐项容错、
+        // 写坏不整块废掉），默认值口径见 assistant_config 模块头
+        assistant: assistant_config::from_raw(&raw),
         // 只有字面 `true` 算开启：**默认关**。与 debug_mode 同一取向（两者的
         // 代价都是「多做了一件界面没说清的事」），而与 sanitize_fingerprints
         // 相反（那个默认关会让新用户一上来就撞 400）。这里默认关的理由见
@@ -912,6 +922,28 @@ pub fn current() -> RuntimeConfig {
     build(Map::new())
 }
 
+/// 在配置读锁内跑一个**只读、短小**的闭包，只借出快照的 `raw` 表（**不克隆**）。
+///
+/// ── 为什么需要它（与上面各 `*_enabled` 轻量读取同一动机）──────
+/// `current()` 每次调用都会克隆整份 `raw`（含提示词全文那几百行）。有些读取
+/// 点只想要 `raw` 里的**一两个键**，却跑在热路径上：典型是账号列表构建时
+/// 按 provider 查一个自定义提供商记录里的方案字段（逐账号一次）。为它们付
+/// 整份克隆的代价没必要，而逐个键写一个 `*_of()` 访问器又会让本模块认识
+/// 别的模块的数据形状。
+///
+/// ── 闭包的约束（持有读锁，务必短小）────────────────────────
+/// 闭包执行期间配置的**读锁是持有的**：写侧 `update()` 会被它挡住。因此闭包里
+/// 只允许「取键、比较、拷出一两个值」这类纯内存动作 —— 不得做文件 / 网络 IO，
+/// 不得再获取任何其它锁（本进程有多个 RwLock，交叉持锁是死锁的经典配方）。
+///
+/// 未初始化时返回 `None`（与 `current()` 回落空配置不同：这里没有可借的表，
+/// 调用方按「查不到」处理）。
+pub fn with_raw<R>(reader: impl FnOnce(&Map<String, Value>) -> R) -> Option<R> {
+    let guard = CONFIG.read().ok()?;
+    let config = guard.as_ref()?;
+    Some(reader(config.raw()))
+}
+
 /// 只取网关面跨域访问开关的轻量读取（**不克隆整份 raw**）。
 ///
 /// 与 [`retention_settings`] 同一理由：这条判定在**每个 `/v1/*` 请求**上跑一次
@@ -928,6 +960,20 @@ pub fn cors_enabled() -> bool {
         }
     }
     false
+}
+
+/// 只取 AI 助手配置（**不克隆整份 raw**）。
+///
+/// 与 [`cors_enabled`] 同一理由：助手对话入口与设置页各取一次，而 `current()`
+/// 每次都会克隆整个 `raw` Map（含提示词全文那几百行）。未初始化（理论上只有
+/// 启动极早期）时给 [`AssistantConfig::default`]。
+pub fn assistant_config() -> AssistantConfig {
+    if let Ok(guard) = CONFIG.read() {
+        if let Some(config) = guard.as_ref() {
+            return config.assistant.clone();
+        }
+    }
+    AssistantConfig::default()
 }
 
 /// 只取保留期设置的轻量读取（**不克隆整份 raw**）。
@@ -1667,6 +1713,20 @@ pub fn set_cors_enabled(enabled: bool) -> bool {
             .raw
             .insert(KEY_CORS_ENABLED.to_string(), Value::Bool(enabled));
         config.cors_enabled = enabled;
+    })
+}
+
+/// 写入 AI 助手配置（整块替换）。
+///
+/// 与其它 setter 同一模式：内存快照立即生效（下一个对话请求就用新值），raw 底稿
+/// 一起改保证写盘不吃掉其它键。返回 `false` 只表示**落库失败**（本次运行内仍生效）。
+pub fn set_assistant_config(config: AssistantConfig) -> bool {
+    let value = config.to_value();
+    update(|current| {
+        current
+            .raw
+            .insert(KEY_ASSISTANT_CONFIG.to_string(), value);
+        current.assistant = config;
     })
 }
 

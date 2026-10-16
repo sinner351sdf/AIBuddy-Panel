@@ -12,9 +12,10 @@
   var HOME = 'overview';                   // 首页页签固定不可关
 
   // 与 app.js 的 PAGES 保持一致（那边是脚本内常量读不到，改动时两处同步）
-  var PAGES = ['overview', 'accounts', 'checkin', 'credits', 'gateway', 'proxies', 'keys', 'docs', 'logs', 'tasks', 'requests', 'settings'];
+  var PAGES = ['assistant', 'overview', 'accounts', 'checkin', 'credits', 'gateway', 'proxies', 'keys', 'docs', 'logs', 'tasks', 'requests', 'settings'];
   // 与 app.js 的 PAGE_LABELS 保持一致；优先取侧栏导航上的现成文案，取不到才退回这张表
   var LABELS = {
+    assistant: 'AI 助手',
     overview: '用量',
     accounts: '账号池',
     checkin: '任务中心',
@@ -32,6 +33,7 @@
   // 的 data-icon 逐字一致（docs 侧栏给的就是 logs 键，照抄不另造）。
   // 键不存在时 wbIcons.icon 返回空串，页签自动退回纯文字，不会留空壳。
   var PAGE_ICONS = {
+    assistant: 'spark',
     overview: 'overview',
     accounts: 'accounts',
     checkin: 'checkin',

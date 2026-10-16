@@ -1787,3 +1787,23 @@ mod session_lifecycle_tests {
         assert!(rotate_session(&cookie_header(&cookie_value(&issued))).is_some());
     }
 }
+
+/// Scoped native capability for the streaming assistant; never authorizes other management APIs.
+pub fn native_assistant_token() -> String { sha256_hex(&format!("{}:assistant", native_management_token())) }
+pub fn native_assistant_valid(headers: &HeaderMap) -> bool {
+    headers.get("x-agent2api-assistant").and_then(|h| h.to_str().ok())
+        .is_some_and(|value| !value.is_empty() && value == native_assistant_token())
+}
+
+#[cfg(test)]
+mod assistant_capability_tests {
+ use super::*;
+ #[test] fn assistant_capability_is_not_a_general_native_capability() {
+  let mut headers = HeaderMap::new();
+  headers.insert("x-agent2api-assistant", native_assistant_token().parse().unwrap());
+  assert!(native_assistant_valid(&headers));
+  assert!(!native_management_valid(&headers));
+  headers.insert("x-agent2api-assistant", "wrong".parse().unwrap());
+  assert!(!native_assistant_valid(&headers));
+ }
+}

@@ -901,3 +901,25 @@ impl RetentionBounds {
         }
     }
 }
+
+#[cfg(test)]
+mod assistant_regressions {
+    use super::*;
+    #[test]
+    fn assistant_real_usage_is_counted_and_source_filter_does_not_match_other_clients() {
+        let (db, _temp) = crate::server::db::test_temp::TempDb::open("assistant-real-usage");
+        let stats = RequestStats::with_db(Some(db), Retention::default);
+        for (id, client, test, tokens) in [("assistant", "AI 助手", false, 12000), ("external", "Codex", false, 3000), ("test", "AI 助手", true, 4000)] {
+            let mut row = NewRequestEntry::new("fixture-model", 200);
+            row.id = id.into(); row.client = client.into(); row.is_test = test;
+            row.prompt_tokens = tokens; row.total_tokens = tokens;
+            stats.record(row);
+        }
+        let filtered = stats.query_requests(&RequestQuery { client: Some("AI 助手".into()), ..Default::default() });
+        assert_eq!(filtered["matched"], 2);
+        let other = stats.query_requests(&RequestQuery { client: Some("Codex".into()), ..Default::default() });
+        assert_eq!(other["matched"], 1);
+        let summary = stats.usage_summary("all");
+        assert_eq!(summary["overview"]["tokens"], 15000, "assistant consumes real quota; model tests remain excluded");
+    }
+}

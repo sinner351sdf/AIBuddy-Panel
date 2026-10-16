@@ -795,6 +795,20 @@ mod safety_tests {
         assert!(value.is_none());
     }
     #[test]
+    fn compact_backup_preserves_assistant_history_and_attachments() {
+        let source = Connection::open_in_memory().unwrap();
+        schema::migrate(&source).unwrap();
+        let messages = r#"[{"id":"u","role":"user","parts":[{"type":"file","mediaType":"text/plain","url":"data:text/plain;base64,aGVsbG8="}]}]"#;
+        source.execute("INSERT INTO assistant_conversations(id,title,messages,bytes,created_at,updated_at) VALUES('chat','history',?1,?2,1,1)",rusqlite::params![messages,messages.len() as i64]).unwrap();
+        let sql = dump_sql(&source, LOG_TABLES).unwrap();
+        let target = Connection::open_in_memory().unwrap();
+        target.authorizer(Some(import_authorizer)).unwrap();
+        target.execute_batch(&sql).unwrap();
+        schema::migrate(&target).unwrap();
+        let restored:String=target.query_row("SELECT messages FROM assistant_conversations WHERE id='chat'",[],|row|row.get(0)).unwrap();
+        assert_eq!(restored,messages);
+    }
+    #[test]
     fn import_cannot_attach_files_or_change_dangerous_pragmas() {
         let target = Connection::open_in_memory().unwrap();
         target.authorizer(Some(import_authorizer)).unwrap();

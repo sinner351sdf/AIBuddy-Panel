@@ -1,0 +1,932 @@
+{
+  "localBase": "0528cb74e294ed7469a4e3da1425b5003835b6d2",
+  "upstreamBase": "5eadcf0d2f24c68a0c79645d29dcdffc8a83bd6e",
+  "upstreamTarget": "319f640e383150f85c9025b907e3b41b8b7565b1",
+  "paths": 152,
+  "summary": {
+    "auto-merge-review": 30,
+    "direct-apply": 51,
+    "text-conflict": 40,
+    "already-identical": 1,
+    "regenerate": 30
+  },
+  "inventory": [
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/accounts.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/add-account.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/assistant.json",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/common.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/proxies.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/settings.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/accounts.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/add-account.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/assistant.json",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/common.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/proxies.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/settings.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/accounts.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/add-account.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/assistant.json",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/common.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/proxies.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/settings.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/accounts.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/add-account.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/assistant.json",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/common.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/proxies.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/settings.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/accounts.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/add-account.json",
+      "status": "auto-merge-review",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/assistant.json",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/common.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/proxies.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/settings.json",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "按变更键合并翻译并保留本地键"
+    },
+    {
+      "path": "desktop-tauri/i18n/scan.mjs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务"
+    },
+    {
+      "path": "desktop-tauri/package.json",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/Cargo.lock",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/Cargo.toml",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/Cargo.toml",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/accounts.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/assistant.rs",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按用户选择启用，并适配权限、统计与本地组件"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/custom_providers.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/mod.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/pipeline.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/proxies.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/stats_api.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "保留本地保留策略与历史数据，接入别名、助手真实用量及来源筛选"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/subscriptions.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/update.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/config/assistant_config.rs",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按用户选择启用，并适配权限、统计与本地组件"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/config/mod.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/config/parse.rs",
+      "status": "already-identical",
+      "resolution": "identical",
+      "reason": "目标内容已存在"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/config/types.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "保留本地保留策略与历史数据，接入别名、助手真实用量及来源筛选"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/custom_accounts.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/store.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/store_crud.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/store_view.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/custom_providers.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/egress.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/mod.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/adapter.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/adapter.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/balance.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/endpoints.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/mod.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/models.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/project.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/autoclaw/checkin.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/autoclaw/mod.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/autoclaw/promotion.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/custom/balance.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/custom/balance_parse.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/custom/forward.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/custom/mod.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/custom/sensenova_auth.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/proxies.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/proxy_pool.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/proxy_rotate.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/sub_kernel/mod.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/sub_kernel/runtime.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/subscriptions.rs",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/provider_loop.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/usage_query.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/http.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/mod.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/request_stats.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "保留本地保留策略与历史数据，接入别名、助手真实用量及来源筛选"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/request_stats/daily.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "保留本地保留策略与历史数据，接入别名、助手真实用量及来源筛选"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/request_stats/record.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "保留本地保留策略与历史数据，接入别名、助手真实用量及来源筛选"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/request_stats/sql.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "保留本地保留策略与历史数据，接入别名、助手真实用量及来源筛选"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/web_shim.rs",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/src/bridge.rs",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/tauri.conf.json",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-dialogs.tsx",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-domain.ts",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-panels.tsx",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-shared.ts",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-account-bridge.ts",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-account-configs.ts",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-account-modal.tsx",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-custom-provider.tsx",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-provider-pick.tsx",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/assistant-page.tsx",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按用户选择启用，并适配权限、统计与本地组件"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/assistant-settings-pane.tsx",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按用户选择启用，并适配权限、统计与本地组件"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/assistant-state.ts",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按用户选择启用，并适配权限、统计与本地组件"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/assistant-tools.ts",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按用户选择启用，并适配权限、统计与本地组件"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/balance-query.tsx",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/proxies-page.tsx",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/proxies-state.ts",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/proxies-sub-state.ts",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/proxies-sub-view.tsx",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/report-charts.ts",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/report-page.tsx",
+      "status": "text-conflict",
+      "resolution": "retain-local",
+      "reason": "保留 shadcn Charts；日柱密集标签在 report-chart-components.tsx 移植"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/settings-model.ts",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "保留本地完整 shadcn 设置、备份与通知，接入助手和保留期兼容"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/settings-page.tsx",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "保留本地完整 shadcn 设置、备份与通知，接入助手和保留期兼容"
+    },
+    {
+      "path": "desktop-tauri/ui-kit/src/select.tsx",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/ui/app.js",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务"
+    },
+    {
+      "path": "desktop-tauri/ui/assets/providers/newapi.png",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/ui/assets/providers/ollama-local.png",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/ui/assets/providers/sensenova.png",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/ui/assets/providers/sub2api.png",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/ui/css/page-accounts-providers.css",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/ui/css/page-accounts-table.css",
+      "status": "auto-merge-review",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "desktop-tauri/ui/css/page-assistant.css",
+      "status": "direct-apply",
+      "resolution": "adapt",
+      "reason": "按用户选择启用，并适配权限、统计与本地组件"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/accounts.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/add-account.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/assistant.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/common.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/proxies.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/settings.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/accounts.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/add-account.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/assistant.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/common.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/proxies.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/accounts.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/add-account.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/assistant.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/common.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/proxies.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/manifest.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/accounts.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/add-account.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/assistant.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/common.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/proxies.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/accounts.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/add-account.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/assistant.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/common.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/proxies.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/settings.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/icons.js",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务"
+    },
+    {
+      "path": "desktop-tauri/ui/index.html",
+      "status": "text-conflict",
+      "resolution": "adapt",
+      "reason": "三方逐段适配；保留本地权限、事务、组件与品牌，纳入新业务"
+    },
+    {
+      "path": "desktop-tauri/ui/islands/ui.css",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/islands/ui.js",
+      "status": "regenerate",
+      "resolution": "regenerate",
+      "reason": "从整合后的源码重建词典或前端产物"
+    },
+    {
+      "path": "desktop-tauri/ui/preset-providers.js",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    },
+    {
+      "path": "package.json",
+      "status": "direct-apply",
+      "resolution": "apply-and-review",
+      "reason": "应用固定上游增量，编译与专项回归检查"
+    }
+  ],
+  "userDecisions": {
+    "assistant": "full; readonly defaults; per-action confirmation",
+    "usage": "real usage; assistant source filter",
+    "retention": "preserve local values/defaults; accept upstream aliases"
+  }
+}

@@ -215,6 +215,7 @@ pub async fn stats_requests(State(state): State<ServerState>, Query(params): Que
 /// 那批」「预览的 N 条」必须是同一个集合）。
 fn filter_from_params(params: &Params) -> RequestQuery {
     RequestQuery {
+        client: text_of(params, "client"),
         offset: parse_offset(params.get("offset")),
         limit: parse_limit(params.get("limit")),
         // 模型名精确匹配；空串（输入框清空）当没筛
@@ -272,7 +273,7 @@ pub async fn clear_stats_requests(
         }
     };
     let filter = filter_from_params(&params);
-    let has_filters = filter.model.is_some()
+    let has_filters = filter.client.is_some() || filter.model.is_some()
         || filter.provider.is_some()
         || filter.status.is_some()
         || filter.start.is_some()
@@ -432,6 +433,12 @@ pub async fn put_retention(State(state): State<ServerState>, body: Bytes) -> Res
         return errors::management_error(400, "请求体必须是 JSON 对象");
     };
 
+    // Both local and upstream 3.0.6 field names are supported, but contradictory values are rejected.
+    for (local, alias) in [(KEY_REQUEST_RETENTION_DAYS, "requestLogRetentionDays"), (KEY_DAILY_RETENTION_DAYS, "dailyAggregateRetentionDays")] {
+        if let (Some(a), Some(b)) = (object.get(local), object.get(alias)) {
+            if a != b { return errors::management_error(400, format!("{local} 与 {alias} 的值不一致")); }
+        }
+    }
     // ── 校验：全部先过一遍再写盘 ──────────────────────────────
     // 为什么先收集再写：三项里有一项非法时整体不落盘，避免出现
     // 「日志天数改了、明细天数没改」的半套设置（用户以为保存失败，实际生效了一半）
@@ -440,12 +447,12 @@ pub async fn put_retention(State(state): State<ServerState>, body: Bytes) -> Res
         (KEY_LOG_RETENTION_DAYS, object.get(KEY_LOG_RETENTION_DAYS), &mut patch.log_days),
         (
             KEY_REQUEST_RETENTION_DAYS,
-            object.get(KEY_REQUEST_RETENTION_DAYS),
+            object.get(KEY_REQUEST_RETENTION_DAYS).or_else(|| object.get("requestLogRetentionDays")),
             &mut patch.request_days,
         ),
         (
             KEY_DAILY_RETENTION_DAYS,
-            object.get(KEY_DAILY_RETENTION_DAYS),
+            object.get(KEY_DAILY_RETENTION_DAYS).or_else(|| object.get("dailyAggregateRetentionDays")),
             &mut patch.daily_days,
         ),
     ];
@@ -512,7 +519,9 @@ fn retention_json(settings: RetentionSettings) -> Value {
     json!({
         KEY_LOG_RETENTION_DAYS: settings.log_days,
         KEY_REQUEST_RETENTION_DAYS: settings.request_days,
+        "requestLogRetentionDays": settings.request_days,
         KEY_DAILY_RETENTION_DAYS: settings.daily_days,
+        "dailyAggregateRetentionDays": settings.daily_days,
     })
 }
 

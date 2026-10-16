@@ -1,3 +1,4 @@
+import { AssistantSettingsPane } from './assistant-settings-pane'
 import { Alert, AlertDescription } from '@ui'
 import { NavItem } from '@ui'
 import { InfoTip } from '../components/info-tip'
@@ -4974,6 +4975,7 @@ function SettingsPage() {
       </nav>
 
       <div className='settings-panes' ref={panesRef}>
+        <div className={paneClass('assistant')} data-cat='assistant'><AssistantSettingsPane /></div>
         <div className={paneClass('general')} data-cat='general'>
           <GeneralPane snap={snap} />
         </div>

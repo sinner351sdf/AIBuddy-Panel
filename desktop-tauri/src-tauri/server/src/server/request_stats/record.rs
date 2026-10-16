@@ -89,8 +89,8 @@ impl Retention {
     /// 上限 10 年（防手改 config.json 写个天文数字让裁剪逻辑空转）
     pub(super) fn normalized(self) -> Self {
         Self {
-            request_days: self.request_days.clamp(1, 3650),
-            daily_days: self.daily_days.clamp(1, 3650),
+            request_days: self.request_days.clamp(crate::server::config::RETENTION_MIN_DAYS, crate::server::config::RETENTION_MAX_DAYS),
+            daily_days: self.daily_days.clamp(crate::server::config::RETENTION_MIN_DAYS, crate::server::config::RETENTION_MAX_DAYS),
         }
     }
 }
@@ -835,6 +835,7 @@ pub struct AccountAccum {
 /// 路由 `/api/stats/requests` 的查询串解析结果（见 `api::stats_api`）
 #[derive(Clone, Debug, Default)]
 pub struct RequestQuery {
+    pub client: Option<String>,
     pub offset: usize,
     /// 默认 `DEFAULT_LIMIT`，夹在 `[1, MAX_LIMIT]`
     pub limit: Option<usize>,

@@ -7,6 +7,7 @@ fn fixtures(node: &str, ports: [u16; 2]) -> (Vec<ProviderInput>, Vec<NodeTarget>
             id: id.into(),
             name: id.into(),
             url: "https://example.invalid/sub".into(),
+            content: String::new(),
         })
         .collect();
     let targets = providers
@@ -27,7 +28,7 @@ fn listeners_use_exact_provider_scoped_definitions() {
     let node = "🇯🇵 日本 [S01].+ | IEPL (x2)";
     let (providers, targets) = fixtures(node, [19101, 19102]);
     let config: Value =
-        serde_yaml::from_str(&build_config(&providers, 19090, "fixture", &targets, &test_definitions(&targets, &[12341, 12342])).unwrap())
+        serde_yaml::from_str(&build_config(&providers, 19090, "fixture", 19080, &targets, &test_definitions(&targets, &[12341, 12342])).unwrap())
             .unwrap();
     assert_ne!(
         config["listeners"][0]["proxy"],
@@ -41,8 +42,8 @@ fn listeners_use_exact_provider_scoped_definitions() {
     }
     let (_, mut with_missing) = fixtures(node, [19101, 19102]);
     with_missing.push(NodeTarget { provider_id: "a".into(), sub_name: "a".into(), node: "missing".into(), port: Some(19103) });
-    let safe: Value = serde_yaml::from_str(&build_config(&providers, 19090, "fixture", &with_missing, &test_definitions(&targets, &[12341, 12342])).unwrap()).unwrap();
-    assert_eq!(safe["listeners"].as_array().unwrap().len(), 2, "unknown nodes must not fall back to direct");
+    let safe: Value = serde_yaml::from_str(&build_config(&providers, 19090, "fixture", 19080, &with_missing, &test_definitions(&targets, &[12341, 12342])).unwrap()).unwrap();
+    assert_eq!(safe["listeners"].as_array().unwrap().len(), 3, "unknown nodes must not fall back to direct");
 
 }
 
@@ -95,7 +96,7 @@ async fn real_kernel_routes_same_named_nodes_to_their_own_provider() {
         }));
     }
     // 持有三个临时端口以避免分配阶段重复，启动子进程前才释放。
-    let reserved: Vec<_> = (0..4)
+    let reserved: Vec<_> = (0..5)
         .map(|_| TcpListener::bind("127.0.0.1:0").unwrap())
         .collect();
     let ports: Vec<_> = reserved
@@ -111,7 +112,7 @@ async fn real_kernel_routes_same_named_nodes_to_their_own_provider() {
         port: Some(ports[3]),
     });
     let mut config: Value = serde_yaml::from_str(
-        &build_config(&providers, ports[0], "fixture-secret", &targets, &test_definitions(&targets[..2], &upstream_ports)).unwrap(),
+        &build_config(&providers, ports[0], "fixture-secret", ports[4], &targets, &test_definitions(&targets[..2], &upstream_ports)).unwrap(),
     )
     .unwrap();
     config["log-level"] = json!("debug");
@@ -164,7 +165,7 @@ async fn real_kernel_routes_same_named_nodes_to_their_own_provider() {
     let registry = controller_get(ports[0], "fixture-secret", "/proxies")
         .await
         .unwrap();
-    assert_eq!(config["listeners"].as_array().unwrap().len(), 2);
+    assert_eq!(config["listeners"].as_array().unwrap().len(), 3);
     for (index, expected) in ["provider-a", "provider-b"].into_iter().enumerate() {
         let alias = config["listeners"][index]["proxy"].as_str().unwrap();
         assert_eq!(registry["proxies"][alias]["name"], alias);
@@ -175,13 +176,18 @@ async fn real_kernel_routes_same_named_nodes_to_their_own_provider() {
             .build()
             .unwrap();
         let response = client.get("http://127.0.0.1:9/test").send().await.unwrap();
-        assert!(
-            response.status().is_success(),
-            "proxy response: {}",
-            response.status()
-        );
+        let status = response.status();
         let body = response.text().await.unwrap();
+        assert!(status.is_success(), "proxy response: {status}: {body}");
         assert_eq!(body, expected, "listener routed to the wrong provider");
+    }
+    // A single test listener follows the controller selection, without allocating node ports.
+    for (provider, expected) in [("a", "provider-a"), ("b", "provider-b"), ("a", "provider-a")] {
+        controller_put_json(ports[0], "fixture-secret", &format!("/proxies/{TEST_GROUP_NAME}"), &json!({"name":node_alias(provider,node)})).await.unwrap();
+        let client = reqwest::Client::builder().no_proxy()
+            .proxy(reqwest::Proxy::http(format!("http://127.0.0.1:{}", ports[4])).unwrap())
+            .timeout(Duration::from_secs(5)).build().unwrap();
+        assert_eq!(client.get("http://127.0.0.1:9/unified-test").send().await.unwrap().text().await.unwrap(), expected);
     }
     child.kill().await.unwrap();
     for task in upstream_tasks {

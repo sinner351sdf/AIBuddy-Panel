@@ -85,3 +85,9 @@ function modelBreakdown(models: StatsSlice[] | undefined): string {
   return '\n' + [...models].sort((a, b) => chartNumber(b.tokens) - chartNumber(a.tokens))
     .map(model => `${model.label || model.model || t('未知模型')} · ${formatTokens(model.tokens)} tokens`).join('\n')
 }
+
+/** Dense daily ranges use upright-rotated readings; extremely dense ranges keep peaks only. */
+export function dailyLabelLayout(values: number[], width: number) {
+  const slot = Math.max(1, width - 80) / Math.max(1, values.length)
+  return { rotate: slot < 60 && slot >= 14, indices: slot >= 14 ? new Set(values.map((_, index) => index)) : chartLabelIndices(values, width) }
+}

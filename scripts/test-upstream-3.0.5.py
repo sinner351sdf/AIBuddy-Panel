@@ -113,19 +113,21 @@ with tempfile.TemporaryDirectory(prefix='a2a-305-integration-') as tmp:
         (f.home/'account.key').write_bytes(original_key)
         # Both lineages use versions 12/13 for different content. Probe real tables and
         # columns, retain old bodies/tasks/settings, repeat startup and inspect snapshots.
-        for version,lineage in [(11,'local'),(12,'local'),(13,'local'),(12,'upstream'),(13,'upstream'),(14,'upstream')]:
+        for version,lineage in [(11,'local'),(12,'local'),(13,'local'),(12,'upstream'),(13,'upstream'),(14,'upstream'),(15,'local')]:
             g=Fixture(root/f'{lineage}-{version}')
             try:
                 shutil.copy2(seed,g.home/'agent2api.db');(g.home/'config.json').unlink();(g.home/'account.key').write_bytes(original_key)
                 with sqlite3.connect(g.home/'agent2api.db') as db:
+                    db.execute('DROP TABLE assistant_conversations')
                     if lineage=='upstream':
                         for name in ['insert','update_old','update_new','delete']:db.execute(f'DROP TRIGGER IF EXISTS account_history_{name}')
                         for table in ['account_history','task_run_items','task_runs']:db.execute(f'DROP TABLE {table}')
-                    if lineage=='local' or version<12:db.execute('ALTER TABLE requests DROP COLUMN client')
+                    if (lineage=='local' and version<14) or version<12:db.execute('ALTER TABLE requests DROP COLUMN client')
                     db.execute(f'PRAGMA user_version={version}')
                 g.start();g.login();g.req('/api/task-records');g.req('/api/stats/summary?range=all');g.stop()
                 with sqlite3.connect(g.home/'agent2api.db') as db:
-                    check(db.execute('PRAGMA user_version').fetchone()[0]==15,'schema did not migrate')
+                    check(db.execute('PRAGMA user_version').fetchone()[0]==16,'schema did not migrate')
+                    check(db.execute('SELECT COUNT(*) FROM assistant_conversations').fetchone()[0]==0,'assistant history table missing')
                     check(db.execute('SELECT request_body FROM request_raw').fetchone()[0]=='old body','migration deleted body')
                     check(db.execute('SELECT total_tokens FROM requests').fetchone()[0]==1000,'migration changed tokens')
                     check(db.execute("SELECT value FROM kv WHERE key='logRetentionDays'").fetchone()[0]=='42','retention overwritten')
@@ -161,7 +163,7 @@ with tempfile.TemporaryDirectory(prefix='a2a-305-integration-') as tmp:
                 db.execute('DROP TRIGGER fixture_interrupt')
             g.start();g.login();g.req('/api/task-records');g.stop()
             with sqlite3.connect(g.home/'agent2api.db') as db:
-                check(db.execute('PRAGMA user_version').fetchone()[0]==15,'migration did not resume')
+                check(db.execute('PRAGMA user_version').fetchone()[0]==16,'migration did not resume')
                 check(db.execute('SELECT total_tokens FROM requests').fetchone()[0]==1000,'resumed migration changed totals')
                 check(db.execute('SELECT edition FROM account_history').fetchone()[0]=='intl','resumed migration lost history')
         finally:g.stop()

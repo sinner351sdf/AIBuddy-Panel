@@ -222,8 +222,8 @@ const ALL_STATUS_LABEL = t('全部状态')
 const ALL_PROVIDER_LABEL = t('全部提供商')
 const ALL_MODEL_LABEL = t('全部模型')
 
-type Filters = { status: string; provider: string; model: string }
-const DEFAULT_FILTERS: Filters = { status: '', provider: '', model: '' }
+type Filters = { status: string; provider: string; model: string; client: string }
+const DEFAULT_FILTERS: Filters = { status: '', provider: '', model: '', client: '' }
 
 /** 时间档位对应的毫秒下界（闭区间起点） */
 function midnight(date: Date): number {
@@ -340,6 +340,7 @@ function persistFilters(filters: Filters): void {
   savedFilters = { ...filters }
   shared().wbFilterMemory?.save(FILTERS_KEY, {
     status: filters.status || '',
+    client: filters.client || '',
     provider: filters.provider || '',
     model: filters.model || '',
   })
@@ -364,6 +365,7 @@ function filterParams(): URLSearchParams {
   const status = current.runningOnly ? 'running' : current.filters.status
   if (status) params.set('status', status)
   if (current.filters.provider) params.set('provider', current.filters.provider)
+  if (current.filters.client) params.set('client', current.filters.client)
   if (current.filters.model) params.set('model', current.filters.model)
   return params
 }
@@ -1257,6 +1259,13 @@ function RequestsPage() {
                 ))}
               </SelectGroup>
             </SelectContent>
+          </Select>
+          <Select value={filters.client || ''} onValueChange={value => onSelectChange({ client: String(value || '') })}>
+            <SelectTrigger aria-label={t('请求来源')}><SelectValue>{filters.client || t('全部来源')}</SelectValue></SelectTrigger>
+            <SelectContent><SelectGroup>
+              <SelectItem value=''>{t('全部来源')}</SelectItem>
+              <SelectItem value='AI 助手'>{t('AI 助手')}</SelectItem>
+            </SelectGroup></SelectContent>
           </Select>
           <Select value={filters.provider}
             onValueChange={next => onSelectChange({ provider: String(next ?? '') })}>

@@ -2,7 +2,7 @@ import * as React from 'react'
 import { Area, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Label, LabelList, Line, Pie, PieChart, XAxis, YAxis } from 'recharts'
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, Popover, PopoverContent, PopoverTrigger, type ChartConfig } from '@ui'
 import { axisMax, axisText, formatTokens, hourText, type StatsDay, type StatsGroup, type StatsHour } from './report-charts'
-import { cacheChartData, chartLabelIndices, chartNumber, dailyChartData, donutChartData, rankChartData } from './report-chart-data'
+import { cacheChartData, chartLabelIndices, chartNumber, dailyChartData, dailyLabelLayout, donutChartData, rankChartData } from './report-chart-data'
 import { t } from '../i18n'
 
 function useChartWidth() {
@@ -212,7 +212,8 @@ export function DailyTokensChart({ series }: { series: StatsDay[] }) {
   const [ref, width] = useChartWidth()
   const rows = useStableChartRows(dailyChartData(series))
   const max = axisMax(Math.max(0, ...rows.map(row => row.tokens)))
-  const labels = chartLabelIndices(rows.map(row => row.tokens), width)
+  const layout = dailyLabelLayout(rows.map(row => row.tokens), width)
+  const labels = layout.indices
   const data = rows.map((row, index) => ({ ...row, valueLabel: labels.has(index) && row.tokens > 0 ? formatTokens(row.tokens) : '' }))
   return <div ref={ref} data-report-chart='daily'>
     {!rows.some(row => row.tokens > 0) ? <p className='text-center text-muted-foreground'>{t('所选范围内暂无 Token 用量')}</p> : null}
@@ -225,7 +226,7 @@ export function DailyTokensChart({ series }: { series: StatsDay[] }) {
         <YAxis domain={[0, max]} ticks={ticks(max)} tickFormatter={value => axisText(value, max)} tickLine={false} axisLine={false} width={60} />
         <ReportChartTooltip compact={width < 400} suppressed={suppressed} />
         <Bar dataKey='tokens' fill='var(--color-tokens)' radius={[4, 4, 0, 0]} isAnimationActive={false}>
-          <LabelList dataKey='valueLabel' position='top' offset={10} fill='var(--foreground)' fontSize={11} />
+          <LabelList dataKey='valueLabel' position='top' offset={10} angle={layout.rotate ? -90 : 0} fill='var(--foreground)' fontSize={11} />
         </Bar>
       </BarChart>
     </ChartContainer>

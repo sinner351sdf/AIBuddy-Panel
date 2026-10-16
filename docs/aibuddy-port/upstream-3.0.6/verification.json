@@ -1,0 +1,293 @@
+{
+  "localBase": "0528cb74e294ed7469a4e3da1425b5003835b6d2",
+  "upstream": "319f640e383150f85c9025b907e3b41b8b7565b1",
+  "rust": {
+    "passed": 660,
+    "failed": 0,
+    "ignored": 7
+  },
+  "frontendSuites": {
+    "passed": 26,
+    "failed": 0
+  },
+  "interfaceAssertions": 51,
+  "priorUpgradeAssertions": 148,
+  "portBaselineAssertions": 113,
+  "releaseScriptScenarios": 19,
+  "realKernelLocalFixture": "passed: provider-scoped duplicate names and unified listener selection",
+  "artifactConsistency": {
+    "files": 93,
+    "byteIdenticalRebuild": true
+  },
+  "desktopCargoCheck": "passed on macOS",
+  "browser": {
+    "light": true,
+    "dark": true,
+    "mobileWidth": 390,
+    "mobileHorizontalOverflow": false,
+    "syntheticChat": true,
+    "assistantSettings": true,
+    "tabs": true
+  },
+  "syntheticAcceptance": {
+    "realProviderTraffic": false
+  },
+  "deployment": {
+    "port": 3065,
+    "pid": 69597,
+    "version": "3.0.6",
+    "health": "ok",
+    "liveDataPreserved": true,
+    "browserSession": "authenticated; live page checks passed",
+    "liveBrowser": {
+      "version": "3.0.6",
+      "taskSchedules": true,
+      "taskRecords": 16,
+      "systemMaintenanceSeparate": true,
+      "assistantEnabledReadOnlyTools": 2,
+      "assistantDisabledMutationAndTestTools": 7,
+      "accounts": 11,
+      "gatewayKeys": 1,
+      "modelManagement": true,
+      "reportTokens": "1633.4万",
+      "historicalProviderAndRegionLabels": true,
+      "heatmap": true,
+      "accessDocumentHealth": true,
+      "creditsPage": true,
+      "proxyPool": 47,
+      "existingSubscriptionNodes": 46,
+      "newConsoleErrors": 0,
+      "startupWarning": "backend bridge unavailable during restart; did not recur during authenticated page checks",
+      "manualRealTaskOrRewardExecution": false,
+      "realModelCalls": false,
+      "balanceQueries": "existing credits page performs a read-only upstream balance refresh"
+    }
+  },
+  "published": false,
+  "currentProject": {
+    "backendBuild": "passed",
+    "frontendBuild": "passed",
+    "desktopCheck": "passed",
+    "assistantRegression": "passed",
+    "shadcnCheck": "passed",
+    "sourceMatchesIsolatedSnapshot": true,
+    "generatedAssetsMatchVerifiedHashes": true
+  },
+  "assistantMigration": {
+    "date": "2026-10-16",
+    "ai": "7.0.142",
+    "react": "4.0.146",
+    "runtime": "Rust gateway; no Node server",
+    "rust": {
+      "passed": 665,
+      "failed": 0,
+      "ignored": 7
+    },
+    "frontendSuites": 26,
+    "assistantInterfaceAssertions": 30,
+    "prior306InterfaceAssertions": 51,
+    "shadcn": "75 island files + 11 shell sources passed",
+    "frontendArtifacts": {
+      "files": 93,
+      "byteIdenticalRebuild": true,
+      "changed": []
+    },
+    "backendBuild": "passed",
+    "desktopSourceCheck": "macOS passed; native webview not exercised",
+    "browser": {
+      "syntheticRustStream": true,
+      "readOnlyContinuation": true,
+      "errorDoesNotExecuteTools": true,
+      "secondaryOriginModelPatchAndChat": true,
+      "liveAuthenticated3065": true,
+      "defaultEnabledTools": 2,
+      "mutationAndTestToolsDisabled": 7,
+      "settingsAndTaskCenter": true,
+      "taskRecords": 16,
+      "maintenanceSeparate": true,
+      "accounts": 11,
+      "models": true,
+      "proxyPool": 47,
+      "gatewayKeys": 1,
+      "reportsAndHeatmap": true,
+      "lightAndDark": true,
+      "mobileWidth": 390,
+      "mobileHorizontalOverflow": false,
+      "originalThemeAndViewportRestored": true,
+      "newConsoleErrors": 0,
+      "docsHealthAndModels": true,
+      "docsEngineVersion": "waiting: update status has not yet checked a release; existing behavior"
+    },
+    "cutover": {
+      "backup": "/Users/zaxe/Documents/ChatGPT/agent2api/data/backups/pre-ai-sdk-cutover-20261016-132823",
+      "pid": 58107,
+      "health": {
+        "status": "ok"
+      },
+      "beforeCounts": {
+        "accounts": 11,
+        "requests": 282,
+        "request_daily": 3,
+        "request_raw": 268,
+        "task_runs": 16,
+        "account_history": 12
+      },
+      "afterCounts": {
+        "accounts": 11,
+        "requests": 282,
+        "request_daily": 3,
+        "request_raw": 268,
+        "task_runs": 16,
+        "account_history": 12
+      },
+      "quickCheck": "ok",
+      "schema": 15,
+      "keyUnchanged": true,
+      "draftsUnchanged": true,
+      "changedKvKeys": [
+        "backgroundTaskState",
+        "logsNextId"
+      ],
+      "accountRowsUnchanged": true
+    },
+    "realProviderTrafficTriggeredByAcceptance": false,
+    "committed": false,
+    "published": false
+  },
+  "assistantElementsReview": {
+    "date": "2026-10-16",
+    "officialPatterns": [
+      "https://ui.shadcn.com/docs/ai-elements/base/chat",
+      "https://ui.shadcn.com/docs/ai-elements/base/prompt-input",
+      "https://ui.shadcn.com/docs/ai-elements/base/message",
+      "https://ui.shadcn.com/docs/ai-elements/base/confirmation"
+    ],
+    "rust": {
+      "passed": 669,
+      "failed": 0,
+      "ignored": 7
+    },
+    "frontendSuites": 26,
+    "assistantInterfaceAssertions": 37,
+    "prior306InterfaceAssertions": 51,
+    "shadcn": "76 island files + 11 shell sources passed",
+    "frontendArtifacts": {
+      "files": 93,
+      "byteIdenticalRebuild": true
+    },
+    "backendBuild": "passed",
+    "desktopSourceCheck": "passed on macOS; native WebView not exercised",
+    "i18n": "no missing keys; added 21 new keys, existing untranslated values remain",
+    "browser": {
+      "actualFileChooser": true,
+      "syntheticTextAndImageFiles": true,
+      "textPreview": true,
+      "filesOnlyChatViaRust": true,
+      "regenerateWithAttachments": true,
+      "liveAuthenticated3065": true,
+      "defaultReadOnlyTools": 2,
+      "mutationsAndModelTestsDisabled": 7,
+      "lightAndDark": true,
+      "mobileFixtureWidth": 390,
+      "mobileFixtureHorizontalOverflow": false,
+      "viewportAndOriginalThemeRestored": true,
+      "liveTaskRecords": 16,
+      "newConsoleErrors": 0
+    },
+    "supportedFiles": [
+      "PNG",
+      "JPEG",
+      "WebP",
+      "GIF",
+      "UTF-8/UTF-16 text",
+      "code",
+      "JSON",
+      "CSV",
+      "logs"
+    ],
+    "fileLimits": {
+      "count": 6,
+      "perFileMB": 4,
+      "totalMB": 8,
+      "conversationRequestMB": 24
+    },
+    "unsupportedFiles": "PDF and Office must be exported to text or images; rejected explicitly rather than dropped",
+    "promptAndAssistantConfigPreserved": true,
+    "cutover": {
+      "backup": "/Users/zaxe/Documents/ChatGPT/agent2api/data/backups/pre-assistant-elements-cutover-20261016-142955",
+      "pid": 69597,
+      "health": {
+        "status": "ok"
+      },
+      "beforeCounts": {
+        "accounts": 11,
+        "requests": 282,
+        "request_daily": 3,
+        "request_raw": 268,
+        "task_runs": 16,
+        "account_history": 12
+      },
+      "afterCounts": {
+        "accounts": 11,
+        "requests": 282,
+        "request_daily": 3,
+        "request_raw": 268,
+        "task_runs": 16,
+        "account_history": 12
+      },
+      "quickCheck": "ok",
+      "schema": 15,
+      "keyUnchanged": true,
+      "draftsUnchanged": true,
+      "changedKvKeys": [
+        "backgroundTaskState",
+        "logsNextId"
+      ],
+      "accountRowsUnchanged": true
+    },
+    "realProviderChatOrAccountTasksInvoked": false,
+    "committed": false,
+    "published": false
+  },
+  "assistantHistory": {
+    "reference": "https://chatbot.ai-sdk.dev/demo",
+    "report": "assistant-history.md",
+    "schema": 16,
+    "rust": {
+      "passed": 672,
+      "failed": 0,
+      "ignored": 7
+    },
+    "apiChecks": 57,
+    "upstreamChecks": 51,
+    "frontendSuites": 26,
+    "artifactCount": 93,
+    "artifactsIdentical": true,
+    "livePort": 3065,
+    "pid": 81781,
+    "backup": "data/backups/pre-assistant-history-cutover-20261016-151031",
+    "accountsAndConfigurationPreserved": true,
+    "realProviderRequestsRun": false,
+    "committed": false,
+    "published": false
+  },
+  "assistantDemoPolish": {
+    "report": "assistant-demo-polish.md",
+    "rust": {
+      "passed": 672,
+      "failed": 0,
+      "ignored": 7
+    },
+    "apiChecks": 69,
+    "frontendSuites": 26,
+    "artifactCount": 93,
+    "artifactsIdentical": true,
+    "livePort": 3065,
+    "pid": 88683,
+    "backup": "data/backups/pre-assistant-demo-polish-cutover-20261016-153317",
+    "recordsAndConfigurationPreserved": true,
+    "realProviderRequestsRun": false,
+    "committed": false,
+    "published": false
+  }
+}

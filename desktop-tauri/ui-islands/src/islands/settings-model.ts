@@ -377,6 +377,7 @@ export async function openExternal(url: string): Promise<void> {
  */
 export const CATEGORIES = [
   { id: 'general', label: t('通用'), icon: 'sliders' },
+  { id: 'assistant', label: t('AI 助手'), icon: 'spark' },
   { id: 'display', label: t('显示'), icon: 'display' },
   // 品牌分类用线性调色盘：渐变 logo（'brand'）只留给侧栏 / 登录页的品牌位，
   // 分类图标全站统一描边风格（用户要求：图标一律线性）
@@ -3948,7 +3949,7 @@ export type NumberField = {
 
 /** 与后端 RETENTION_MIN_DAYS / RETENTION_MAX_DAYS 同源（非法值后端会 400） */
 export const RETENTION_MIN = 1
-export const RETENTION_MAX = 3650
+export const RETENTION_MAX = 99999
 
 export const RETENTION_FIELDS: NumberField[] = [
   {
@@ -3958,7 +3959,7 @@ export const RETENTION_FIELDS: NumberField[] = [
     unit: t('天'),
     min: RETENTION_MIN,
     max: RETENTION_MAX,
-    hint: t('登录 / 账号切换 / 429 切换等系统事件，可填 1–3650 天。'),
+    hint: t('登录 / 账号切换 / 429 切换等系统事件，可填 1–99999 天。'),
   },
   {
     key: 'requestRetentionDays',
@@ -3967,7 +3968,7 @@ export const RETENTION_FIELDS: NumberField[] = [
     unit: t('天'),
     min: RETENTION_MIN,
     max: RETENTION_MAX,
-    hint: t('「请求日志」页的逐条请求记录，可填 1–3650 天。'),
+    hint: t('「请求日志」页的逐条请求记录，可填 1–99999 天。'),
   },
   {
     key: 'dailyRetentionDays',
@@ -3976,7 +3977,7 @@ export const RETENTION_FIELDS: NumberField[] = [
     unit: t('天'),
     min: RETENTION_MIN,
     max: RETENTION_MAX,
-    hint: t('报表页的热力图与按天趋势，可填 1–3650 天。'),
+    hint: t('报表页的热力图与按天趋势，可填 1–99999 天。'),
   },
 ]
 
@@ -4231,7 +4232,7 @@ export const TIPS = {
   debug: t('开启后，网关会把每次转发**发给上游的请求**（请求头 + 请求体）与**上游返回的响应**（状态码 + 响应头 + 响应体）完整保存到本地，供请求日志页的「详情」查看。请求头里的 Authorization、Cookie、API Key 等凭据字段一律替换成 [redacted]，不会明文落盘；请求体与响应体按原样保存（可能包含你的对话内容）。报文只保留最近 500 条，超出后丢弃最旧的。这是排障用的临时开关，不需要时建议关闭。'),
   io: t('导出会把全部账号与自定义提供商定义写入一个 JSON 文件，可以拷到另一台机器上导入后继续使用。导入采用合并策略：同提供商下按业务身份（UID / userId / apiKey 等）去重 —— 已存在的账号只更新凭证，保留本机原有的优先级顺序；新账号追加到转发顺序末尾，不会抢占当前正在使用的账号；自定义提供商定义按 id 合并，本机缺失时自动补建。'),
   backup: t('把整份数据库（账号、网关配置、事件日志、请求统计、调试报文与桌面设置）导出成一个 SQL 文件，恢复时整体替换本机全部数据 —— 与上面「账号导入 / 导出」的逐条合并是两种语义：恢复会连配置、日志与当前启用状态一起换成备份那台机器的状态。导出默认包含日志与调试报文（文件可能很大），不需要时可以取消勾选只备业务数据。恢复前会自动把当前数据备份到配置目录的 backups/ 下，恢复后需要重新登录管理面板。'),
-  retention: t('三类数据各自独立计时，超出保留天数的部分会被删除：事件日志是登录、账号切换、429 切换这类系统事件；请求日志是网关每次转发到上游的逐条记录；按天聚合供报表页的热力图与按天趋势使用。把某一档改小（例如 30 天改成 7 天）保存后会立即删除超出的历史数据，此操作不可恢复；改大或保持不变不会删除任何数据。三项的可填范围均为 1–3650 天。'),
+  retention: t('三类数据各自独立计时，超出保留天数的部分会被删除：事件日志是登录、账号切换、429 切换这类系统事件；请求日志是网关每次转发到上游的逐条记录；按天聚合供报表页的热力图与按天趋势使用。把某一档改小（例如 30 天改成 7 天）保存后会立即删除超出的历史数据，此操作不可恢复；改大或保持不变不会删除任何数据。三项的可填范围均为 1–99999 天。'),
   storage: t('全部数据（账号、事件日志、请求记录、调试报文、设置）统一保存在配置目录下的 agent2api.db 这一个 SQLite 数据库里。备份时只需拷贝这个文件；更换保存位置请设置环境变量 AGENT2API_PROXY_HOME 后重启程序。'),
   /* ── 偏好与外观 / 通知与页签（本次新增：外壳偏好，与 ui/js/prefs.js 同源）── */
   prefsDrawer: '打开右上角齿轮同款的「偏好设置」抽屉：四个页签（外观 / 布局 / 通用 / 锁屏）里有全部偏好项目，外加「复制偏好 / 导入偏好 / 恢复默认」三个批量动作。抽屉与本页读写的是同一份本机配置，两边改动的值互相可见（抽屉每次打开都会重读）。',

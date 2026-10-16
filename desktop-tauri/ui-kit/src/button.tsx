@@ -104,10 +104,12 @@ const buttonVariants = cva(
 type ButtonProps = Omit<React.ComponentProps<typeof BaseButton>, 'className'> &
   VariantProps<typeof buttonVariants> & {
     className?: string
+    /** Rounded chat actions and pill selectors share the same shape contract. */
+    shape?: 'default' | 'pill'
   }
 
-function Button({ className, variant, size, ...props }: ButtonProps) {
-  return <BaseButton data-slot='button' data-variant={variant ?? 'default'} data-size={size ?? 'default'} className={cn(buttonVariants({ variant, size }), className)} {...props} />
+function Button({ className, variant, size, shape = 'default', ...props }: ButtonProps) {
+  return <BaseButton data-slot='button' data-shape={shape} data-variant={variant ?? 'default'} data-size={size ?? 'default'} className={cn(buttonVariants({ variant, size }), className, shape === 'pill' && 'rounded-full')} {...props} />
 }
 
 export { Button, buttonVariants, type ButtonProps }

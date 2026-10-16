@@ -756,7 +756,7 @@ mod integration_tests {
     #[test] fn rollback_blocks_newer_database_and_missing_ui_backup() {
         let f=Fixture::new(); let(exe,ui)=f.pair();let archive=f.bundle(&[(BINARY_ENTRY,b"new"),(MANIFEST_ENTRY,MANIFEST),("ui/index.html",b"new")]);
         apply_checked(&archive,&exe,Some(&ui),"3.0.5",15,||Ok(())).unwrap();
-        assert!(rollback_checked(&exe,Some(&ui),16).is_err());
+        assert!(rollback_checked(&exe,Some(&ui),crate::server::db::schema::SCHEMA_VERSION + 1).is_err());
         std::fs::remove_dir_all(backup_path(&ui)).unwrap();assert!(rollback_checked(&exe,Some(&ui),15).is_err());
         assert_eq!(std::fs::read(&exe).unwrap(),b"new");
     }

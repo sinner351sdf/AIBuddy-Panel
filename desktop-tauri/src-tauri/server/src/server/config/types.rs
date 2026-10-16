@@ -374,14 +374,14 @@ pub const DEFAULT_DAILY_RETENTION_DAYS: i64 = 365;
 pub const KEY_PROVIDER_ROUTE: &str = "providerRoute";
 
 /// 天数的合法范围：下限 1 天（保留 0 天等于什么都不存，不是有效配置），
-/// 上限 10 年（防手改 config.json 写个天文数字让裁剪逻辑空转）。
+/// 上限 99999 天，与 3.0.6 兼容；本地已保存值与默认值保持原样。
 ///
 /// **写侧（`stats_api::parse_days`）与读侧（`days_field`）共用这两个常量**：
 /// 若两边各写一套数字，手改文件与走接口设值就会出现两套口径
 /// （比如接口拒绝 5000 而读侧接受它）。两侧的处理方式不同是有意的：
 /// 走接口的非法值给 400（用户当场能改），手改文件的非法值回落到默认（不打扰）。
 pub const RETENTION_MIN_DAYS: i64 = 1;
-pub const RETENTION_MAX_DAYS: i64 = 3650;
+pub const RETENTION_MAX_DAYS: i64 = 99999;
 
 /// 三档保留天数（设置页「数据保留」区域）。
 ///
