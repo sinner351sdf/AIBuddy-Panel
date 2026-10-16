@@ -69,7 +69,7 @@ import { t } from '../i18n'
 import { SelectGroup, Badge, BadgeDot, Separator, Spinner, Toggle, Button, Checkbox, Input, SegmentedControl, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, cn } from '@ui'
 import { TableFooter, useClientPaging } from './table-shell'
 import { shared, toast, type AccountRecord, type ColSettingsHandle } from './accounts-shared'
-import { isDesktopAccount, isEnabled, providerOf, isRateLimited, tokenExpiryOf, supportsUsage } from './accounts-domain'
+import { isDesktopAccount, isEnabled, providerOf, tokenExpiryOf, supportsUsage } from './accounts-domain'
 import { ACCOUNT_COLUMNS, bindColumnGrips, columnWidths, tableMinWidth } from './accounts-columns'
 import {
   allAccounts, clearFilter, clearLimits, clearSelection, ensureProxyPoolOptions, filterActive,
@@ -283,68 +283,17 @@ function PoolChip(props: {
   )
 }
 
-/**
- * 「账号池状态条」：把全局优先级候选链的现状摆成一行计数 —— 总数 / 启用 / 停用 /
- * 限流冷却 / 临期（凭据 <7 天，纯读数）/ 各提供商，插在工具栏上方。
- *
- * 计数**全部由页面内存里的同一份账号列表现算**（allAccounts()，与表格同源），
- * 不发任何额外请求；数据加载与轮询（app.js 的 refresh → wbAccountsView.render、
- * 连接数 2 秒一轮）触发本页重绘时读数自动跟上（isRateLimited 每次渲染现算，
- * 冷却到期后下一拍数字自己回落，与限流列同一机制）。
- *
- * 点击即筛选，走工具栏已有的那组 set 函数（setProviderFilter / setSegmentFilter），
- * 与下拉、分段按钮完全联动且互斥态一致；已激活的 chip 再点一次 = 退回「全部」
- * （chip 的自然语义，省一次去下拉找「全部」的操作）。
- */
+/** 提供商数量与下拉筛选联动；状态和限额计数统一由下方筛选栏展示。 */
 function AccountPoolBar() {
-  const all = allAccounts()
   const filter = getStore().filter
-  const enabledCount = all.filter(isEnabled).length
-  // 「限流冷却」沿用现有冷却字段口径：启用中 + 存在未到恢复时间的限额记录
-  // （isRateLimited，即 rateLimits[].resetAt > now）。禁用账号不在候选链里、谈不上
-  // 冷却，与工具栏「已限流」分段（filterCounts 的 limited）同一算法 —— 点 chip 看到
-  // 的列表条数就是这个数。
-  const cooldownCount = all.filter(account => isEnabled(account) && isRateLimited(account)).length
-  // 「临期」：凭据剩余有效期不足 7 天（含已过期）的账号数，与「有效期」列的临期徽章
-  // 同一判定（expiryTier）。N>0 才显示；没有对应的筛选维度，做成纯读数 chip。
-  const expiringCount = all.filter(account => expiryTier(account) !== null).length
-  // 只列**有账号**的家（与批量栏的 provider-summary 同一取舍：0 家的 chip 不提供信息）
   const providerChips = providerSummaryList().filter(item => item.count > 0)
+  if (!providerChips.length) return null
 
   return (
     <>
       <style>{POOL_BAR_CSS}</style>
-      <div className='acct-pool-bar' role='group' aria-label='账号池状态'>
-        <span className='acct-pool-title'>账号池</span>
-        <PoolChip title='全部账号数；点击清除所有筛选' label='账号总数' count={all.length}
-          onClick={() => {
-            setProviderFilter('all')
-            setSegmentFilter('enabled', 'all')
-            setSegmentFilter('limit', 'all')
-          }} />
-        <PoolChip tone='ok' title='启用中（参与转发）的账号；点击后状态筛选切到「启用」'
-          label='启用' count={enabledCount} active={filter.enabled === 'enabled'}
-          onClick={() => setSegmentFilter('enabled', getStore().filter.enabled === 'enabled' ? 'all' : 'enabled')} />
-        <PoolChip tone='mute' title='已停用的账号；点击后状态筛选切到「禁用」'
-          label='停用' count={all.length - enabledCount} active={filter.enabled === 'disabled'}
-          onClick={() => setSegmentFilter('enabled', getStore().filter.enabled === 'disabled' ? 'all' : 'disabled')} />
-        <PoolChip tone='warn' title='限流冷却中的账号（有未到恢复时间的限额记录）；点击后限额筛选切到「已限流」'
-          label='限流冷却' count={cooldownCount} active={filter.limit === 'limited'}
-          onClick={() => {
-            // 状态筛成「禁用」时限流维度不存在（setSegmentFilter 会把 limit 拍回 all）：
-            // 先把状态放回「全部」，「已限流」这一档才立得住
-            if (getStore().filter.enabled === 'disabled') setSegmentFilter('enabled', 'all')
-            setSegmentFilter('limit', getStore().filter.limit === 'limited' ? 'all' : 'limited')
-          }} />
-        {expiringCount > 0 ? (
-          <Badge variant='warning'
-            title='剩余有效期不足 7 天（含已过期）的账号数，与「有效期」列徽章同口径'>
-            <BadgeDot aria-hidden='true' />
-            临期
-            <b>{expiringCount}</b>
-          </Badge>
-        ) : null}
-        {providerChips.length > 0 ? <Separator orientation='vertical' className='mx-1 h-4' /> : null}
+      <div className='acct-pool-bar' role='group' aria-label={t('提供商')}>
+        <span className='acct-pool-title'>{t('提供商')}</span>
         {providerChips.map(item => (
           <PoolChip key={item.id} tone='mute' title={`只看 ${item.label} 的账号`}
             label={item.label} count={item.count} active={filter.provider === item.id}
@@ -436,7 +385,7 @@ function AccountsPage() {
           align: column.align,
           legacyAlign: column.legacyAlign,
         })),
-        // 挂载点是批量栏右侧的操作组（「批量操作 / 取消选择」那两颗）：齿轮插在最前，
+        // 挂载点是表格操作栏右侧的操作组：齿轮插在最前，
         // 正好落在「批量操作」左边（列设置是「怎么看这张表」，与旁边那些「对数据做什么」
         // 的操作按钮不是一类，排头更顺）
         mount: () => document.querySelector('#batch-bar .batch-actions'),
@@ -594,10 +543,10 @@ function AccountsPage() {
 
   return (
     <>
-      {/* 临期徽章样式（「有效期」列用，随页面渲染一次；账号池状态条的样式在其组件里） */}
+      {/* 临期徽章样式（「有效期」列用，随页面渲染一次；提供商统计条的样式在其组件里） */}
       <style>{EXPIRY_BADGE_CSS}</style>
       <Card as='section' variant='panel' size='sm' className='panel account-table'>
-        {/* 账号池状态条（候选链总览）：在工具栏上方，计数与筛选都和工具栏联动 */}
+        {/* 提供商统计：独立一行，与下方提供商筛选联动 */}
         <AccountPoolBar />
         <div className='toolbar'>
           {/* 提供商：分组模式把「哪一家」画在了页面上（一家一段），但「只看某一家」仍是
@@ -664,29 +613,7 @@ function AccountsPage() {
               aria-label={t('限额状态')} />
           </div>
 
-          <div className='actions'>
-            {/* 折叠是「只看某几家」的入口：一家几十条时，收起不关心的那些比筛选更顺手。
-                「全部」就是全部 —— 作用对象是全部组，不按当前筛选收窄（见 store 里
-                setAllGroupsCollapsed 的说明） */}
-            <Button id='btn-fold-groups' variant='outline'
-              disabled={!allGroups.length}
-              title={allCollapsed ? t('展开全部分组') : t('折叠全部分组（只留组头）')}
-              onClick={() => setAllGroupsCollapsed(allGroups.map(group => group.provider), !allCollapsed)}>
-              {allCollapsed ? t('展开全部') : t('折叠全部')}
-            </Button>
-            {/* 「添加账号」的打开逻辑归 add-account.js（它按同一个 id 绑了监听），这里再挂
-                一次 onClick 是**冗余保险**：万一那个脚本的绑定因加载顺序没接上，按钮仍可用
-                （openModal / resetAddStep 都是幂等的，重复调用无副作用） */}
-            <Button id='btn-add-account-2' variant='default' title={t('登录 / 导入一个新账号')}
-              onClick={() => {
-                shared().wbAddAccountModal?.open?.()
-                shared().wbAccountAddForms?.syncAddProvider?.()
-              }}>{t('添加账号')}</Button>
-            <Button id='btn-query-usage' variant='outline'
-              disabled={store.usageBusy || !all.some(supportsUsage)}
-              title={t('查询全部账号的余额（含已禁用账号 —— 禁用只表示不参与转发）')}
-              onClick={() => void queryAllUsage()}>{store.usageBusy ? t('查询中…') : t('查询余额')}</Button>
-          </div>
+
         </div>
 
         <div className={cn('batch-bar', active && 'active')} id='batch-bar'>
@@ -730,6 +657,27 @@ function AccountsPage() {
               onClick={() => openBatchDialog([...store.selected], 'enable')}>{t('批量操作')}</Button>
             <Button id='btn-batch-clear' variant='outline' disabled={!active}
               onClick={() => clearSelection()}>{t('取消选择')}</Button>
+            {/* 折叠是「只看某几家」的入口：一家几十条时，收起不关心的那些比筛选更顺手。
+                「全部」就是全部 —— 作用对象是全部组，不按当前筛选收窄（见 store 里
+                setAllGroupsCollapsed 的说明） */}
+            <Button id='btn-fold-groups' variant='outline'
+              disabled={!allGroups.length}
+              title={allCollapsed ? t('展开全部分组') : t('折叠全部分组（只留组头）')}
+              onClick={() => setAllGroupsCollapsed(allGroups.map(group => group.provider), !allCollapsed)}>
+              {allCollapsed ? t('展开全部') : t('折叠全部')}
+            </Button>
+            {/* 「添加账号」的打开逻辑归 add-account.js（它按同一个 id 绑了监听），这里再挂
+                一次 onClick 是**冗余保险**：万一那个脚本的绑定因加载顺序没接上，按钮仍可用
+                （openModal / resetAddStep 都是幂等的，重复调用无副作用） */}
+            <Button id='btn-add-account-2' variant='default' title={t('登录 / 导入一个新账号')}
+              onClick={() => {
+                shared().wbAddAccountModal?.open?.()
+                shared().wbAccountAddForms?.syncAddProvider?.()
+              }}>{t('添加账号')}</Button>
+            <Button id='btn-query-usage' variant='outline'
+              disabled={store.usageBusy || !all.some(supportsUsage)}
+              title={t('查询全部账号的余额（含已禁用账号 —— 禁用只表示不参与转发）')}
+              onClick={() => void queryAllUsage()}>{store.usageBusy ? t('查询中…') : t('查询余额')}</Button>
           </div>
         </div>
 

@@ -26,6 +26,11 @@ assert.deepEqual(requests[3].body, { code: 'chat_5' })
 assert.equal(requests[3].path, '/api/growth-tasks/accounts/account%20%2F%20one/claim')
 assert.equal(requests[4].path, '/api/growth-tasks/run')
 assert.deepEqual(requests[4].body, { accountId: 'account / one' })
+await client.compensation('account / one')
+await client.claimCompensation('account / one')
+assert.equal(requests[5].method, 'GET')
+assert.equal(requests[5].path, '/api/growth-tasks/accounts/account%20%2F%20one/compensation')
+assert.deepEqual(requests[6], { method: 'POST', path: '/api/growth-tasks/gift', body: { accountId: 'account / one', kind: 'compensation' } })
 for (const [task, state] of [[{claimed:true, claimable:true}, 'claimed'], [{locked:true, claimable:true}, 'locked'],
   [{claimable:true}, 'claimable'], [{accepted:true}, 'accepted'], [{}, 'pending']]) {
   assert.equal(taskState(task), state)

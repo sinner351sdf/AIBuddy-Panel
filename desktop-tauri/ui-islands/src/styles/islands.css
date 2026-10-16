@@ -46,3 +46,14 @@
 .wb-qr-success-mark { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: var(--surface-2); color: var(--primary); font-size: 22px; }
 @keyframes wb-qr-pulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .wb-qr-status-dot.is-waiting { animation: none; } }
+
+/* Balance cells open the full credit ledger in a side sheet. */
+.credit-detail-trigger { width: 100%; min-width: 0; gap: 8px; padding-inline: 8px; }
+.credit-detail-trigger-value { flex: 1; min-width: 0; font-variant-numeric: tabular-nums; }
+.credit-detail-trigger-value .balance-readings { width: 100%; }
+.credit-detail-sheet { max-width: 100vw; }
+.credit-detail-pack { padding-block: 18px; }
+.credit-detail-pack + .credit-detail-pack { border-top: 1px solid var(--border); }
+@media (max-width: 480px) {
+  .credit-detail-pack > div:first-child { flex-direction: column; gap: 4px; }
+}

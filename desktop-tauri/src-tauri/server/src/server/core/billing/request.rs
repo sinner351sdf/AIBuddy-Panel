@@ -35,12 +35,8 @@ pub(super) enum BillingBase {
     Chat,
     /// billingBase（client.go BillingBaseCN）
     Billing,
-    /// webBase（client.go WebBaseCN）。当前 web 域动作（Library_read 上报、web
-    /// 领奖降级）都经 `extra` 追加 `x-client-platform: web` 头在 chatBase 上发
-    /// （refs tasks.go:216-272 的降级口径），没有端点以本变体为 base —— 保留
-    /// 是为了三域常量在类型层齐全（refs client.go:693-695），补签卡/校园券码
-    /// 等 web 专属端点接入时直接用。
-    #[allow(dead_code)]
+    /// webBase（client.go WebBaseCN）：网页补偿状态与领取接口。
+    /// 成长任务的 web 领奖降级仍按既有口径使用 chatBase。
     Web,
 }
 

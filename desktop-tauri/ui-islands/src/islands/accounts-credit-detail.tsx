@@ -1,53 +1,12 @@
 /**
- * 余额格上的「积分明细」入口 —— 逐份积分包（面额 / 已用 / 剩余 + 领取 → 到期）。
- *
- * ── 为什么单开一个入口，而不是把这些家也塞进 usageDetail ──────
- * `usageDetail` 是**整套两行形态**（套餐徽标 + 读数按钮 + token 平铺行，CodeArts）：
- * 启用它会替掉余额格现在的样子。主额度桶那格是「套餐名 + 进度条 + 剩 x / 共 y」，
- * 换过去等于把进度条丢掉 —— 那正是这一列最值钱的一眼读数。所以本形态只**加**
- * 一个入口，各行原有的排版一个字不动：读数、悬停提示、进度条、徽章都还是原来的。
- *
- * ── 入口就是读数本身（与 CodeArts 那格同一套交互）────────────
- * 不做「读数 + 一个小箭头按钮」那种两件式：箭头只有十来个像素，是这一列里最难点
- * 中的东西（余额格一百多像素宽，鼠标还得先瞄过去）。这里照 CodeArts 的办法 ——
- * **整行读数就是按钮**（`.usage-toggle`：占满格子宽度并向两侧出血、悬停有底色、
- * caret 绝对定位不占布局宽度、点哪儿都开），两种格形态各配一个变体：
- *   * `sum`  单行读数形态（WorkBuddy 那类）：`.val` 居中，与 CodeArts 那格逐字同款；
- *   * `pool` 主额度桶形态（ZCode 那类，`usagePool` 主导的格子）：进度条与读数一起
- *     住在按钮里，左对齐（左边有进度条，居中会让条与读数分家）。
- *
- * ── 数据来源（后端契约 `credits[]`）──────────────────────────
- * 一行一份上游的积分包，多家字段逐键对齐（各家的行构造各在自己模块里，如
- * Trae：`trae::usage::credit_rows`；WorkBuddy：`billing::credit_packs_from`）：
- * ```text
- *   name          这一份是什么（上游的套餐名 / 商品名）
- *   total/used/remain   面额 / 已用 / 剩余（缺键 = 上游没给，不补 0）
- *   grantAt       领取（发放）时刻，毫秒
- *   startAt       生效（抵扣开始）时刻，毫秒 —— 发放时刻缺失时顶上左边那一半
- *   expireAt      到期时刻，毫秒
- *   unit          与主读数不同单位时才在（Trae 的套餐包 vs 积分包）
- *   daily         每日重置的包（到期字段对它是「今天 24 点」的意思）
- *   grantReason   WorkBuddy 的发放原因（官方活动 / 拉新奖励…），可无
- * ```
- * 这里只读不猜：谁缺键谁就不显示那一段。`null` 与 `0` 的区别在这一层就得守住 ——
- * `Number(null) === 0`，把"没读到"当 0 会画出「剩 0 / 共 0」这种看起来像读到了的
- * 假读数（后端 module 头那条纪律，前端这边是它的最后一站）。
- *
- * ── 时间显示分两级 ──────────────────────────────────────────
- * 行上一律 `MM-DD HH:mm`（弹层要一眼扫完，年份是噪音），完整时刻（含年）只在悬停
- * 的 title 里 —— 与 `pendingPlansTitle` 同一处置。已过期的包不给"到期倒计时"，
- * 直接标「已过期」并压成灰字：一个负数天数和一句「已过期」是同一件事，后者好读。
- *
- * ── 花不出去的收在末尾，且默认折叠 ──────────────────────────
- * 能花的在前（照后端给的顺序：最近到期的排在先），**剩余 0 与已过期的**收进末尾
- * 那组「已用完 / 已过期」，默认收起、点表头展开（判据在 `CreditRow.spent`）。
- * 上游发得勤时这一列几十份、大半是花完的，混排的结果是"打开弹层先看到一堆没用的"。
- * 弹层**每次打开都从最上面开始**（初始焦点落在容器上，理由见 `initialFocus`），展开
- * 那组时把第一行新行带进一眼（见那段 layout effect）。
+ * Account credit packs: a compact balance trigger opens a searchable side sheet.
+ * Figures and pack ordering come from the provider; unknown values stay unknown.
+ * Displayed amounts use at most two decimals; exact upstream values remain in titles.
  */
 
 import * as React from 'react'
-import { Button, Collapsible, CollapsibleTrigger, CollapsibleContent, Progress, cn, Popover, PopoverContent, PopoverTrigger } from '@ui'
+import { Badge, Button, Empty, EmptyHeader, EmptyDescription, Input, Progress, ScrollArea, Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger, Tabs, TabsList, TabsTrigger, TabsContent, cn } from '@ui'
+import { PanelRightOpen, X } from 'lucide-react'
 import { t } from '../i18n'
 import { formatTime, type UsageEntry } from './accounts-shared'
 
@@ -85,6 +44,10 @@ function numberOrNull(value: unknown): number | null {
   if (value === null || value === undefined || value === '') return null
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
+}
+
+function amountText(value: number): string {
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2 })
 }
 
 /** 毫秒时间戳 → `MM-DD HH:mm`（年份在悬停的完整时刻里；取不出来给空串） */
@@ -145,10 +108,10 @@ export function creditRowsOf(entry: UsageEntry): CreditRow[] {
       ? t('不限')
       : remain !== null
         ? hasTotal
-          ? t('剩 {remaining} / {total}', { remaining: remain, total })
-          : t('剩 {remaining}', { remaining: remain })
+          ? t('剩 {remaining} / {total}', { remaining: amountText(remain), total: amountText(total!) })
+          : t('剩 {remaining}', { remaining: amountText(remain) })
         : used !== null
-          ? t('已用 {used}', { used: used })
+          ? t('已用 {used}', { used: amountText(used) })
           : '—'
     const view = !unlimited && unit && amount !== '—' ? `${amount} ${unitLabel(unit)}` : amount
     // 剩余比例：只在有真总量时算（画不出比例就不装作有）
@@ -194,6 +157,7 @@ export function creditRowsOf(entry: UsageEntry): CreditRow[] {
     const title = [
       name,
       view,
+      remain !== null ? t('剩 {remaining}', { remaining: remain }) : '',
       grantAt !== null && grantAt > 0
         ? t('领取 {time}', { time: formatTime(grantAt) })
         : startAt !== null && startAt > 0
@@ -213,141 +177,75 @@ export function creditRowsOf(entry: UsageEntry): CreditRow[] {
   })
 }
 
-/** 明细弹层里的一行（视觉与 CodeArts 那份明细同一套类名，观感一致） */
+/** Pack labels wrap fully; exact values and complete timestamps remain in the title. */
 function CreditRowView({ row }: { row: CreditRow }) {
-  return (
-    <div className='usage-pop-row' title={row.title}>
-      <div className='usage-pop-line'>
-        <span className='usage-pop-name'>{row.name}</span>
-        <span className={cn('usage-pop-view', row.tone)}>{row.view}</span>
-      </div>
-      {row.window ? <div className='usage-pop-window'>{row.window}</div> : null}
-      {row.percent !== null ? (
-        <Progress value={row.percent} aria-label={t('剩余 {percent}%', { percent: Math.round(row.percent) })} />
-      ) : null}
+  return <article className='credit-detail-pack' title={row.title}>
+    <div className='flex items-start justify-between gap-4'>
+      <h3 className='min-w-0 flex-1 break-words text-sm font-medium leading-6'>{row.name}</h3>
+      <span className={cn('shrink-0 pt-0.5 text-sm font-semibold tabular-nums', row.tone === 'warn' ? 'text-warning' : row.tone === 'muted' ? 'text-muted-foreground' : 'text-foreground')}>{row.view}</span>
     </div>
-  )
+    {row.window ? <p className='mt-1 break-words text-xs leading-5 text-muted-foreground'>{row.window}</p> : null}
+    {row.percent !== null ? <div className='mt-3 flex items-center gap-3'>
+      <Progress value={row.percent} className='h-1 flex-1' aria-label={t('剩余 {percent}%', { percent: Math.round(row.percent) })} />
+      <span className='w-9 shrink-0 text-right text-xs tabular-nums text-muted-foreground'>{Math.round(row.percent)}%</span>
+    </div> : null}
+  </article>
 }
 
-/**
- * 读数本体即入口：整行可点，点开就是这份明细（交互与 CodeArts 那格同款）。
- *
- * `variant` 决定这一行长什么样（见文件头）：`sum` 是单行读数的居中形态
- * （`.usage-toggle` + `.val`，与 CodeArts 逐字同款），`pool` 是「进度条 + 读数」
- * 的桶形态（同一个 `.usage-toggle` 加 `.usage-pool-line` 把间距与对齐改回桶那套）。
- * `children` 就是原来的那点读数 DOM —— 读数怎么渲染仍由调用方（`UsageCell`）决定，
- * 这里只负责"把它变成按钮"。
- *
- * `subscriptionLine` 由调用方用 `subscriptionText` 拼好递进来（套餐 / 到期 /
- * 余量那一行）：那份措辞是悬停提示的既有产物，两处各写一份迟早会漂。
- */
-export function CreditDetailButton({ rows, subscriptionLine, variant, kind, title, children }: {
+export function CreditDetailButton({ rows, subscriptionLine, accountName, balanceText, planName, variant, title, children }: {
   rows: CreditRow[]
   subscriptionLine: string
+  accountName: string
+  balanceText: string
+  planName?: string
   variant: 'sum' | 'pool'
-  /** 语义档（ok / warn / …）：`.usage-toggle` 按它上色，与读数本来的档同一套 */
   kind: string
-  /** 悬停提示（读数那份摘要，与没挂入口时逐字相同） */
   title: string
   children: React.ReactNode
 }) {
   const [open, setOpen] = React.useState(false)
-  /**
-   * 末尾那组「已用完 / 已过期」的开合，**默认收起**：上游发得勤的时候这一列能有
-   * 几十份，全是花不出去的，铺在上面会把还能花的挤到看不见的地方 —— 第一眼该看到
-   * 的是"我还能用哪几笔"。开合状态跟着这个组件走（弹层关掉再开还是原样）：
-   * 一个刚刚展开过的人在重新打开时又要再点一次，只会觉得它坏了。
-   */
-  const [spentOpen, setSpentOpen] = React.useState(false)
+  const [tab, setTab] = React.useState('available')
+  const [search, setSearch] = React.useState('')
+  const viewport = React.useRef<HTMLDivElement | null>(null)
   const liveRows = rows.filter(row => !row.spent)
   const spentRows = rows.filter(row => row.spent)
-  const className = variant === 'pool' ? `usage-toggle usage-pool-line ${kind}` : `usage-toggle ${kind}`
-
-  /**
-   * 滚动容器本身（挂载时归零、当初始焦点，见下面两段注释）。
-   *
-   * 用**回调 ref** 而不是 useRef + useEffect：要抢在浏览器把"获得焦点的元素
-   * 滚进视野"之前把位置定下来，回调 ref 是节点刚插进 DOM 的那一刻，最早。
-   */
-  const boxRef = React.useRef<HTMLDivElement | null>(null)
-  const attachBox = React.useCallback((node: HTMLDivElement | null) => {
-    boxRef.current = node
-    // 每次挂载都从最上面开始。节点既然是新的，这里本来就是 0 —— 写出来是为了
-    // 钉住这条约定：明细从上往下读（能花的在最前面），弹层不该带着上次的滚动位置重开。
-    if (node) node.scrollTop = 0
-  }, [])
-
-  /**
-   * 初始焦点落在**容器**上，而不是"弹层里第一个可聚焦的元素"。
-   *
-   * 库的默认行为是后者（见 PopoverPopup 的 `initialFocus` 文档），而这个弹层里唯一
-   * 可聚焦的元素是末尾那个「已用完 / 已过期」组表头 —— 它就贴在列表最底部。于是
-   * 浏览器为了把获得焦点的它滚进视野，会把整个滚动容器拉到最底部：用户报的"一打开
-   * 就停在底部、每次都要先往上滚"就是这么来的（实测：先点过组表头再重开，
-   * scrollTop 直接是 59/236 这种"刚好够露出那个按钮"的值，而不是 0）。
-   *
-   * 落在容器上就没事：容器的盒子本来就整块可见，滚不到它；键盘用户按 Tab 也照样
-   * 进得来（下一个可聚焦的正是那个组表头）。容器因此带 tabIndex={-1}。
-   */
-  const initialFocus = React.useCallback(() => boxRef.current ?? null, [])
-
-  /**
-   * 展开分组后把新行带进一眼。
-   *
-   * 那个表头平时就贴在滚动容器的**底部**，点开之后新行全在下方视野外 ——
-   * 不滚这一下，点击的可见反馈只剩一个三角翻面，看着像没反应。
-   * `block: 'nearest'` 只滚必需的那点距离，不做整屏跳。
-   *
-   * 必须放在 layout effect 里（而不是 onClick 的 rAF 里）：React 19 的提交是异步的，
-   * rAF 常常跑在新行还没进 DOM 的时候，`querySelector` 拿不到东西（第一版就是这么
-   * 静默失效的）。滚的是**第一行新行**而不是整个组：组比容器还高时，对整组用
-   * 'nearest' 会把组的**底边**对齐到容器底部（规范如此），结果又变回"一展开就在底部"。
-   */
-  React.useLayoutEffect(() => {
-    if (!spentOpen) return
-    const first = boxRef.current?.querySelector('.usage-pop-spent .usage-pop-row')
-    if (first instanceof HTMLElement) first.scrollIntoView({ block: 'nearest' })
-  }, [spentOpen])
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={<Button variant='ghost' size='xs' className={cn('h-auto min-w-0 justify-start px-0', className)} title={title}
-          aria-label={t('积分明细')} />}
-      >
-        {variant === 'pool' ? children : <span className='val'>{children}</span>}
-        <span className='caret' aria-hidden>▾</span>
-      </PopoverTrigger>
-      <PopoverContent align='end' sideOffset={6} className='w-[320px]' initialFocus={initialFocus}>
-        {/* ⚠️ 这一层 div 不是装饰，是**滚动容器本身**：组件库给 PopoverContent 编出的
-            `overflow-hidden` / `max-h-[min(70vh,560px)]` 都带 `!important`，把
-            max-height / overflow-y 写在弹层自己身上会被它们压掉（明细一多就既滚不动
-            又被裁掉）。写在弹层里的这一层没有对手，明细的滚动归它。
-            `tabIndex={-1}` 是为了能被上面的 `initialFocus` 聚焦（见那段注释）。
-            动这段结构前先看 page-accounts-table.css 里 .usage-pop-credit 的说明。 */}
-        <div className='usage-pop-credit' ref={attachBox} tabIndex={-1}>
-          {subscriptionLine ? <div className='usage-pop-sub'>{subscriptionLine}</div> : null}
-          <div className='usage-pop-group'>{t('积分明细')}</div>
-          {liveRows.map((row, index) => <CreditRowView key={`${row.name}-${index}`} row={row} />)}
-          {spentRows.length > 0 ? (
-            <Collapsible open={spentOpen} onOpenChange={setSpentOpen} className='usage-pop-spent'>
-              <CollapsibleTrigger
-                render={<Button variant='ghost' size='xs' className='w-full' />}
-                title={t('展开或收起（默认收起）')}
-              >
-                <span className='caret' aria-hidden>▾</span>
-                <span>{t('已用完 / 已过期')}</span>
-                <span className='n'>{t('{count} 份', { count: spentRows.length })}</span>
-              </CollapsibleTrigger>
-              <CollapsibleContent keepMounted>
-                {spentRows.map((row, index) => (
-                  <CreditRowView key={`spent-${row.name}-${index}`} row={row} />
-                ))}
-              </CollapsibleContent>
-            </Collapsible>
-          ) : null}
+  const query = search.trim().toLocaleLowerCase()
+  const filter = (items: CreditRow[]) => items.filter(row => !query || [row.name, row.view, row.window, row.title].join(' ').toLocaleLowerCase().includes(query))
+  // Opening and switching views always starts at the first pack, without focus jumps.
+  React.useLayoutEffect(() => { if (viewport.current) viewport.current.scrollTop = 0 }, [open, tab, search])
+  return <Sheet open={open} onOpenChange={next => { setOpen(next); if (next) { setTab('available'); setSearch('') } }}>
+    <SheetTrigger render={<Button variant='outline' size='xs' className={cn('credit-detail-trigger', variant === 'pool' && 'credit-detail-trigger-pool')} title={title} aria-label={t('积分明细')} />}>
+      <span className='credit-detail-trigger-value'>{children}</span>
+      <PanelRightOpen data-icon='inline-end' aria-hidden='true' />
+    </SheetTrigger>
+    <SheetContent showCloseButton={false} className='credit-detail-sheet w-full gap-0 sm:max-w-[540px]'>
+      <SheetHeader className='shrink-0 gap-1 border-b border-border px-6 py-5 pr-12'>
+        <SheetTitle>{t('积分明细')}</SheetTitle>
+        <SheetDescription>{accountName}{planName ? ' · ' + planName : ''}</SheetDescription>
+        <SheetClose render={<Button variant='ghost' size='icon-sm' className='absolute right-4 top-4' aria-label={t('关闭')} />}><X data-icon='inline-start' aria-hidden='true' /></SheetClose>
+      </SheetHeader>
+      <div className='shrink-0 px-6 py-5' title={subscriptionLine || title}>
+        <p className='text-xs text-muted-foreground'>{t('可用余额')}</p>
+        <p className='mt-2 break-words text-3xl font-semibold tracking-tight tabular-nums'>{balanceText}</p>
+        <p className='mt-2 text-xs text-muted-foreground'>{t('{count} 份可用积分包', { count: liveRows.length })}</p>
+      </div>
+      <Tabs value={tab} onValueChange={next => setTab(String(next))} className='min-h-0 flex-1 gap-0'>
+        <div className='flex shrink-0 flex-col gap-4 border-b border-border px-6 pb-4'>
+          <TabsList className='w-full' aria-label={t('积分包状态')}>
+            <TabsTrigger value='available'>{t('可用')}<Badge variant='secondary'>{liveRows.length}</Badge></TabsTrigger>
+            <TabsTrigger value='spent'>{t('已用完 / 已过期')}<Badge variant='secondary'>{spentRows.length}</Badge></TabsTrigger>
+          </TabsList>
+          <Input type='search' value={search} onChange={event => setSearch(event.target.value)} aria-label={t('搜索积分包')} placeholder={t('搜索积分包名称、来源或日期')} />
         </div>
-      </PopoverContent>
-    </Popover>
-  )
+        {([['available', liveRows], ['spent', spentRows]] as const).map(([value, items]) => <TabsContent key={value} value={value} className='min-h-0 overflow-hidden'>
+          <ScrollArea className='h-full' viewportRef={value === tab ? viewport : undefined}>
+            <div className='px-6 pb-6'>
+              {filter(items).length ? filter(items).map((row, index) => <CreditRowView key={`${row.name}-${index}`} row={row} />)
+                : <Empty variant='compact' className='py-12'><EmptyHeader><EmptyDescription>{query ? t('没有匹配的积分包') : t('暂无积分包')}</EmptyDescription></EmptyHeader></Empty>}
+            </div>
+          </ScrollArea>
+        </TabsContent>)}
+      </Tabs>
+    </SheetContent>
+  </Sheet>
 }

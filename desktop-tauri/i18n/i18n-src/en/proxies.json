@@ -247,5 +247,7 @@
   "还没有订阅：粘贴订阅链接、导入本地 YAML 文件，或从图片识别二维码。": "No subscriptions yet: paste a subscription URL, import a local YAML file, or scan a QR code from an image.",
   "这条在 Clash Verge 里是停用的，本页启用不生效 —— 到 Clash Verge 里打开它": "This listener is disabled in Clash Verge, so enabling it here has no effect — turn it on in Clash Verge",
   "选择 YAML 文件…": "Choose a YAML file…",
-  "重新选择文件…": "Choose a different file…"
+  "重新选择文件…": "Choose a different file…",
+  "内核已手动关闭": "Kernel manually stopped",
+  "内核已手动关闭（点「启动内核」拉起）": "Kernel manually stopped — click \"Start kernel\" to launch it"
 }

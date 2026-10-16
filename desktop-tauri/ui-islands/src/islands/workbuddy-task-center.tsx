@@ -5,6 +5,7 @@ import { taskRequest, taskAccount } from './task-center-api'
 import { DEFAULT_PAGE_SIZE, SERVER_PAGE_SIZES, TableFooter, readPageSize, writePageSize } from './table-shell'
 import { t } from '../i18n'
 import { WorkBuddyTasksDialog } from './workbuddy-tasks-dialog'
+import { WorkBuddyCompensation } from './workbuddy-compensation'
 import type { AccountRecord } from './accounts-shared'
 import type { AccountGrowthTask, AccountGrowthDetails } from './workbuddy-tasks-api'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ui'
@@ -246,6 +247,7 @@ export function WorkbuddyTaskCenter({ active = true }: { active?: boolean }) {
         {travel ? <p className='mt-3 text-sm'>{t('猫猫旅行')}：{String(travel.buddyName || '')} · {String(travel.state || (travel.hasBuddy === false ? t('未领养') : travel.error || t('尚未查询')))}</p> : null}
         {selected?.provider === 'workbuddy-intl' ? <p className='mt-3 text-xs text-subtle'>{t('国际版不参与成长任务查询；可手动执行活跃上报，结果在执行记录查看。')}</p> : null}
         {scanned ? <TaskQueryResults data={scanned} querying={querying} onDetails={row => setDialog(accounts.find(account => account.id === row.id) || { id: row.id, name: row.name, provider: 'workbuddy' })} /> : null}
+        <WorkBuddyCompensation key={accountId || '__all__'} accounts={selected ? [selected] : accountId ? [] : accounts} disabled={busy || queue?.running === true} />
         {!schedule ? <p className='py-4'>{t('正在读取排程…')}</p> : <div className='divide-y divide-border'>
           {TASKS.map(task => {
             const status = schedule.tasks?.find(row => row.kind === task.kind)

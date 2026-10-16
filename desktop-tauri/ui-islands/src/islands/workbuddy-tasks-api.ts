@@ -4,6 +4,9 @@ export type AccountGrowthTask = {
   accepted?: boolean; claimed?: boolean; claimable?: boolean; locked?: boolean; automatable?: boolean
 }
 export type AccountGrowthDetails = { accountId: string; queriedAt?: number; tasks?: AccountGrowthTask[] }
+export type CompensationStatus = { active: boolean; claimed: boolean; claimable: boolean; creditNum: number | null; endTime: string | null }
+export type AccountCompensation = { accountId: string; queriedAt: number; status: CompensationStatus }
+export type CompensationClaim = { claimed: boolean; already: boolean; credit: number | null; message: string }
 export type GrowthQueueItem = { accountId: string; taskCode: string; status: string; message?: string }
 export type AccountGrowthQueue = { running?: boolean; total?: number; done?: number; items?: GrowthQueueItem[] }
 export type GrowthRequest = <T>(method: 'GET' | 'POST', path: string, body?: unknown) => Promise<T>
@@ -13,6 +16,8 @@ export function createAccountGrowthClient(request: GrowthRequest) {
   const path = (id: string) => '/api/growth-tasks/accounts/' + encodeURIComponent(id)
   return {
     list: (id: string) => request<AccountGrowthDetails>('GET', path(id)),
+    compensation: (id: string) => request<AccountCompensation>('GET', path(id) + '/compensation'),
+    claimCompensation: (id: string) => request<CompensationClaim>('POST', '/api/growth-tasks/gift', { accountId: id, kind: 'compensation' }),
     accept: (id: string, code?: string) => request<{ accepted: number }>('POST', path(id) + '/accept',
       code === undefined ? { all: true } : { code }),
     claim: (id: string, code: string) => request('POST', path(id) + '/claim', { code }),

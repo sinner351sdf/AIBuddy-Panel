@@ -513,5 +513,8 @@
   "，文件里后续的改动在清空这里之前不再生效": ", e alterações posteriores no arquivo deixam de valer até que este campo seja limpo",
   "，替换前的数据已备份为 {name}": "",
   "，自定义提供商新增 {added} 个、更新 {updated} 个": ", provedores personalizados: {added} adicionados, {updated} atualizados",
-  "；网页管理面板已一并开放（浏览器打开同一地址）": "; o painel de administração web também está aberto (acesse pelo mesmo endereço no navegador)"
+  "；网页管理面板已一并开放（浏览器打开同一地址）": "; o painel de administração web também está aberto (acesse pelo mesmo endereço no navegador)",
+  "「请求日志」页的逐条请求记录，默认 99999 天（近似全量保留），可填 1–99999 天。": "",
+  "三档数据各自独立计时，超出保留天数的部分会被删除：事件日志是登录、账号切换、429 切换这类系统事件；请求日志是网关每次转发到上游的逐条记录；按天聚合供报表页的热力图与按天趋势使用。请求日志与按天聚合默认 99999 天（约 274 年，效果上等于全量保留），事件日志默认 30 天。把某一档改小（例如 30 天改成 7 天）保存后会立即删除超出的历史数据，此操作不可恢复；改大或保持不变不会删除任何数据。三档的可填范围均为 1–99999 天。": "",
+  "报表页的热力图与按天趋势，默认 99999 天（近似全量保留），可填 1–99999 天。": ""
 }

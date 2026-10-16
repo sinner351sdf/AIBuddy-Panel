@@ -502,17 +502,14 @@ async fn run_mp_mini_chat(
     if task.claimed {
         return Ok(Skipped("已领取".to_string()));
     }
-    if task.accept_status == "not_accepted" || task.accept_status.is_empty() {
-        if !growth::accept_with_verify(service, session, code).await {
-            return Ok(Skipped(
-                "accept 未登记生效（上游 200+OK 但未落账形态），待下次重试".to_string(),
-            ));
-        }
-        // accept 前的任务进度为 null（target 下发 0），接受后回读拿真实
-        // target/current（refs autotask.go:347-353）
-        if let Ok(Some(fresh)) = growth::task_by_code(service, session, code).await {
-            task = fresh;
-        }
+    if task.accept_status != "accepted" {
+        task = growth::accept_verified_task(service, session, code).await?;
+    }
+    if task.claimed || task.claimable {
+        return Ok(Done);
+    }
+    if task.locked {
+        return Ok(Skipped("任务未解锁，未执行动作".into()));
     }
     let target = if task.target > 0 { task.target } else { 1 };
     // 已达标（含 completed 未领）：直接交给队列回读领奖
@@ -523,8 +520,13 @@ async fn run_mp_mini_chat(
     // （refs autotask.go:369-370：上一轮残留进度被回滚后立即重报同样无效）
     let need = (target - task.current).max(0);
     for index in 0..need {
-                if super::task_execution::should_stop(){return Ok(Skipped("收到停止请求，未启动后续步骤".into()));}
-        tokio::time::sleep(Duration::from_millis(MP_CHAT_EVENT_GAP_MS + chat_jitter_ms())).await;
+        if super::task_execution::should_stop() {
+            return Ok(Skipped("收到停止请求，未启动后续步骤".into()));
+        }
+        tokio::time::sleep(Duration::from_millis(
+            MP_CHAT_EVENT_GAP_MS + chat_jitter_ms(),
+        ))
+        .await;
         let conversation_id = format!("wb2api-mp-{}-{}", logging::now_ms(), index);
         let event = if with_activity_id {
             report::school_season_chat_event(&conversation_id)
@@ -547,7 +549,7 @@ async fn run_mp_mini_expert(
     session: &Value,
     code: &str,
 ) -> Result<ActionOutcome, BillingError> {
-    let task = match growth::task_by_code(service, session, code).await? {
+    let mut task = match growth::task_by_code(service, session, code).await? {
         Some(task) => task,
         None => return Ok(Skipped("mp 口径未下发该任务（活动可能已结束）".to_string())),
     };
@@ -576,12 +578,14 @@ async fn run_mp_mini_expert(
     } else {
         &first.display_name_zh
     };
-    if task.accept_status == "not_accepted" || task.accept_status.is_empty() {
-        if !growth::accept_with_verify(service, session, code).await {
-            return Ok(Skipped(
-                "accept 未登记生效（上游 200+OK 但未落账形态），待下次重试".to_string(),
-            ));
-        }
+    if task.accept_status != "accepted" {
+        task = growth::accept_verified_task(service, session, code).await?;
+    }
+    if task.claimed || task.claimable {
+        return Ok(Done);
+    }
+    if task.locked {
+        return Ok(Skipped("任务未解锁，未执行动作".into()));
     }
     // 判据上报：mp 指纹 expert_actual_use（真实 ex_ id，上报即 completed）
     let event = report::mini_expert_use_event(&first.expert_id, name, &first.expert_type);
@@ -599,7 +603,7 @@ async fn run_sequential_event(
     code: &str,
     kind: SequentialKind,
 ) -> Result<ActionOutcome, BillingError> {
-    let task = match growth::task_by_code(service, session, code).await? {
+    let mut task = match growth::task_by_code(service, session, code).await? {
         Some(task) => task,
         None => {
             return Ok(Skipped(
@@ -614,12 +618,14 @@ async fn run_sequential_event(
     if task.current >= target || task.accept_status == "completed" {
         return Ok(Done);
     }
-    if task.accept_status == "not_accepted" || task.accept_status.is_empty() {
-        if !growth::accept_with_verify(service, session, code).await {
-            return Ok(Skipped(
-                "accept 未登记生效（任务可能处于每日锁定窗口，等解锁后自动重试）".to_string(),
-            ));
-        }
+    if task.accept_status != "accepted" {
+        task = growth::accept_verified_task(service, session, code).await?;
+    }
+    if task.claimed || task.claimable {
+        return Ok(Done);
+    }
+    if task.locked {
+        return Ok(Skipped("任务未解锁，未执行动作".into()));
     }
     // primary 判据上报（refs autotask.go:469-471 / 505-541）
     match kind {
@@ -664,7 +670,9 @@ async fn run_sequential_event(
     }
     // 回读两轮（3s 间隔）；round 0 未点亮且有 fallback 时补一轮（refs:473-488）
     for round in 0..2 {
-        if super::task_execution::should_stop(){return Ok(Skipped("收到停止请求，未启动后续步骤".into()));}
+        if super::task_execution::should_stop() {
+            return Ok(Skipped("收到停止请求，未启动后续步骤".into()));
+        }
         tokio::time::sleep(Duration::from_millis(growth::CLAIM_POLL_GAP_MS)).await;
         if let Ok(Some(fresh)) = growth::task_by_code(service, session, code).await {
             if fresh.claimable || fresh.claimed || fresh.current >= target {

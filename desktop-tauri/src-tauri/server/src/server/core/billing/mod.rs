@@ -47,6 +47,7 @@ pub mod keepalive;
 pub mod expert;
 pub mod gift;
 pub mod growth;
+pub(crate) mod growth_accept;
 mod request;
 pub mod report;
 pub mod streak;
@@ -137,7 +138,7 @@ impl std::fmt::Display for BillingError {
 pub struct BillingService {
     auth: AuthService,
     #[cfg(test)]
-    mock_transport:Option<std::sync::Arc<dyn Fn(&str,Option<&Value>)->Result<Value,BillingError>+Send+Sync>>,
+    mock_transport:Option<std::sync::Arc<dyn Fn(&str,Option<&Value>,&[(String,String)])->Result<Value,BillingError>+Send+Sync>>,
 }
 
 impl BillingService {
@@ -221,7 +222,9 @@ impl BillingService {
         spec: BillingSpec,
         options: CallOptions<'_>,
     ) -> Result<BillingCall, BillingError> {
-        if spec.method!="GET" && crate::server::core::task_execution::should_stop(){return Err(BillingError::new("任务已停止，未发送后续请求",409));}
+        if spec.method != "GET" && crate::server::core::task_execution::should_stop() {
+            return Err(BillingError::new("任务已停止，未发送后续请求", 409));
+        }
         let session = match options.session {
             Some(session) => session.clone(),
             None => self.require_session().await?,
@@ -237,20 +240,19 @@ impl BillingService {
                 .and_then(Value::as_str)
                 .filter(|value| !value.is_empty())
                 .map(normalize_endpoint)
-                .unwrap_or_else(|| {
-                    normalize_endpoint(self.auth.default_context().base_url.as_str())
-                }),
+                .unwrap_or_else(|| normalize_endpoint(self.auth.default_context().base_url.as_str())),
             request::BillingBase::Chat => request::CHAT_BASE.to_string(),
             request::BillingBase::Billing => request::BILLING_BASE.to_string(),
             request::BillingBase::Web => request::WEB_BASE.to_string(),
         };
         let url = format!("{endpoint}{}{}", spec.path, options.query.unwrap_or(""));
-        #[cfg(test)]
-        if let Some(mock)=&self.mock_transport {let data=mock(&url,options.body)?;return Ok(BillingCall{code:Some(0),msg:None,request_id:None,data,raw:None});}
 
         let mut extra: Vec<(String, String)> = options.extra.clone();
         if let Some(locale) = options.locale {
-            extra.push(("Accept-Language".to_string(), Self::accept_language(Some(locale))));
+            extra.push((
+                "Accept-Language".to_string(),
+                Self::accept_language(Some(locale)),
+            ));
         }
         if spec.whitelist_headers {
             extra.extend(whitelist_headers(&session));
@@ -258,6 +260,17 @@ impl BillingService {
         // 头顺序与 Node 的 `{...base, ...extra, X-Enterprise-Id, ...}` 一致：
         // 条件头在 extra 之后（同名时后者胜，Node 的对象展开也是这个顺序）
         let headers = build_headers(&session, &extra);
+        #[cfg(test)]
+        if let Some(mock) = &self.mock_transport {
+            let data = mock(&url, options.body, &headers)?;
+            return Ok(BillingCall {
+                code: Some(0),
+                msg: None,
+                request_id: None,
+                data,
+                raw: None,
+            });
+        }
 
         let body = if spec.method == "GET" || spec.method == "HEAD" {
             None
@@ -369,9 +382,18 @@ impl BillingService {
                 if is_duplicate_claim(response.status, detail) {
                     logging::verbose(
                         "[Billing]",
-                        &format!("签到重复领取（HTTP {}），按「今日已完成」处理: {detail}", response.status),
+                        &format!(
+                            "签到重复领取（HTTP {}），按「今日已完成」处理: {detail}",
+                            response.status
+                        ),
                     );
-                    return Ok(BillingCall { code, msg, request_id, data: Value::Null, raw: payload });
+                    return Ok(BillingCall {
+                        code,
+                        msg,
+                        request_id,
+                        data: Value::Null,
+                        raw: payload,
+                    });
                 }
                 // 开了容错却**没**命中：最可能是上游改了文案（判据是文案匹配，
                 // 见 `is_duplicate_claim`）。留一条现场 —— 否则「面板又不像 #137
@@ -391,7 +413,11 @@ impl BillingService {
             } else {
                 format!("计费接口返回 HTTP {}: {detail}", response.status)
             };
-            return Err(BillingError::with_code(message, response.status as i32, code));
+            return Err(BillingError::with_code(
+                message,
+                response.status as i32,
+                code,
+            ));
         }
         if let Some(code_value) = code {
             if code_value != RESPONSE_CODE_OK && options.expect_code_ok {
@@ -413,7 +439,13 @@ impl BillingService {
             .and_then(|value| value.get("data"))
             .cloned()
             .unwrap_or(Value::Null);
-        Ok(BillingCall { code, msg, request_id, data, raw: payload })
+        Ok(BillingCall {
+            code,
+            msg,
+            request_id,
+            data,
+            raw: payload,
+        })
     }
 
     // ─── 签到 ───────────────────────────────────────────────
@@ -664,4 +696,14 @@ mod tests {
 }
 
 #[cfg(test)]
-impl BillingService {pub(crate) fn mock(handler:impl Fn(&str,Option<&Value>)->Result<Value,BillingError>+Send+Sync+'static)->Self {Self{auth:AuthService::for_store(crate::server::core::account_store::AccountStore::with_db(None)),mock_transport:Some(std::sync::Arc::new(handler))}}}
+impl BillingService {
+    pub(crate) fn mock(handler: impl Fn(&str, Option<&Value>) -> Result<Value, BillingError> + Send + Sync + 'static) -> Self {
+        Self::mock_headers(move |url, body, _| handler(url, body))
+    }
+    pub(crate) fn mock_headers(handler: impl Fn(&str, Option<&Value>, &[(String, String)]) -> Result<Value, BillingError> + Send + Sync + 'static) -> Self {
+        Self {
+            auth: AuthService::for_store(crate::server::core::account_store::AccountStore::with_db(None)),
+            mock_transport: Some(std::sync::Arc::new(handler)),
+        }
+    }
+}

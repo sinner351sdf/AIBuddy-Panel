@@ -109,7 +109,7 @@ pub async fn execute(service: &BillingService, session: &Value, code: &str, mode
             lookup = growth::task_by_code(service, session, code).await;
         }
     }
-    let task = match lookup {
+    let mut task = match lookup {
         Ok(Some(task)) => task,
         Ok(None) => return R::new("skipped", "上游未下发此任务"),
         Err(e) => return R::new("failed", e.message),
@@ -130,35 +130,57 @@ pub async fn execute(service: &BillingService, session: &Value, code: &str, mode
         if code == "black_cat" && !night_window() {
             return R::new("skipped", "不在北京时间 23:00–08:00 夜猫窗口");
         }
-        if !matches!(task.accept_status.as_str(), "accepted" | "completed")
-            && !growth::accept_with_verify(service, session, code).await
-        {
-            return R::new("failed", "接受任务未确认生效，本轮停止");
+        if task.accept_status != "accepted" {
+            task = match growth::accept_verified_task(service, session, code).await {
+                Ok(fresh) => fresh,
+                Err(_) if should_stop() => {
+                    return R::new("cancelled", "接受任务确认已停止，未执行后续动作")
+                }
+                Err(error) => {
+                    return R::new(
+                        "failed",
+                        format!(
+                            "接受任务未确认生效：{}（HTTP {}）",
+                            error.message, error.status_code
+                        ),
+                    )
+                }
+            };
         }
-        match growth_actions::run_action(service, session, code, &task).await {
-            Ok(ActionOutcome::Done) => {}
-            Ok(ActionOutcome::Skipped(_)) if should_stop() => {
-                return R::new("cancelled", "已停止后续动作")
-            }
-            Ok(ActionOutcome::Skipped(msg)) => return R::new("skipped", msg),
-            Err(e)
-                if e.status_code >= 500
-                    && (e.message.contains("超时")
-                        || e.message.to_lowercase().contains("timeout")) =>
-            {
-                return R::new(
-                    "pending",
-                    "动作请求结果不明，需核实进度；未重发可能扣费的请求",
-                )
-            }
-            Err(_) if should_stop() => return R::new("cancelled", "任务已停止，未发送后续请求"),
-            Err(e) => return R::new("failed", e.message),
+        if task.claimed {
+            return R::new("already", "回读确认奖励已领取，未重复执行动作");
         }
-        match growth::task_by_code_waiting(service, session, code).await {
-            Ok(Some(after)) if after.claimed => return R::new("already", "上游确认奖励已领取"),
-            Ok(Some(after)) if after.claimable => {}
-            Ok(_) => return R::new("pending", "动作已提交，回读未确认达标；不立即重复动作"),
-            Err(_) => return R::new("pending", "动作已提交，进度回读失败，需核实后再执行"),
+        if task.locked {
+            return R::new("skipped", "回读确认任务未解锁，未执行动作");
+        }
+        if !task.claimable {
+            match growth_actions::run_action(service, session, code, &task).await {
+                Ok(ActionOutcome::Done) => {}
+                Ok(ActionOutcome::Skipped(_)) if should_stop() => {
+                    return R::new("cancelled", "已停止后续动作")
+                }
+                Ok(ActionOutcome::Skipped(msg)) => return R::new("skipped", msg),
+                Err(e)
+                    if e.status_code >= 500
+                        && (e.message.contains("超时")
+                            || e.message.to_lowercase().contains("timeout")) =>
+                {
+                    return R::new(
+                        "pending",
+                        "动作请求结果不明，需核实进度；未重发可能扣费的请求",
+                    )
+                }
+                Err(_) if should_stop() => {
+                    return R::new("cancelled", "任务已停止，未发送后续请求")
+                }
+                Err(e) => return R::new("failed", e.message),
+            }
+            match growth::task_by_code_waiting(service, session, code).await {
+                Ok(Some(after)) if after.claimed => return R::new("already", "上游确认奖励已领取"),
+                Ok(Some(after)) if after.claimable => {}
+                Ok(_) => return R::new("pending", "动作已提交，回读未确认达标；不立即重复动作"),
+                Err(_) => return R::new("pending", "动作已提交，进度回读失败，需核实后再执行"),
+            }
         }
     }
     if should_stop() {

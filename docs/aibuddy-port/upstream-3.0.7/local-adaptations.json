@@ -1,0 +1,12 @@
+{
+  "additionalLocalPaths": [
+    "desktop-tauri/src-tauri/server/src/server/api/billing.rs",
+    "desktop-tauri/src-tauri/server/src/server/config/mod.rs",
+    "desktop-tauri/src-tauri/server/src/server/core/billing/keepalive.rs",
+    "desktop-tauri/src-tauri/server/src/server/core/providers/workbuddy/growth_chat.rs",
+    "desktop-tauri/src-tauri/server/src/web_shim.rs",
+    "desktop-tauri/src-tauri/src/bridge.rs",
+    "desktop-tauri/ui/islands/ui.css"
+  ],
+  "reason": "native/web bridge for independent opt-in, fail-closed config persistence, local growth task headers, rebuilt CSS and generated dictionaries"
+}

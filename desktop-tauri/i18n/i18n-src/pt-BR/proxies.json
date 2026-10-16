@@ -236,5 +236,7 @@
   "还没有订阅：粘贴订阅链接、导入本地 YAML 文件，或从图片识别二维码。": "Nenhuma assinatura ainda: cole um link de assinatura, importe um arquivo YAML local ou leia um QR code de uma imagem.",
   "这条在 Clash Verge 里是停用的，本页启用不生效 —— 到 Clash Verge 里打开它": "Este item está desativado no Clash Verge, então ativá-lo aqui não tem efeito — ligue-o no Clash Verge",
   "选择 YAML 文件…": "Escolher arquivo YAML…",
-  "重新选择文件…": "Escolher outro arquivo…"
+  "重新选择文件…": "Escolher outro arquivo…",
+  "内核已手动关闭": "Kernel parado manualmente",
+  "内核已手动关闭（点「启动内核」拉起）": "Kernel parado manualmente — clique em \"Iniciar kernel\" para ativá-lo"
 }

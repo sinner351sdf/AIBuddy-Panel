@@ -5,8 +5,9 @@ import { t } from '../i18n'
 import { displayNameOf } from './accounts-domain'
 import { errorMessage, shared, toast, type AccountRecord } from './accounts-shared'
 import { accountGrowthClient as api, canAcceptTask, canAutomateTask, taskState,
-  type AccountGrowthDetails, type AccountGrowthQueue, type AccountGrowthTask } from './workbuddy-tasks-api'
+  type AccountGrowthDetails, type AccountGrowthQueue, type AccountGrowthTask, type CompensationStatus } from './workbuddy-tasks-api'
 import { Empty, EmptyHeader, EmptyDescription } from '@ui'
+import { WorkBuddyCompensation } from './workbuddy-compensation'
 
 const CSS = `
 .growth-task-heading { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
@@ -45,6 +46,9 @@ export function WorkBuddyTasksDialog({ account, onClose }: { account: AccountRec
   const [busy, setBusy] = React.useState('')
   const [error, setError] = React.useState('')
   const [queueError, setQueueError] = React.useState('')
+  const [compensation, setCompensation] = React.useState<CompensationStatus | null>(null)
+  const [compensationRefresh, setCompensationRefresh] = React.useState(0)
+  const hasCompensation = account.provider === 'workbuddy' && account.edition !== 'intl'
   const alive = React.useRef(true)
   React.useEffect(() => () => { alive.current = false }, [])
   const tasks = details?.tasks || []
@@ -144,10 +148,13 @@ export function WorkBuddyTasksDialog({ account, onClose }: { account: AccountRec
             : t('其他成长任务正在执行，请等本轮结束后再操作。')}
         </AlertDescription></Alert> : null}
         {loading && !details ? <Empty variant='compact' className='growth-task-empty flex items-center justify-center gap-2'><EmptyHeader><EmptyDescription><Spinner className='size-3' />{t('正在查询任务…')}</EmptyDescription></EmptyHeader></Empty> : null}
-        {!loading && details && tasks.length === 0 ? <Empty variant='compact' className='growth-task-empty'><EmptyHeader><EmptyDescription>{t('该账号暂无成长任务')}</EmptyDescription></EmptyHeader></Empty> : null}
-        {tasks.length ? <table className='growth-task-table'>
+        {!loading && details && tasks.length === 0 && !hasCompensation ? <Empty variant='compact' className='growth-task-empty'><EmptyHeader><EmptyDescription>{t('该账号暂无成长任务')}</EmptyDescription></EmptyHeader></Empty> : null}
+        {tasks.length || hasCompensation ? <table className='growth-task-table'>
           <thead><tr><th>{t('任务')}</th><th>{t('进度')}</th><th>{t('奖励')}</th><th>{t('状态')}</th><th aria-label={t('操作')} /></tr></thead>
-          <tbody>{tasks.map(task => <tr key={task.code}>
+          <tbody>
+            {hasCompensation ? <WorkBuddyCompensation key={account.id} accounts={[account]} layout='task-row'
+              refreshKey={compensationRefresh} onStatusChange={setCompensation} disabled={busy !== '' || running} /> : null}
+            {tasks.map(task => <tr key={task.code}>
             <td><div className='growth-task-name' title={task.description}>{task.title || task.label || task.code}</div>
               <div className='growth-task-code'>{task.code}{task.tag ? ' · ' + task.tag : ''}</div></td>
             <td className='growth-task-number'>{Number(task.current) || 0} / {Number(task.target) || 0}</td>
@@ -165,10 +172,10 @@ export function WorkBuddyTasksDialog({ account, onClose }: { account: AccountRec
         </table> : null}
       </DialogBody>
       <DialogFooter className='growth-task-footer'>
-        <span className='growth-task-count'>{details ? t('共 {n} 项 · 已领取 {done} 项', { n: tasks.length, done: tasks.filter(task => task.claimed).length }) : ''}</span>
+        <span className='growth-task-count'>{details ? t('共 {n} 项 · 已领取 {done} 项', { n: tasks.length + Number(hasCompensation), done: tasks.filter(task => task.claimed).length + Number(compensation?.claimed === true) }) : ''}</span>
         <Button variant='outline' disabled={blocked || !acceptCount} onClick={() => void act('accept')}>{t('全部接受')}</Button>
         <Button disabled={blocked || !autoCount} onClick={() => void act('run')}>{t('执行普通成长任务（不含夜猫）')}</Button>
-        <Button variant='outline' disabled={loading || busy !== ''} onClick={() => { void load(); void poll() }}>{t('重新查询')}</Button>
+        <Button variant='outline' disabled={loading || busy !== ''} onClick={() => { void load(); void poll(); setCompensationRefresh(value => value + 1) }}>{t('重新查询')}</Button>
         <Button variant='outline' onClick={onClose}>{t('关闭')}</Button>
       </DialogFooter>
     </DialogContent>

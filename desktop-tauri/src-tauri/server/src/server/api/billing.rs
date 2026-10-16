@@ -202,6 +202,19 @@ pub async fn save_keepalive(body: Bytes) -> Response {
             return GatewayError::new(format!("请求体不是合法 JSON：{error}")).into_response()
         }
     };
+    // 开关单独保存，旧版仅提交 models 时不改变用户选择。
+    if let Some(value) = payload.get("webConversationEnabled") {
+        let Some(enabled) = value.as_bool() else {
+            return GatewayError::with_status(400, "webConversationEnabled 必须是布尔值").into_response();
+        };
+        if payload.get("models").is_some() {
+            return GatewayError::with_status(400, "请分别保存模型清单和网页会话开关").into_response();
+        }
+        return match crate::server::core::billing::keepalive::set_web_conversation_enabled(enabled) {
+            Ok(()) => ok_json(crate::server::core::billing::keepalive::state()),
+            Err(message) => GatewayError::with_status(500, message).into_response(),
+        };
+    }
     // 两种入参都收：数组（规范形态）与字符串（输入框原样）——
     // 字符串按逗号 / 顿号 / 空白拆，省得前端再写一遍分隔逻辑。
     let raw: Vec<String> = match payload.get("models") {

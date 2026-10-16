@@ -218,7 +218,8 @@ fn parse_tasks(data: &Value) -> Vec<Task> {
                 locked: item.get("locked").and_then(Value::as_bool).unwrap_or(false),
                 target,
                 current,
-                claimable: !claimed && target > 0 && current >= target,
+                claimable: !claimed
+                    && (accept_status == "completed" || (target > 0 && current >= target)),
                 claimed,
                 accept_status,
                 status: text_of("status"),
@@ -324,8 +325,7 @@ pub async fn list_tasks_mp(
     Ok(parse_tasks(&call.data))
 }
 
-/// 双口径合并列表：默认口径优先，mp 口径按 task_code 去重补齐
-/// （对照 refs taskcenter.go:80-102 的扫描合并；mp 是超集，重叠时保留默认口径）。
+/// 双口径合并列表：普通任务优先默认口径，MP 专属任务优先 MP 口径。
 pub async fn list_tasks_merged(
     service: &BillingService,
     session: &Value,
@@ -336,7 +336,12 @@ pub async fn list_tasks_merged(
         (Ok(mut tasks), Ok(mp_tasks)) => {
             let mut seen: Vec<String> = tasks.iter().map(|t| t.task_code.clone()).collect();
             for task in mp_tasks {
-                if !seen.contains(&task.task_code) {
+                if is_mp_task_code(&task.task_code) && seen.contains(&task.task_code) {
+                    if let Some(existing) = tasks.iter_mut().find(|t| t.task_code == task.task_code)
+                    {
+                        *existing = task;
+                    }
+                } else if !seen.contains(&task.task_code) {
                     seen.push(task.task_code.clone());
                     tasks.push(task);
                 }
@@ -351,26 +356,20 @@ pub async fn list_tasks_merged(
 }
 
 /// 拉取任务列表并定位单个任务；未找到返回 None（不视为错误）。
-/// 双口径：mp 专属任务在默认列表查不到，自动回落 mp 列表
-/// （对照 refs autotask.go:221-235 `taskByCode`，未知码不多打一次上游）。
+/// MP 专属任务始终走 MP 列表；其他任务只读默认列表，不混用状态。
 pub async fn task_by_code(
     service: &BillingService,
     session: &Value,
     code: &str,
 ) -> Result<Option<Task>, BillingError> {
-    for task in list_tasks(service, session).await? {
-        if task.task_code == code {
-            return Ok(Some(task));
-        }
-    }
-    if is_mp_task_code(code) {
-        for task in list_tasks_mp(service, session).await? {
-            if task.task_code == code {
-                return Ok(Some(task));
-            }
-        }
-    }
-    Ok(None)
+    // MP codes must be read from their own platform even if the ordinary list
+    // includes a stale duplicate. Registration and progress share this route.
+    let tasks = if is_mp_task_code(code) {
+        list_tasks_mp(service, session).await?
+    } else {
+        list_tasks(service, session).await?
+    };
+    Ok(tasks.into_iter().find(|task| task.task_code == code))
 }
 
 // ─── accept ────────────────────────────────────────────────
@@ -420,50 +419,30 @@ pub async fn accept_tasks_batched(
     Ok(())
 }
 
-/// mp 口径 accept 并回读验证登记生效（对照 refs autotask.go:287-304
-/// `acceptWithVerifyMP`）：上游存在 200+OK 但 accept 未真正登记的形态
-/// （此时上报事件全部不归账）—— 判定以回读 accept_status 为准，未生效重试一次。
-/// 返回 true = 登记生效。
-pub async fn accept_with_verify(
+/// Accept on the task's own platform, returning the confirmed fresh snapshot.
+/// A positive acknowledgement alone never authorizes actions.
+pub async fn accept_verified_task(
     service: &BillingService,
     session: &Value,
     code: &str,
-) -> bool {
-    for attempt in 1..=2 {
-        let codes = [code.to_string()];
-        if let Err(error) = accept_tasks(service, session, &codes, true).await {
-            logging::log(
-                "[Growth]",
-                &format!("accept {code} 尝试{attempt} 失败: {}", error.message),
-            );
-            continue;
-        }
-        tokio::time::sleep(Duration::from_millis(MP_ACTION_GAP_MS)).await;
-        match task_by_code(service, session, code).await {
-            Ok(Some(task))
-                if task.accept_status != "not_accepted" && !task.accept_status.is_empty() =>
-            {
-                return true;
+) -> Result<Task, BillingError> {
+    let codes = [code.to_string()];
+    super::growth_accept::confirm(
+        || accept_tasks(service, session, &codes, is_mp_task_code(code)),
+        || async {
+            task_by_code(service, session, code)
+                .await?
+                .ok_or_else(|| BillingError::new("接受任务回读未找到该任务，未执行后续动作", 502))
+        },
+        |task| {
+            if task.locked {
+                "locked"
+            } else {
+                task.accept_status.as_str()
             }
-            Ok(Some(task)) => {
-                // refs acceptStatusOr：空状态显示 "?"
-                let status_text = if task.accept_status.is_empty() {
-                    "?".to_string()
-                } else {
-                    task.accept_status.clone()
-                };
-                logging::log(
-                    "[Growth]",
-                    &format!("accept {code} 尝试{attempt} 未登记生效（回读={status_text}）"),
-                );
-            }
-            _ => logging::log(
-                "[Growth]",
-                &format!("accept {code} 尝试{attempt} 未登记生效（回读=任务不存在）"),
-            ),
-        }
-    }
-    false
+        },
+    )
+    .await
 }
 
 // ─── claim（领奖，mp → web 降级）────────────────────────────
@@ -683,3 +662,7 @@ pub fn task_progress_text(task: Option<&Task>) -> String {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "growth_accept_tests.rs"]
+mod acceptance_tests;

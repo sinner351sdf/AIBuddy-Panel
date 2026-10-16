@@ -1,4 +1,4 @@
-import { Button, Item, ItemMedia, ItemContent, ItemTitle, ItemDescription, ItemActions, ItemGroup } from '@ui'
+import { Item, ItemMedia, ItemContent, ItemTitle, ItemDescription, ItemGroup } from '@ui'
 /**
  * Agent2API · 「添加账号」弹窗第 1 步：选提供商（账号类型分段 + 搜索 + 卡片网格）。
  *
@@ -14,7 +14,7 @@ import { Button, Item, ItemMedia, ItemContent, ItemTitle, ItemDescription, ItemA
 import * as React from 'react'
 import { DialogSection, InputGroup, InputGroupAddon, InputGroupInput, SegmentedControl } from '@ui'
 
-import { accountCountOf, existingCustomOfPreset, shared } from './add-account-bridge'
+import { accountCountOf, existingCustomOfPreset, matchesPresetName, shared } from './add-account-bridge'
 import type { CustomProviderRecord } from './add-account-bridge'
 import { WORKBUDDY_ENTRY_LABEL, WORKBUDDY_PROVIDER } from './add-account-configs'
 import { ADD_SEG_CLASS } from './add-provider-blocks'
@@ -97,6 +97,10 @@ export const PROVIDER_ICONS: Record<string, string> = {
   // （`res-static.hc-cdn.cn/.../OfficeAce/新图标.png`，176×176 RGBA，
   // 归一成 256×256 入库 —— 与系统里显示的应用图标为同一形象）
   officeace: 'assets/providers/officeace.png',
+  // OrcaTerm（腾讯云遨驰终端桌面客户端）：取自官方 PWA 图标
+  // （`cloudcache.tencent-cloud.com/qcloud/orcaterm/pwa/icon/orcaterm_192x192.png`，
+  // 与客户端 / 官网显示的应用图标为同一形象）
+  orcaterm: 'assets/providers/orcaterm.png',
 }
 
 /**
@@ -124,15 +128,17 @@ type CardItem = {
  *   · 预置 API —— 预置目录的官方与托管端点，**全部常驻**（建过的也还在）：
  *     点一张卡 = 已建过同名家的接着加账号（多把 key 轮换），没建过的按模板
  *     新建并预填；
- *   · 自定义 —— 已建的自定义家（customList），每张卡是「给这家加账号」的对象。
+ *   · 自定义 —— 手动新建的自定义家（customList），每张卡是「给这家加账号」的
+ *     对象。预置模板建的家**不进这一段**：它的加账号入口就是预置段那张常驻
+ *     模板卡（与 Agent 内置家同一形态），再重复出现一份只会让人以为建了两个家。
  * 「手动新建」那张卡不在这个列表里：它不是一家提供商，由渲染处单独插在队首。
  */
 function providerCards(accountType: AccountType): CardItem[] {
   const providers = shared().wbProviders
   if (accountType === TYPE_PRESET) {
-    // 模板卡不因「已建过」从列表里消失（那会让用户以为模板只能用一次）；
-    // 已建的那家仍在「自定义」段里，两边指向同一条记录 —— 点模板卡落到
-    // 加账号（见 add-account-modal 的 pick），点自定义卡也一样。
+    // 模板卡不因「已建过」从列表里消失（那会让用户以为模板只能用一次）：
+    // 建过的卡继续常驻，点它落到「加入已有」模式（见 add-account-modal 的
+    // pick），账号数显示在卡片第二行 —— 形态与 Agent 段的卡片一致。
     return (shared().wbPresetProviders?.list || []).map(preset => {
       const built = existingCustomOfPreset(preset)
       return {
@@ -145,12 +151,16 @@ function providerCards(accountType: AccountType): CardItem[] {
     })
   }
   if (accountType === TYPE_CUSTOM) {
-    return (providers?.customList?.() || []).map((provider: CustomProviderRecord) => ({
-      id: provider.id,
-      label: provider.name || provider.id,
-      count: accountCountOf(provider.id),
-      custom: true,
-    }))
+    // 预置模板同名的家不重复出现（口径见 matchesPresetName）：预置家改了名
+    // （不再对应任何模板）后会重新回到这一段，从这里继续加账号不受影响。
+    return (providers?.customList?.() || [])
+      .filter((provider: CustomProviderRecord) => !matchesPresetName(provider))
+      .map((provider: CustomProviderRecord) => ({
+        id: provider.id,
+        label: provider.name || provider.id,
+        count: accountCountOf(provider.id),
+        custom: true,
+      }))
   }
   const list = providers?.all?.() || []
   // WorkBuddy 这张卡与它的弹窗标题用**中性品牌名**（不带地区）而不是注册名：
@@ -226,24 +236,26 @@ function cardMeta(item: CardItem): string {
 }
 
 function ProviderCard({ item, onPick }: { item: CardItem; onPick: (id: string) => void }): React.ReactElement {
-  return <Item variant='outline' size='sm' role='listitem' data-provider={item.id}>
+  return <Item variant='outline' size='sm' render={<button type='button' />}
+    className='h-auto min-h-16 cursor-pointer justify-start bg-transparent text-left whitespace-normal shadow-none hover:bg-muted' data-provider={item.id}
+    aria-label={t('选择 {name}', { name: item.label })} onClick={() => onPick(item.id)}>
     <ItemMedia><Logo item={item} /></ItemMedia>
     <ItemContent className='min-w-0'>
       <ItemTitle>{item.label}{item.beta ? <span>(beta)</span> : null}</ItemTitle>
       <ItemDescription>{cardMeta(item)}</ItemDescription>
     </ItemContent>
-    <ItemActions><Button variant='ghost' size='icon-sm' data-provider={item.id} aria-label={t('选择 {name}', { name: item.label })} onClick={() => onPick(item.id)}>›</Button></ItemActions>
   </Item>
 }
 
 function NewProviderCard({ onPick }: { onPick: (id: string) => void }): React.ReactElement {
-  return <Item variant='outline' size='sm' role='listitem' data-provider={NEW_PROVIDER_CARD_ID}>
+  return <Item variant='outline' size='sm' render={<button type='button' />}
+    className='h-auto min-h-16 cursor-pointer justify-start bg-transparent text-left whitespace-normal shadow-none hover:bg-muted' data-provider={NEW_PROVIDER_CARD_ID}
+    aria-label={t('新建自定义提供商')} onClick={() => onPick(NEW_PROVIDER_CARD_ID)}>
     <ItemMedia><span className='add-provider-logo is-new'>＋</span></ItemMedia>
     <ItemContent className='min-w-0'>
       <ItemTitle>{t('新建自定义提供商')}</ItemTitle>
       <ItemDescription>{t('接入一个兼容上游')}</ItemDescription>
     </ItemContent>
-    <ItemActions><Button variant='ghost' size='icon-sm' data-provider={NEW_PROVIDER_CARD_ID} aria-label={t('新建自定义提供商')} onClick={() => onPick(NEW_PROVIDER_CARD_ID)}>›</Button></ItemActions>
   </Item>
 }
 
@@ -318,6 +330,7 @@ export function PickStep({
       <ItemGroup
         className='grid grid-cols-[repeat(auto-fill,minmax(min(100%,210px),1fr))] gap-2'
         id='add-provider-grid'
+        role='group'
         aria-label={t('选择要添加账号的提供商')}
         style={importing ? { display: 'none' } : undefined}
       >

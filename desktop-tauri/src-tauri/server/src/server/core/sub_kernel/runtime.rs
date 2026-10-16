@@ -890,7 +890,7 @@ pub async fn run_refresh(sub_id: &str, providers: &[ProviderInput]) -> Result<()
     // 节点集合变了 → 重建配置 + 重启（新节点分新端口，消失的摘掉）
     let current: HashSet<String> = read_provider_nodes(sub_id).into_iter().collect();
     let next: HashSet<String> = names.iter().cloned().collect();
-    if current != next {
+    if current != next && !crate::server::core::sub_kernel::is_manually_halted() {
         run_restart(providers).await?;
     }
     Ok(())
@@ -1162,11 +1162,18 @@ pub fn test_port() -> Option<u16> {
 /// [`TEST_READY_WAIT_MS`]（盖过内核启动 + provider 首拉的慢路径）。超时报错
 /// 不悬着 —— 真正的原因在内核状态与 kernel.log 里。
 ///
+/// **手动关闭闩**优先于就绪判定：用户刚点过「关闭内核」时直接拒测（提示
+/// 先点「启动内核」），不投重启 —— 否则「内核停着」会被当成第一种可修复
+/// 情况，测试就把内核悄悄拉起来了。
+///
 /// 节点根本不在订阅缓存里（已被机场移除）时**不等**，当场给出与池解析
 /// （`proxy_pool::resolve_item`）同一口径的话。
 pub async fn select_test_node(provider_id: &str, node: &str) -> Result<u16, String> {
     if !crate::server::core::sub_kernel::installed() {
         return Err("代理内核未安装（先在「订阅管理」下载内核）".to_string());
+    }
+    if crate::server::core::sub_kernel::is_manually_halted() {
+        return Err("内核已手动关闭 —— 点内核状态条的「启动内核」后再测试".to_string());
     }
     // 缓存里没有这个节点 = 定义进不了配置、组里也不可能有它 —— 等待是白等
     if !read_provider_nodes(provider_id).iter().any(|name| name == node) {
@@ -1220,7 +1227,7 @@ pub async fn select_test_node(provider_id: &str, node: &str) -> Result<u16, Stri
             );
         }
         if !requested {
-            crate::server::core::sub_kernel::request_restart(
+            crate::server::core::sub_kernel::request_auto_restart(
                 crate::server::core::subscriptions::enabled_provider_inputs(),
             );
             requested = true;

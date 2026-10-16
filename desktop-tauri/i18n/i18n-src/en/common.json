@@ -68,7 +68,7 @@
   "北京时间": "",
   "北京时间 · 后台执行 · 结果可追踪": "",
   "发现新版本 {latest}（当前 {current}），点开「设置 - 软件更新」可查看更新日志并下载": "New version {latest} available (current: {current}) — open \"Settings - Software update\" to see the changelog and download",
-  "可用": "",
+  "可用": "Available",
   "启用后重新参与转发": "",
   "国内版／国际版": "China / International",
   "国际版不参与成长任务查询；可手动执行活跃上报，结果在执行记录查看。": "The international edition has no growth-task query. Run activity reporting manually and view its outcome in run history.",

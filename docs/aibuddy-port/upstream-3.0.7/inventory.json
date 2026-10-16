@@ -1,0 +1,361 @@
+[
+  {
+    "path": "README.en.md",
+    "decision": "retain-local-docs",
+    "reason": "retain fork branding, install/update source and existing documentation; new functionality documented in integration notes"
+  },
+  {
+    "path": "README.ja.md",
+    "decision": "retain-local-docs",
+    "reason": "retain fork branding, install/update source and existing documentation; new functionality documented in integration notes"
+  },
+  {
+    "path": "README.ko.md",
+    "decision": "retain-local-docs",
+    "reason": "retain fork branding, install/update source and existing documentation; new functionality documented in integration notes"
+  },
+  {
+    "path": "README.md",
+    "decision": "retain-local-docs",
+    "reason": "retain fork branding, install/update source and existing documentation; new functionality documented in integration notes"
+  },
+  {
+    "path": "README.pt-BR.md",
+    "decision": "retain-local-docs",
+    "reason": "retain fork branding, install/update source and existing documentation; new functionality documented in integration notes"
+  },
+  {
+    "path": "README.zh-Hant.md",
+    "decision": "retain-local-docs",
+    "reason": "retain fork branding, install/update source and existing documentation; new functionality documented in integration notes"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/add-account.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/checkin.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/proxies.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/settings.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/add-account.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/checkin.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/proxies.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/settings.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/add-account.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/checkin.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/proxies.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/settings.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/add-account.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/checkin.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/proxies.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/settings.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/add-account.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/checkin.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/proxies.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/settings.json",
+    "decision": "adapted-json-keys"
+  },
+  {
+    "path": "desktop-tauri/package.json",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/Cargo.lock",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/Cargo.toml",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/Cargo.toml",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/accounts.rs",
+    "decision": "auto-merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/proxies.rs",
+    "decision": "auto-merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/subscriptions.rs",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/mod.rs",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/orcaterm_accounts.rs",
+    "decision": "new"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/store_crud.rs",
+    "decision": "auto-merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/store_view.rs",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/workbuddy_import.rs",
+    "decision": "new"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/billing/activity.rs",
+    "decision": "activity-adapt",
+    "reason": "web conversation independent switch defaults off; claim mode never creates conversation"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/checkin_records.rs",
+    "decision": "activity-adapt",
+    "reason": "web conversation independent switch defaults off; claim mode never creates conversation"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/endpoints.rs",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/adapter.rs",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/autoclaw/promotion.rs",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/catalog.rs",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/mod.rs",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/adapter.rs",
+    "decision": "new"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/balance.rs",
+    "decision": "new"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/chat.rs",
+    "decision": "new"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/credentials.rs",
+    "decision": "new"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/http.rs",
+    "decision": "new"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/mod.rs",
+    "decision": "new"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/models.rs",
+    "decision": "new"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/workbuddy/adapter.rs",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/workbuddy/keepalive.rs",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/sub_kernel/mod.rs",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/sub_kernel/runtime.rs",
+    "decision": "auto-merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/request.rs",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/db/schema.rs",
+    "decision": "auto-merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/tauri.conf.json",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/add-account-bridge.ts",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/add-account-configs.ts",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/add-provider-blocks.tsx",
+    "decision": "adapted-local-components"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/add-provider-pick.tsx",
+    "decision": "auto-merged"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/checkin-page.tsx",
+    "decision": "activity-adapt",
+    "reason": "web conversation independent switch defaults off; claim mode never creates conversation"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/checkin-schedule-tab.tsx",
+    "decision": "activity-adapt",
+    "reason": "web conversation independent switch defaults off; claim mode never creates conversation"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/checkin-state.ts",
+    "decision": "activity-adapt",
+    "reason": "web conversation independent switch defaults off; claim mode never creates conversation"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/proxies-sub-state.ts",
+    "decision": "apply"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/proxies-sub-view.tsx",
+    "decision": "auto-merged"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/providers/orcaterm.png",
+    "decision": "new"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/add-account.js",
+    "decision": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/checkin.js",
+    "decision": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/proxies.js",
+    "decision": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/add-account.js",
+    "decision": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/checkin.js",
+    "decision": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/proxies.js",
+    "decision": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/add-account.js",
+    "decision": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/checkin.js",
+    "decision": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/proxies.js",
+    "decision": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/add-account.js",
+    "decision": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/checkin.js",
+    "decision": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/proxies.js",
+    "decision": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/add-account.js",
+    "decision": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/checkin.js",
+    "decision": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/proxies.js",
+    "decision": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/settings.js",
+    "decision": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/islands/ui.js",
+    "decision": "regenerate"
+  },
+  {
+    "path": "package.json",
+    "decision": "apply"
+  }
+]

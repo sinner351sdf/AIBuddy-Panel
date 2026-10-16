@@ -219,6 +219,18 @@ pub async fn account_tasks(State(state): State<ServerState>, Path(id): Path<Stri
     }
 }
 
+/// Querying compensation never accepts tasks or claims account rewards.
+pub async fn compensation_status(State(state): State<ServerState>, Path(id): Path<String>) -> Response {
+    let session = match account_session(&state, &id) {
+        Ok(session) => session,
+        Err(error) => return error,
+    };
+    match gift::compensation_status(state.billing(), &session).await {
+        Ok(status) => ok_json(json!({"accountId":id,"queriedAt":logging::now_ms(),"status":status})),
+        Err(error) => errors::management_error(error.status_code, error.message),
+    }
+}
+
 /// Accept one listed task or all unlocked, unclaimed tasks on this account.
 pub async fn accept_account_tasks(
     State(state): State<ServerState>,
@@ -488,18 +500,16 @@ pub async fn gift(State(state): State<ServerState>, body: Bytes) -> Response {
     else {
         return errors::management_error(400, "kind 必须是 gift 或 compensation");
     };
-    if !is_workbuddy_account(&state, &account_id) {
-        return errors::management_error(400, "该动作仅限 WorkBuddy 账号");
-    }
-    let Some(entry) = state.store().get_session_by_id(&account_id) else {
-        return errors::management_error(404, "账号不存在或没有可用凭证");
+    let session = match account_session(&state, &account_id) {
+        Ok(session) => session,
+        Err(error) => return error,
     };
-    // edition 闸：礼包/补偿挂 CN 计费域（refs scheduler/streak.go 的 D4 门控：
-    // 国际版账号不发起 CN 计费调用）
-    if entry.session.get("edition").and_then(Value::as_str) == Some("intl") {
-        return errors::management_error(400, "该动作仅限国内版账号");
-    }
-    match gift::claim_gift(state.billing(), &entry.session, kind).await {
+    let _guard = crate::server::core::task_records::account_lock(&account_id).await;
+    let result = match kind {
+        GiftKind::Compensation => gift::claim_compensation(state.billing(), &session).await,
+        GiftKind::Gift => gift::claim_gift(state.billing(), &session, kind).await,
+    };
+    match result {
         Ok(outcome) => {
             audit(
                 "growth.gift",
@@ -512,7 +522,7 @@ pub async fn gift(State(state): State<ServerState>, body: Bytes) -> Response {
             ok_json(json!({
                 "claimed": outcome.claimed,
                 "already": outcome.already,
-                "credit": outcome.credit,
+                "credit": outcome.credit_known.then_some(outcome.credit),
                 "message": outcome.message,
             }))
         }

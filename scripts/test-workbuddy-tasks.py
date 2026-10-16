@@ -87,12 +87,13 @@ with tempfile.TemporaryDirectory(prefix='workbuddy-tasks-test-') as scratch:
         proc = start()
         token = req('/api/panel/login?auth-mode=body','POST',{'username':'task-fixture','password':password})['data']['accessToken']
         for aid,status in [('missing',404),('fixture-intl',400),('fixture-raccoon',400),('fixture-wb',404)]:
-            for suffix,method,body in [('', 'GET', None),('/accept','POST',{'all':True}),('/claim','POST',{'code':'chat_5'})]:
+            for suffix,method,body in [('', 'GET', None),('/accept','POST',{'all':True}),('/claim','POST',{'code':'chat_5'}),('/compensation','GET',None)]:
                 path='/api/growth-tasks/accounts/'+aid+suffix
                 req(path,method,body,expected=401)
                 req(path,method,body,key=key,expected=403)
                 req(path,method,body,token=token,expected=status)
             req('/api/growth-tasks/run','POST',{'accountId':aid},token=token,expected=status)
+            req('/api/growth-tasks/gift','POST',{'accountId':aid,'kind':'compensation'},token=token,expected=status)
         for bad in ['',None,2,[],{}]:
             req('/api/growth-tasks/run','POST',{'accountId':bad},token=token,expected=400)
         req('/api/growth-tasks/accounts/fixture-wb/accept','POST',{},token=token,expected=400)

@@ -1,11 +1,11 @@
-import { Alert, AlertDescription } from '@ui'
+import { Alert, AlertDescription, Field, FieldContent, FieldLabel } from '@ui'
 import { InfoTip } from '../components/info-tip'
 import * as React from 'react'
 import { cn, Badge, Button, Checkbox, Input, Spinner, Switch } from '@ui'
 import { formatTime, shared, toast } from './accounts-shared'
 import { t } from '../i18n'
 import {
-  getCheckinStore, setCheckinTab, setKeepaliveDraft, submitKeepaliveModels, subscribeCheckinStore,
+  getCheckinStore, setCheckinTab, setKeepaliveDraft, submitKeepaliveModels, submitWebConversation, subscribeCheckinStore,
   type CheckinStore,
 } from './checkin-state'
 import {
@@ -39,7 +39,7 @@ import { Card, CardHeader, CardTitle, Empty, EmptyHeader, EmptyDescription } fro
  * 整段是一个键：扫描器只认字符串字面量（拼接串 / 模板串提不到键），所以不拆行。
  */
 const AUTO_CHECKIN_DESC = t(
-    '到点后自动签到勾选提供商的可用账号（WorkBuddy 国内版走每日签到接口，国际版走每日活跃任务：探测活动、领日活奖励、再用免费模型保活；小浣熊走桌面端每日积分链路；AutoClaw 走官方客户端的每日签到任务；Qoder 中国版走活动领取，没被下发活动的账号会得到中性提示；Qoder 国际版要先带设备风控身份（本机 Qoder 客户端 / qodercli 的 UMID 组件生成）才能看到「每日 100 Credits」活动，缺组件时会得到明确的说明而不是报错；Trae 领 SOLO 的每日签到积分（按自然日 0 点重置），上游没对该账号开活动、或凭据里没有设备号时得到的是「未领取 + 具体原因」而不是报错；Loomy 每天替账号打一次首次登录积分；KukuAI 领「免费领积分」的每日任务；CodeArts 领当日的运营福利（领取 → 确认 → 回读核实，自动执行受每天 6 次 / 间隔 10 分钟的写请求限流）；OfficeAce 果办一次领当天全部奖励（每日签到 + 新人礼））。错过时点开机后会自动补签，不会因为当时没开机而漏掉。各家签到接口都是幂等的，重复执行不会重复领取。',
+    '到点后自动签到勾选提供商的可用账号（WorkBuddy 国内版走每日签到接口，国际版走每日活跃任务：探测活动、领日活奖励、再用免费模型保活，开启网页会话保活后另建网页会话点亮日活；小浣熊走桌面端每日积分链路；AutoClaw 走官方客户端的每日签到任务；Qoder 中国版走活动领取，没被下发活动的账号会得到中性提示；Qoder 国际版要先带设备风控身份（本机 Qoder 客户端 / qodercli 的 UMID 组件生成）才能看到「每日 100 Credits」活动，缺组件时会得到明确的说明而不是报错；Trae 领 SOLO 的每日签到积分（按自然日 0 点重置），上游没对该账号开活动、或凭据里没有设备号时得到的是「未领取 + 具体原因」而不是报错；Loomy 每天替账号打一次首次登录积分；KukuAI 领「免费领积分」的每日任务；CodeArts 领当日的运营福利（领取 → 确认 → 回读核实，自动执行受每天 6 次 / 间隔 10 分钟的写请求限流）；OfficeAce 果办一次领当天全部奖励（每日签到 + 新人礼））。错过时点开机后会自动补签，不会因为当时没开机而漏掉。各家签到接口都是幂等的，重复执行不会重复领取。',
 )
 
 /* ─── store 订阅 ───────────────────────────── */
@@ -415,7 +415,8 @@ function startChainDrag(
  * 现在：一行一个模型，+ 添加、× 移除、按住把手拖动排序，整份清单一次保存
  * （清空后保存 = 恢复缺省链）。
  */
-function KeepalivePanel({ models, defaultModels, dirty, saving }: {
+function KeepalivePanel({ models, defaultModels, dirty, saving, webConversationEnabled }: {
+  webConversationEnabled: boolean
   models: string[]
   defaultModels: string[]
   dirty: boolean
@@ -443,6 +444,15 @@ function KeepalivePanel({ models, defaultModels, dirty, saving }: {
         </summary>
         <div className='p-4'>
           <p className='ck-chain-description'>{t('仅用于 WorkBuddy 国际版日活保活，对所有相关签到计划生效。')}</p>
+          <Field orientation='horizontal' className='mb-4' data-disabled={saving}>
+            <FieldContent>
+              <div className='flex items-center gap-2'>
+              <FieldLabel htmlFor='checkin-web-conversation'>{t('网页会话保活')}</FieldLabel>
+              <InfoTip>{t('默认关闭。开启后，完整签到和保活会在 WorkBuddy 国际版创建带 Hi 提示词的网页会话，可能产生用量；仅领取奖励不会创建会话。')}</InfoTip>
+              </div>
+            </FieldContent>
+            <Switch id='checkin-web-conversation' checked={webConversationEnabled} disabled={saving} onCheckedChange={enabled => void submitWebConversation(enabled)} />
+          </Field>
           <div className='ck-set-line ck-set-line-top'>
             <span className='ck-set-k'>{t('模型清单')}</span>
             <span className='ck-set-v'>
@@ -608,6 +618,7 @@ function ScheduleTab({ active = true }: { active?: boolean }): React.ReactElemen
       </Card>
 
       <KeepalivePanel
+        webConversationEnabled={keepalive?.webConversationEnabled === true}
         models={chainModels}
         defaultModels={defaultModels}
         dirty={chainDirty}

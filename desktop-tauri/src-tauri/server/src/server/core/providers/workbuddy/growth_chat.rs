@@ -37,8 +37,7 @@ pub async fn growth_chat_request_id(
         .map(|duration| duration.as_nanos())
         .unwrap_or(0);
     let conversation_id = format!("wb2api-conv-{nanos}");
-    let request_id = crate::server::core::upstream::request::new_request_id();
-    let mut headers = chat_headers(session, Region::Cn, &request_id, Some("text/event-stream"));
+    let mut headers = chat_headers(session, Region::Cn, Some("text/event-stream"));
     if !expert_id.is_empty() {
         headers.push(("X-Expert-Id".to_string(), expert_id.to_string()));
     }

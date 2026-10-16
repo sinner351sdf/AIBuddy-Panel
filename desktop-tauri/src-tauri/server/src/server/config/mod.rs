@@ -2446,3 +2446,19 @@ pub fn set_auto_continue_patch(patch: AutoContinuePatch) -> bool {
 
 pub fn set_auto_continue(enabled: bool) -> bool { set_auto_continue_patch(AutoContinuePatch { enabled: Some(enabled), max_rounds: None }) }
 pub fn set_auto_continue_max_rounds(rounds: i64) -> bool { set_auto_continue_patch(AutoContinuePatch { enabled: None, max_rounds: Some(rounds) }) }
+
+
+/// Persist opt-in before publishing it in memory. A failed disk write must not enable remote conversations.
+pub fn set_checkin_web_conversation(enabled: bool) -> Result<(), String> {
+    const KEY: &str = "checkinWebConversationEnabled";
+    let database = db().ok_or_else(|| "数据库不可用，网页会话保活设置未改变".to_string())?;
+    let mut guard = CONFIG.write().map_err(|_| "配置锁不可用".to_string())?;
+    let snapshot = guard.as_mut().ok_or_else(|| "配置尚未初始化".to_string())?;
+    database.with(|connection| connection.execute(
+        "INSERT INTO kv(key,value) VALUES (?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        rusqlite::params![KEY, Value::Bool(enabled).to_string()],
+    )).ok_or_else(|| "数据库锁不可用，设置未改变".to_string())?
+        .map_err(|_| "保存失败，网页会话保活设置未改变".to_string())?;
+    snapshot.raw.insert(KEY.to_string(), Value::Bool(enabled));
+    Ok(())
+}

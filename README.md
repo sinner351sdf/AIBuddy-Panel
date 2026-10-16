@@ -1,6 +1,6 @@
 # Agent2API · 多提供商本地网关
 
-> 此仓库为 AIBuddy-Panel 定制版本，代码上游为 agent2api。当前代码已同步至 **3.0.3**，并保留本地网关、提供商与面板定制。查看[本轮更新记录](CHANGELOG.md)、[3.0.3 移植与兼容性说明](docs/aibuddy-port/UPSTREAM-3.0.3.zh-CN.md)及[任务中心说明](docs/workbuddy-task-center/README.zh-CN.md)。本轮为代码更新，安装包与正式 Release 需单独发布。
+> 此仓库为 AIBuddy-Panel 定制版本，代码上游为 agent2api。当前代码已同步至 **3.0.7**，并保留本地网关、提供商与面板定制。查看[本轮更新记录](CHANGELOG.md)、[3.0.7 移植与审查说明](docs/aibuddy-port/upstream-3.0.7/current-review.md)及[任务中心说明](docs/workbuddy-task-center/README.zh-CN.md)。本轮为代码更新，安装包与正式 Release 需单独发布。
 
 WorkBuddy 国内版账号可在账号池的「任务」按钮中查看和操作[单账号积分任务](docs/aibuddy-port/WORKBUDDY-ACCOUNT-TASKS.zh-CN.md)。
 
@@ -12,7 +12,7 @@ WorkBuddy 国内版账号可在账号池的「任务」按钮中查看和操作[
 
 | 平台 | LLM 请求 | Token 自动续期 | 模型列表 | 余额查询 | 签到 | 领取类 |
 | --- | :--: | :--: | :--: | :--: | :--: | :--: |
-| WorkBuddy 国内版 | ✓ | ✓ | ✓ 远程 + 静态兜底 | ✓ | ✓ 每日签到 | — |
+| WorkBuddy 国内版 | ✓ | ✓ | ✓ 远程 + 静态兜底 | ✓ | ✓ 每日签到 | ✓ 积分任务与补偿（手动） |
 | WorkBuddy 国际版 | ✓ | ✓ | ✓ 远程 + 静态兜底 | ✓ | ✗ 无签到活动 | — |
 | 小浣熊 | ✓ | ✓ | ✓ 远程 + 静态兜底 | ✓ | ✓ 桌面登录积分 | — |
 | CatPaw | ✓ | ✗ 无刷新机制 | ✓ 远程 + 静态兜底 | ✓ | ✗ | — |
@@ -29,6 +29,7 @@ WorkBuddy 国内版账号可在账号池的「任务」按钮中查看和操作[
 | Command Code | ✓ | ✗ 静态 API Key | ✓ 远程 + 静态兜底 | — | — | — |
 | Antigravity（Google，Gemini） | ✓ | ✓ | ✓ 远程 + 静态兜底 | — | — | — |
 | OfficeAce（华为云果办 / OfficeClaw） | ✓ | ✓ 控制面自动续期 | ✓ 仅远程 | ✓ 积分余额 | ✓ 每日奖励（签到 + 新人礼） | — |
+| OrcaTerm（腾讯云遨驰终端） | ✓ | ✓ OAuth 自动续期 | ✓ 静态清单 | ✓ 套餐次数 | — | — |
 | 自定义提供商 | ✓ Chat 透传 / Responses / Anthropic | — | ✓ 手动登记 + 服务端拉取 | — | — | — |
 
 `/v1/chat/completions`、`/v1/responses`、`/v1/messages`（含 `count_tokens`）与 `/v1/models` 对所有平台一视同仁；模型映射、全局优先级队列、429 降级、出网代理、出站指纹脱敏与请求报表同样全平台通用。

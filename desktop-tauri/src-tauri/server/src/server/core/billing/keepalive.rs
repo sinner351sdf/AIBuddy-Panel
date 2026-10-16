@@ -101,8 +101,17 @@ pub fn set_models(list: &[String]) -> Result<Vec<String>, String> {
 
 /// 对外状态（签到中心快照的 `keepalive` 段与保存响应共用这一份）：
 /// `models` 是当前生效链，`defaultModels` 给界面提示"清空即恢复这份"。
+pub fn web_conversation_enabled() -> bool {
+    config::current().raw().get("checkinWebConversationEnabled").and_then(Value::as_bool) == Some(true)
+}
+
+pub fn set_web_conversation_enabled(enabled: bool) -> Result<(), String> {
+    config::set_checkin_web_conversation(enabled)
+}
+
 pub fn state() -> Value {
     json!({
+        "webConversationEnabled": web_conversation_enabled(),
         "models": models(),
         "defaultModels": default_models(),
     })

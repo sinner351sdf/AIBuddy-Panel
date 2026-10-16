@@ -310,7 +310,7 @@ pub fn find_task(tasks: &[Value], code: &str) -> Option<Value> {
 /// accept 任务（POST /v2/activity/growth/tasks/accept，body `{task_codes:[code]}`）。
 ///
 /// 返回 (ok, status_text)：`ok` 表示响应里 results[0].status == "accepted"
-/// 或回读已非 not_accepted；`status_text` 给界面/日志用。
+/// ；`status_text` 给界面/日志用，是否登记仍以回读为准。
 /// 参考项目实测：存在 HTTP 200 + msg=OK 但 status 非 accepted 的形态，
 /// 因此调用方（`light_up`）还会回读 accept_status 确认生效。
 pub async fn accept_task(
@@ -327,6 +327,13 @@ pub async fn accept_task(
         &headers,
     )
     .await?;
+    if !call.ok() {
+        return Err(format!(
+            "接受任务失败（HTTP {} code={:?}）",
+            call.status,
+            call.code()
+        ));
+    }
     let status = call
         .data()
         .get("results")
@@ -588,7 +595,13 @@ pub async fn process_task(account: &GrowthAccount, code: &str, task: &Value) -> 
             2 => TaskOutcome::Already,
             _ => TaskOutcome::Failed,
         };
-        return TaskReport { code: code.to_string(), outcome, message, credit, energy };
+        return TaskReport {
+            code: code.to_string(),
+            outcome,
+            message,
+            credit,
+            energy,
+        };
     }
 
     // 夜猫任务：非窗口期（23:00-08:00 CST）不动
@@ -603,15 +616,18 @@ pub async fn process_task(account: &GrowthAccount, code: &str, task: &Value) -> 
     }
 
     // 需要点亮：先 accept（带登记验证）
-    if accept_status == "not_accepted" || accept_status.is_empty() {
-        if !accept_with_verify(account, code, spec.mp).await {
-            return TaskReport {
-                code: code.to_string(),
-                outcome: TaskOutcome::Failed,
-                message: "accept 未登记生效，本轮跳过待下次".to_string(),
-                credit: 0,
-                energy: 0,
-            };
+    if accept_status != "accepted" {
+        match accept_with_verify(account, code, spec.mp).await {
+            Ok(fresh) => return Box::pin(process_task(account, code, &fresh)).await,
+            Err(error) => {
+                return TaskReport {
+                    code: code.to_string(),
+                    outcome: TaskOutcome::Failed,
+                    message: format!("接受任务未确认生效：{error}"),
+                    credit: 0,
+                    energy: 0,
+                }
+            }
         }
     }
 
@@ -673,8 +689,14 @@ pub async fn process_task(account: &GrowthAccount, code: &str, task: &Value) -> 
             let progress = task.get("progress").cloned().unwrap_or(Value::Null);
             (
                 progress.get("current").and_then(Value::as_i64).unwrap_or(0),
-                progress.get("target").and_then(Value::as_i64).unwrap_or(target),
-                task.get("accept_status").and_then(Value::as_str).unwrap_or("").to_string(),
+                progress
+                    .get("target")
+                    .and_then(Value::as_i64)
+                    .unwrap_or(target),
+                task.get("accept_status")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string(),
             )
         })
         .unwrap_or((0, target, String::new()));
@@ -695,7 +717,13 @@ pub async fn process_task(account: &GrowthAccount, code: &str, task: &Value) -> 
             2 => TaskOutcome::Already,
             _ => TaskOutcome::Failed,
         };
-        return TaskReport { code: code.to_string(), outcome, message, credit, energy };
+        return TaskReport {
+            code: code.to_string(),
+            outcome,
+            message,
+            credit,
+            energy,
+        };
     }
     TaskReport {
         code: code.to_string(),
@@ -733,10 +761,27 @@ pub async fn process_first_buddy(account: &GrowthAccount, task: &Value) -> TaskR
             2 => TaskOutcome::Already,
             _ => TaskOutcome::Failed,
         };
-        return TaskReport { code: "first_buddy".to_string(), outcome, message, credit, energy };
+        return TaskReport {
+            code: "first_buddy".to_string(),
+            outcome,
+            message,
+            credit,
+            energy,
+        };
     }
-    if accept_status == "not_accepted" || accept_status.is_empty() {
-        let _ = accept_with_verify(account, "first_buddy", false).await;
+    if accept_status != "accepted" {
+        match accept_with_verify(account, "first_buddy", false).await {
+            Ok(fresh) => return Box::pin(process_first_buddy(account, &fresh)).await,
+            Err(error) => {
+                return TaskReport {
+                    code: "first_buddy".into(),
+                    outcome: TaskOutcome::Failed,
+                    message: format!("接受任务未确认生效：{error}"),
+                    credit: 0,
+                    energy: 0,
+                }
+            }
+        }
     }
     let (ok, message) = adopt_buddy(account).await;
     let outcome = if ok {
@@ -770,38 +815,39 @@ pub async fn process_first_buddy(account: &GrowthAccount, task: &Value) -> TaskR
     }
 }
 
-/// accept 并验证登记生效（回读 accept_status 确认；一次重试）。
-async fn accept_with_verify(account: &GrowthAccount, code: &str, mp: bool) -> bool {
-    for attempt in 1..=2 {
-        let (ok, status) = match accept_task(account, code, mp).await {
-            Ok(result) => result,
-            Err(error) => {
-                logging::verbose("[Growth]", &format!("accept {code} 失败（尝试 {attempt}）：{error}"));
-                (false, error)
+/// Legacy account routes share the queue's bounded confirmation policy.
+async fn accept_with_verify(
+    account: &GrowthAccount,
+    code: &str,
+    mp: bool,
+) -> Result<Value, String> {
+    use crate::server::core::billing::{growth_accept, BillingError};
+    growth_accept::confirm(
+        || async {
+            accept_task(account, code, mp)
+                .await
+                .map(|_| ())
+                .map_err(|error| BillingError::new(error, 502))
+        },
+        || async {
+            let tasks = list_tasks(account, mp)
+                .await
+                .map_err(|error| BillingError::new(error, 502))?;
+            find_task(&tasks, code).ok_or_else(|| BillingError::new("回读未找到该任务", 502))
+        },
+        |task| {
+            if task.get("locked").and_then(Value::as_bool) == Some(true) {
+                "locked"
+            } else {
+                task.get("accept_status")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
             }
-        };
-        // 回读确认（响应可能说 accepted 但服务端未落账）
-        let after = list_tasks(account, mp)
-            .await
-            .ok()
-            .and_then(|tasks| find_task(&tasks, code))
-            .and_then(|task| {
-                task.get("accept_status").and_then(Value::as_str).map(str::to_string)
-            })
-            .unwrap_or_default();
-        let verified = ok && after != "not_accepted" && !after.is_empty();
-        logging::verbose(
-            "[Growth]",
-            &format!("accept {code} 尝试{attempt} status={status} 回读={after} verified={verified}"),
-        );
-        if verified {
-            return true;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(GROWTH_WRITE_GAP_MS)).await;
-    }
-    false
+        },
+    )
+    .await
+    .map_err(|error| error.message)
 }
-
 
 /// 账号是不是成长任务适用的对象（国内版 WorkBuddy；global 不适用）。
 ///

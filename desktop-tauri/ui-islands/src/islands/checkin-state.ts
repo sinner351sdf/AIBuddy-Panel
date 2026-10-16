@@ -58,6 +58,7 @@ export type CheckinHistoryEntry = {
 
 /** WorkBuddy 国际版日活保活的模型链（config.json 的 checkinKeepalive） */
 export type KeepaliveState = {
+  webConversationEnabled?: boolean
   models: string[]
   defaultModels: string[]
 }
@@ -261,6 +262,7 @@ type CheckinBridge = {
   /** WorkBuddy 国际版日活保活的模型链（读 / 存；与 bridge.rs、web_shim.rs 三处成对） */
   getCheckinKeepalive?(): Promise<KeepaliveState>
   saveCheckinKeepalive?(models: string[]): Promise<KeepaliveState>
+  setCheckinWebConversation?(enabled: boolean): Promise<KeepaliveState>
   /** WorkBuddy 国际版日活任务的手动粒度入口（mode: full | claim | keepalive） */
   runCheckinActivity?(id: string, mode: string): Promise<Record<string, unknown> | null | undefined>
   checkinAllAccounts?(id?: string | null): Promise<{
@@ -633,17 +635,23 @@ export async function signSingleAccount(id: string, mode: 'checkin' | 'full' | '
       | { success?: boolean; msg?: string; alreadyCompleted?: boolean }
       | undefined
     const activity = row?.activity as
-      | { pokeSucceeded?: boolean | null; report?: { succeeded?: boolean } | null }
+      | {
+          pokeSucceeded?: boolean | null
+          report?: { succeeded?: boolean } | null
+          webConversation?: { succeeded?: boolean } | null
+        }
       | null
       | undefined
     const reportOk = activity?.report?.succeeded === true
+    const webOk = activity?.webConversation?.succeeded === true
     if (row?.error) {
       toast(t('签到失败：{error}', { error: String(row.error) }), 'err')
     } else if (mode === 'keepalive') {
       // 只保活：结果就一句话（保活成功 / 失败），不存在领取语义。
-      // 活跃上报（点亮连登的那条通道）成功同样算保活成功 —— 它才是「维持
-      // 账号活跃」的主动作；两者都失败才是失败。
-      if (activity?.pokeSucceeded === true || reportOk) toast(t('✅ {message}', { message: claim?.msg || t('活跃保活完成') }))
+      // 活跃上报（点亮连登的那条通道）与网页会话（issue #277：「当日活跃」
+      // 计数的判定通道）成功同样算保活成功；三者都失败才是失败。
+      if (activity?.pokeSucceeded === true || webOk || reportOk)
+        toast(t('✅ {message}', { message: claim?.msg || t('活跃保活完成') }))
       else toast(claim?.msg || t('活跃保活失败'), 'err')
     } else if (claim?.success === true) {
       toast(t('✅ {message}', { message: claim.msg || t('签到成功') }))
@@ -652,8 +660,9 @@ export async function signSingleAccount(id: string, mode: 'checkin' | 'full' | '
     } else if (reportOk) {
       // 活跃上报成功（连登点亮）但没领到 —— 后端 msg 把「活动未开启」一并交代
       toast(t('✅ {message}', { message: claim?.msg || t('活跃上报完成，但活动未开启') }))
-    } else if (activity?.pokeSucceeded === true) {
-      // 完整模式：保活成功但没领到 —— 后端 msg 把「活动未开启」一并交代
+    } else if (activity?.pokeSucceeded === true || webOk) {
+      // 完整模式：保活成功（保活对话或网页会话）但没领到 —— 后端 msg 把
+      // 「活动未开启」一并交代
       toast(t('✅ {message}', { message: claim?.msg || t('活跃保活完成，但活动未开启') }))
     } else {
       toast(claim?.msg || t('未领取'), 'err')
@@ -1221,4 +1230,19 @@ export function nextScheduleRun(snapshot: SchedulesSnapshot | null | undefined):
     .map(entry => Number(entry.nextRunAt))
     .filter(value => Number.isFinite(value) && value > 0)
   return times.length ? Math.min(...times) : null
+}
+
+
+export async function submitWebConversation(enabled: boolean): Promise<void> {
+  if (getCheckinStore().keepaliveSaving) return
+  patch({ keepaliveSaving: true })
+  try {
+    const save = bridge().setCheckinWebConversation
+    if (!save) throw new Error(t('后端桥不可用，请刷新页面'))
+    const next = await save(enabled)
+    const current = getCheckinStore().snapshot
+    patch({ snapshot: current ? { ...current, keepalive: next } : current })
+  } catch (error) {
+    toast(t('保存失败：{error}', { error: errorMessage(error) }), 'err')
+  } finally { patch({ keepaliveSaving: false }) }
 }

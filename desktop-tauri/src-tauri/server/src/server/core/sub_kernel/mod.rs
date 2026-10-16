@@ -168,6 +168,10 @@ pub struct StatusSnapshot {
     /// 各订阅最后一次成功同步：`subId → {name, count, at}`
     pub provider_sync: Map<String, Value>,
     pub download: DownloadProgress,
+    /// 手动关闭闩：「关闭内核」（[`request_halt`]）置位，任何 Restart 执行时
+    /// 清零。置位期间测试 / 保存引用 / 订阅同步不再悄悄把内核拉起来，
+    /// 改为提示先点「启动内核」。
+    pub halted: bool,
 }
 
 /// 下载进度（状态机：idle → downloading → done / error / canceled）
@@ -195,6 +199,7 @@ impl Default for StatusSnapshot {
                 total: 0,
                 error: None,
             },
+            halted: false,
         }
     }
 }
@@ -267,6 +272,8 @@ pub fn spawn_worker() {
 async fn execute(command: Command) {
     match command {
         Command::Restart(providers) => {
+            if is_manually_halted() { return; }
+            // 只有显式启动在入队时清除手动关闭闩。
             patch_status(|snapshot| {
                 snapshot.download.error = None;
             });
@@ -279,6 +286,7 @@ async fn execute(command: Command) {
             }
         }
         Command::Refresh { sub_id, providers } => {
+            if is_manually_halted() { return; }
             if let Err(error) = runtime::run_refresh(&sub_id, &providers).await {
                 patch_status(|snapshot| {
                     snapshot.last_error = Some(error.clone());
@@ -299,7 +307,7 @@ async fn execute(command: Command) {
                         &format!("✅ 代理内核 {KERNEL_VERSION} 下载完成"),
                     );
                     // 下完自动拉起（有启用的订阅才有意义；没有时用户之后点重启）
-                    if !providers.is_empty() {
+                    if !providers.is_empty() && !is_manually_halted() {
                         if let Err(error) = runtime::run_restart(&providers).await {
                             patch_status(|snapshot| {
                                 snapshot.last_error = Some(error.clone());
@@ -388,6 +396,10 @@ async fn execute(command: Command) {
             }
             patch_status(|snapshot| {
                 snapshot.running = false;
+                // 手动「关闭内核」置闩（测试 / 保存引用不再悄悄重启内核）；
+                // 自动停（clear_pool=true）不置 —— 那是「没订阅了」，不是用户
+                // 要内核一直停着。
+                // halted 在用户入队时更新；这里不覆盖更晚的显式启动。
             });
         }
     }
@@ -433,6 +445,7 @@ pub fn request_cancel_download() -> bool {
 
 /// 请求启动 / 重启内核（重建配置：订阅增删改、手动重启都走它）。
 pub fn request_restart(providers: Vec<ProviderInput>) {
+    patch_status(|snapshot| snapshot.halted = false);
     send(Command::Restart(providers));
 }
 
@@ -453,7 +466,17 @@ pub fn request_stop() {
 /// 池条目与端口注册表原样保留，「启动内核」（`request_restart`）后原位恢复。
 /// 已停止时是幂等的 no-op（stop_kernel 没有子进程可停，直接落状态）。
 pub fn request_halt() {
+    patch_status(|snapshot| snapshot.halted = true);
     send(Command::Stop { clear_pool: false });
+}
+
+/// 手动关闭闩当前是否置位（见 [`StatusSnapshot::halted`]）。
+///
+/// 「测试 / 保存引用 / 订阅同步」这些路径在置位时**不投 Restart 命令** ——
+/// 静默把内核带起来会推翻用户刚刚按下的「关闭」；改由各自路径提示
+/// 「先点启动内核」。
+pub fn is_manually_halted() -> bool {
+    with_status(|snapshot| snapshot.halted)
 }
 
 /// 请求停掉内核并删除已下载的内核（界面上的「删除内核」）。
@@ -480,6 +503,7 @@ pub fn status_json() -> Value {
         let download_received = snapshot.download.received;
         let download_total = snapshot.download.total;
         let download_error = snapshot.download.error.clone();
+        let halted = snapshot.halted;
         let running = snapshot_running
             && controller_port
                 .map(|port| controller_alive(port))
@@ -503,6 +527,8 @@ pub fn status_json() -> Value {
                 crate::server::config::kernel_proxy().as_ref(),
             ),
             "lastError": last_error,
+            // 手动关闭闩（前端用它把停止态的文案从「已停止」换成「已手动关闭」）
+            "halted": halted,
             "providerSync": provider_sync,
             "download": {
                 "state": download_state,
@@ -588,4 +614,27 @@ pub fn record_download_progress(received: u64, total: u64) {
         snapshot.download.received = received;
         snapshot.download.total = total;
     });
+}
+
+/// Automatic repair must respect a manual stop, including commands already queued.
+pub fn request_auto_restart(providers: Vec<ProviderInput>) {
+    if !is_manually_halted() { send(Command::Restart(providers)); }
+}
+
+
+#[cfg(test)]
+mod halt_regression_tests {
+    use super::*;
+    #[tokio::test]
+    async fn manual_halt_wins_over_queued_automatic_restart() {
+        request_halt();
+        assert!(is_manually_halted());
+        request_auto_restart(Vec::new());
+        execute(Command::Restart(Vec::new())).await;
+        assert!(is_manually_halted());
+        request_restart(Vec::new());
+        assert!(!is_manually_halted());
+        execute(Command::Stop { clear_pool:false }).await;
+        assert!(!is_manually_halted(), "earlier queued stop must not undo a newer explicit start");
+    }
 }

@@ -1,0 +1,665 @@
+{
+  "reviewedAt": "2026-10-16T20:28:22+08:00",
+  "localBase": "22c9df7ae7ab3114f669c0c3ea4f777b944b134f",
+  "upstreamBase": "319f640e383150f85c9025b907e3b41b8b7565b1",
+  "upstreamTarget": "a55e1eb1133685d578ea997fc0cf701b3b445716",
+  "upstreamInventory": {
+    "paths": 87,
+    "identicalAtReview": 24,
+    "adaptedOrRegeneratedAtReview": 63,
+    "missing": []
+  },
+  "upstreamFiles": [
+    {
+      "path": "README.en.md",
+      "comparison": "adapted",
+      "decision": "retain-local-docs"
+    },
+    {
+      "path": "README.ja.md",
+      "comparison": "adapted",
+      "decision": "retain-local-docs"
+    },
+    {
+      "path": "README.ko.md",
+      "comparison": "adapted",
+      "decision": "retain-local-docs"
+    },
+    {
+      "path": "README.md",
+      "comparison": "adapted",
+      "decision": "retain-local-docs"
+    },
+    {
+      "path": "README.pt-BR.md",
+      "comparison": "adapted",
+      "decision": "retain-local-docs"
+    },
+    {
+      "path": "README.zh-Hant.md",
+      "comparison": "adapted",
+      "decision": "retain-local-docs"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/add-account.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/checkin.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/proxies.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/settings.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/add-account.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/checkin.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/proxies.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/settings.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/add-account.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/checkin.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/proxies.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/settings.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/add-account.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/checkin.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/proxies.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/settings.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/add-account.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/checkin.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/proxies.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/settings.json",
+      "comparison": "adapted",
+      "decision": "adapted-json-keys"
+    },
+    {
+      "path": "desktop-tauri/package.json",
+      "comparison": "identical",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/Cargo.lock",
+      "comparison": "identical",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/Cargo.toml",
+      "comparison": "identical",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/Cargo.toml",
+      "comparison": "identical",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/accounts.rs",
+      "comparison": "adapted",
+      "decision": "auto-merged"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/proxies.rs",
+      "comparison": "adapted",
+      "decision": "auto-merged"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/subscriptions.rs",
+      "comparison": "adapted",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/mod.rs",
+      "comparison": "identical",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/orcaterm_accounts.rs",
+      "comparison": "adapted",
+      "decision": "new"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/store_crud.rs",
+      "comparison": "adapted",
+      "decision": "auto-merged"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/store_view.rs",
+      "comparison": "identical",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/workbuddy_import.rs",
+      "comparison": "adapted",
+      "decision": "new"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/billing/activity.rs",
+      "comparison": "adapted",
+      "decision": "activity-adapt"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/checkin_records.rs",
+      "comparison": "adapted",
+      "decision": "activity-adapt"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/endpoints.rs",
+      "comparison": "identical",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/adapter.rs",
+      "comparison": "identical",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/autoclaw/promotion.rs",
+      "comparison": "adapted",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/catalog.rs",
+      "comparison": "identical",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/mod.rs",
+      "comparison": "identical",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/adapter.rs",
+      "comparison": "adapted",
+      "decision": "new"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/balance.rs",
+      "comparison": "adapted",
+      "decision": "new"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/chat.rs",
+      "comparison": "adapted",
+      "decision": "new"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/credentials.rs",
+      "comparison": "adapted",
+      "decision": "new"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/http.rs",
+      "comparison": "identical",
+      "decision": "new"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/mod.rs",
+      "comparison": "identical",
+      "decision": "new"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/models.rs",
+      "comparison": "identical",
+      "decision": "new"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/workbuddy/adapter.rs",
+      "comparison": "adapted",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/workbuddy/keepalive.rs",
+      "comparison": "adapted",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/sub_kernel/mod.rs",
+      "comparison": "adapted",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/sub_kernel/runtime.rs",
+      "comparison": "adapted",
+      "decision": "auto-merged"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/request.rs",
+      "comparison": "identical",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/db/schema.rs",
+      "comparison": "adapted",
+      "decision": "auto-merged"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/tauri.conf.json",
+      "comparison": "identical",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-account-bridge.ts",
+      "comparison": "identical",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-account-configs.ts",
+      "comparison": "identical",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-provider-blocks.tsx",
+      "comparison": "adapted",
+      "decision": "adapted-local-components"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-provider-pick.tsx",
+      "comparison": "adapted",
+      "decision": "auto-merged"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/checkin-page.tsx",
+      "comparison": "adapted",
+      "decision": "activity-adapt"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/checkin-schedule-tab.tsx",
+      "comparison": "adapted",
+      "decision": "activity-adapt"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/checkin-state.ts",
+      "comparison": "adapted",
+      "decision": "activity-adapt"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/proxies-sub-state.ts",
+      "comparison": "identical",
+      "decision": "apply"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/proxies-sub-view.tsx",
+      "comparison": "adapted",
+      "decision": "auto-merged"
+    },
+    {
+      "path": "desktop-tauri/ui/assets/providers/orcaterm.png",
+      "comparison": "identical",
+      "decision": "new"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/add-account.js",
+      "comparison": "identical",
+      "decision": "regenerate"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/checkin.js",
+      "comparison": "adapted",
+      "decision": "regenerate"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/proxies.js",
+      "comparison": "adapted",
+      "decision": "regenerate"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/add-account.js",
+      "comparison": "identical",
+      "decision": "regenerate"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/checkin.js",
+      "comparison": "adapted",
+      "decision": "regenerate"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/proxies.js",
+      "comparison": "adapted",
+      "decision": "regenerate"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/add-account.js",
+      "comparison": "identical",
+      "decision": "regenerate"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/checkin.js",
+      "comparison": "adapted",
+      "decision": "regenerate"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/proxies.js",
+      "comparison": "adapted",
+      "decision": "regenerate"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/add-account.js",
+      "comparison": "identical",
+      "decision": "regenerate"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/checkin.js",
+      "comparison": "adapted",
+      "decision": "regenerate"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/proxies.js",
+      "comparison": "adapted",
+      "decision": "regenerate"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/add-account.js",
+      "comparison": "adapted",
+      "decision": "regenerate"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/checkin.js",
+      "comparison": "adapted",
+      "decision": "regenerate"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/proxies.js",
+      "comparison": "adapted",
+      "decision": "regenerate"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/settings.js",
+      "comparison": "adapted",
+      "decision": "regenerate"
+    },
+    {
+      "path": "desktop-tauri/ui/islands/ui.js",
+      "comparison": "adapted",
+      "decision": "regenerate"
+    },
+    {
+      "path": "package.json",
+      "comparison": "identical",
+      "decision": "apply"
+    }
+  ],
+  "rust": {
+    "passed": 700,
+    "failed": 0,
+    "ignored": 7,
+    "docTestsIgnored": 1
+  },
+  "frontendSuites": [
+    {
+      "file": "scripts/test-accio-balance.mjs",
+      "exitCode": 0,
+      "output": "PASS: 26 balance scenarios (Accio, legacy cache, unknown/zero, other providers and errors)"
+    },
+    {
+      "file": "scripts/test-account-queue.mjs",
+      "exitCode": 0,
+      "output": "PASS: 10 queue-order cases, 12 pointer lifecycle cases and 5 web-bridge cases; no network"
+    },
+    {
+      "file": "scripts/test-assistant.mjs",
+      "exitCode": 0,
+      "output": "PASS: actual AI SDK + official Base UI chat composition; readonly defaults, field patches, revocation/confirmation/stop, 12-round limit, UTF-8 files and inline images, file-only sends, validation/rejection, drop/paste/removal, no-model retention, URL cleanup, copy/retry with attachments, IME, secret filtering, searchable model capabilities, click-open tool switches with pending/failure/field-save synchronization and per-action confirmation, history CRUD and confirmed bulk deletion; context budget, attachments, hidden reasoning exclusion, conservative route limits and aliases"
+    },
+    {
+      "file": "scripts/test-balance-display.mjs",
+      "exitCode": 0,
+      "output": "PASS: numeric balance priority, percentage-only fallback, zero/unknown balances, actual row rendering and ignored legacy mode"
+    },
+    {
+      "file": "scripts/test-conversation-preview.mjs",
+      "exitCode": 0,
+      "output": "conversation-preview: history, tools, images, OpenAI/Anthropic SSE/JSON, reasoning-only, raw fallback, escaping, legacy bridge passed"
+    },
+    {
+      "file": "scripts/test-docs-page.mjs",
+      "exitCode": 0,
+      "output": "PASS: docs endpoint contracts, live port sync, five clients, exact clipboard content and feedback, lazy health probes and retry"
+    },
+    {
+      "file": "scripts/test-info-tip.mjs",
+      "exitCode": 0,
+      "output": "PASS: InfoTip hover, click, original text, shared trigger, Escape, toggle and empty-content handling"
+    },
+    {
+      "file": "scripts/test-key-row.mjs",
+      "exitCode": 0,
+      "output": "PASS: Key controls, numeric page navigation/current state, hash prevention, pending guards, large-page ellipses and row sizes (fixture data only)"
+    },
+    {
+      "file": "scripts/test-legacy-tooltips.mjs",
+      "exitCode": 0,
+      "output": "PASS: legacy-tooltip delays, pins, focus, dynamic tips, viewport cleanup and lifecycle"
+    },
+    {
+      "file": "scripts/test-proxy-readiness.mjs",
+      "exitCode": 0,
+      "output": "PASS: lazy listener readiness, orphan failures, live Clash resolution and test states"
+    },
+    {
+      "file": "scripts/test-report-charts.mjs",
+      "exitCode": 0,
+      "output": "PASS: real shadcn/Recharts rendering; ranking identity/order/shares; donut parity/one/many/empty and hover; cache hit and total token quantities on a shared axis; missing token series; zero dates; long ranges; unit changes; yearly heatmap; hidden-page sizing and restore"
+    },
+    {
+      "file": "scripts/test-report-custom-range.mjs",
+      "exitCode": 0,
+      "output": "PASS: real report dates update, apply bridge args, persistence and invalid-range guard"
+    },
+    {
+      "file": "scripts/test-request-timings.mjs",
+      "exitCode": 0,
+      "output": "PASS: running/completed/interrupted/unreached stages, zero duration, old records and actual table rendering"
+    },
+    {
+      "file": "scripts/test-responses-preview.mjs",
+      "exitCode": 0,
+      "output": "PASS: Responses input/instructions, ordered history, images, reasoning, function/custom tools/results, JSON/refusal, SSE deltas/final snapshots/no duplication, interrupted streams and safe fallback"
+    },
+    {
+      "file": "scripts/test-settings-notifications.mjs",
+      "exitCode": 0,
+      "output": "PASS: actual bell and settings share late-ready snapshots, unread updates, open/mark-read, concurrent arrival, failures, refresh, one poller and subscription cleanup"
+    },
+    {
+      "file": "scripts/test-shell-account.mjs",
+      "exitCode": 0,
+      "output": "PASS: account controller validation, request contracts, session outcomes, subscriptions and host recovery (mock requests only)"
+    },
+    {
+      "file": "scripts/test-shell-login.mjs",
+      "exitCode": 0,
+      "output": "PASS: production login/password/theme/window/fullscreen controls with simulated React/DOM/bridge; no external operations"
+    },
+    {
+      "file": "scripts/test-shell-navigation.mjs",
+      "exitCode": 0,
+      "output": "PASS: real shell navigation: 12 routes, collapsed persistence/cookie, keyboard editing and overlay guards, group persistence/active reveal, badge handle retention, theme bridge, 1000px mobile Sheet and retained live account/status roots"
+    },
+    {
+      "file": "scripts/test-shell-notifications.mjs",
+      "exitCode": 0,
+      "output": "PASS: notification bridge, watermarks, transport failures, polling and host lifecycle"
+    },
+    {
+      "file": "scripts/test-shell-tabs.mjs",
+      "exitCode": 0,
+      "output": "PASS: shell-tabs archive, close actions, subscriptions, pointer sorting and showPage wrappers"
+    },
+    {
+      "file": "scripts/test-task-center-layout.mjs",
+      "exitCode": 0,
+      "output": "PASS: actual task/sign-in pages, maintenance isolation, account deep links, retained drafts, both record views, pagination and stable page IDs; visible query results, scoped queries, zero values, error/empty/race handling, text safety and detail links; fixture-only action payloads, duplicate-run guards, compact running status, retained low-frequency actions and schedule saves"
+    },
+    {
+      "file": "scripts/test-ui-business-composition.mjs",
+      "exitCode": 0,
+      "output": "business UI: actual credit table Collapsible, retained inputs, Tabs relations/retention, Message/Bubble/Trace/CodeBlock/Marker, tool copy, thought expansion, safe text, shared phase timing/Badge, imperative column Button/register/toggle/dispose, legacy render passed"
+    },
+    {
+      "file": "scripts/test-ui-theme.mjs",
+      "exitCode": 0,
+      "output": "PASS: shared primary colors, readable foregrounds, and reset cleanup"
+    },
+    {
+      "file": "scripts/test-web-login-lifecycle.mjs",
+      "exitCode": 0,
+      "output": "PASS: cancel/reopen, popup close, slow start, late poll isolation, success/failure, blocked popup and manual OAuth; real UI busy lock released"
+    },
+    {
+      "file": "scripts/test-workbuddy-qr-lifecycle.mjs",
+      "exitCode": 0,
+      "output": "PASS: real QR effects isolate editions, late starts, cleanup/save races, continuation and closing; expiry formats and fallback keep a numeric countdown and visible authorization link"
+    },
+    {
+      "file": "scripts/test-workbuddy-tasks.mjs",
+      "exitCode": 0,
+      "output": "PASS: per-account request scope, escaping, task states, eligibility and error propagation"
+    },
+    {
+      "file": "scripts/test-upstream-3.0.7-ui.mjs",
+      "exitCode": 0,
+      "output": "PASS: real shadcn Switch opt-in, pending/failed save, draft retention, legacy chain updates and preset card deduplication; no network"
+    },
+    {
+      "file": "scripts/test-workbuddy-compensation.mjs",
+      "exitCode": 0,
+      "output": "PASS: actual compensation panel; read-only queries, CN scope, zero credits, all status states, account-scoped claims, duplicate clicks, delayed/lost responses, balance refresh, partial failures and account-switch races"
+    }
+  ],
+  "apiSuites": [
+    {
+      "file": "scripts/test-upstream-3.0.7.py",
+      "exitCode": 0,
+      "output": "PASS: 39 isolated API checks; default-off opt-in, strict types, persistence, native import boundary, legacy credentials, encryption/history and restricted-key management isolation"
+    },
+    {
+      "file": "scripts/test-workbuddy-tasks.py",
+      "exitCode": 0,
+      "output": "PASS: 69 account-growth API assertions; no credentials or provider calls"
+    },
+    {
+      "file": "scripts/test-workbuddy-task-center.py",
+      "exitCode": 0,
+      "output": "PASS: 59 API/schema assertions; isolated home, no provider credentials or requests"
+    },
+    {
+      "file": "scripts/test-upstream-3.0.6.py",
+      "exitCode": 0,
+      "output": "PASS: 51 checks; readonly defaults, admin-only routes, filtered tool definitions, local SSE terminal+usage, source filter, retention, encrypted account/history and restart"
+    },
+    {
+      "file": "scripts/test-assistant-api.py",
+      "exitCode": 0,
+      "output": "PASS: 69 AI SDK API checks; scoped patch, desktop preflights, real OpenAI-to-UI CRLF stream, errors/truncation never release tool input, actual usage and restart; disposable fixtures only"
+    },
+    {
+      "file": "scripts/test-account-history.py",
+      "exitCode": 0,
+      "output": "PASS: v12 to v13 migration, 24 built-in providers + custom provider; real deletion API; historical backfill; stable totals; restart; request pruning and custom-provider removal preserve identity"
+    },
+    {
+      "file": "scripts/test-security-boundaries.py",
+      "exitCode": 0,
+      "output": "{\"finding\": \"restricted_key_admin_access\", \"expired_v1\": 403, \"export\": 403, \"self_remove_limits\": 403, \"snapshot_contains_admin\": false}\nPASS: missing or malformed administrator snapshots preserve owner and sessions\n{\"finding\": \"restore_retains_old_refresh_session\", \"refresh_after_removing_panelTokens\": 401}\n{\"finding\": \"corrupt_quota_ledger_fails_open\", \"before_status\": 403, \"after_status\": 403, \"reported_used\": null, \"after_error\": {\"message\": \"\\u989d\\u5ea6\\u8d26\\u672c\\u635f\\u574f\\uff0c\\u8bf7\\u7ba1\\u7406\\u5458\\u6062\\u590d\\u5907\\u4efd\", \"type\": \"invalid_request_error\"}}\nPASS: split-port Codex URL, config preservation, backup retention and invalid URL rejection\nPASS: model/provider whitelist keys cannot export administrative data\nPASS: beta route authorization, native-only SQL paths, keepalive persistence and schedule CRUD"
+    },
+    {
+      "file": "scripts/test-upstream-3.0.5.py",
+      "exitCode": 0,
+      "output": "PASS: 171 integration assertions; schema lineage matrix and interrupted migration recovery, encryption, JSON roundtrip/legacy restore, missing/wrong key, persistent sessions, unchanged history/retention; synthetic disabled account only"
+    }
+  ],
+  "builds": {
+    "headless": "passed offline",
+    "macosDesktopCheck": "passed offline",
+    "frontend": "passed",
+    "i18n": "passed",
+    "shadcnCheck": "passed"
+  },
+  "generatedArtifacts": {
+    "files": 93,
+    "reproducible": true,
+    "changed": []
+  },
+  "reviewFixes": [
+    "Bind group arrow rotation to aria-expanded",
+    "Clean fixture timers and terminate standalone React MessagePort process after assertions"
+  ],
+  "sourceCredentialScan": {
+    "candidateCredentials": 0,
+    "runtimePathsIncluded": false,
+    "method": "targeted patterns; not a guarantee against every secret format"
+  },
+  "limitations": [
+    "OrcaTerm real-provider inference and renewal not exercised",
+    "No new real-provider rewards or model requests during this review",
+    "No Windows/Linux installer build or formal Release"
+  ]
+}

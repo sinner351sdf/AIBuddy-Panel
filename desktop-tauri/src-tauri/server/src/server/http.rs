@@ -588,6 +588,10 @@ pub fn panel_router(state: ServerState) -> Router {
         .route("/api/growth-tasks/trial", post(api::growth_tasks::trial))
         .route("/api/growth-tasks/gift", post(api::growth_tasks::gift))
         .route(
+            "/api/growth-tasks/accounts/{account_id}/compensation",
+            get(api::growth_tasks::compensation_status),
+        )
+        .route(
             "/api/growth-tasks/accounts/{account_id}",
             get(api::growth_tasks::account_tasks),
         )

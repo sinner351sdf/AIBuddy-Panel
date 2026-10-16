@@ -161,8 +161,8 @@ function GroupMenu({ group, ids, collapsed }: { group: AccountGroup; ids: string
 /**
  * 分组带：一家的分隔横幅（`<tbody>` 的第一行，通栏一格）。
  *
- * 从左到右：拖动把手（整组顺位的唯一拖动起点）→ 顺位 → 家图标 + 家名 → 统计
- * （N 个账号 · 启用 x · 禁用 y · 限流 z）→ 右侧折叠箭头与 ⋯ 菜单。
+ * 拖动把手与 ⋯ 菜单独立；中间整条标题是折叠按钮，箭头放左侧以免横向滚动后看不到。
+ * 标题包含顺位、家图标 + 家名与统计（N 个账号 · 启用 x · 禁用 y · 限流 z）。
  * 统计读的是**整组**（不受筛选影响）：它回答「这一家有多少账号」，不是「当前显示几行」。
  *
  * 样式刻意保持中性（surface 底 + 一条 hairline）：一家一色会让整页像调色板，
@@ -181,6 +181,11 @@ export function GroupBandRow({ group, collapsed, colSpan }: {
           <span className='queue-grip' role='button' tabIndex={-1} aria-label={t('拖动调整整组顺序')}
             title={t('按住拖动，调整这一组的路由优先级（整组一起移动）')}
             dangerouslySetInnerHTML={{ __html: iconHtml('gripVertical', 14) }} />
+          <Button variant='ghost' size='xs' className='grp-toggle' aria-expanded={!collapsed}
+            aria-label={`${collapsed ? t('展开这一组') : t('折叠这一组')}：${group.label}`}
+            title={collapsed ? t('展开这一组') : t('折叠这一组')}
+            onClick={() => toggleGroupCollapsed(group.provider)}>
+          <span className='grp-fold' aria-hidden='true' dangerouslySetInnerHTML={{ __html: iconHtml('chevronDown', 14) }} />
           <span className='grp-rank' title={t('路由优先级：数值越小，越优先尝试该组账号（拖动分组带调整）')}>
             {t('路由优先级 {rank}', { rank: group.rank })}
           </span>
@@ -197,10 +202,7 @@ export function GroupBandRow({ group, collapsed, colSpan }: {
             limited: group.limited > 0 ? t(' · 限流 {n}', { n: group.limited }) : '',
           })}</span>
           <span className='grp-spacer' />
-          <Button variant='ghost' size='icon-xs' className='grp-fold' aria-expanded={!collapsed}
-            title={collapsed ? t('展开这一组') : t('折叠这一组')}
-            onClick={() => toggleGroupCollapsed(group.provider)}
-            dangerouslySetInnerHTML={{ __html: iconHtml('chevronDown', 14) }} />
+          </Button>
           <GroupMenu group={group} ids={group.accounts.map(account => account.id)} collapsed={collapsed} />
         </div>
       </td>
@@ -1062,6 +1064,9 @@ export function UsageCell({ account }: { account: AccountRecord }) {
     ? {
       rows: creditRows,
       subscriptionLine: creditSubscriptionOf(entry),
+      accountName: displayNameOf(account) || account.id,
+      balanceText: balanceDisplayRows(entry, usagePool(entry), t('积分')).map(row => row.text).join(' · '),
+      planName: String((entry as Record<string, unknown> & { subscription?: { planName?: string } }).subscription?.planName || ''),
       kind: summary.kind,
       title: summary.title,
     }
