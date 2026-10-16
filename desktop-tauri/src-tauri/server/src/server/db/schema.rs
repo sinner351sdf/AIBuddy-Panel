@@ -178,6 +178,8 @@ pub const RESERVED_KV_KEYS: &[&str] = &[
     // 与上面的 `modelCatalogCache` 是两码事：那个存各家上游的**模型清单**，
     // 这个存模型的**元数据**（能力位 / 思考档位），刷新链路与失效语义各不同。
     "modelsDevCatalog",
+    "panelAccessSessions",
+    "proxySettings",
 ];
 
 /// 这个键是否属于「其它零散状态」（即不归网关配置管）。
@@ -245,7 +247,9 @@ pub fn is_reserved(key: &str) -> bool {
 /// （领成功 / 已领过 / 失败及其错误原文 / 收益文案），补上改造前「只有
 /// config.json 里一条聚合同 lastResult」看不见的明细。写入方是
 /// `core::checkin_records`（记账点唯一：`core::billing::checkin::run_checkin`）。
-pub const SCHEMA_VERSION: i64 = 13;
+// Local v12/v13 are task/history schemas. Upstream's colliding versions are NOT replayed.
+// v14 repairs branch-specific tables and adds client; v15 marks encrypted credentials.
+pub const SCHEMA_VERSION: i64 = 15;
 
 /// 版本 1 的全部表与索引：改造前所有 JSON / JSONL 文件的对应形态。
 ///
@@ -718,10 +722,16 @@ CREATE INDEX IF NOT EXISTS idx_checkin_records_provider ON checkin_records(provi
 /// 错误类型（含 SQLite 的错误码与消息）才说得清是哪一步坏的。
 pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     let current: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
-    if current >= SCHEMA_VERSION {
-        // 版本比本二进制新（用户从新版回退到旧版）：**不报错、也不动库**。
-        // 报错会让旧版直接起不来（用户只是想回退一次），而「降级 schema」
-        // 意味着删列删表，那是不可逆的数据丢失 —— 两者都不该自动发生。
+    if current > SCHEMA_VERSION {
+        return Err(rusqlite::Error::InvalidParameterName(format!("数据库版本 {current} 高于程序支持的 {SCHEMA_VERSION}，请使用新版或恢复升级前备份")));
+    }
+    if current >= 12 && current < SCHEMA_VERSION {
+        // Upstream v12-v14 use the same numbers for different content. Probe/repair actual structure.
+        conn.execute_batch(V12_SCHEMA)?;
+        conn.execute_batch(V13_SCHEMA)?;
+    }
+    if current == SCHEMA_VERSION {
+        // Current schema: no migration. Newer schemas were rejected above; never downgrade.
         return Ok(());
     }
     for version in (current + 1)..=SCHEMA_VERSION {
@@ -781,6 +791,23 @@ fn apply_version(conn: &Connection, version: i64) -> rusqlite::Result<()> {
         11 => conn.execute_batch(V11_SCHEMA),
         12 => conn.execute_batch(V12_SCHEMA),
         13 => {
+            conn.execute_batch(V13_SCHEMA)?;
+            super::account_history::install(conn)
+        }
+        14 => {
+            conn.execute_batch(V12_SCHEMA)?;
+            conn.execute_batch(V13_SCHEMA)?;
+            let has_client = conn.prepare("PRAGMA table_info(requests)")?
+                .query_map([], |row| row.get::<_, String>(1))?
+                .collect::<rusqlite::Result<Vec<_>>>()?.iter().any(|name| name == "client");
+            if !has_client { conn.execute_batch("ALTER TABLE requests ADD COLUMN client TEXT NOT NULL DEFAULT '';")?; }
+            super::account_history::install(conn)
+        }
+        15 => {
+            let has_client = conn.prepare("PRAGMA table_info(requests)")?.query_map([], |row| row.get::<_, String>(1))?.collect::<rusqlite::Result<Vec<_>>>()?.iter().any(|name| name == "client");
+            if !has_client { conn.execute_batch("ALTER TABLE requests ADD COLUMN client TEXT NOT NULL DEFAULT '';")?; }
+            // Also runs when importing upstream v14: it may not have local task/history tables.
+            conn.execute_batch(V12_SCHEMA)?;
             conn.execute_batch(V13_SCHEMA)?;
             super::account_history::install(conn)
         }

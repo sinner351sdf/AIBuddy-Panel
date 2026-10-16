@@ -1,14 +1,21 @@
 /**
- * Agent2API · 「订阅」区块（机场/节点订阅 → mihomo 内核本地监听器）。
+ * Agent2API · 「订阅管理」弹窗 + 内核状态条（机场/节点订阅 → mihomo 内核本地监听器）。
  *
  * 与 Clash Verge 的订阅导入同一形态：粘贴订阅链接（或从图片解二维码）导入，
- * 内核拉取订阅、把每个节点起成本地 mixed 监听器，节点镜像进下面的代理池
+ * 内核拉取订阅、把每个节点起成本地 mixed 监听器，节点镜像进代理池
  * （`source: "subscription"` 的只读条目，账号按 id 引用）。存储与内核管理在
  * Rust 侧：`core::subscriptions`（订阅）与 `core::sub_kernel`（内核）是唯一
  * 事实来源，HTTP 契约见 `api::subscriptions` 的模块头。
  *
+ * ── 为什么订阅在弹窗里（页面只有一张表）────────────────────────
+ * 改造前订阅区块是代理池面板**上方**的第二个面板：两张表叠在同一页，
+ * 页面被拉得很长，而订阅表多半是「配完就不常动」的低频内容，真正天天用的是
+ * 下面那张池表。现在订阅表整体收进本弹窗（入口是代理池面板头的「订阅管理」
+ * 按钮，带订阅条数），页面只剩一张表；内核状态条则提到页面级（见 `KernelBar`）
+ * —— 它讲的是「本机内核 / 节点端口」这件全局的事，不该跟着订阅表一起被收起来。
+ *
  * ── 数据层在隔壁 ─────────────────────────────────────────────
- * 本文件只放视图层（内核状态行 + 订阅表 + 新增/编辑弹窗）；状态、取数、
+ * 本文件只放视图层（内核状态条 + 弹窗内的订阅表 + 新增/编辑弹窗）；状态、取数、
  * 动作都在 `proxies-sub-state.ts`（普通模块，与 proxies-state.ts 同一拆分）。
  *
  * ── 内核命令是异步的（界面轮询）────────────────────────────
@@ -23,19 +30,14 @@
  * base64 上传与回填链接；识别到单节点分享链接时后端明确报「暂不支持」。
  *
  * ── 样式 ────────────────────────────────────────────────────
- * 面板骨架（.panel / .panel-head / .models-table）与代理池面板同一套全局
- * 样式；内核状态行复用 Alert 与语义 Badge，背景和状态色随共享主题切换。
+ * 表格骨架（.models-table-wrap / .models-table）与其余页共用全局样式；
+ * 内核状态条用既有令牌（border-border / bg-surface-2 / text-subtle），
+ * 不新增 CSS 文件。
  */
 
 import * as React from 'react'
 import {
-  cn,
-  Alert,
-  AlertAction,
-  AlertDescription,
-  AlertTitle,
   Badge,
-  BadgeDot,
   Button,
   Dialog,
   DialogBody,
@@ -44,234 +46,301 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  Field,
-  FieldContent,
-  FieldGroup,
-  FieldLabel,
+  Label,
   Progress,
-  Spinner,
   Switch,
+  SelectGroup,
+  cn,
   Table,
   TableHeader,
   TableBody,
   TableRow,
   TableHead,
   TableCell,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardFooter,
+  Field,
+  FieldGroup,
+  FieldLabel,
 } from '@ui'
-import { DownloadIcon, PlayIcon, RefreshCwIcon } from '@ui/navigation-icons'
 import {
-  addSubscription, decodeQrImage, downloadKernel, errorMessage, kernel, loadSection,
-  refreshSubscription, removeSubscription, restartKernel, saveSubscription, subs, subscribe,
-  getSnapshot, toast, toggleSubscription, wb, type KernelStatus, type SubscriptionItem,
+  addSubscription, decodeQrImage, errorMessage, kernel, loadSection,
+  refreshSubscription, removeKernel, removeSubscription, restartKernel, saveSubscription,
+  subs, subscribe,
+  getSnapshot, toggleSubscription, type SubscriptionItem,
 } from './proxies-sub-state'
-import { formatTime } from './proxies-state'
+import { KernelDownloadDialog } from './proxies-kernel-dialog'
+import { formatTime, loadSettings } from './proxies-state'
 import { t } from '../i18n'
-import { Card, CardHeader, CardTitle, Empty, EmptyHeader, EmptyDescription, CardFooter } from '@ui'
 
-/* ─── 订阅区块 ───────────────────────────────── */
+/* ─── 内核状态条 ─────────────────────────────── */
 
-export function SubscriptionSection() {
+/**
+ * 内核状态条：徽标 + 版本 / 控制端口 / 监听器数 + 内核操作（下载 / 启动重启 / 删除）。
+ *
+ * 两处使用：页面顶部（`showPortRange`，顺带显示节点端口范围 —— 范围改了要重启
+ * 内核才对新节点生效，这两件事读在一起才有意义）与订阅管理弹窗内。
+ *
+ * 三个动作按「内核有没有装」互斥：未装只有「下载内核」，装了就换成
+ * 「启动 / 重启内核」+「删除内核」（删除是破坏性动作，见 removeKernel）。
+ */
+export function KernelBar({ showPortRange = false }: { showPortRange?: boolean }) {
   const snapshot = React.useSyncExternalStore(subscribe, getSnapshot)
-  const items = subs()
-  const kernelStatus = kernel()
-  const ready = snapshot.data !== null
-  const [modal, setModal] = React.useState<{ item: SubscriptionItem | null } | null>(null)
+  const status = kernel()
+  const [range, setRange] = React.useState<{ base: number; end: number } | null>(null)
+  /** 「下载内核」弹窗（出口 / 存放位置 / 进度 / 停止都在里面，见 proxies-kernel-dialog） */
+  const [downloadOpen, setDownloadOpen] = React.useState(false)
 
-  // 首次渲染自拉一次：本区块没有像代理池那样的「页面加载契约」（wbProxiesPanel.load
-  // 只刷池），不拉的话快照永远停在 null、界面停在「加载中…」
-  React.useEffect(() => { void loadSection() }, [])
+  // 端口范围是低频配置：挂载时静默读一次，读不到就不显示这一段（不影响内核状态本身）
+  React.useEffect(() => {
+    let alive = true
+    void (async () => {
+      try {
+        const data = await loadSettings()
+        if (!alive || !data) return
+        const base = Number(data.listenerPortBase)
+        const end = Number(data.listenerPortEnd)
+        if (Number.isFinite(base) && Number.isFinite(end) && base > 0 && end > 0) setRange({ base, end })
+      } catch {
+        /* 设置读不到只是少一条读数，静默 */
+      }
+    })()
+    return () => { alive = false }
+  }, [])
 
-  const downloading = kernelStatus?.download.state === 'downloading'
-  const downloadPercent =
-    downloading && kernelStatus!.download.total > 0
-      ? Math.round((kernelStatus!.download.received / kernelStatus!.download.total) * 100)
+  const downloading = status?.download.state === 'downloading'
+  const percent =
+    downloading && status!.download.total > 0
+      ? Math.round((status!.download.received / status!.download.total) * 100)
       : null
 
   return (
-    <Card as='section' variant='panel' size='sm' className='panel'>
-      <CardHeader variant='panel' className='panel-head'>
-        <CardTitle>{t('订阅')}</CardTitle>
-        <span className='panel-sub'>
-          {ready ? t('{n} 条订阅', { n: items.length }) : t('加载中…')}
+    /* 紧凑状态条：一行放下徽标 / 读数 / 操作，进度条只在下载中展开；
+       未安装是个高频空态，说明文字收在一句话里，不占额外一行 */
+    <div className='flex flex-col gap-2 rounded-md border border-border bg-surface-2 px-3 py-2'>
+      <div className='flex flex-wrap items-center gap-2'>
+        <Badge variant={status?.running ? 'default' : 'secondary'}>
+          {status?.running
+            ? t('内核运行中')
+            : status?.installed
+              ? t('内核已停止')
+              : t('内核未安装')}
+        </Badge>
+        <span className='text-[12.5px] text-text-2'>
+          {/* 版本号是 t 的形参（占位符不传参会原样显示 "{version}"）；
+              未安装时不显示版本段，只留按需下载的说明 */}
+          {status?.installed
+            ? t('内核 {version}', { version: status.version }) + '　·　'
+            : ''}
+          {status?.running
+            ? t('控制端口 {port} · {n} 个节点监听器', { port: status?.controllerPort ?? '—', n: status?.listenerCount ?? 0 })
+            : status?.installed
+              ? t('内核已停止，点「启动内核」拉起')
+              : t('按需下载（约 20-40MB）')}
         </span>
-        <div className='head-actions'>
-          <Button variant='default' disabled={snapshot.pending}
-            onClick={() => setModal({ item: null })}>{t('＋ 新增订阅')}</Button>
-        </div>
-      </CardHeader>
-
-      <KernelRow kernel={kernelStatus} downloading={downloading || false}
-        percent={downloadPercent} pending={snapshot.pending} />
-
-      <Table className='models-table min-w-[840px]' containerClassName='models-table-wrap'>
-          <colgroup>
-            <col className='w-[22%]' />
-            <col className='w-[36%]' />
-            <col className='w-[9%]' />
-            <col className='w-[13%]' />
-            <col className='w-[8%]' />
-            <col className='w-[12%]' />
-          </colgroup>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('名称')}</TableHead>
-              <TableHead>{t('订阅链接')}</TableHead>
-              <TableHead className='ta-center'>{t('节点')}</TableHead>
-              <TableHead>{t('上次同步')}</TableHead>
-              <TableHead className='ta-center'>{t('启用')}</TableHead>
-              <TableHead className='ta-right'>{t('操作')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.length ? items.map(item => {
-              const sync = kernelStatus?.providerSync?.[item.id]
-              return (
-                <TableRow key={item.id} className={cn(item.enabled ? '' : 'off')}>
-                  <TableCell><b>{item.name || t('未命名')}</b></TableCell>
-                  {/* 链接列：hover 出复制按钮（clipboard.js 的全局委托契约 ——
-                      `data-copy` 给文本、`.copy-btn` 类换「⧉ → ✓」反馈，见 docs-page
-                      文件头的说明；岛内不自己写剪贴板逻辑） */}
-                  <TableCell className='group'>
-                    <div className='flex items-center gap-1'>
-                      <span className='font-mono text-[12px] text-text-2'
-                        title={item.url}>{shortUrl(item.url)}</span>
-                      <Button variant='copy' size='icon-xs'
-                        className='copy-btn size-[21px] opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100'
-                        data-copy={item.url} title={t('复制订阅链接')}>⧉</Button>
-                    </div>
-                  </TableCell>
-                  {/* 节点列只放读数；同步时间归「上次同步」列（两列各就各位）。
-                      节点数优先取内核状态里的**实时**同步结果：条目上的 nodeCount
-                      是列表响应注入的快照，写操作后的轮询窗口里可能还是旧的 0
-                      （徽标曾冻在「—」上 —— 列表与内核一起轮询 + 这里的实时兜底，
-                      双保险） */}
-                  <TableCell className='ta-center'>
-                    {liveNodeCount(sync, item) > 0 ? (
-                      <Badge variant='secondary'>{t('{n} 个', { n: liveNodeCount(sync, item) })}</Badge>
-                    ) : (
-                      <span className='text-subtle'>{t('—')}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {sync?.at ? (
-                      <span className='text-[12px] text-text-2'>{formatTime(sync.at)}</span>
-                    ) : (
-                      <span className='text-subtle'>{t('未同步')}</span>
-                    )}
-                  </TableCell>
-                  <TableCell className='ta-center'>
-                    <Switch checked={item.enabled} disabled={snapshot.pending}
-                      aria-label={t('启用订阅「{name}」', { name: item.name || t('未命名') })}
-                      onCheckedChange={next => void toggleSubscription(item, next)} />
-                  </TableCell>
-                  <TableCell>
-                    <div className='row-actions'>
-                      <Button size='sm' variant='ghost' disabled={snapshot.pending || snapshot.refreshing !== null}
-                        onClick={() => void refreshSubscription(item)}>
-                        {snapshot.refreshing === item.id ? t('更新中…') : t('立即更新')}
-                      </Button>
-                      <Button size='sm' variant='ghost' disabled={snapshot.pending}
-                        onClick={() => setModal({ item })}>{t('编辑')}</Button>
-                      <Button size='sm' variant='destructive' disabled={snapshot.pending}
-                        onClick={() => void removeSubscription(item)}>{t('删除')}</Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )
-            }) : (
-              <TableRow>
-                <TableCell colSpan={6} className='empty'><Empty variant='compact'><EmptyHeader><EmptyDescription>
-                  {ready ? (
-                    /* 空态内嵌主操作按钮（视线不用跳到右上角）：一句话 + 按钮 +
-                       一句「接下来会发生什么」的副提示 */
-                    <div className='flex flex-col items-center gap-2 py-3'>
-                      <span>{t('还没有订阅：粘贴订阅链接，或从图片识别二维码导入。')}</span>
-                      <Button size='sm' variant='outline' disabled={snapshot.pending}
-                        onClick={() => setModal({ item: null })}>{t('＋ 新增订阅')}</Button>
-                      <span className='text-[11px] text-subtle'>
-                        {t('订阅里的节点会自动同步进下方代理池，账号即可引用。')}
-                      </span>
-                    </div>
-                  ) : t('加载中…')}
-                </EmptyDescription></EmptyHeader></Empty></TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-      </Table>
-
-      <CardFooter variant='panel' className='panel-foot'>
-        <span>
-          {t('订阅里的节点会被内核起成本地监听器，镜像到下方代理池（账号按 id 引用，与本页其它出口同一用法）。内核只在用到订阅时按需下载（约 20-40MB），不随安装包分发。')}
-        </span>
-        {snapshot.error ? (
-          <span className='text-destructive'>{t('读取失败：{reason}', { reason: snapshot.error })}</span>
+        {showPortRange && range ? (
+          <span className='text-[11.5px] text-subtle'>
+            {t('节点端口范围 {base}–{end}', { base: range.base, end: range.end })}
+          </span>
         ) : null}
-      </CardFooter>
-
-      {modal ? (
-        <SubModal item={modal.item} onClose={() => setModal(null)} />
-      ) : null}
-    </Card>
-  )
-}
-
-/* ─── 内核状态行 ─────────────────────────────── */
-
-export function KernelRow({
-  kernel, downloading, percent, pending,
-}: {
-  kernel: KernelStatus | null
-  downloading: boolean
-  percent: number | null
-  pending: boolean
-}) {
-  const ActionIcon = !kernel?.installed ? DownloadIcon : kernel.running ? RefreshCwIcon : PlayIcon
-  const error = kernel?.lastError || kernel?.download.error
-  return (
-    <Alert role='status' data-kernel-status
-      className='mx-4 my-3 w-auto gap-3 p-3 has-data-[slot=alert-action]:pr-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center'>
-      <div className='flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2'>
-        <AlertTitle className='flex flex-wrap items-center gap-2'>
-          <Badge variant={downloading ? 'info' : kernel?.running ? 'success' : kernel?.installed ? 'warning' : 'secondary'}>
-            {kernel?.running && !downloading ? <BadgeDot /> : null}
-            {!kernel ? t('加载中…') : downloading ? t('下载中…') : kernel.running
-              ? t('内核运行中') : kernel.installed ? t('内核已停止') : t('内核未安装')}
-          </Badge>
-          {kernel?.installed && kernel.version ? <Badge variant='outline'>{t('内核 {version}', { version: kernel.version })}</Badge> : null}
-        </AlertTitle>
-        <AlertDescription>
-          {!kernel ? t('加载中…') : kernel.running
-            ? t('控制端口 {port} · {n} 个节点监听器', { port: kernel.controllerPort ?? '—', n: kernel.listenerCount ?? 0 })
-            : kernel.installed ? t('内核已停止，点「启动内核」拉起') : t('按需下载（约 20-40MB）')}
-        </AlertDescription>
+        <div className='ml-auto flex items-center gap-2'>
+          {!status?.installed ? (
+            /* 点它开**下载弹窗**（选出口 / 选目录 / 看进度 / 停下载都在那里）——
+               不再直接开始下载：GitHub 直连不通时，「点了没反应」没有任何补救
+               余地，而现在第一件事就是选一条线路。
+               下载中按钮**保持可点**（打开弹窗看进度、停止）：`pending` 在下载
+               全程为 true，若照旧禁用掉，用户把弹窗一关就再也回不到进度界面了 */
+            <Button size='sm' variant='outline' disabled={snapshot.pending && !downloading}
+              onClick={() => setDownloadOpen(true)}>
+              {downloading ? t('下载中…') : t('下载内核')}
+            </Button>
+          ) : (
+            <>
+              <Button size='sm' variant='outline' disabled={snapshot.pending || downloading}
+                onClick={() => void restartKernel()}>
+                {status?.running ? t('重启内核') : t('启动内核')}
+              </Button>
+              {/* 删除：装过内核之后才有意义（没装时摆了也只是个永远灰着的按钮），
+                  破坏性且低频 —— 摆在启动 / 重启右侧、用危险语义，点开还有一道
+                  确认（见 proxies-sub-state 的 removeKernel） */}
+              <Button size='sm' variant='destructive' disabled={snapshot.pending || downloading}
+                onClick={() => void removeKernel()}>
+                {t('删除内核')}
+              </Button>
+            </>
+          )}
+        </div>
       </div>
-      <AlertAction className='static justify-self-start sm:justify-self-end'>
-        <Button size='sm' variant='outline' disabled={!kernel || pending || downloading}
-          onClick={() => void (!kernel?.installed ? downloadKernel() : restartKernel())}>
-          {pending || downloading ? <Spinner data-icon='inline-start' /> : <ActionIcon data-icon='inline-start' />}
-          {!kernel?.installed ? downloading ? t('下载中…') : t('下载内核') : kernel.running ? t('重启内核') : t('启动内核')}
-        </Button>
-      </AlertAction>
       {downloading ? (
-        <div className='col-span-full flex min-w-0 flex-wrap items-center gap-3'>
-          <Progress aria-label={t('下载中…')} className='min-w-0 flex-1 basis-32' value={percent ?? null} />
-          <AlertDescription>
+        <div className='flex items-center gap-3'>
+          <Progress className='min-w-[200px] flex-1' value={percent ?? null} />
+          <span className='text-[11px] text-subtle'>
             {percent !== null
               ? t('{percent}%（{received} / {total} MB）', {
                   percent,
-                  received: mb(kernel!.download.received),
-                  total: mb(kernel!.download.total),
+                  received: mb(status!.download.received),
+                  total: mb(status!.download.total),
                 })
               : t('下载中…')}
-          </AlertDescription>
+          </span>
         </div>
       ) : null}
-      {error ? (
-        <Alert variant='destructive' className='col-span-full min-w-0'>
-          <AlertDescription className='break-words'>{error}</AlertDescription>
-        </Alert>
+      {status?.lastError ? (
+        <span className='text-[12px] text-destructive'>{status.lastError}</span>
       ) : null}
-    </Alert>
+      {downloadOpen ? <KernelDownloadDialog onClose={() => setDownloadOpen(false)} /> : null}
+    </div>
+  )
+}
+
+/* ─── 订阅管理弹窗 ───────────────────────────── */
+
+export function SubscriptionManagerDialog({ onClose }: { onClose: () => void }) {
+  const snapshot = React.useSyncExternalStore(subscribe, getSnapshot)
+  const items = subs()
+  const ready = snapshot.data !== null
+  const [modal, setModal] = React.useState<{ item: SubscriptionItem | null } | null>(null)
+
+  // 打开时自拉一次：弹窗是订阅的唯一入口，不拉就会停在上一份快照上
+  // （内核状态在轮询、别的窗口也可能改过订阅）
+  React.useEffect(() => { void loadSection() }, [])
+
+  return (
+    <Dialog open onOpenChange={open => { if (!open) onClose() }}>
+      <DialogContent className='w-[min(880px,calc(100vw-48px))]'>
+        <DialogHeader>
+          <DialogTitle>{t('订阅管理')}</DialogTitle>
+          <span className='text-[11.5px] text-subtle'>
+            {ready ? t('{n} 条订阅', { n: items.length }) : t('加载中…')}
+            {'　·　'}
+            {t('节点由内核起成本地监听器，镜像进代理池')}
+          </span>
+        </DialogHeader>
+        <DialogBody className='flex flex-col gap-3'>
+          <KernelBar />
+
+          <div className='models-table-wrap'>
+            <Table className='models-table'>
+              <colgroup>
+                <col className='w-[18%]' />
+                <col className='w-[31%]' />
+                <col className='w-[9%]' />
+                <col className='w-[14%]' />
+                <col className='w-[8%]' />
+                <col className='w-[20%]' />
+              </colgroup>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('名称')}</TableHead>
+                  <TableHead>{t('订阅链接')}</TableHead>
+                  <TableHead className='ta-center'>{t('节点')}</TableHead>
+                  <TableHead>{t('上次同步')}</TableHead>
+                  <TableHead className='ta-center'>{t('启用')}</TableHead>
+                  <TableHead className='ta-right'>{t('操作')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.length ? items.map(item => {
+                  const sync = kernel()?.providerSync?.[item.id]
+                  return (
+                    <TableRow key={item.id} className={cn(!item.enabled && 'off')}>
+                      <TableCell><b>{item.name || t('未命名')}</b></TableCell>
+                      {/* 链接列：hover 出复制按钮（clipboard.js 的全局委托契约 ——
+                          `data-copy` 给文本、`.copy-btn` 类换「⧉ → ✓」反馈，见 docs-page
+                          文件头的说明；岛内不自己写剪贴板逻辑） */}
+                      <TableCell className='group'>
+                        <div className='flex items-center gap-1'>
+                          <span className='font-mono text-[12px] text-text-2'
+                            title={item.url}>{shortUrl(item.url)}</span>
+                          <Button variant='ghost' size='icon-xs'
+                            className='copy-btn opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100'
+                            data-copy={item.url} title={t('复制订阅链接')}>⧉</Button>
+                        </div>
+                      </TableCell>
+                      {/* 节点列只放读数；同步时间归「上次同步」列（两列各就各位）。
+                          节点数优先取内核状态里的**实时**同步结果：条目上的 nodeCount
+                          是列表响应注入的快照，写操作后的轮询窗口里可能还是旧的 0
+                          （徽标曾冻在「—」上 —— 列表与内核一起轮询 + 这里的实时兜底，
+                          双保险） */}
+                      <TableCell className='ta-center'>
+                        {liveNodeCount(sync, item) > 0 ? (
+                          <Badge variant='secondary'>{t('{n} 个', { n: liveNodeCount(sync, item) })}</Badge>
+                        ) : (
+                          <span className='text-subtle'>{t('—')}</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {sync?.at ? (
+                          <span className='text-[12px] text-text-2'>{formatTime(sync.at)}</span>
+                        ) : (
+                          <span className='text-subtle'>{t('未同步')}</span>
+                        )}
+                      </TableCell>
+                      <TableCell className='ta-center'>
+                        <Switch checked={item.enabled} disabled={snapshot.pending}
+                          aria-label={t('启用订阅「{name}」', { name: item.name || t('未命名') })}
+                          onCheckedChange={next => void toggleSubscription(item, next)} />
+                      </TableCell>
+                      <TableCell>
+                        <div className='row-actions'>
+                          <Button size='sm' variant='ghost' disabled={snapshot.pending || snapshot.refreshing !== null}
+                            onClick={() => void refreshSubscription(item)}>
+                            {snapshot.refreshing === item.id ? t('更新中…') : t('立即更新')}
+                          </Button>
+                          <Button size='sm' variant='ghost' disabled={snapshot.pending}
+                            onClick={() => setModal({ item })}>{t('编辑')}</Button>
+                          <Button size='sm' variant='destructive' disabled={snapshot.pending}
+                            onClick={() => void removeSubscription(item)}>{t('删除')}</Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                }) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className='empty'>
+                      {ready ? (
+                        /* 空态内嵌主操作按钮（视线不用跳到页脚）：一句话 + 按钮 +
+                           一句「接下来会发生什么」的副提示 */
+                        <div className='flex flex-col items-center gap-2 py-3'>
+                          <span>{t('还没有订阅：粘贴订阅链接，或从图片识别二维码导入。')}</span>
+                          <Button size='sm' variant='outline' disabled={snapshot.pending}
+                            onClick={() => setModal({ item: null })}>{t('＋ 新增订阅')}</Button>
+                          <span className='text-[11px] text-subtle'>
+                            {t('订阅里的节点会自动同步进代理池，账号即可引用。')}
+                          </span>
+                        </div>
+                      ) : t('加载中…')}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <p className='text-xs leading-[1.65] text-subtle'>
+            {t('订阅里的节点会被内核起成本地监听器，镜像到代理池（账号按 id 引用，与本页其它出口同一用法）。内核只在用到订阅时按需下载（约 20-40MB），不随安装包分发。')}
+          </p>
+          {snapshot.error ? (
+            <span className='text-destructive'>{t('读取失败：{reason}', { reason: snapshot.error })}</span>
+          ) : null}
+        </DialogBody>
+        <DialogFooter>
+          <Button variant='default' disabled={snapshot.pending}
+            onClick={() => setModal({ item: null })}>{t('＋ 新增订阅')}</Button>
+          <div className='mr-auto' />
+          <Button variant='outline' onClick={onClose}>{t('完成')}</Button>
+        </DialogFooter>
+      </DialogContent>
+
+      {/* 新增 / 编辑订阅嵌在本弹窗之上：子层要自己那层遮罩（overlayForceRender），
+          否则只有换了个框、点空白处也不会关闭 —— 见 ui-kit dialog.tsx 的说明 */}
+      {modal ? (
+        <SubModal item={modal.item} onClose={() => setModal(null)} />
+      ) : null}
+    </Dialog>
   )
 }
 
@@ -305,7 +374,7 @@ function liveNodeCount(
   return sync?.count ?? item.nodeCount
 }
 
-/* ─── 新增 / 编辑弹窗 ───────────────────────── */
+/* ─── 新增 / 编辑订阅弹窗 ───────────────────── */
 
 function SubModal({
   item,
@@ -377,52 +446,48 @@ function SubModal({
 
   return (
     <Dialog open onOpenChange={open => { if (!open && !saving) onClose() }}>
-      <DialogContent className='max-w-[560px]' onPaste={onPaste}>
+      <DialogContent className='max-w-[560px]' overlayForceRender onPaste={onPaste}>
         <DialogHeader>
           <DialogTitle>{editing ? t('编辑订阅') : t('新增订阅')}</DialogTitle>
         </DialogHeader>
         <DialogBody className='flex flex-col gap-3.5'>
-          <FieldGroup className='gap-3.5'>
-            <Field className='flex flex-col gap-1.5'>
-              <FieldLabel htmlFor='sub-name'>{t('名称')}</FieldLabel>
-              <Input id='sub-name' maxLength={60} autoComplete='off' spellCheck={false}
-                placeholder={t('例如：我的机场')} value={name}
-                onChange={event => setName(event.currentTarget.value)} />
-            </Field>
+          <Field className='flex flex-col gap-1.5'>
+            <FieldLabel htmlFor='sub-name'>{t('名称')}</FieldLabel>
+            <Input id='sub-name' maxLength={60} autoComplete='off' spellCheck={false}
+              placeholder={t('例如：我的机场')} value={name}
+              onChange={event => setName(event.currentTarget.value)} />
+          </Field>
 
-            <Field className='flex flex-col gap-1.5'>
-              <FieldLabel htmlFor='sub-url'>{t('订阅链接')}</FieldLabel>
-              <Input id='sub-url' autoComplete='off' spellCheck={false}
-                placeholder='https://…' value={url}
-                onChange={event => setUrl(event.currentTarget.value)} />
-              <div className='flex items-center gap-2'>
-                <Button size='sm' variant='outline' disabled={decoding}
-                  onClick={() => fileInput.current?.click()}>
-                  {decoding ? t('识别中…') : t('从图片识别二维码')}
-                </Button>
-                <span className='text-[11px] text-subtle'>{t('也可以把二维码截图直接粘贴到弹窗里（Ctrl+V）')}</span>
-                <input ref={fileInput} type='file' accept='image/*' className='hidden'
-                  onChange={event => {
-                    const file = event.currentTarget.files?.[0]
-                    if (file) void decodeFrom(file)
-                    event.currentTarget.value = ''
-                  }} />
-              </div>
-            </Field>
+          <Field className='flex flex-col gap-1.5'>
+            <FieldLabel htmlFor='sub-url'>{t('订阅链接')}</FieldLabel>
+            <Input id='sub-url' autoComplete='off' spellCheck={false}
+              placeholder='https://…' value={url}
+              onChange={event => setUrl(event.currentTarget.value)} />
+            <div className='flex items-center gap-2'>
+              <Button size='sm' variant='outline' disabled={decoding}
+                onClick={() => fileInput.current?.click()}>
+                {decoding ? t('识别中…') : t('从图片识别二维码')}
+              </Button>
+              <span className='text-[11px] text-subtle'>{t('也可以把二维码截图直接粘贴到弹窗里（Ctrl+V）')}</span>
+              <input ref={fileInput} type='file' accept='image/*' className='hidden'
+                onChange={event => {
+                  const file = event.currentTarget.files?.[0]
+                  if (file) void decodeFrom(file)
+                  event.currentTarget.value = ''
+                }} />
+            </div>
+          </Field>
 
-            <Field orientation='horizontal' className='flex flex-row items-center gap-2.5 has-[>[data-slot=field-content]]:items-center'>
-              <Switch id='sub-enabled' checked={enabled} onCheckedChange={setEnabled} aria-label={t('启用这条订阅')} />
-              <FieldContent className='gap-0'>
-                <FieldLabel htmlFor='sub-enabled' className='text-[12.5px] font-normal'>{t('启用（禁用的订阅不参与内核同步，它的节点会从代理池移除）')}</FieldLabel>
-              </FieldContent>
-            </Field>
+          <div className='flex flex-row items-center gap-2.5'>
+            <Switch checked={enabled} onCheckedChange={setEnabled} aria-label={t('启用这条订阅')} />
+            <span className='text-[12.5px]'>{t('启用（禁用的订阅不参与内核同步，它的节点会从代理池移除）')}</span>
+          </div>
 
-            <p className='text-xs leading-[1.65] text-subtle'>
-              {t('订阅内容由内核定时刷新（每 24 小时）；节点数与同步状态在保存后由轮询刷新，稍等几秒。')}
-            </p>
+          <p className='text-xs leading-[1.65] text-subtle'>
+            {t('订阅内容由内核定时刷新（每 24 小时）；节点数与同步状态在保存后由轮询刷新，稍等几秒。')}
+          </p>
 
-            <div className='min-h-[18px] text-xs text-subtle'>{status}</div>
-          </FieldGroup>
+          <div className='min-h-[18px] text-xs text-subtle'>{status}</div>
         </DialogBody>
         <DialogFooter>
           <div className='mr-auto' />

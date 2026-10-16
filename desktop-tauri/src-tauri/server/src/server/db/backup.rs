@@ -45,6 +45,17 @@
 //!   - 账号 / 日志 / 统计 / 调试报文 / 桌面设置（壳侧）：都无内存快照，
 //!     下一个查询自然看到新库。
 //!
+//! ── 账号密钥指纹（为什么头部要记一行哈希）─────────────────────
+//! 整库备份只 dump 表数据，**不含** `{config_dir}/account.key` 密钥文件。把备份
+//! 拿到另一台机器恢复、或本机密钥文件丢失后恢复，`accounts.data` 里的密文全部
+//! 解不开 —— 用户只看到「账号列表为空」，查不出原因。因此导出时在文件头写一行
+//! `-- account-key-fingerprint: <sha256(密钥)[:16]>`（**哈希，不是密钥**，见
+//! `core::crypto::key_fingerprint`；密钥尚不存在时写「(未生成)」），导入时与本机
+//! 指纹比对：不一致或「(未生成)」就在返回值里附一条 `warning` 说明原因与补救办法
+//! （把 `account.key` 一起带过来）。**不阻断导入** —— 用户可能就是要先把数据导
+//! 回来再处理密钥。该行是文件头前缀之后的注释，不影响「以 BACKUP_SQL_HEADER
+//! 开头」的判定；旧备份没有这一行则无从比对，静默放行。
+//!
 //! ── schema 版本 ────────────────────────────────────────────
 //! 导出文件头与 `PRAGMA user_version` 都带库版本。导入侧先看暂存库执行后
 //! 的真实版本：**高于**当前 `SCHEMA_VERSION` 直接拒绝（旧程序打开新库，
@@ -62,11 +73,30 @@ use serde_json::{json, Value};
 
 use super::schema;
 use super::Db;
+use crate::server::core::crypto;
 use crate::server::logging;
 
 /// 导出文件的第一行。导入端只认带这个前缀的文件 —— 用户的其它 SQL
 /// （手写、别处导出）即便语法正确也拒绝，避免「恢复成了半份陌生数据」。
 pub const BACKUP_SQL_HEADER: &str = "-- Agent2API SQLite 导出";
+
+/// 文件头里记录「导出时账号加密密钥指纹」的注释行前缀（值在冒号之后）。
+/// 放在 `BACKUP_SQL_HEADER` 之后，是**注释行**，不影响「以头部前缀开头」的判定。
+const KEY_FINGERPRINT_LINE: &str = "-- account-key-fingerprint:";
+
+/// 导出时账号密钥尚不存在时写入的明确标记（对应 `crypto::key_fingerprint` 返回
+/// `None` 的情形）。写一个可读的词而不是留空：留空会让「没这一行」与「有但为空」
+/// 两种含义混在一起，导入侧无法区分「旧备份没记」和「记了但没有密钥」。
+const KEY_FINGERPRINT_ABSENT: &str = "(未生成)";
+
+/// 解析指纹时只扫文件开头这几行 —— 头部是固定几行注释，为一行标记去遍历整份
+/// 上百 MB 的正文毫无必要。留足余量以容忍将来在前面再加一两行头部注释。
+const HEADER_SCAN_LINES: usize = 16;
+
+/// 账号域密钥文件名，只用于给用户的警告文案（「把这个文件一起带过来」）。
+/// 事实来源是 `crypto::SecretScope::key_file`，但那是私有实现细节；这里重复的
+/// 只是一个**用户可见的文件名**，改动概率极低（改了它等于换密钥文件，见 crypto 模块头）。
+const ACCOUNT_KEY_FILE: &str = "account.key";
 
 /// 精简导出（不带日志）跳过的表：事件日志、请求明细/聚合、调试报文与请求
 /// 原始报文。业务数据（kv、accounts、account_usage_records）无论哪种口径
@@ -161,6 +191,11 @@ fn dump_sql(conn: &Connection, skip_tables: &[&str]) -> Result<String, String> {
         "{BACKUP_SQL_HEADER}\n-- 生成时间: {}\n-- user_version: {user_version}\n",
         Local::now().format("%Y-%m-%d %H:%M:%S"),
     ));
+    // 追加账号密钥指纹（注释行，紧跟头部其它注释）：本备份**不含** `account.key`
+    // 密钥文件，换了机器或密钥文件丢失后恢复，`accounts.data` 的密文就再也解不开，
+    // 界面只表现为「账号列表为空」。把导出时那把密钥的**指纹**（哈希，不是密钥
+    // 本身，见 `crypto::key_fingerprint`）记下来，导入侧才能比对并明确告知原因。
+    output.push_str(&account_key_fingerprint_line());
     output.push_str("PRAGMA foreign_keys=OFF;\n");
     output.push_str(&format!("PRAGMA user_version={user_version};\n"));
     output.push_str("BEGIN TRANSACTION;\n");
@@ -218,6 +253,18 @@ fn dump_sql(conn: &Connection, skip_tables: &[&str]) -> Result<String, String> {
 
     output.push_str("COMMIT;\nPRAGMA foreign_keys=ON;\n");
     Ok(output)
+}
+
+/// 文件头那行账号密钥指纹注释（含结尾换行）。
+///
+/// 密钥存在 → 写指纹；不存在 → 写「未生成」标记。**绝不写密钥本身**：备份是明文
+/// SQL，会被拷到别的机器，写进去就等于把钥匙交给拿到备份的人（见 `crypto` 模块头）。
+/// 读指纹用 `crypto::key_fingerprint`（只读），**不会**因为有这个调用就生成密钥 ——
+/// 导出是纯读动作，不能在用户机器上凭空造出一把 `account.key`。
+fn account_key_fingerprint_line() -> String {
+    let fingerprint = crypto::key_fingerprint(crypto::SecretScope::Accounts)
+        .unwrap_or_else(|| KEY_FINGERPRINT_ABSENT.to_string());
+    format!("{KEY_FINGERPRINT_LINE} {fingerprint}\n")
 }
 
 /// 一张表的数据 → 多行 VALUES 的 INSERT 批。
@@ -426,10 +473,53 @@ fn atomic_write(target: &Path, bytes: &[u8]) -> Result<(), String> {
 
 // ── 导入 ────────────────────────────────────────────────────────
 
+/// 从备份文件头部解析 `-- account-key-fingerprint:` 行的值。
+///
+/// 只扫开头 `HEADER_SCAN_LINES` 行（头部是固定几行注释），不为一行标记遍历正文。
+/// 旧版本导出的文件没有这一行 → `None`（无法比对，调用方按「无信息」处理）。
+fn parse_account_key_fingerprint(sql: &str) -> Option<String> {
+    sql.lines()
+        .take(HEADER_SCAN_LINES)
+        .find_map(|line| line.trim().strip_prefix(KEY_FINGERPRINT_LINE))
+        .map(|value| value.trim().to_string())
+}
+
+/// 比对备份头部记录的密钥指纹与本机现状，返回**给用户看的警告**（未比对出问题 →
+/// `None`）。
+///
+/// 场景与结论：
+///   · 两边指纹一致（最常见：同机恢复）→ 不警告；
+///   · 备份写的是「未生成」→ 警告（导出时那把钥匙还是「不存在」状态，本机若已有
+///     密钥，备份里的账号密文多半解不开）；
+///   · 指纹不同 / 本机没有密钥 → 警告（这份备份是**另一把密钥**加密的）。
+///
+/// **绝不因此阻断导入**：用户常常就是要「先把数据导回来，再单独处理密钥」
+/// （例如先导数据、再把 `account.key` 拷过来重导，或先看看数据再决定）。
+/// 所以这里只产出文案，由调用方放进返回值冒泡给界面 / 日志。
+fn account_key_warning(backup_marker: Option<String>) -> Option<String> {
+    // 旧备份没有这一行：没有任何可比较的信息，静默（不拿「没记」当「不匹配」报）
+    let backup_marker = backup_marker?;
+    if backup_marker == KEY_FINGERPRINT_ABSENT {
+        return Some(format!(
+            "这份备份导出时账号加密密钥尚未生成，无法校验密钥是否一致：若账号数据无法解密（账号列表为空），\
+             请把备份那台机器的 {ACCOUNT_KEY_FILE} 一并带过来后重新导入。"
+        ));
+    }
+    let local = crypto::key_fingerprint(crypto::SecretScope::Accounts);
+    if local.as_deref() == Some(backup_marker.as_str()) {
+        return None;
+    }
+    Some(format!(
+        "这份备份是用另一把加密密钥加密的，导入后账号数据将无法解密（账号列表可能为空）。\
+         若要在别的机器恢复，请把备份那台机器的 {ACCOUNT_KEY_FILE} 一并带过来。"
+    ))
+}
+
 /// 从 SQL 文件恢复整库：校验 → 暂存库执行 → 安全备份 → 整体覆盖主库。
 ///
-/// 返回 `{ tables, safetyBackup }`；替换后的内存态重装在本函数内完成
-/// （见模块头「替换后要重装哪些内存状态」）。
+/// 返回 `{ tables, safetyBackup, warning? }`；替换后的内存态重装在本函数内完成
+/// （见模块头「替换后要重装哪些内存状态」）。`warning` 只在密钥指纹对不上时出现
+/// ——**不阻断导入**，只是把「账号为什么解不开」明确说出来（见 `account_key_warning`）。
 pub fn import_from_file(db: &Db, source: &Path, config_dir: &Path) -> Result<Value, String> {
     let sql_raw = std::fs::read_to_string(source)
         .map_err(|e| format!("读取备份文件失败: {e}"))?;
@@ -439,6 +529,9 @@ pub fn import_from_file(db: &Db, source: &Path, config_dir: &Path) -> Result<Val
             "仅支持导入由 Agent2API 导出的整库备份文件（缺少文件头标记）".to_string(),
         );
     }
+    // 密钥指纹比对：在重活之前先算好文案，最后随结果一起返回。这里只看头部注释，
+    // 不碰暂存库；比对结果**不影响**导入流程（见 account_key_warning 的注释）。
+    let key_warning = account_key_warning(parse_account_key_fingerprint(sql_content));
 
     // 暂存库：外部 SQL 在一次性文件上执行，失败不污染主库。
     // journal_mode 先对齐主库的 WAL —— Backup 会把源文件头拷进目标，
@@ -483,6 +576,7 @@ pub fn import_from_file(db: &Db, source: &Path, config_dir: &Path) -> Result<Val
     // 补齐缺失表（精简备份的日志表）并把版本升到当前
     schema::migrate(conn).map_err(|e| format!("对齐备份库 schema 失败: {e}"))?;
 
+    seal_restored_credentials(conn)?;
     let tables = table_row_counts(conn, &[]);
 
     // 覆盖主库：进程锁内再持主连接锁（两把锁顺序固定，绝无嵌套死锁）。
@@ -519,7 +613,17 @@ pub fn import_from_file(db: &Db, source: &Path, config_dir: &Path) -> Result<Val
             safety.display()
         ),
     );
-    Ok(json!({ "tables": tables, "safetyBackup": safety_name }))
+    let mut result = json!({ "tables": tables, "safetyBackup": safety_name });
+    // 指纹警告放进返回值，让它冒泡到界面（HTTP handler 原样回传）与日志；
+    // 键只在真有警告时出现，前端 `if (data.warning)` 即可。
+    if let Some(warning) = key_warning {
+        logging::log(
+            "[Storage]",
+            &format!("⚠️ 整库恢复密钥指纹不匹配（不阻断导入）: {warning}"),
+        );
+        result["warning"] = json!(warning);
+    }
+    Ok(result)
 }
 
 /// 导入期间挂到暂存库上的守卫：拒绝一切能**离开暂存库文件**的动作。
@@ -643,6 +747,22 @@ pub fn snapshot_to_file(db: &Db, path: &Path) -> Result<(), String> {
 mod safety_tests {
     use super::*;
     #[test]
+    fn sql_restore_seals_old_credentials_before_activation_and_preserves_identity() {
+        use crate::server::core::crypto::{self, SecretScope};
+        let c=Connection::open_in_memory().unwrap(); schema::migrate(&c).unwrap();
+        let account=json!({"id":"sql-fixture","provider":"accio","edition":"intl","accessToken":"synthetic-secret","enabled":false});
+        c.execute("INSERT INTO accounts(id,provider,priority,enabled,data) VALUES('sql-fixture','accio',0,0,?1)",[account.to_string()]).unwrap();
+        c.execute("INSERT INTO kv(key,value) VALUES('apiKeys',?1)",[json!([{"id":"fixture-key","key":"sk-synthetic-only","quotaTokens":42}]).to_string()]).unwrap();
+        seal_restored_credentials(&c).unwrap();
+        let raw:String=c.query_row("SELECT data FROM accounts",[],|r|r.get(0)).unwrap();
+        assert!(crypto::is_envelope(&raw)); assert_eq!(serde_json::from_slice::<Value>(&crypto::open(&raw,SecretScope::Accounts).unwrap()).unwrap(),account);
+        let keys:String=c.query_row("SELECT value FROM kv WHERE key='apiKeys'",[],|r|r.get(0)).unwrap();
+        let keys:Value=serde_json::from_str(&keys).unwrap();assert!(crypto::is_envelope(keys[0]["key"].as_str().unwrap()));assert_eq!(keys[0]["quotaTokens"],42);
+        let edition:String=c.query_row("SELECT edition FROM account_history WHERE account_id='sql-fixture'",[],|r|r.get(0)).unwrap();assert_eq!(edition,"intl");
+        seal_restored_credentials(&c).unwrap();
+        let again:String=c.query_row("SELECT data FROM accounts",[],|r|r.get(0)).unwrap();assert_eq!(again,raw);
+    }
+    #[test]
     fn restore_staging_files_are_created_independently_and_cleaned_up() {
         let first = TempRestoreDb::new().unwrap();
         let second = TempRestoreDb::new().unwrap();
@@ -683,4 +803,41 @@ mod safety_tests {
         assert!(target.execute_batch("CREATE VIRTUAL TABLE escaped USING fts5(content)").is_err());
         target.execute_batch("CREATE TABLE safe (value TEXT)").unwrap();
     }
+}
+
+/// Seal old plaintext imports in the disposable restore DB before activation.
+/// Existing envelopes stay intact, including unreadable rows whose recovery warning
+/// is surfaced to the administrator. A crypto failure never activates plaintext.
+fn seal_restored_credentials(conn: &Connection) -> Result<(), String> {
+    use crate::server::core::crypto::{self, SecretScope};
+    crate::server::db::account_history::backfill(conn).map_err(|e| e.to_string())?;
+    let accounts: Vec<(String,String)> = conn.prepare("SELECT id,data FROM accounts")
+        .map_err(|e|e.to_string())?.query_map([], |r|Ok((r.get(0)?,r.get(1)?)))
+        .map_err(|e|e.to_string())?.collect::<rusqlite::Result<_>>().map_err(|e|e.to_string())?;
+    for (id,raw) in accounts {
+        if crypto::is_envelope(&raw) { continue; }
+        let identity: Value = serde_json::from_str(&raw).map_err(|_|format!("账号 {id} 的历史 JSON 无效，恢复未执行"))?;
+        if !identity.is_object() { return Err(format!("账号 {id} 的历史数据不是对象，恢复未执行")); }
+        crate::server::db::account_history::remember_account(conn,&identity).map_err(|e|e.to_string())?;
+        let sealed = crypto::seal(raw.as_bytes(),SecretScope::Accounts)?;
+        conn.execute("UPDATE accounts SET data=?2 WHERE id=?1",rusqlite::params![id,sealed]).map_err(|e|e.to_string())?;
+    }
+    for key in ["apiKeys","apiKey"] {
+        let raw: Option<String> = conn.query_row("SELECT value FROM kv WHERE key=?1",[key],|r|r.get(0)).optional().map_err(|e|e.to_string())?;
+        let Some(raw)=raw else { continue; };
+        let mut data: Value=serde_json::from_str(&raw).map_err(|e|format!("{key} 格式无效：{e}"))?;
+        let seal = |v: &mut Value| -> Result<(),String> {
+            let text=v.as_str().ok_or("网关 Key 必须是字符串")?;
+            if !text.is_empty() && !crypto::is_envelope(text) { *v=Value::String(crypto::seal(text.as_bytes(),SecretScope::Accounts)?); }
+            Ok(())
+        };
+        if key=="apiKey" { seal(&mut data)?; }
+        else {
+            for entry in data.as_array_mut().ok_or("apiKeys 必须是数组")? {
+                if let Some(v)=entry.get_mut("key") { seal(v)?; }
+            }
+        }
+        conn.execute("UPDATE kv SET value=?2 WHERE key=?1",rusqlite::params![key,data.to_string()]).map_err(|e|e.to_string())?;
+    }
+    Ok(())
 }

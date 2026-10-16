@@ -1,0 +1,57 @@
+{
+  "verifiedAt": "2026-10-16T00:24:55.087234+08:00",
+  "scope": "Move account task center into checkin route; retain tasks route for system maintenance",
+  "routes": {
+    "checkin": "任务中心",
+    "tasks": "系统维护"
+  },
+  "backup": "/Users/zaxe/Documents/ChatGPT/agent2api/data/deployment-backups/20261016-001248-task-center-layout",
+  "databaseCounts": {
+    "accounts": {
+      "before": 11,
+      "after": 11
+    },
+    "requests": {
+      "before": 280,
+      "after": 280
+    },
+    "checkin_records": {
+      "before": 57,
+      "after": 57
+    },
+    "task_runs": {
+      "before": 9,
+      "after": 9
+    },
+    "task_run_items": {
+      "before": 11,
+      "after": 11
+    },
+    "account_history": {
+      "before": 12,
+      "after": 12
+    }
+  },
+  "accountsUnchanged": true,
+  "configurationUnchanged": true,
+  "validation": {
+    "javascriptSuites": 25,
+    "javascriptFailures": 0,
+    "newTaskLayoutRegression": "passed including account deep links, draft retention, history filters/page changes, refresh, maintenance isolation and no account task execution",
+    "typecheck": "passed",
+    "viteBuild": "passed",
+    "shadcnGuard": "passed",
+    "gitDiffCheck": "passed",
+    "i18nMissingKeys": 0,
+    "i18nNote": "Existing untranslated keys still use fallback text; newly added navigation and section labels translated",
+    "browser": "3065 live desktop light/dark, 390px mobile two-column section tabs; both history pages and schedules readable; no application console errors",
+    "providerTaskExecution": "not performed"
+  },
+  "artifacts": {
+    "ui.js": "0d35e8ceb28b71f2240b376e2a09345476aff58e71defd0e074d15bcdbabaffc",
+    "ui.css": "87655d875a4f9e73b38762560d69f3f2453232e391f37fa0191cd94270b5596e"
+  },
+  "backendRestarted": false,
+  "committed": false,
+  "published": false
+}

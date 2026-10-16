@@ -148,6 +148,24 @@ try {
   assert.equal(thought.getAttribute('aria-expanded'), 'true')
   assert.ok(document.getElementById(thought.getAttribute('aria-controls')).textContent.includes('reason only'))
   assert.ok(window.wbConversationPreview.render(data.raw[0].source, '').includes('data-slot="message"'))
+  const responses = window.wbConversationPreview.parse(JSON.stringify({ instructions: 'Responses system', input: [
+    { role: 'user', content: [{ type: 'input_text', text: '<script>Responses question</script>' }] },
+    { type: 'function_call', call_id: 'lookup-1', name: 'lookup', arguments: '{"q":"request"}' },
+    { type: 'function_call_output', call_id: 'lookup-1', output: 'Responses tool result' },
+  ] }), JSON.stringify({ output: [
+    { type: 'reasoning', summary: [{ type: 'summary_text', text: 'Responses thought' }] },
+    { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'Responses answer' }] },
+    { type: 'custom_tool_call', name: 'shell', input: 'echo Responses' },
+  ] }))
+  assert.equal(responses.notices.length, 0)
+  await React.act(async () => mounted.render(React.createElement(fixture.ConversationView, { data: responses })))
+  for (const text of ['Responses system', '<script>Responses question</script>', 'Responses answer']) assert.ok(host.textContent.includes(text), text)
+  assert.equal(host.querySelector('script'), null)
+  assert.ok(host.querySelector('[data-copy="Responses tool result"]'))
+  assert.ok([...host.querySelectorAll('[data-slot=trace-collapsible-trigger]')].some(node => node.textContent.includes('shell')))
+  const responsesThought = [...host.querySelectorAll('[data-slot=trace-collapsible-trigger]')].find(node => node.textContent.includes('思考过程'))
+  await click(responsesThought)
+  assert.ok(document.getElementById(responsesThought.getAttribute('aria-controls')).textContent.includes('Responses thought'))
   await React.act(async () => mounted.unmount())
   dom.window.close()
   console.log('business UI: actual credit table Collapsible, retained inputs, Tabs relations/retention, Message/Bubble/Trace/CodeBlock/Marker, tool copy, thought expansion, safe text, shared phase timing/Badge, imperative column Button/register/toggle/dispose, legacy render passed')

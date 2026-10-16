@@ -1,3 +1,4 @@
+import { Alert, AlertDescription } from '@ui'
 import { NavItem } from '@ui'
 import { InfoTip } from '../components/info-tip'
 import { localApi } from './local-api'
@@ -2130,13 +2131,14 @@ function DataPane({ snap }: { snap: SettingsSnapshot }) {
 
   return (
     <>
+      {snap.dbWarning ? <Alert variant='destructive'><AlertDescription>{snap.dbWarning}</AlertDescription></Alert> : null}
       {/* 整库备份 / 恢复：仅桌面端渲染（web shim 没有这两个桥方法）。
           排在「账号导入 / 导出」之前 —— 恢复是整库替换，两种语义别让用户混着看 */}
       {!isWebBridge && (
         <Card as='section' variant='panel' size='sm' className='panel'>
           <PanelHead
             title={t('整库备份 / 恢复')}
-            tip={TIPS.backup}
+            tip={<>{TIPS.backup} 账号和网关 Key 已加密。迁移 SQL / DB 备份时须另行保存 account.key，或保持相同的 AGENT2API_ACCOUNT_KEY；密钥不包含在普通备份内。</>}
             actions={
               <>
                 <Button

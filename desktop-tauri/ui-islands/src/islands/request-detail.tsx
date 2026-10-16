@@ -33,8 +33,8 @@ import { RequestTimings, type StageTiming } from './request-timings'
  *      「明细还在、原文已被挤掉」是正常状态，不是错误。
  *   ③ 原始报文 —— 调试模式保存的**上游**原始报文（`getDebugTraffic` 的四段：
  *      请求头 / 请求体 / 响应头 / 响应体，凭据已脱敏），原样保留为四块竖排。
- *      调试模式没开（或超出保留）时**整个标签隐藏** —— 它本来就是可选的排障
- *      数据，缺了不该让用户在两个空标签里找内容。
+ *      调试模式没开（或该条已被淘汰出最近 500 条）时**整个标签隐藏** ——
+ *      它本来就是可选的排障数据，缺了不该让用户在两个空标签里找内容。
  *
  * ── 迁移里最需要保持的三条取舍 ──────────────────────────────
  *   · 两个接口在 open 时**并行**发起，谁到了渲染谁（各自动自己那块与标签条，
@@ -489,10 +489,12 @@ function RouteReplay({ row }: { row: RequestRow }) {
   if (!route) return null
   const strategy = String(route.strategy || '')
   const sticky = String(route.sticky || '')
-  // 只有两档（顺序优先 / 负载均衡）；历史记录里可能留着已下线的 'usage'，
-  // 按它的替代者「负载均衡」显示（后端 RouteStrategy::from_id 也是这么归的）
+  // 三档（顺序优先 / 负载均衡 / 家内轮询）；历史记录里可能留着已下线的 'usage'，
+  // 按它的替代者「负载均衡」显示（后端 RouteStrategy::from_id 也是这么归的）。
+  // 认不出的取值原样显示 —— 那是「后端有、前端还没跟上」的信号，藏起来更难查。
   const strategyLabel = strategy === 'rotate' || strategy === 'usage' ? t('负载均衡')
-    : strategy === 'order' ? t('顺序优先') : strategy
+    : strategy === 'order' ? t('顺序优先')
+      : strategy === 'provider' ? t('家内轮询') : strategy
   const stickyLabel = sticky === 'auto' ? t('自动') : sticky === 'session' ? t('会话内')
     : sticky === 'turn' ? t('每轮') : sticky === 'off' ? t('关闭') : sticky
   const ordered = Array.isArray(route.ordered) ? route.ordered as Array<Record<string, unknown>> : []

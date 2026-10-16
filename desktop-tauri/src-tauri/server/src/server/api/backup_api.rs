@@ -8,7 +8,7 @@
 //! POST /api/backup/run       立即执行一次备份
 //! ```
 //!
-//! 全部挂 protected：导出是**全量数据外带**（含管理员哈希、API Key 明文、
+//! 全部挂 protected：导出是**全量数据外带**（含管理员哈希、加密 API Key、
 //! 账号凭证 —— 等于把整台网关装进口袋），导入是**整表覆盖**。这是全系统
 //! 最敏感的一组接口，与 /api/keys 同组、语义上更重。
 //!
@@ -33,7 +33,7 @@
 //! AccountStore 的导入路径是**合并**（保留现有账号、按 id 去重并入），
 //! 而本接口的语义是**整表替换**；且 `AccountStore::load` 每次都从库现读
 //! （无独立内存快照），事务提交后的下一笔账号请求看到的就是导入结果。
-//! 行的六个列原样搬（`data` 列是权威副本），不经过 StoredAccount 解析
+//! 凭据恢复前验证并重新加密，历史身份与账号在同一事务保存；不经过 StoredAccount 解析
 //! —— 快照本身来自同一张表，逐列回写是无损的。
 
 use axum::body::Bytes;
@@ -46,7 +46,7 @@ use crate::server::access;
 use crate::server::api::audit_api;
 use crate::server::api::maintenance_api;
 use crate::server::config;
-use crate::server::core::{backup, task_state};
+use crate::server::core::{backup, task_state, crypto::{self, SecretScope}};
 use crate::server::errors;
 use crate::server::http::{ok_json, parse_body};
 use crate::server::logging;
@@ -122,6 +122,7 @@ pub async fn get_export(State(state): State<ServerState>) -> Response {
             "kind": SNAPSHOT_KIND,
             "version": SNAPSHOT_VERSION,
             "exportedAt": logging::now_ms(),
+            "accountKeyFingerprint": crypto::key_fingerprint(SecretScope::Accounts),
             "sourceFile": db.file().to_string_lossy(),
             "counts": { "kv": kv_count, "accounts": account_count },
             "kv": kv_rows,
@@ -210,6 +211,8 @@ pub async fn post_import(State(state): State<ServerState>, body: Bytes) -> Respo
             .map_err(|error| format!("写入 kv 行失败: {error}"))?;
         }
         for row in &account_rows {
+            crate::server::db::account_history::remember_account(&tx, &row.identity)
+                .map_err(|error| format!("保存历史账号身份失败: {error}"))?;
             tx.execute(
                 "INSERT INTO accounts (id, provider, priority, enabled, added_at, data)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -269,6 +272,7 @@ struct AccountRow {
     enabled: i64,
     added_at: i64,
     data: String,
+    identity: Value,
 }
 
 /// kv 行解析：key 非空字符串、value 是落库的 JSON 原文（字符串）
@@ -291,8 +295,22 @@ fn parse_kv_rows(snapshot: &Value) -> Result<Vec<(String, String)>, String> {
             .and_then(Value::as_str)
             .ok_or_else(|| format!("kv[{index}] 缺少 value 字段（应为落库的 JSON 原文）"))?
             .to_string();
-        serde_json::from_str::<Value>(&value).map_err(|_| format!("kv[{index}] 不是有效 JSON，恢复未执行"))?;
-        rows.push((key, value));
+        // priorityScope predates JSON-valued configuration and stores a raw marker.
+        if key == "priorityScope" && matches!(value.as_str(), "global" | "provider") {
+            rows.push((key, value));
+            continue;
+        }
+        let mut parsed: Value = serde_json::from_str(&value)
+            .map_err(|_| format!("kv[{index}] 不是有效 JSON，恢复未执行"))?;
+        if key == "apiKeys" {
+            let entries = parsed.as_array_mut().ok_or("apiKeys 必须是数组")?;
+            for entry in entries {
+                if let Some(secret) = entry.get_mut("key") { seal_restored_secret(secret)?; }
+            }
+        } else if key == "apiKey" {
+            seal_restored_secret(&mut parsed)?;
+        }
+        rows.push((key, parsed.to_string()));
     }
     Ok(rows)
 }
@@ -322,25 +340,37 @@ fn parse_account_rows(snapshot: &Value) -> Result<Vec<AccountRow>, String> {
         let priority = item.get("priority").and_then(Value::as_i64).unwrap_or(0);
         let enabled = boolish(item.get("enabled"), true) as i64;
         let added_at = item.get("addedAt").and_then(Value::as_i64).unwrap_or(0);
-        let data = match item.get("data") {
-            Some(data) if data.is_object() => data.to_string(),
+        let identity = match item.get("data") {
+            Some(data) if data.is_object() => data.clone(),
             Some(Value::String(text)) => {
-                let parsed: Value = serde_json::from_str(text)
-                    .map_err(|_| format!("accounts[{index}].data 不是有效 JSON"))?;
-                if !parsed.is_object() {
-                    return Err(format!("accounts[{index}].data 必须是 JSON 对象"));
-                }
-                text.clone()
+                let bytes = if crypto::is_envelope(text) {
+                    crypto::open(text, SecretScope::Accounts).map_err(|_| format!("accounts[{index}] 无法解密，请先恢复原 account.key 或 AGENT2API_ACCOUNT_KEY；未修改数据"))?
+                } else { text.as_bytes().to_vec() };
+                serde_json::from_slice::<Value>(&bytes)
+                    .map_err(|_| format!("accounts[{index}].data 不是有效 JSON"))?
             },
-            _ => {
-                return Err(format!(
-                    "accounts[{index}] 缺少 data 字段（账号记录的 JSON 原文）"
-                ))
-            }
+            _ => return Err(format!("accounts[{index}] 缺少 data 字段")),
         };
-        rows.push(AccountRow { id, provider, priority, enabled, added_at, data });
+        if !identity.is_object() { return Err(format!("accounts[{index}].data 必须是 JSON 对象")); }
+        if identity.get("id").and_then(Value::as_str) != Some(id.as_str()) ||
+            identity.get("provider").and_then(Value::as_str).is_some_and(|v| v != provider) {
+            return Err(format!("accounts[{index}] 的身份列与 data 不一致，恢复未执行"));
+        }
+        let data = crypto::seal(identity.to_string().as_bytes(), SecretScope::Accounts)?;
+        rows.push(AccountRow { id, provider, priority, enabled, added_at, data, identity });
     }
     Ok(rows)
+}
+
+/// 恢复前验证密文能由本机密钥打开；旧明文立即加密，失败不写入数据库。
+fn seal_restored_secret(value: &mut Value) -> Result<(), String> {
+    let Some(raw) = value.as_str() else { return Err("网关 Key 必须是字符串".to_string()); };
+    if raw.is_empty() { return Ok(()); }
+    let plaintext = if crypto::is_envelope(raw) {
+        crypto::open(raw, SecretScope::Accounts).map_err(|_| "网关 Key 无法解密，请先恢复原 account.key 或 AGENT2API_ACCOUNT_KEY；未修改数据".to_string())?
+    } else { raw.as_bytes().to_vec() };
+    *value = Value::String(crypto::seal(&plaintext, SecretScope::Accounts)?);
+    Ok(())
 }
 
 /// 宽容的布尔读取：布尔用它、整数非零为真、其余回落默认

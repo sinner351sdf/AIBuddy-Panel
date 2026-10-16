@@ -482,10 +482,12 @@ export function usageSummary(entry: UsageEntry): { text: string; kind: string; t
     // 字段的家（其余全部）走的仍是「数值 + 单位」那条老路，行为一字未变。
     // Accio 只有周期百分比，available=null 是「没有积分绝对数」。从额度桶
     // 取剩余比例，不能拼成「可用 — %」，也不能把未知值伪装成 0%。
+    const fallbackWallet = data.available == null ? wallets.find(wallet => numberOrNull(wallet?.balance) !== null && String(wallet?.unit || unit) !== '%') : undefined
     const percentageOnly = unit === '%' && numberOrNull(data.available) === null
     const percentagePool = percentageOnly ? usagePool(entry) : null
     const available = data.availableView
       ? String(data.availableView)
+      : fallbackWallet ? t('可用 {value} {unit}', { value: numberText(fallbackWallet.balance), unit: String(fallbackWallet.unit || unit) })
       : percentageOnly ? (percentagePool?.text || t('无数据'))
       : t('可用 {value} {unit}', { value: numberText(data.available), unit })
     // ── 部分失败：一份账读到了、另一份没读到 ────────────────────
@@ -509,7 +511,7 @@ export function usageSummary(entry: UsageEntry): { text: string; kind: string; t
       : []
     return {
       text: available + (missing.length ? ' ⚠' : ''),
-      kind: missing.length ? 'warn' : percentageOnly && !percentagePool && !data.availableView ? 'muted' : 'ok',
+      kind: missing.length ? 'warn' : percentageOnly && !percentagePool && !fallbackWallet && !data.availableView ? 'muted' : 'ok',
       title: [available, detail, subscription, ...notes, ...absent, ...missing].filter(Boolean).join(' · '),
     }
   }
@@ -983,8 +985,9 @@ export function UsageCell({ account }: { account: AccountRecord }) {
       {t('待生效 {n} 份', { n: pending.length })}
     </Badge>
   ) : null
-  // 积分明细入口（`creditDetail` 能力位：WorkBuddy 两家与 Trae）。同一档「读数可用」
-  // 的判据：查询失败 / 未配置时连读数本身都没有，挂一个点开是空框的入口更糟。
+  // 积分明细入口（`creditDetail` 能力位：WorkBuddy 两家、Trae 等多家后端出
+  // `credits[]` 的家）。同一档「读数可用」的判据：查询失败 / 未配置时连读数本身
+  // 都没有，挂一个点开是空框的入口更糟。
   // 空数组同样不挂 —— 后端不写 `credits` 键就是「这家这次没有逐份读数」
   // （企业账号、上游没给包），界面不去证明一个空清单。
   const creditRows = summary.kind === 'ok' || summary.kind === 'warn' ? creditRowsOf(entry) : []

@@ -48,3 +48,6 @@ data/
 
 # 本地品牌安装验证截图（设计稿与正式品牌资源继续入库）
 assets/brand/concepts/*installed*.png
+
+# Worktree dependency symlinks are local only.
+**/node_modules

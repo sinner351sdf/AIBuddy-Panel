@@ -115,7 +115,7 @@ pub async fn embeddings(
     // 环境变量 Key / 未知 Key）一律放行 —— 与三条对话入口同一处时点、同一套文案。
     if let Err(message) = key_quota::check_scope(scope.as_ref()) {
         let error = GatewayError::with_status(403, message);
-        record_early_failure(&state, started_at, "", "", &error);
+        record_early_failure(&state, started_at, "", "", "", &error);
         return error.payload_response();
     }
     // 记账键在 scope 被消费之前抄好（随 RecordContext 带到收尾，
@@ -125,7 +125,7 @@ pub async fn embeddings(
     let parsed = serde_json::from_slice::<Value>(&body).ok();
     let Some(mut payload) = parsed.filter(Value::is_object) else {
         let error = GatewayError::bad_request("请求体必须是 JSON 对象");
-        record_early_failure(&state, started_at, "", "", &error);
+        record_early_failure(&state, started_at, "", "", "", &error);
         return error.payload_response();
     };
     // ② model 必填（OpenAI 契约；官方文档：embeddings 用同一套模型目标 id）。
@@ -133,7 +133,7 @@ pub async fn embeddings(
     let client_model = model_field_text(&payload);
     if client_model.is_empty() {
         let error = GatewayError::bad_request("缺少 model 字段");
-        record_early_failure(&state, started_at, &client_model, "", &error);
+        record_early_failure(&state, started_at, &client_model, "", "", &error);
         return error.payload_response();
     }
     // ③ input 必填：字符串或字符串数组（官方文档明确支持的两形态）。
@@ -149,7 +149,7 @@ pub async fn embeddings(
         } else {
             "input 必须是字符串或字符串数组"
         });
-        record_early_failure(&state, started_at, &client_model, "", &error);
+        record_early_failure(&state, started_at, &client_model, "", "", &error);
         return error.payload_response();
     }
     // ④ R9 模型白名单：语义与 `pipeline::resolve_model` 的同名判定一致 ——
@@ -161,7 +161,7 @@ pub async fn embeddings(
             format!("模型 '{client_model}' 不可用：不在这把网关 Key 的可用模型列表里"),
         )
         .with_code("model_not_found");
-        record_early_failure(&state, started_at, &client_model, "", &error);
+        record_early_failure(&state, started_at, &client_model, "", "", &error);
         return error.payload_response();
     }
     // ⑤ R9 提供商白名单：embeddings 只由小浣熊承载（支持矩阵见模块头）。
@@ -185,7 +185,7 @@ pub async fn embeddings(
             ),
         )
         .with_code("model_not_found");
-        record_early_failure(&state, started_at, &client_model, "", &error);
+        record_early_failure(&state, started_at, &client_model, "", "", &error);
         return error.payload_response();
     }
     // ⑥ verbose 日志 + 调试落盘（与三条对话入口同一形态与时机）
@@ -261,6 +261,7 @@ pub async fn embeddings(
                     raw_request,
                     raw_response,
                     key_id,
+        client: String::new(),
                 },
                 None,
             );
@@ -291,6 +292,7 @@ pub async fn embeddings(
                     raw_response: None,
                     // 最后一个使用点：直接 move，不再 clone
                     key_id,
+        client: String::new(),
                 },
                 Some(message),
             );

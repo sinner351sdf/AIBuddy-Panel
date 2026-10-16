@@ -26,7 +26,7 @@ function ReportChartTooltip({ compact = false, suppressed = false }: { compact?:
   // Anchor to the chart's left edge so the entire reading remains inside the card.
   return <ChartTooltip active={suppressed ? false : undefined} cursor={false} position={compact ? { x: 0 } : undefined} wrapperStyle={{ maxWidth: '100%' }} content={<ChartTooltipContent hideLabel className='max-w-[min(320px,calc(100vw-32px))]'
     formatter={(_value, _name, item, index) => index === 0
-      ? <span className='whitespace-normal break-words leading-relaxed'>{String(item.payload.tip || '')}</span> : null} />} />
+      ? <span className='whitespace-pre-line break-words leading-relaxed'>{String(item.payload.tip || '')}</span> : null} />} />
 }
 
 type ReadingRow = { key: string; tip: string }

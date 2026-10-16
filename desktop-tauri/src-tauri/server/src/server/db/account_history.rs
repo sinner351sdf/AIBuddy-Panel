@@ -142,7 +142,10 @@ pub(crate) fn backfill(conn: &Connection) -> rusqlite::Result<()> {
         .collect::<rusqlite::Result<_>>()?;
     drop(stmt);
     for (id, provider, raw) in accounts {
-        let data: Value = serde_json::from_str(&raw).unwrap_or_default();
+        let decoded = if crate::server::core::crypto::is_envelope(&raw) {
+            crate::server::core::crypto::open(&raw, crate::server::core::crypto::SecretScope::Accounts).ok()
+        } else { Some(raw.into_bytes()) };
+        let data: Value = decoded.and_then(|bytes| serde_json::from_slice(&bytes).ok()).unwrap_or_default();
         // Preserve explicit account edition before falling back to provider IDs.
         conn.execute(
             "INSERT INTO account_history (account_id, provider, edition, edition_label) VALUES (?1, ?2, ?3, ?4)
@@ -399,4 +402,20 @@ mod tests {
             "conflicting historical providers are not guessed"
         );
     }
+}
+
+/// Capture non-secret identity before encoding credentials, in the caller's write transaction.
+pub(crate) fn remember_account(conn: &Connection, data: &Value) -> rusqlite::Result<()> {
+    let id = data["id"].as_str().unwrap_or("");
+    let provider = data["provider"].as_str().unwrap_or("");
+    if id.is_empty() || provider.is_empty() { return Ok(()); }
+    conn.execute("INSERT INTO account_history(account_id,provider,edition,edition_label) VALUES(?1,?2,?3,?4)
+      ON CONFLICT(account_id) DO NOTHING", rusqlite::params![id,provider,data["edition"].as_str().unwrap_or(""),data["editionLabel"].as_str().unwrap_or("")])?;
+    conn.execute("UPDATE account_history SET
+      edition = CASE WHEN edition = '' THEN ?3 ELSE edition END,
+      edition_label = CASE WHEN edition_label = '' THEN ?4 ELSE edition_label END
+      WHERE account_id = ?1 AND provider = ?2", rusqlite::params![id, provider,
+      data["edition"].as_str().unwrap_or(""), data["editionLabel"].as_str().unwrap_or("")])?;
+    remember_provider(conn, id, provider)?;
+    Ok(())
 }

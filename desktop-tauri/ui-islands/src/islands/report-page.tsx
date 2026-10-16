@@ -5,7 +5,7 @@ import { InfoTip } from '../components/info-tip'
 import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 import {
-  cn,
+  cn, Input, Field, FieldLabel,
   SelectGroup,
   Button,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -13,7 +13,7 @@ import {
 } from '@ui'
 import {
   RANGES, DEFAULT_RANGE, RANGE_KEY, RANGE_LABEL, RANGE_OPTION_LABEL,
-  readRange, formatPercent,
+  readRange, formatPercent, CUSTOM_RANGE, readCustomRange, saveCustomRange, type CustomRange,
   overviewCells, rankRows, rankTotalText,
   heatmapView, heatLegendItems, heatThresholdsOf, cacheRateCells,
   type HeatmapView,
@@ -78,7 +78,7 @@ type IntervalTask = { id?: string; enabled?: boolean; interval?: number; unit?: 
 /** 本页用到的壳侧接口（见 bridge.rs 的统计那一段） */
 type StatsBridge = {
   /** GET /api/stats/summary?range=<档位> */
-  getStatsSummary(range: string): Promise<StatsSummary | null | undefined>
+  getStatsSummary(range: string, custom?: CustomRange): Promise<StatsSummary | null | undefined>
   /** 读自动刷新间隔配置（scheduledTasks.reportAutoRefresh） */
   getScheduledTasks(): Promise<{ tasks?: IntervalTask[] } | null | undefined>
 }
@@ -656,6 +656,8 @@ const EMPTY_DATA: PageData = { summary: null, error: null }
 function ReportPage() {
   const [data, setData] = React.useState<PageData>(EMPTY_DATA)
   const [range, setRange] = React.useState<string>(readRange)
+  const [customRange, setCustomRange] = React.useState<CustomRange>(readCustomRange)
+  const customRef = React.useRef(customRange)
   /** 自动刷新配置：挂载前的推送已经写在模块级变量里，这里取的就是最新的那份 */
   const [auto, setAuto] = React.useState(() => ({ ms: autoRefreshMs, enabled: autoEnabled }))
   /**
@@ -692,7 +694,7 @@ function ReportPage() {
     try {
       const api = shared().workbuddyDesktop
       if (!api) throw new Error('后端桥不可用')
-      const payload = await api.getStatsSummary(requested)
+      const payload = await api.getStatsSummary(requested, requested === CUSTOM_RANGE ? customRef.current : undefined)
       if (token !== seq) return summaryValue
       if (!payload || typeof payload !== 'object') throw new Error('后端未返回报表数据')
       summaryValue = payload
@@ -880,6 +882,12 @@ function ReportPage() {
           <div className='head-actions'>
             <SegmentedControl options={RANGE_OPTIONS} value={range}
               onValueChange={changeRange} aria-label={t('报表时间范围')} />
+            {range === CUSTOM_RANGE ? <div className='flex flex-wrap items-end gap-2'>
+              <Field className='w-auto'><FieldLabel htmlFor='report-custom-start' className='sr-only'>开始日期</FieldLabel><Input id='report-custom-start' type='date' value={customRange.start} onChange={event => setCustomRange({ ...customRange, start: event.currentTarget.value })} /></Field>
+              <span className='pb-2 text-muted-foreground'>至</span>
+              <Field className='w-auto'><FieldLabel htmlFor='report-custom-end' className='sr-only'>结束日期</FieldLabel><Input id='report-custom-end' type='date' value={customRange.end} onChange={event => setCustomRange({ ...customRange, end: event.currentTarget.value })} /></Field>
+              <Button variant='outline' size='sm' disabled={!customRange.start || !customRange.end || customRange.start > customRange.end} onClick={() => { customRef.current = customRange; saveCustomRange(customRange); void loadPanel() }}>应用</Button>
+            </div> : null}
             {/* ── 自动刷新档位 + 上次刷新读数 ──
                 灰字复用既有的 .panel-sub（tokens 的 --text-3，深浅主题随令牌走，与头顶的
                 档位说明同一视觉档）；时间用等宽数字，秒数跳动时文本不左右抖。Select 是

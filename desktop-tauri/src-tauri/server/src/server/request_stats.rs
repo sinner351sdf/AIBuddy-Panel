@@ -32,8 +32,8 @@
 //!   - `requests`：请求明细，一行一条。短窗口指标（缓存命中率的 10 分钟 / 1 小时
 //!     窗口、近 24 小时趋势）必须逐条算，按天的聚合行给不出这种精度。
 //!   - `request_daily`：按天聚合，一行一天。热力图固定 365 天、`all` 区间可能跨年，
-//!     都超出明细的保留期，所以这份**寿命独立于明细**：明细被裁掉后当天的聚合行
-//!     仍在，历史曲线不会因为裁明细而出现空洞。
+//!     都超出报表侧从明细取的 7 天窗口（`SUMMARY_WINDOW_MS`），所以这份**寿命独立
+//!     于明细**：明细被手动清理后当天的聚合行仍在，历史曲线不会出现空洞。
 //! `request_raw` 是本次新增的第三张表：下游原始正文（请求侧 / 响应侧各 128 KiB
 //! 上限），独立成表的理由（大字段不进列表查询）见 `db/schema.rs` 的 V3_SCHEMA。
 //! 两个文件变两张表还顺带解决了原来的两个麻烦：**明细与聚合的一致性**（原来是
@@ -93,6 +93,7 @@ use clock::{date_key, day_of, local_midnight_ms, now_ms, today};
 use record::DailyEntry;
 // 拆到子模块的三样，这里引回：record / usage_summary 的折算入口、
 // remap 的库操作体、报表装配（均为 `pub(super)`，见 aggregate.rs 的模块头）
+use chrono::NaiveDate;
 use aggregate::{fold_into_daily, remap_model_days, summarize};
 use report::{entry_json, provider_label};
 
@@ -213,6 +214,7 @@ impl RequestStats {
         db: Option<Db>,
         get_retention: impl Fn() -> Retention + Send + Sync + 'static,
     ) -> Self {
+        let _ = crate::server::logging::process_started_at();
         let file_path = match db.as_ref() {
             Some(db) => db.file().to_path_buf(),
             None => crate::server::config::config_dir().join(crate::server::db::FILE_NAME),
@@ -374,8 +376,6 @@ impl RequestStats {
                 fold_into_daily(&mut day, &record);
                 daily::upsert_daily(&tx, &day)?;
             }
-            daily::delete_daily_before(&tx, &bounds.daily_key)?;
-            daily::trim_daily_capacity(&tx, MAX_DAILY_DAYS)?;
             tx.commit()
         });
     }
@@ -408,13 +408,17 @@ impl RequestStats {
     /// ── 来源标记（`is_test`，schema v7）───────────────────────────
     /// 与 id / ts 同一时刻定稿：它是**入口**（`api::model_test`）才知道的事实，
     /// 随进行中行一起写下来，于是「进行中」那一段的测试行也一眼可辨。
-    pub fn record_started(
+    ///
+    /// `client`（来源客户端，schema v12）同理：入口解析请求头后就知道它是谁，
+    /// 随首发写入，进行中行的「客户端」列不必等收尾才显示。
+    pub fn record_started_with_client(
         &self,
         id: &str,
         ts: i64,
         model: &str,
         client_model: &str,
         client_reasoning: &str,
+        client: &str,
         is_test: bool,
     ) {
         if id.is_empty() {
@@ -423,7 +427,16 @@ impl RequestStats {
         let guard = self.guard();
         let _ = self.with_conn_mut(&guard, |conn| {
             let tx = conn.transaction()?;
-            sql::insert_started_request(&tx, id, ts, model, client_model, client_reasoning, is_test)?;
+            sql::insert_started_request(
+                &tx,
+                id,
+                ts,
+                model,
+                client_model,
+                client_reasoning,
+                client,
+                is_test,
+            )?;
             // 陈旧清理与插入同事务：僵尸行的判定时点与本次开始时点一致，
             // 中断也只影响「这次有没有清成」，不会留下半删状态
             sql::finish_stale_running(&tx, stale_cutoff(), now_ms())?;
@@ -504,6 +517,12 @@ impl RequestStats {
     /// 存一条请求的**原始正文**（`request_raw` 表；两侧各截断到
     /// `api::pipeline::MAX_RAW_BODY_BYTES`，截断在采集处完成）。
     ///
+    /// ── 谁决定「有没有正文」─────────────────────────────────────
+    /// **采集侧**（`api::pipeline::capture_raw_body` / `capture_raw_json`）——
+    /// 正文仅在调试模式开启时采集（对齐 OmniProxy），关着时两侧都是 None、
+    /// 本方法提前返回不写行。存储层不读配置（依赖方向见 `core/mod.rs` 的约定），
+    /// 所以这道闸不在下面。
+    ///
     /// ── 为什么独立于 `record` ───────────────────────────────────
     /// 正文的大字段不该混进明细记账的热路径（每次记账多搬几百 KB）；同时
     /// 只有部分请求有正文可存（`record_early_failure` 没有请求体、错误响应
@@ -511,8 +530,9 @@ impl RequestStats {
     /// 记账后按需调一次，两侧全空时不写行。
     ///
     /// `id` 为空直接跳过（正文按 id 与明细关联，没有 id 的正文无从取回）。
-    /// UPSERT 覆盖同 id（`sql::upsert_raw`）；容量闸 [`MAX_RAW_ROWS`] 每次写入
-    /// 顺手收一次。失败只打控制台 —— 正文是排障辅助，丢一侧不能影响请求。
+    /// UPSERT 覆盖同 id（`sql::upsert_raw`）；正文不设条数上限 —— 表的增长
+    /// 由「调试模式开关」天然约束（关着不写），清历史走请求日志页的清理。
+    /// 失败只打控制台 —— 正文是排障辅助，丢一侧不能影响请求。
     pub fn store_raw(&self, id: &str, ts: i64, request_body: Option<&str>, response_body: Option<&str>) {
         let id = id.trim();
         if id.is_empty() {
@@ -520,7 +540,7 @@ impl RequestStats {
         }
         let request = request_body.unwrap_or("");
         let response = response_body.unwrap_or("");
-        // 两侧全空不值得占一个容量名额：表的约定是「有行 ⇔ 有正文」
+        // 两侧全空不值得占一行：表的约定是「有行 ⇔ 有正文」
         if request.is_empty() && response.is_empty() {
             return;
         }
@@ -530,7 +550,6 @@ impl RequestStats {
         let _ = self.with_conn_mut(&guard, |conn| {
             let tx = conn.transaction()?;
             sql::upsert_raw(&tx, id, ts, request, response, size)?;
-            sql::trim_raw_capacity(&tx, MAX_RAW_ROWS)?;
             tx.commit()
         });
     }
@@ -586,7 +605,18 @@ impl RequestStats {
     /// 「暂无数据」的空态，而不是 undefined 造成的渲染异常
     /// （`ui/report.js` 的 `overviewHtml` / `paintRank` 都按 `Number(x) || 0`
     /// 与 `Array.isArray` 消费，空态文案是「所选范围内还没有请求记录」）。
-    pub fn usage_summary(&self, range: &str) -> Value {
+    ///
+    /// `custom` 只在 `range == "custom"` 时有意义（起止本地自然日，路由层已
+    /// 解析校验）；其余档位传 None，区间由 `range_bounds` 现算。
+    pub fn usage_summary(&self, range: &str) -> Value { self.usage_summary_custom(range, None) }
+    pub fn record_started(&self, id: &str, ts: i64, model: &str, client_model: &str, reasoning: &str, is_test: bool) {
+        self.record_started_with_client(id, ts, model, client_model, reasoning, "", is_test)
+    }
+    pub fn usage_summary_custom(
+        &self,
+        range: &str,
+        custom: Option<(NaiveDate, NaiveDate)>,
+    ) -> Value {
         let now = clock::now_ms();
         let loaded = {
             let guard = self.guard();
@@ -601,7 +631,7 @@ impl RequestStats {
         };
         let (daily, entries, identities) = loaded.unwrap_or_default();
         // Keep chart/report computation outside the database mutex as before.
-        let mut summary = summarize(&daily, &entries, range, now);
+        let mut summary = summarize(&daily, &entries, range, now, custom);
         crate::server::db::account_history::enrich_summary(&identities, &mut summary);
         summary
     }
@@ -802,10 +832,10 @@ impl RequestStats {
     /// 同一机制）。
     ///
     /// ── 拿不准就不动 ──────────────────────────────────────────
-    /// 沿用 `backfill` 的安全边界：明细会被保留期（天数 + 容量闸）裁掉，
+    /// 沿用 `backfill` 的安全边界：明细可能被用户手动清理过，
     /// 当天「明细条数 ≥ 聚合行 requests」才说明明细足以代表当天，才重算；
     /// 不够的天原样保留 —— 用残缺明细重算会让当天数字凭空缩水，比留着别名
-    /// 分组更糟。超出明细保留期的历史天因此**不修**：那些天没有重算依据。
+    /// 分组更糟。明细已被清掉的历史天因此**不修**：那些天没有重算依据。
     ///
     /// ── 调用时机（与 `account_bootstrap` 同一模式）──────────────
     /// 启动时一次（`server/mod.rs`）；待迁移旧文件还没导入时（`upgrade_pending`）

@@ -142,13 +142,13 @@ const PAGES = ['overview', 'accounts', 'checkin', 'credits', 'gateway', 'proxies
 const PAGE_LABELS = {
   overview: wbI18n.t('报表'),
   accounts: wbI18n.t('账号'),
-  checkin: wbI18n.t('签到中心'),
+  checkin: wbI18n.t('任务中心'),
   gateway: wbI18n.t('模型管理'),
   proxies: wbI18n.t('网络代理'),
   keys: wbI18n.t('网关 Key'),
   docs: wbI18n.t('文档'),
   logs: wbI18n.t('日志'),
-  tasks: wbI18n.t('任务中心'),
+  tasks: wbI18n.t('系统维护'),
   requests: wbI18n.t('请求日志'),
   settings: wbI18n.t('设置'),
   credits: wbI18n.t('积分构成'),
@@ -295,9 +295,9 @@ function renderTopbarStatus() {
     logs: () => mirror('logs-badge', '系统日志'),
     requests: () => mirror('req-badge', '运行日志', wbI18n.t('请求日志：当前筛选匹配数 / 保留的总记录数；相同时只显示总数。')),
     // 定时任务页的徽标由 tasks-panel 自己渲染（「N / M 个已开启」），直接镜像
-    tasks: () => mirror('tasks-badge', '任务中心'),
+    tasks: () => mirror('tasks-badge', '系统维护'),
     // 签到中心的徽标由 checkin-page 自己渲染（自动签到开启状态），直接镜像
-    checkin: () => mirror('checkin-badge', '签到中心'),
+    checkin: () => mirror('checkin-badge', '任务中心'),
     settings: () => [(gatewayUp ? chip(wbI18n.t('网关运行中'), 'ok', true) : chip(wbI18n.t('未就绪'), 'bad', true)),
       ...(enabled ? [chip(wbI18n.t('{n} 个账号启用', { n: enabled }))] : [])],
     // 「已登录 / 未登录」说的是**旧式单账号登录态**（WorkBuddy 的 auth.json），

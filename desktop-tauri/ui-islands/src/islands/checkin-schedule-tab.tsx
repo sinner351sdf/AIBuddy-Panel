@@ -5,7 +5,7 @@ import { cn, Badge, Button, Checkbox, Input, Spinner, Switch } from '@ui'
 import { formatTime, shared, toast } from './accounts-shared'
 import { t } from '../i18n'
 import {
-  getCheckinStore, setKeepaliveDraft, submitKeepaliveModels, subscribeCheckinStore,
+  getCheckinStore, setCheckinTab, setKeepaliveDraft, submitKeepaliveModels, subscribeCheckinStore,
   type CheckinStore,
 } from './checkin-state'
 import {
@@ -35,8 +35,7 @@ import { Card, CardHeader, CardTitle, Empty, EmptyHeader, EmptyDescription } fro
  */
 
 /**
- * 问号提示全文（沿用原「自动签到」卡的说明，调度语义没变 —— 变的只是
- * 「一个时刻」变成「多条目各自时刻」）。
+ * 提供商完整规则（在可展开区域阅读；问号只保留通用调度规则）。
  * 整段是一个键：扫描器只认字符串字面量（拼接串 / 模板串提不到键），所以不拆行。
  */
 const AUTO_CHECKIN_DESC = t(
@@ -75,7 +74,7 @@ function pickedLabels(entry: ScheduleEntry, options: Array<{ id: string; label: 
 function providersSummary(entry: ScheduleEntry, options: Array<{ id: string; label: string }>): string {
   const labels = pickedLabels(entry, options)
   if (!labels.length) return t('未勾选提供商')
-  if (options.length > 0 && labels.length >= options.length) return t('全部 {n} 家', { n: options.length })
+  if (options.length > 0 && labels.length >= options.length) return t('全部 {n} 个提供商', { n: options.length })
   return labels.join(t('、'))
 }
 
@@ -85,7 +84,7 @@ function providersFullList(entry: ScheduleEntry, options: Array<{ id: string; la
   return labels.length ? labels.join(t('、')) : t('未勾选提供商')
 }
 
-/** 上次执行的一行摘要（时间 · 触发原因 —— 成功 n · 失败 n） */
+/** 结果摘要；时间和触发原因单独展示，避免挤在同一行。 */
 function lastResultLine(entry: ScheduleEntry): string {
   const last = entry.lastResult
   if (!last) return t('还没执行过')
@@ -95,7 +94,9 @@ function lastResultLine(entry: ScheduleEntry): string {
   if (active > 0) parts.push(t('保活 {n}', { n: active }))
   const failed = numberOf(last.failedCount)
   if (failed > 0) parts.push(t('失败 {n}', { n: failed }))
-  return `${last.at ? formatTime(last.at) : '—'}${last.reason ? ` · ${last.reason}` : ''} —— ${parts.join(t(' · '))}`
+  const skipped = numberOf(last.skipped)
+  if (skipped > 0) parts.push(t('跳过 {n}', { n: skipped }))
+  return parts.join(t(' · '))
 }
 
 /* ─── 编辑表单 ─────────────────────────────── */
@@ -112,6 +113,9 @@ function ScheduleEditor({ entry, store }: { entry: ScheduleEntry | null; store: 
   const [picked, setPicked] = React.useState<ReadonlySet<string>>(
     new Set(isNew ? options.map(option => option.id) : entry?.providers ?? []),
   )
+  const dirty = label !== (entry?.label ?? '') || time !== (entry?.time ?? '00:01')
+    || picked.size !== (isNew ? options.length : entry?.providers?.length ?? 0)
+    || (entry?.providers ?? []).some(id => !picked.has(id))
   // 新建缺省全选；没有 options（后端没给）时退到这条已有的 providers
   React.useEffect(() => {
     if (isNew && options.length > 0) setPicked(new Set(options.map(option => option.id)))
@@ -137,6 +141,7 @@ function ScheduleEditor({ entry, store }: { entry: ScheduleEntry | null; store: 
         <span className='ck-set-v'>
           <Input
             type='text'
+            aria-label={t('计划名称')}
             className='max-w-[220px]'
             placeholder={t('可选 · 缺省显示时刻')}
             value={label}
@@ -150,6 +155,7 @@ function ScheduleEditor({ entry, store }: { entry: ScheduleEntry | null; store: 
         <span className='ck-set-v flex items-center gap-2'>
           <Input
             type='time'
+            aria-label={t('每天执行时刻（北京时间）')}
             className='w-[96px] max-w-[96px] font-mono tabular-nums'
             value={time}
             disabled={store.saving}
@@ -163,12 +169,12 @@ function ScheduleEditor({ entry, store }: { entry: ScheduleEntry | null; store: 
         <span className='ck-set-v'>
           <div className='ck-mini-row'>
             <span className='ck-mini-note'>
-              {t('到点时逐个签到，已勾 {n} / {total} 家', { n: picked.size, total: options.length })}
+              {t('已选 {n} / {total} 个提供商', { n: picked.size, total: options.length })}
             </span>
             <Button variant='ghost' size='xs' disabled={store.saving} onClick={pickAll}>{t('全选')}</Button>
             <Button variant='ghost' size='xs' disabled={store.saving || picked.size === 0} onClick={clearAll}>{t('清空')}</Button>
           </div>
-          <div className='ck-range'>
+          <div className='ck-range' role='group' aria-label={t('签到范围')}>
             {options.map(option => (
               <label className='ck-range-item' key={option.id}>
                 <Checkbox
@@ -191,11 +197,12 @@ function ScheduleEditor({ entry, store }: { entry: ScheduleEntry | null; store: 
         </span>
       </div>
       <div className='ck-sched-actions'>
+        {dirty ? <span className='ck-sched-unsaved' role='status'>{t('尚未保存')}</span> : null}
         <Button size='sm' variant='outline' disabled={store.saving} onClick={() => setEditingId(null)}>
           {t('取消')}
         </Button>
         <Button size='sm' variant='default' disabled={!canSave || store.saving} onClick={() => void submit()}>
-          {store.saving ? t('保存中…') : t('保存')}
+          {store.saving ? t('保存中…') : t('保存计划')}
         </Button>
       </div>
     </div>
@@ -215,12 +222,12 @@ function ScheduleEditor({ entry, store }: { entry: ScheduleEntry | null; store: 
 function NewEntryRow({ store }: { store: SchedulesStore }) {
   return (
     <div className='ck-sched-row open ck-sched-row-new'>
-      <div className='ck-sched-main'>
+      <div className='ck-sched-new-heading'>
         <span className='ck-new-dot' aria-hidden>＋</span>
         <div className='ck-prov-info'>
-          <div className='ck-prov-name'>{t('新建定时条目')}</div>
+          <div className='ck-prov-name'>{t('新建签到计划')}</div>
           <div className='ck-prov-desc'>
-            {t('填好时刻与签到范围后点「保存」；名称可以留空（界面显示时刻）')}
+            {t('设置每天的执行时间与提供商范围，名称可留空。')}
           </div>
         </div>
       </div>
@@ -253,11 +260,12 @@ function ScheduleEntryRow({ entry, store }: { entry: ScheduleEntry; store: Sched
     <div className={cn(expanded ? 'ck-sched-row open' : 'ck-sched-row')}>
       <div className='ck-sched-main'>
         <Switch
+          aria-label={t('启用计划 {name}', { name: entry.displayLabel || entry.time || entry.id })}
           checked={entry.enabled === true}
           disabled={store.saving}
           onCheckedChange={next => void toggleScheduleEnabled(entry, next === true)}
         />
-        <div className='ck-prov-info'>
+        <div className='ck-sched-identity'>
           <div className='ck-prov-name'>
             {entry.displayLabel || entry.time || entry.id}
             {entry.enabled === true
@@ -265,25 +273,36 @@ function ScheduleEntryRow({ entry, store }: { entry: ScheduleEntry; store: Sched
               : <Badge variant='outline' shape='tag'>{t('已停用')}</Badge>}
           </div>
           <div className='ck-prov-desc ck-sched-scope' title={providersFullList(entry, options)}>
-            {t('每天 {time} · {scope}', { time: entry.time ?? '—', scope: providersSummary(entry, options) })}
-          </div>
-          <div className='ck-prov-desc'>
-            {t('上次执行：{line}', { line: lastResultLine(entry) })}
+            {entry.label ? t('每天 {time}', { time: entry.time ?? '—' }) : t('每天执行')}
+            {' · '}{providersSummary(entry, options)}
           </div>
         </div>
-        <div className='ck-prov-right'>
-          <span className='ck-sched-next'>
-            {masterOn && entry.enabled === true && Number.isFinite(nextRunAt) && nextRunAt > 0
-              ? t('下次 {date}', { date: formatTime(nextRunAt) })
-              : '—'}
-          </span>
+        <div className='ck-sched-result'>
+          <div className='ck-sched-label'>{t('最近一次')}</div>
+          <div className={cn('ck-sched-value', Number(entry.lastResult?.failedCount) > 0 && 'ck-sched-failed')}>
+            {busy ? t('执行中…') : lastResultLine(entry)}
+          </div>
+          {entry.lastResult ? <div className='ck-sched-detail'>
+            {entry.lastResult.at ? formatTime(entry.lastResult.at) : '—'}
+            {entry.lastResult.reason ? ` · ${entry.lastResult.reason}` : ''}
+          </div> : null}
+        </div>
+        <div className='ck-sched-next'>
+          <div className='ck-sched-label'>{t('下次自动执行 · 北京时间')}</div>
+          <div className='ck-sched-value'>
+            {!masterOn ? t('自动签到已暂停') : entry.enabled !== true ? t('此计划已停用')
+              : Number.isFinite(nextRunAt) && nextRunAt > 0 ? formatTime(nextRunAt)
+                : entry.lastFiredToday ? t('今日已执行，等待下次调度') : t('等待调度')}
+          </div>
+        </div>
+        <div className='ck-sched-row-actions'>
           <Button
             size='sm'
             variant='ghost'
             disabled={busy || store.runningId !== null}
             onClick={() => void runScheduleNow(entry.id)}
           >
-            {busy ? t('执行中…') : t('立即执行')}
+            {busy ? t('执行中…') : t('执行一次')}
           </Button>
           <Button
             size='sm'
@@ -415,76 +434,86 @@ function KeepalivePanel({ models, defaultModels, dirty, saving }: {
   }
   return (
     <Card as='section' variant='panel' size='sm' className='panel ck-chain-panel'>
-      <CardHeader variant='panel' className='panel-head'>
-        <CardTitle>{t('保活模型链')}</CardTitle>
-        <span className='panel-sub'>{t('WorkBuddy 国际版日活任务的免费模型 · 全局一份，与条目无关')}</span>
-        <Button
-          size='sm'
-          variant='default'
-          className='ml-auto'
-          disabled={!dirty || saving}
-          onClick={() => void submitKeepaliveModels(models)}
-        >
-          {saving ? t('保存中…') : t('保存')}
-        </Button>
-      </CardHeader>
-      <div className='p-4'>
-        <div className='ck-set-line ck-set-line-top'>
-          <span className='ck-set-k'>{t('模型清单')}</span>
-          <span className='ck-set-v'>
-            {/* 计数与「填入缺省链」并排放在清单上方：原来想回到缺省链只能一个个 ×
-                删空了再保存，现在一键填好（仍然要点「保存」才生效） */}
-            <div className='ck-mini-row'>
-              <span className='ck-mini-note'>{t('按序逐个尝试，共 {n} 个', { n: models.length })}</span>
-              <Button variant='ghost' size='xs' disabled={saving || defaultModels.length === 0} title={t('把缺省链填进清单，再点「保存」生效')} onClick={() => setKeepaliveDraft([...defaultModels])}>{t('填入缺省链')}</Button>
-            </div>
-            <div className='ck-chain'>
-              {models.map((model, index) => (
-                <div className='ck-chain-row' key={model}>
-                  <span
-                    className='ck-chain-grip'
-                    role='button'
-                    tabIndex={-1}
-                    aria-label={t('按住拖动调整顺序')}
-                    title={t('按住拖动，调整这个模型在链里的顺序')}
-                    onPointerDown={event => startChainDrag(event, index, models, setKeepaliveDraft)}
-                    dangerouslySetInnerHTML={{ __html: shared().wbIcons?.icon?.('gripVertical', 14) || '' }}
-                  />
-                  <span className='ck-chain-name' title={model}>{model}</span>
-                  <span className='ck-chain-index'>#{index + 1}</span>
-                  <Button variant='ghost' size='icon-xs' disabled={saving} aria-label={t('移除 {name}', { name: model })} title={t('从清单里移除')} onClick={() => setKeepaliveDraft(models.filter((_, keep) => keep !== index))}>×
-                  </Button>
-                </div>
-              ))}
-              {models.length === 0 ? (
-                <Empty variant='compact' className='ck-chain-empty'><EmptyHeader><EmptyDescription>{t('清单为空 —— 保存后恢复缺省链')}</EmptyDescription></EmptyHeader></Empty>
-              ) : null}
-            </div>
-            <div className='ck-chain-add'>
-              <Input
-                type='text'
-                className='max-w-[260px] font-mono text-xs'
-                placeholder={t('WorkBuddy 国际版保活模型，按顺序回退')}
-                value={input}
-                disabled={saving}
-                onChange={event => setInput(event.currentTarget.value)}
-                onKeyDown={event => {
-                  if (event.key === 'Enter') { event.preventDefault(); add() }
-                }}
-              />
-              <Button size='sm' variant='outline' disabled={saving || input.trim() === ''} onClick={add}>
-                {t('添加模型')}
-              </Button>
-              {dirty ? <span className='ck-chain-dirty'>{t('有未保存的改动')}</span> : null}
-            </div>
-          </span>
+      <details>
+        <summary className='ck-chain-summary'>
+          <span className='ck-chain-heading'>{t('WorkBuddy 国际版保活设置')}</span>
+          <span className='ck-chain-summary-note'>{models.length
+            ? t('{n} 个模型，按顺序回退', { n: models.length }) : t('使用默认模型')}</span>
+          {dirty ? <span className='ck-chain-dirty' role='status'>{t('尚未保存')}</span> : null}
+        </summary>
+        <div className='p-4'>
+          <p className='ck-chain-description'>{t('仅用于 WorkBuddy 国际版日活保活，对所有相关签到计划生效。')}</p>
+          <div className='ck-set-line ck-set-line-top'>
+            <span className='ck-set-k'>{t('模型清单')}</span>
+            <span className='ck-set-v'>
+              {/* 计数与「填入缺省链」并排放在清单上方：原来想回到缺省链只能一个个 ×
+                  删空了再保存，现在一键填好（仍然要点「保存」才生效） */}
+              <div className='ck-mini-row'>
+                <span className='ck-mini-note'>{t('按序逐个尝试，共 {n} 个', { n: models.length })}</span>
+                <Button variant='ghost' size='xs' disabled={saving || defaultModels.length === 0} title={t('填入默认模型，保存后生效')} onClick={() => setKeepaliveDraft([...defaultModels])}>{t('恢复默认模型')}</Button>
+              </div>
+              <div className='ck-chain'>
+                {models.map((model, index) => (
+                  <div className='ck-chain-row' key={model}>
+                    <Button
+                      variant='ghost'
+                      size='icon-xs'
+                      type='button'
+                      className='ck-chain-grip'
+                      disabled={saving}
+                      aria-label={t('调整 {name} 的顺序，当前位置 {n}', { name: model, n: index + 1 })}
+                      title={t('拖动或使用上下方向键调整顺序')}
+                      aria-keyshortcuts='ArrowUp ArrowDown'
+                      onPointerDown={event => startChainDrag(event, index, models, setKeepaliveDraft)}
+                      onKeyDown={event => {
+                        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+                        event.preventDefault()
+                        const to = index + (event.key === 'ArrowUp' ? -1 : 1)
+                        if (to < 0 || to >= models.length) return
+                        const next = [...models]
+                        ;[next[index], next[to]] = [next[to], next[index]]
+                        setKeepaliveDraft(next)
+                      }}
+                      dangerouslySetInnerHTML={{ __html: shared().wbIcons?.icon?.('gripVertical', 14) || '' }}
+                    />
+                    <span className='ck-chain-name' title={model}>{model}</span>
+                    <span className='ck-chain-index'>#{index + 1}</span>
+                    <Button variant='ghost' size='icon-xs' disabled={saving} aria-label={t('移除 {name}', { name: model })} title={t('从清单里移除')} onClick={() => setKeepaliveDraft(models.filter((_, keep) => keep !== index))}>×
+                    </Button>
+                  </div>
+                ))}
+                {models.length === 0 ? (
+                  <Empty variant='compact' className='ck-chain-empty'><EmptyHeader><EmptyDescription>{t('清单为空 —— 保存后恢复缺省链')}</EmptyDescription></EmptyHeader></Empty>
+                ) : null}
+              </div>
+              <div className='ck-chain-add'>
+                <Input
+                  type='text'
+                  aria-label={t('新增保活模型')}
+                  className='max-w-[260px] font-mono text-xs'
+                  placeholder={t('WorkBuddy 国际版保活模型，按顺序回退')}
+                  value={input}
+                  disabled={saving}
+                  onChange={event => setInput(event.currentTarget.value)}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter') { event.preventDefault(); add() }
+                  }}
+                />
+                <Button size='sm' variant='outline' disabled={saving || input.trim() === ''} onClick={add}>
+                  {t('添加模型')}
+                </Button>
+                {dirty ? <span className='ck-chain-dirty'>{t('有未保存的改动')}</span> : null}
+              </div>
+            </span>
+          </div>
+          <div className='ck-chain-footer'>
+            <span className='ck-chain-description'>{t('按顺序尝试，首个成功后停止。清空并保存将恢复默认模型。')}</span>
+            <Button size='sm' disabled={!dirty || saving} onClick={() => void submitKeepaliveModels(models)}>
+              {saving ? t('保存中…') : t('保存模型设置')}
+            </Button>
+          </div>
         </div>
-        <div className='ck-note'>
-          {t('「保活模型链」是 WorkBuddy 国际版领日活时用来保活的免费模型，按顺序逐个尝试、 第一个成功即止；清空清单并保存 = 恢复缺省链（当前缺省：{defaults}）。 当天去重 + 幂等领取：重复执行只会拿到「已领取」，不会重复加分。', {
-            defaults: defaultModels.join(t('、')),
-          })}
-        </div>
-      </div>
+      </details>
     </Card>
   )
 }
@@ -526,45 +555,56 @@ function ScheduleTab({ active = true }: { active?: boolean }): React.ReactElemen
         </Alert>
       ) : null}
 
-      <Card as='section' variant='panel' size='sm' className='panel'>
+      <Card as='section' variant='panel' size='sm' className='panel ck-schedule-panel'>
         <CardHeader variant='panel' className='panel-head'>
           <CardTitle>{t('定时签到')}</CardTitle>
-          <InfoTip>{AUTO_CHECKIN_DESC}</InfoTip>
-          <span className='panel-sub'>{t('每条条目各有时刻与范围 · 各自当天去重 · 错过时点开机自动补签')}</span>
+          <InfoTip>{t('按北京时间执行；错过时点后开机会自动补签；每个计划当天去重。')}</InfoTip>
+          <span className='panel-sub'>{t('按北京时间执行，支持自动补签')}</span>
           {/* 新建入口放卡头（原先是卡尾的一颗按钮：条目一多就要滚到底才看得见，
               而它恰恰是「这个页面第一件要做的事」） */}
           <Button
             size='sm'
-            variant='outline'
+            variant='default'
             className='ml-auto flex-none'
             disabled={store.saving}
             onClick={() => setEditingId(store.editingId === 'new' ? null : 'new')}
           >
-            {store.editingId === 'new' ? t('收起新建') : t('添加条目')}
+            {store.editingId === 'new' ? t('收起新建') : t('新建签到计划')}
           </Button>
         </CardHeader>
-        <div className='p-4'>
-          <div className='ck-set-line'>
-            <span className='ck-set-k'>{t('总开关')}</span>
-            <span className='ck-set-v flex items-center gap-2'>
+        <div className='ck-sched-master'>
+          <div className='ck-sched-master-control'>
               <Switch
+                aria-label={t('自动签到总开关')}
                 checked={masterOn}
                 disabled={store.saving}
                 onCheckedChange={next => void toggleMaster(next === true)}
               />
-              <span className='text-subtle text-xs'>
-                {masterOn ? t('开着：启用的条目按各自时刻执行') : t('关着：所有条目都不执行')}
-              </span>
-            </span>
+              <div>
+                <div className='ck-sched-master-title'>{masterOn ? t('自动签到已开启') : t('自动签到已暂停')}</div>
+                <div className='ck-sched-detail'>{masterOn
+                  ? t('已启用的计划将按各自时刻执行，开关即时生效。')
+                  : t('暂停自动调度，仍可手动执行一次。开关即时生效。')}</div>
+              </div>
+          </div>
+          <div className='ck-sched-master-meta'>
+            <span>{t('已启用 {enabled} / {total} 个计划', { enabled: entries.filter(entry => entry.enabled === true).length, total: entries.length })}</span>
+            <Button size='sm' variant='ghost' onClick={() => setCheckinTab('records')}>{t('查看签到记录')}</Button>
           </div>
         </div>
         <div>
           {store.editingId === 'new' ? <NewEntryRow store={store} /> : null}
           {entries.map(entry => <ScheduleEntryRow key={entry.id} entry={entry} store={store} />)}
           {entries.length === 0 ? (
-            <Empty variant='compact' className='ck-empty'><EmptyHeader><EmptyDescription>{t('还没有定时条目 —— 点「添加条目」建一条，或到「签到中心」手动签到。')}</EmptyDescription></EmptyHeader></Empty>
+            <Empty variant='compact' className='ck-empty'><EmptyHeader><EmptyDescription>{t('还没有签到计划，点击「新建签到计划」设置每天的执行时间。')}</EmptyDescription></EmptyHeader></Empty>
           ) : null}
         </div>
+        <details className='ck-sched-rules'>
+          <summary>{t('查看各提供商的签到规则')}</summary>
+          <div className='ck-sched-rules-body'>
+            {AUTO_CHECKIN_DESC.split(/[；;]/).map((rule, index) => <p key={index}>{rule}</p>)}
+          </div>
+        </details>
       </Card>
 
       <KeepalivePanel

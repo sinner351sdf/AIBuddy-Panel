@@ -1,4 +1,4 @@
-import { SLICE_COLORS, dayLabel, hourText, formatInt, formatTokens, formatPercent, rankRows, type StatsGroup, type StatsHour, type StatsDay } from './report-charts'
+import { SLICE_COLORS, dayLabel, hourText, formatInt, formatTokens, formatPercent, rankRows, type StatsGroup, type StatsHour, type StatsDay, type StatsSlice } from './report-charts'
 import { t } from '../i18n'
 
 /** Chart coordinates belong to Recharts; these adapters retain the report's data rules. */
@@ -54,7 +54,7 @@ export function cacheChartData(series: StatsHour[]) {
     tip: t('{date} {time} · 命中率 {rate} · 总 {tokens} tokens（命中 {hit} / 输入 {input}）', {
       date: dayLabel(String(item.hour).slice(0, 10)), time: hourText(item.hour), rate: formatPercent(item.rate),
       tokens: formatTokens(item.totalTokens), hit: formatTokens(item.hitTokens), input: formatTokens(item.inputTokens),
-    }),
+    }) + modelBreakdown(item.models),
   }))
 }
 
@@ -63,7 +63,7 @@ export function dailyChartData(series: StatsDay[]) {
     key: `day${index}`, date: String(item.date || ''), tokens: chartNumber(item.tokens), requests: chartNumber(item.requests),
     tip: t('{date} · {tokens} tokens · {n} 次请求', {
       date: dayLabel(item.date), tokens: formatTokens(item.tokens), n: formatInt(item.requests),
-    }),
+    }) + modelBreakdown(item.models),
   }))
 }
 
@@ -78,4 +78,10 @@ export function chartLabelIndices(values: number[], width: number): Set<number> 
       if (selected.length < available && selected.every(index => Math.abs(index - item.index) >= distance)) selected.push(item.index)
     })
   return new Set(selected)
+}
+
+function modelBreakdown(models: StatsSlice[] | undefined): string {
+  if (!models?.length) return ''
+  return '\n' + [...models].sort((a, b) => chartNumber(b.tokens) - chartNumber(a.tokens))
+    .map(model => `${model.label || model.model || t('未知模型')} · ${formatTokens(model.tokens)} tokens`).join('\n')
 }

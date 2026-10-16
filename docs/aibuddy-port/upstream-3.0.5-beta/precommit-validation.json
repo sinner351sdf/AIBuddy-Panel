@@ -1,0 +1,68 @@
+{
+  "checkedAt": "2026-10-16T10:16:28.543460+08:00",
+  "baseCommit": "95a647a9c8f801b93805050551326e3568ac5250",
+  "branch": "main",
+  "repository": "sinner351sdf/AIBuddy-Panel",
+  "backup": "/private/tmp/a2a-precommit-20261016-101321",
+  "rust": {
+    "passed": 654,
+    "failed": 0,
+    "ignored": 7,
+    "environmentNote": "Loopback HTTP fixtures rerun successfully outside network-restricted sandbox."
+  },
+  "javascript": {
+    "passed": 25,
+    "total": 25,
+    "finalChangeRetest": "task-center-layout passed after adding shared Button keyboard/drag regression"
+  },
+  "python": [
+    {
+      "file": "test-upstream-3.0.5.py",
+      "passed": true,
+      "summary": "PASS: 148 integration assertions; schema lineage matrix and interrupted migration recovery, encryption, JSON roundtrip/legacy restore, missing/wrong key, persistent sessions, unchanged history/retention; synthetic disabled account only"
+    },
+    {
+      "file": "test-workbuddy-task-center.py",
+      "passed": true,
+      "summary": "PASS: 59 API/schema assertions; isolated home, no provider credentials or requests"
+    },
+    {
+      "file": "test-account-history.py",
+      "passed": true,
+      "summary": "PASS: v12 to v13 migration, 23 built-in providers + custom provider; real deletion API; historical backfill; stable totals; restart; request pruning and custom-provider removal preserve identity"
+    },
+    {
+      "file": "test-security-boundaries.py",
+      "passed": true,
+      "summary": "PASS: beta route authorization, native-only SQL paths, keepalive persistence and schedule CRUD"
+    },
+    {
+      "file": "test-release-script.py",
+      "passed": true,
+      "summary": "PASS: 19 release-script scenarios; create/upload, both Linux packages/checksums, source validation, legacy compatibility, spaces in paths, dist preservation and zero publication on failures; all gh/git commands mocked"
+    }
+  ],
+  "frontend": {
+    "typecheck": "passed",
+    "vite": "passed",
+    "generatedFiles": 88,
+    "reproducibleBeforeFinalButtonFix": true,
+    "finalArtifactsRebuilt": true,
+    "shadcnGuard": "passed",
+    "finalArtifactsReproducible": true
+  },
+  "browser": {
+    "url": "http://127.0.0.1:3065/",
+    "queryAccounts": 1,
+    "queryTasks": 22,
+    "claimableTasks": 0,
+    "consoleErrors": 0,
+    "providerTasksExecutedByAgent": false
+  },
+  "secretScan": {
+    "paths": 345,
+    "confirmedSecrets": 0,
+    "reviewedMarker": "Trae unit tests contain only literal BEGIN PRIVATE KEY markers without any key material"
+  },
+  "publication": "Code commit and push only; no tag, Release, image publication or workflow dispatch."
+}

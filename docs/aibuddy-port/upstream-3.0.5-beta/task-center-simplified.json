@@ -1,0 +1,77 @@
+{
+  "checkedAt": "2026-10-16T00:35:03.740490+08:00",
+  "scope": "Consolidate WorkBuddy task overview and schedule controls; remove completed progress card",
+  "backup": "/Users/zaxe/Documents/ChatGPT/agent2api/data/deployment-backups/20261016-002842-task-center-simplify",
+  "tabs": [
+    "任务与排程",
+    "执行记录"
+  ],
+  "manualEntrypointsPerTask": 1,
+  "completedProgressCard": false,
+  "runningStatus": "compact status with stop and history; hidden on completion",
+  "preserved": [
+    "query tasks",
+    "claim rewards",
+    "concurrency",
+    "account filter",
+    "task details",
+    "manual makeup and lottery",
+    "saved schedules",
+    "record filters, details, page sizes and page numbers"
+  ],
+  "tests": {
+    "javascriptSuitesPassed": 25,
+    "javascriptSuitesTotal": 25,
+    "typecheck": "passed",
+    "vite": "passed",
+    "shadcnGuard": "passed",
+    "diffCheck": "passed"
+  },
+  "databaseCounts": {
+    "accounts": {
+      "before": 11,
+      "after": 11
+    },
+    "requests": {
+      "before": 280,
+      "after": 280
+    },
+    "checkin_records": {
+      "before": 57,
+      "after": 57
+    },
+    "task_runs": {
+      "before": 9,
+      "after": 9
+    },
+    "task_run_items": {
+      "before": 11,
+      "after": 11
+    },
+    "account_history": {
+      "before": 12,
+      "after": 12
+    }
+  },
+  "accountsUnchanged": true,
+  "configurationUnchanged": true,
+  "browser": {
+    "url": "http://127.0.0.1:3065/",
+    "desktop": "two tabs, five single task rows, help content, account selection, low-frequency menu and nine execution records verified",
+    "mobile": {
+      "viewport": 390,
+      "documentWidth": 379,
+      "rowWidths": 293,
+      "rowScrollWidths": 293
+    },
+    "applicationConsoleErrors": 0,
+    "realProviderTasksTriggered": false
+  },
+  "artifacts": {
+    "ui.js": "7938c109f5f69b2b31adc133940cda8af48d3b339fa6e6adbd99858e5bfedee6",
+    "ui.css": "84fadb3a1bb5ea58291a9c82081f0345db342e8fbcf830dbbd1194ddae938ec8"
+  },
+  "backendRestarted": false,
+  "committed": false,
+  "published": false
+}

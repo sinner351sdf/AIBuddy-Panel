@@ -149,6 +149,8 @@ impl Db {
         }
         let conn = Connection::open(path).map_err(|error| format!("打开数据库失败: {error}"))?;
         apply_pragmas(&conn)?;
+        let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0)).map_err(|e| e.to_string())?;
+        if version > 0 && version < schema::SCHEMA_VERSION { snapshot_before_upgrade(&conn, path)?; }
         schema::migrate(&conn).map_err(|error| format!("建表/升级 schema 失败: {error}"))?;
         Ok(Db {
             inner: Arc::new(DbInner {
@@ -219,6 +221,24 @@ impl Db {
     pub fn file(&self) -> &Path {
         &self.inner.file
     }
+}
+
+/// 只读地取某个库文件的 `PRAGMA user_version`（读不到返回 `None`）。
+///
+/// ── 为什么需要一条「独立于 `Db`」的读法 ──────────────────────
+/// 唯一调用点是 `ServerState::bootstrap` 里 `Db::open` **失败之后**那一步：那时
+/// 没有可用的 `Db` 句柄（正因为 schema 版本不符才失败），但仍需要知道「库里写的
+/// 版本号是多少」才能判断该不该让启动明确失败（库版本**高于**本程序 = 用户回退到
+/// 旧版本，见 `schema::migrate` 的拒绝分支与 `SCHEMA_VERSION` 的 v14 段）。
+/// 这里开一条**短命连接**只做「打开 → 读一个 PRAGMA → 关掉」。
+///
+/// 任何失败（文件不在、权限、库损坏、PRAGMA 读不出）一律返回 `None`：
+/// **读不到版本号 ≠ 版本不符**，据此拒绝启动会把「库彻底坏了」这种本该降级继续
+/// 的情形也变成启动失败。调用方只在拿到确切的 `Some(版本)` 且大于本程序时才拒绝。
+pub fn stored_schema_version(path: &Path) -> Option<i64> {
+    let conn = Connection::open(path).ok()?;
+    conn.pragma_query_value(None, "user_version", |row| row.get(0))
+        .ok()
 }
 
 /// 打开连接后必须设置的 PRAGMA。
@@ -306,4 +326,24 @@ pub(crate) mod test_temp {
             }
         }
     }
+}
+
+/// Snapshot WAL consistently, never copy a live .db file byte-by-byte. Credentials may be plaintext in old snapshots.
+pub(crate) fn snapshot_before_upgrade(conn: &Connection, path: &Path) -> Result<PathBuf, String> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static SEQ: AtomicU64 = AtomicU64::new(0);
+    let directory = path.parent().unwrap_or(Path::new(".")).join("backups");
+    std::fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
+    let target = directory.join(format!("pre-upgrade-{}-{}-{}.db", crate::server::logging::now_ms(), std::process::id(), SEQ.fetch_add(1, Ordering::Relaxed)));
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)] { use std::os::unix::fs::OpenOptionsExt; options.mode(0o600); }
+    options.open(&target).map_err(|e| format!("创建升级前备份失败：{e}"))?;
+    let result = (|| {
+        let mut dest = Connection::open(&target)?;
+        let backup = rusqlite::backup::Backup::new(conn, &mut dest)?;
+        match backup.step(-1)? { rusqlite::backup::StepResult::Done => Ok(()), _ => Err(rusqlite::Error::InvalidQuery) }
+    })();
+    if let Err(error) = result { let _ = std::fs::remove_file(&target); return Err(format!("升级前备份未完成：{error}")); }
+    Ok(target)
 }

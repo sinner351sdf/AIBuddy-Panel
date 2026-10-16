@@ -7,7 +7,7 @@ import { PROVIDER_ICONS } from './add-provider-pick'
 import { formatTime, shared, type OnboardingTask } from './accounts-shared'
 import { claimedPlanIdsToday } from './accounts-domain'
 import {
-  claimOnboarding, getCheckinStore, groupTone, loadCheckinCenter, nextScheduleRun,
+  bridge, claimOnboarding, getCheckinStore, groupTone, loadCheckinCenter, nextScheduleRun,
   onboardingExpanded, queryOnboarding, runAllCheckin, setCheckinTab, showCheckinTab,
   signSingleAccount, subscribeCheckinStore, toggleOnboardingExpand, toggleProviderExpand,
   growthExpanded, queryGrowth, runGrowth, runGrowthSchool, runGrowthTravel, toggleGrowthExpand,
@@ -17,17 +17,18 @@ import { ScheduleTab } from './checkin-schedule-tab'
 import { RecordsTab } from './checkin-records-tab'
 import { openZcodePlans } from './accounts-data'
 import { t } from '../i18n'
-import { openTaskCenter } from './task-center-api'
-import { Card, CardHeader, CardTitle, Empty, EmptyHeader, EmptyDescription } from '@ui'
+import { WorkbuddyTaskCenter } from './workbuddy-task-center'
+import { Card, CardHeader, CardTitle, CardContent, Empty, EmptyHeader, EmptyDescription } from '@ui'
 
 /**
- * 签到中心（React 岛）。
+ * 账号任务中心（React 岛）。
  *
  * ── 这页管什么 ──────────────────────────────────────────────
- * 全部签到类动作的统一入口，页内分三个标签页（SegmentedControl 切换，
+ * 签到、福利与账号任务的统一入口，页内分四个标签页（SegmentedControl 切换，
  * 状态与持久化在 checkin-state）：
- *   · **签到中心**（本文件 CenterTab）：总览卡 + 每日签到 + 新手福利（Loomy /
+ *   · **签到与福利**（本文件 CenterTab）：总览卡 + 每日签到 + 新手福利（Loomy /
  *     小浣熊 / CodeArts，惰性查询）+ 活动福利（ZCode）；
+ *   · **WorkBuddy任务**（workbuddy-task-center）：任务总览、自动排程、执行记录；
  *   · **定时签到**（checkin-schedule-tab）：总开关 + 多条定时条目 + 保活模型链；
  *   · **签到记录**（checkin-records-tab）：每账号一行的明细台账（schema v11）。
  * 数据从哪来：快照走 `GET /api/checkin-center` 一次拉全（load）；后端快照的
@@ -65,7 +66,8 @@ const PROVIDER_DESC: Record<string, string> = {
 
 /** 页内标签页的档位（值与 checkin-state 的 CheckinTab 一致） */
 const CHECKIN_TAB_OPTIONS = [
-  { value: 'center', label: t('签到中心') },
+  { value: 'center', label: t('签到与福利') },
+  { value: 'workbuddy', label: t('WorkBuddy任务') },
   { value: 'schedule', label: t('定时签到') },
   { value: 'records', label: t('签到记录') },
 ] as const
@@ -209,7 +211,6 @@ function ProviderRow({ group, expanded }: { group: CheckinProviderGroup; expande
       </div>
       <CollapsibleContent>(
         <div className='ck-prov-detail'>
-          {group.id === 'qoder-intl' ? <UmidHint /> : null}
           <AccountRows group={group} />
         </div>
       )</CollapsibleContent>
@@ -218,34 +219,45 @@ function ProviderRow({ group, expanded }: { group: CheckinProviderGroup; expande
 }
 
 /**
- * Qoder 国际版的 UMID 组件提示（展开后的分组详情顶部）。
+ * Qoder 国际版的 UMID 组件提示（常驻在分组行下方）。
  *
  * 国际版签到依赖本机的设备风控身份（`Cosy-MachineToken` 三件套），组件来源
  * 三种：本机 Qoder 客户端、qodercli 解压、网关数据目录安装（Linux 一键装）。
- * 这里只读一次状态：装了就说明来源，没装且平台支持安装就给按钮（Linux/Docker
- * 用户唯一能自助的路径）；不支持安装的平台只说明怎么补 —— Windows/macOS 装
- * 客户端或 qodercli 后无需重启网关（组件发现按次执行）。
+ * 组件是**机器级**的，与有没有账号、有没有展开无关 —— 未装就常驻这一条，
+ * 装好（available）整条消失，不做「已安装」的展示。
+ *
+ * 读状态分两条路：挂载时拉一次；`installing` 为真时每几秒回读一次 —— 安装
+ * 耗时以分钟计，中途刷新页面后不能把「安装中…」永久留在界面上（装完或失败
+ * 都要能自己恢复到按钮 / 消失）。平台不支持安装（Windows / macOS）时只说明
+ * 怎么补 —— 装客户端或 qodercli 后无需重启网关（组件发现按次执行）。
+ *
+ * ── 为什么必须走桥而不是 fetch ──────────────────────────────
+ * 桌面端的页面来自 `tauri://` 协议（frontendDist 指向 ui/），裸 fetch('/api/…')
+ * 打的是 tauri asset，根本到不了后端；headless / Docker 形态下 `/api/qoder-umid`
+ * 挂在 protected 路由上（安装会下载并落地可执行组件），要求面板凭据 —— 裸 fetch
+ * 不带 `x-api-key` / `x-panel-token`，只会拿到 401。桥的两端各自补齐凭据
+ *（bridge.rs 带 X-API-Key，web_shim.rs 带 Key 与面板令牌），所以这里统一走桥。
  */
 function UmidHint(): React.ReactElement | null {
   const [state, setState] = React.useState<{ available?: boolean; source?: string | null; installSupported?: boolean; installing?: boolean } | null>(null)
   const load = React.useCallback(async (): Promise<void> => {
     try {
-      const response = await fetch('/api/qoder-umid')
-      if (response.ok) setState(await response.json())
+      setState(await bridge().getQoderUmid?.() ?? null)
     } catch { /* 状态是锦上添花，拉不到不挡签到 */ }
   }, [])
   React.useEffect(() => { void load() }, [load])
+  const installing = state?.installing === true && state.available !== true
+  React.useEffect(() => {
+    if (!installing) return
+    const timer = window.setInterval(() => { void load() }, 3000)
+    return () => { window.clearInterval(timer) }
+  }, [installing, load])
   if (!state || state.available) return null
   const install = async (): Promise<void> => {
     try {
       setState(prev => prev ? { ...prev, installing: true } : prev)
-      const response = await fetch('/api/qoder-umid/install', { method: 'POST' })
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null)
-        shared().wbApp?.toast?.(t('UMID 组件安装失败：{error}', { error: String(payload?.error ?? response.status) }), 'err')
-      } else {
-        shared().wbApp?.toast?.(t('✅ UMID 组件已安装，下轮签到即可领取国际版积分'))
-      }
+      await bridge().installQoderUmid?.()
+      shared().wbApp?.toast?.(t('✅ UMID 组件已安装，下轮签到即可领取国际版积分'))
     } catch (error) {
       shared().wbApp?.toast?.(t('UMID 组件安装失败：{error}', { error: error instanceof Error ? error.message : String(error) }), 'err')
     } finally {
@@ -253,7 +265,7 @@ function UmidHint(): React.ReactElement | null {
     }
   }
   return (
-    <div className='flex flex-wrap items-center gap-2 px-[2px] pb-1 text-[12px] text-muted-foreground'>
+    <div className='flex flex-wrap items-center gap-2 pb-2.5 pl-[58px] pr-4 text-[12px] text-muted-foreground'>
       <span>{t('国际版签到需要 UMID 组件生成设备风控身份（本机未检测到）。')}</span>
       {state.installSupported
         ? <Button variant='outline' size='sm' disabled={state.installing === true} onClick={() => { void install() }}>
@@ -580,7 +592,7 @@ function GrowthRow({ row }: { row: { id: string; name: string } }) {
   )
 }
 
-/** 空账号家的占位行（没有账号时该行不可展开） */
+/** 空账号家的占位行（没有账号时该行不可展开；Qoder 国际版的 UMID 提示照常常驻） */
 function EmptyProviderRow({ group }: { group: CheckinProviderGroup }) {
   return (
     <div className='ck-prov-row'>
@@ -594,6 +606,7 @@ function EmptyProviderRow({ group }: { group: CheckinProviderGroup }) {
           <Badge variant='outline' shape='tag'>{t('无账号')}</Badge>
         </div>
       </div>
+      {group.id === 'qoder-intl' ? <UmidHint /> : null}
     </div>
   )
 }
@@ -630,8 +643,6 @@ function CenterTab({ store }: { store: CheckinStore }) {
   const onboardingChecked = onboardingRows.filter(row => store.onboarding.get(row.id)?.status === 'loaded')
   const onboardingUnclaimed = onboardingRows.reduce((sum, row) => sum + (store.onboarding.get(row.id)?.unclaimed ?? 0), 0)
   const welfarePlanRows = snapshot?.extras.plans ?? []
-  // 成长任务行（WorkBuddy 国内版；从参考项目 workbuddy2api 的 task_runner 移植）
-  const growthRows = snapshot?.extras.growth ?? []
   // 定时签到总览：条目数（启用 / 总数）与聚合「下次执行」（多条目里最近的一次）
   const scheduleEntries = Array.isArray(auto?.schedules) ? auto!.schedules! : []
   const scheduleEnabled = scheduleEntries.filter(entry => entry.enabled === true).length
@@ -695,7 +706,7 @@ function CenterTab({ store }: { store: CheckinStore }) {
             <Button
               size='sm'
               variant='default'
-              className='ml-auto'
+              className='ml-auto shrink-0'
               disabled={store.runningAll || (auto?.running === true)}
               onClick={() => void runAllCheckin()}
             >
@@ -731,8 +742,7 @@ function CenterTab({ store }: { store: CheckinStore }) {
               <Button
                 size='sm'
                 variant='outline'
-                className='ml-auto'
-                onClick={() => {
+                      onClick={() => {
                   for (const row of onboardingRows) {
                     // 已结算的账号（快照带回了记忆）不进这一轮：它们的结论不会变，
                     // 「全部查询」的语义是「把还没查的查一遍」。真要重问上游，
@@ -769,21 +779,7 @@ function CenterTab({ store }: { store: CheckinStore }) {
           )}
         </Card>
 
-        <Card as='section' variant='panel' size='sm' className='panel'>
-          <CardHeader variant='panel' className='panel-head'>
-            <CardTitle>{t('成长任务')}</CardTitle>
-            <span className='panel-sub'>
-              {t('旅行、夜猫、活跃和成长任务已统一到任务中心')}
-            </span>
-          </CardHeader>
-          {growthRows.length > 0 ? (
-            <div>
-              {growthRows.map(row => <div className='ck-prov-row' key={row.id}><div className='ck-prov-main'><span>{row.name || row.id}</span><Button size='sm' variant='outline' onClick={() => { openTaskCenter(row.id); }}>{t('打开任务中心')}</Button></div></div>)}
-            </div>
-          ) : (
-            <Empty variant='compact' className='ck-empty'><EmptyHeader><EmptyDescription>{t('没有支持成长任务的账号（需要 WorkBuddy 国内版）。')}</EmptyDescription></EmptyHeader></Empty>
-          )}
-        </Card>
+
       </div>
     </div>
   )
@@ -793,58 +789,37 @@ function CenterTab({ store }: { store: CheckinStore }) {
 
 function CheckinPage() {
   const store = useCheckinStore()
-  const snapshot = store.snapshot
+  const [taskOpened, setTaskOpened] = React.useState(store.tab === 'workbuddy')
+  React.useEffect(() => { if (store.tab === 'workbuddy') setTaskOpened(true) }, [store.tab])
 
   // 挂载即拉一次（app.js 切页钩子是主要入口，这里兜「直接刷新落在本页」的场景）
   React.useEffect(() => { void loadCheckinCenter() }, [])
 
-  // 顶栏那块是本页徽标的镜像（app.js 的 renderTopbarStatus 读 #checkin-badge）：
-  // 数据一更新就让它跟上，否则要等下一次主状态轮询（20 秒）才同步 —— 与 tasks-panel 同款
-  React.useEffect(() => {
-    // renderTopbarStatus 不在 accounts-shared 的 SharedWindow 声明里，窄读
-    const app = window as unknown as { wbApp?: { renderTopbarStatus?: () => void } }
-    app.wbApp?.renderTopbarStatus?.()
-  }, [store.version])
-
-  if (!store.loaded) {
-    return (
-      <div className='ck-loading'>
-        <Spinner className='size-5' />
-        <span>{t('正在读取签到数据…')}</span>
-      </div>
-    )
-  }
-
-  const auto = snapshot?.auto
-  const enabled = auto?.enabled === true
-
   return (
     <Tabs value={store.tab} onValueChange={next => setCheckinTab(String(next) as CheckinTab)}>
-      {store.loadError ? (
-        <Alert variant='destructive'>
-          <AlertDescription>{t('读取签到数据失败：{error}', { error: store.loadError })}</AlertDescription>
-          <Button size='sm' variant='outline' className='mt-2 w-fit' onClick={() => void loadCheckinCenter()}>{t('重试')}</Button>
-        </Alert>
-      ) : null}
+      <Card as='section' variant='panel' size='sm' className='panel'>
+        <CardHeader variant='panel' className='panel-head'>
+          <CardTitle>{t('任务中心')}</CardTitle>
+          <span className='panel-sub'>{t('签到、福利与账号任务')}</span>
+        </CardHeader>
+        <CardContent variant='panel' className='panel-body'>
+          {store.loadError ? (
+            <Alert variant='destructive'>
+              <AlertDescription>{t('读取签到数据失败：{error}', { error: store.loadError })}</AlertDescription>
+              <Button size='sm' variant='outline' className='mt-2 w-fit' onClick={() => void loadCheckinCenter()}>{t('重试')}</Button>
+            </Alert>
+          ) : null}
 
-      {/* ── Tab 条：左档位 + 右总开关徽标 ──
-          徽标必须三个标签页都在（app.js 的 renderTopbarStatus 按 id 镜像它，
-          放进某个标签页里就会在另外两页丢失镜像），放 Tab 条右端全局可见 */}
-      <div className='ck-tabs'>
-        <TabsList aria-label={t('签到中心分区')}>
-          {CHECKIN_TAB_OPTIONS.map(tab => <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>)}
-        </TabsList>
-        <Badge
-          id='checkin-badge'
-          className='ml-auto'
-          variant={!auto ? 'destructive' : enabled ? 'success' : 'outline'}
-          data-tone={!auto ? 'bad' : enabled ? 'ok' : ''}
-        >
-          {!auto ? t('不可用') : enabled ? (auto?.lastFiredToday ? t('今日已执行') : t('已开启')) : t('已关闭')}
-        </Badge>
-      </div>
+          <div className='flex flex-wrap items-center gap-3'>
+            <TabsList aria-label={t('任务中心分区')} className='grid w-full grid-cols-2 gap-1 group-data-horizontal/tabs:h-auto sm:inline-flex sm:w-fit sm:group-data-horizontal/tabs:h-8'>
+              {CHECKIN_TAB_OPTIONS.map(tab => <TabsTrigger key={tab.value} value={tab.value} className='h-7 sm:h-[calc(100%-1px)]'>{tab.label}</TabsTrigger>)}
+            </TabsList>
+          </div>
 
-      <TabsContent value='center' keepMounted><CenterTab store={store} /></TabsContent>
+        </CardContent>
+      </Card>
+      <TabsContent value='center' keepMounted>{store.loaded ? <CenterTab store={store} /> : <div className='ck-loading'><Spinner className='size-5' /><span>{t('正在读取签到数据…')}</span></div>}</TabsContent>
+      <TabsContent value='workbuddy' keepMounted>{taskOpened || store.tab === 'workbuddy' ? <WorkbuddyTaskCenter active={store.tab === 'workbuddy'} /> : null}</TabsContent>
       <TabsContent value='schedule' keepMounted><ScheduleTab active={store.tab === 'schedule'} /></TabsContent>
       <TabsContent value='records' keepMounted><RecordsTab active={store.tab === 'records'} /></TabsContent>
     </Tabs>
@@ -869,13 +844,16 @@ function mount(): void {
 
 declare global {
   interface Window {
-    /** 签到中心页（app.js 切页时调 load；数据自持，不随主状态轮询） */
+    /** 账号任务中心页（app.js 切页时调 load；数据自持，不随主状态轮询） */
     wbCheckinPanel?: { load(): Promise<void> }
   }
 }
 
 // 对外契约：app.js 切到本页时调 load（保证「切入这次刷新一定落地」）
-const load = (): Promise<void> => loadCheckinCenter()
+const load = (): Promise<void> => {
+  window.dispatchEvent(new Event('wb:task-center-refresh'))
+  return loadCheckinCenter()
+}
 window.wbCheckinPanel = { load }
 
 // 脚本排在页面骨架之后（islands/ui.js 在各 section 之后），正常直接挂；

@@ -379,3 +379,8 @@ npm run build:icon         # 生成图标源图（改图标设计后执行，再
     <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=aimod-cc/agent2api&type=Date" />
   </picture>
 </a>
+
+
+## 3.0.5 与 beta 定制整合
+
+本次同步的固定来源、保留策略、逐文件清单及验收边界见 [整合记录](docs/aibuddy-port/upstream-3.0.5-beta/README.md)。账号密钥须独立备份，自动续写与容器自更新默认关闭。

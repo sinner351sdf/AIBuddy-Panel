@@ -1,0 +1,89 @@
+{
+  "checkedAt": "2026-10-16T00:45:24.913714+08:00",
+  "scope": "Display read-only growth task query details in task center",
+  "backup": "/Users/zaxe/Documents/ChatGPT/agent2api/data/deployment-backups/20261016-003804-task-query-results",
+  "tests": {
+    "javascriptSuitesPassed": 25,
+    "javascriptSuitesTotal": 25,
+    "typecheck": "passed",
+    "vite": "passed",
+    "shadcnGuard": "passed",
+    "i18nScanCheck": "passed",
+    "diffCheck": "passed"
+  },
+  "databaseCounts": {
+    "accounts": {
+      "before": 11,
+      "after": 11
+    },
+    "requests": {
+      "before": 280,
+      "after": 280
+    },
+    "checkin_records": {
+      "before": 57,
+      "after": 57
+    },
+    "task_runs": {
+      "before": 9,
+      "after": 10
+    },
+    "task_run_items": {
+      "before": 11,
+      "after": 12
+    },
+    "account_history": {
+      "before": 12,
+      "after": 12
+    }
+  },
+  "accountsUnchanged": true,
+  "configurationUnchanged": true,
+  "changedKvKeys": [
+    "logsNextId",
+    "backgroundTaskState"
+  ],
+  "browser": {
+    "url": "http://127.0.0.1:3065/",
+    "liveQuery": {
+      "accounts": 1,
+      "tasks": 22,
+      "claimed": 21,
+      "incomplete": 1,
+      "claimable": 0
+    },
+    "singleAccountAndAllAccountsQueries": "verified",
+    "columns": [
+      "task",
+      "progress",
+      "rewards",
+      "status"
+    ],
+    "detailsEntry": "visible; dialog verified with fixture tests; live dialog observed",
+    "mobile": {
+      "viewport": 390,
+      "queryRegionWidth": 291,
+      "queryRegionScrollWidth": 291,
+      "tableWidth": 483.78125,
+      "overflow": "contained in table scroller"
+    },
+    "applicationConsoleErrors": 0,
+    "providerTasksExecutedByAgent": false,
+    "rewardsClaimedByAgent": false
+  },
+  "artifacts": {
+    "ui.js": "ed67269f03a226739a5ac5eada317f1ef785886b98fa99978986ba36f0c43707",
+    "ui.css": "5fd66468136f3f9a3183654a7f7667347b6dc6f2004db8011985ca88b0850d1a"
+  },
+  "backendRestarted": false,
+  "committed": false,
+  "published": false,
+  "configurationComparison": {
+    "excludedRuntimeStateKeys": [
+      "logsNextId",
+      "backgroundTaskState"
+    ],
+    "allOtherKvValuesUnchanged": true
+  },
+  "databaseActivityNote": "One additional manual rewards run was observed during browser validation, outcome skipped: no lottery opportunities. The agent only invoked read-only query buttons and did not invoke task/reward actions."
+}

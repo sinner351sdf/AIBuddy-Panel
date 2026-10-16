@@ -16,33 +16,34 @@ fn fixtures(node: &str, ports: [u16; 2]) -> (Vec<ProviderInput>, Vec<NodeTarget>
             provider_id: provider.id.clone(),
             sub_name: provider.name.clone(),
             node: node.into(),
-            port,
+            port: Some(port),
         })
         .collect();
     (providers, targets)
 }
 
 #[test]
-fn listeners_route_through_provider_scoped_literal_node_groups() {
+fn listeners_use_exact_provider_scoped_definitions() {
     let node = "🇯🇵 日本 [S01].+ | IEPL (x2)";
     let (providers, targets) = fixtures(node, [19101, 19102]);
     let config: Value =
-        serde_yaml::from_str(&build_config(&providers, 19090, "fixture", &targets).unwrap())
+        serde_yaml::from_str(&build_config(&providers, 19090, "fixture", &targets, &test_definitions(&targets, &[12341, 12342])).unwrap())
             .unwrap();
     assert_ne!(
         config["listeners"][0]["proxy"],
         config["listeners"][1]["proxy"]
     );
     for (index, provider) in providers.iter().enumerate() {
-        let group = &config["proxy-groups"][index];
-        assert_eq!(config["listeners"][index]["proxy"], group["name"]);
-        assert_eq!(group["use"], json!([format!("sub_{}", provider.id)]));
-        assert_eq!(group["empty-fallback"], "REJECT");
-        let filter = regex::Regex::new(group["filter"].as_str().unwrap()).unwrap();
-        assert!(filter.is_match(node));
-        assert!(!filter.is_match(&format!("{node} backup")));
-        assert!(!filter.is_match("🇯🇵 日本 S01xxx | IEPL x2"));
+        let definition = &config["proxies"][index];
+        assert_eq!(config["listeners"][index]["proxy"], definition["name"]);
+        assert_eq!(definition["name"], node_alias(&provider.id, node));
+        assert_eq!(definition["port"], 12341 + index);
     }
+    let (_, mut with_missing) = fixtures(node, [19101, 19102]);
+    with_missing.push(NodeTarget { provider_id: "a".into(), sub_name: "a".into(), node: "missing".into(), port: Some(19103) });
+    let safe: Value = serde_yaml::from_str(&build_config(&providers, 19090, "fixture", &with_missing, &test_definitions(&targets, &[12341, 12342])).unwrap()).unwrap();
+    assert_eq!(safe["listeners"].as_array().unwrap().len(), 2, "unknown nodes must not fall back to direct");
+
 }
 
 /// 使用指定的已安装 mihomo，只连接本地 HTTP 出站夹具；不下载或访问真实订阅。
@@ -107,10 +108,10 @@ async fn real_kernel_routes_same_named_nodes_to_their_own_provider() {
         provider_id: "a".into(),
         sub_name: "a".into(),
         node: "missing-node".into(),
-        port: ports[3],
+        port: Some(ports[3]),
     });
     let mut config: Value = serde_yaml::from_str(
-        &build_config(&providers, ports[0], "fixture-secret", &targets).unwrap(),
+        &build_config(&providers, ports[0], "fixture-secret", &targets, &test_definitions(&targets[..2], &upstream_ports)).unwrap(),
     )
     .unwrap();
     config["log-level"] = json!("debug");
@@ -163,11 +164,10 @@ async fn real_kernel_routes_same_named_nodes_to_their_own_provider() {
     let registry = controller_get(ports[0], "fixture-secret", "/proxies")
         .await
         .unwrap();
-    let missing_group = config["proxy-groups"][2]["name"].as_str().unwrap();
-    assert_eq!(registry["proxies"][missing_group]["all"], json!(["REJECT"]));
+    assert_eq!(config["listeners"].as_array().unwrap().len(), 2);
     for (index, expected) in ["provider-a", "provider-b"].into_iter().enumerate() {
-        let group = config["proxy-groups"][index]["name"].as_str().unwrap();
-        assert_eq!(registry["proxies"][group]["all"], json!([node]));
+        let alias = config["listeners"][index]["proxy"].as_str().unwrap();
+        assert_eq!(registry["proxies"][alias]["name"], alias);
         let client = reqwest::Client::builder()
             .no_proxy()
             .proxy(reqwest::Proxy::http(format!("http://127.0.0.1:{}", ports[index + 1])).unwrap())
@@ -187,4 +187,9 @@ async fn real_kernel_routes_same_named_nodes_to_their_own_provider() {
     for task in upstream_tasks {
         task.abort();
     }
+}
+
+fn test_definitions(targets: &[NodeTarget], ports: &[u16]) -> HashMap<String, Value> {
+    targets.iter().zip(ports).map(|(target, port)| (node_key(&target.provider_id, &target.node),
+      json!({"name":target.node,"type":"http","server":"127.0.0.1","port":port}))).collect()
 }

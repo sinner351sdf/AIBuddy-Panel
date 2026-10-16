@@ -1,3 +1,4 @@
+import { setCheckinTab } from './checkin-state'
 /** One authenticated transport for desktop IPC and the headless web shim. */
 export async function taskRequest<T>(method: 'GET' | 'POST' | 'PUT', path: string, body?: unknown): Promise<T> {
   const runtime = (window as unknown as { __TAURI_INTERNALS__?: { invoke?: (command: string, args: unknown) => Promise<unknown> } }).__TAURI_INTERNALS__
@@ -9,6 +10,7 @@ let selectedAccount = ''
 export const taskAccount = () => selectedAccount
 export function openTaskCenter(id: string) {
   selectedAccount = id
-  ;(window as unknown as {wbApp?:{showPage?:(page:string)=>void}}).wbApp?.showPage?.('tasks')
+  setCheckinTab('workbuddy')
+  ;(window as unknown as {wbApp?:{showPage?:(page:string)=>void}}).wbApp?.showPage?.('checkin')
   window.dispatchEvent(new CustomEvent('wb:task-account', {detail:id}))
 }

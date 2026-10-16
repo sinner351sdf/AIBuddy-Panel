@@ -1,0 +1,150 @@
+{
+  "completedAt": "2026-10-15T23:49:39.037105+08:00",
+  "scope": "补齐 Responses 对话预览与旧发版脚本；保留本地组件、历史数据、配置和原有草稿；不提交、不推送、不发布。",
+  "files": [
+    "desktop-tauri/ui/conversation-preview.js",
+    "scripts/release.sh",
+    "scripts/release-assets.mjs",
+    "scripts/test-responses-preview.mjs",
+    "scripts/test-release-script.py",
+    "scripts/test-ui-business-composition.mjs"
+  ],
+  "responses": {
+    "supported": [
+      "input string / message arrays / instructions",
+      "ordered function and custom tool calls/results",
+      "safe images and raw fallback",
+      "JSON output / reasoning summaries / output_text / refusal",
+      "SSE output items / text / reasoning / function and custom tool deltas",
+      "final snapshot deduplication / interrupted stream partial content"
+    ],
+    "componentContract": "Existing ConversationView Message/Bubble/Trace/CodeBlock/Marker unchanged",
+    "syntheticBrowserInteraction": "Reasoning and both tool-call panels and tool result expand successfully; no page console errors",
+    "screenshot": "screenshots/responses-preview-fixed.png"
+  },
+  "releaseScript": {
+    "assets": [
+      "Windows .exe",
+      "macOS .dmg",
+      "Linux amd64 tar.gz + .sha256",
+      "Linux arm64 tar.gz + .sha256",
+      "SHA256SUMS.txt"
+    ],
+    "checks": [
+      "tag-to-run commit and repository",
+      "successful expected workflow and nonexpired artifacts",
+      "both Linux architectures mandatory starting at v3.0.4",
+      "checksum contents/file name/hash",
+      "nonempty regular packages",
+      "private temporary staging; preserve existing dist directory"
+    ],
+    "compatibility": "Older tags can publish desktop-only packages with a notice; an incomplete Linux pair is rejected.",
+    "publicationPerformed": false,
+    "imagePolicy": "No image publication; no upstream Docker Hub instruction"
+  },
+  "validation": {
+    "rust": {
+      "passed": 654,
+      "failed": 0,
+      "ignored": 7
+    },
+    "upgradeAssertions": 148,
+    "taskCenterAssertions": 59,
+    "javascriptScripts": 24,
+    "releaseMockScenarios": 19,
+    "frontendTypecheckBuild": "passed",
+    "rebuiltComponentAssets": "ui.js / ui.css byte-identical; static parser changed",
+    "i18n": "missing keys 0; existing blank translations and scanner advisories unchanged",
+    "shadcnGuard": "72 islands + 11 shell sources + self-test passed",
+    "syntaxAndWhitespace": "passed"
+  },
+  "deployment": {
+    "backup": "data/deployment-backups/20261015-233836-responses-release-fix",
+    "pid": 84567,
+    "port": 3065,
+    "health": "ok",
+    "servedParserMatchesSource": true,
+    "session": "Existing browser session survived restart without logging in again",
+    "dataChecks": {
+      "accounts": {
+        "before": 11,
+        "after": 11,
+        "unchanged": true
+      },
+      "requests": {
+        "before": 280,
+        "after": 280,
+        "unchanged": true
+      },
+      "request_raw": {
+        "before": 266,
+        "after": 266,
+        "unchanged": true
+      },
+      "task_runs": {
+        "before": 6,
+        "after": 6,
+        "unchanged": true
+      },
+      "task_run_items": {
+        "before": 6,
+        "after": 6,
+        "unchanged": true
+      },
+      "account_history": {
+        "before": 12,
+        "after": 12,
+        "unchanged": true
+      },
+      "request_daily": {
+        "before": 2,
+        "after": 2,
+        "unchanged": true
+      },
+      "kvChangedKeys": [
+        "backgroundTaskState",
+        "logsNextId"
+      ],
+      "savedConfigurationUnchanged": true,
+      "expectedRuntimeCounterChanges": [
+        "backgroundTaskState",
+        "logsNextId"
+      ],
+      "schema": 15,
+      "integrity": "ok",
+      "accountKeyUnchanged": true,
+      "releaseDraftFilesUnchanged": [
+        "v3.0.5-aibuddy.1.zh-CN.md",
+        "v3.0.2-aibuddy.3.zh-CN.md",
+        "v3.0.3-aibuddy.1.zh-CN.md",
+        "drafts/pre-3.0.5/build.yml.txt",
+        "drafts/pre-3.0.5/publish-release.yml.txt"
+      ],
+      "health": "ok",
+      "newPid": 84567,
+      "servedParserMatchesSource": true
+    },
+    "browserPages": [
+      "用量",
+      "账号池",
+      "积分构成",
+      "签到中心",
+      "模型与档位",
+      "网络代理",
+      "网关 Key",
+      "接入文档",
+      "系统日志",
+      "运行日志",
+      "配置",
+      "任务中心"
+    ],
+    "browserStatus": "All selected and loaded; no route-not-found error; task history 6 rows and numeric pagination present; page console error array empty"
+  },
+  "boundaries": [
+    "No new manual provider tasks or model requests",
+    "GitHub commands in regression tests are all mocked; no actual release/upload",
+    "No commit, push, tag, Actions trigger or image publication",
+    "Existing automatic maintenance configuration remains active"
+  ],
+  "headUnchanged": "95a647a9c8f801b93805050551326e3568ac5250"
+}

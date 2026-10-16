@@ -76,6 +76,7 @@ export type DatabaseImportResult = {
   /** 恢复后的各表行数 */
   tables?: DatabaseTableStat[]
   /** 替换前自动建的安全备份文件名（{config_dir}/backups/ 下） */
+  warning?: string
   safetyBackup?: string
 }
 
@@ -408,6 +409,7 @@ export const CATEGORIES = [
  * 后端 `RouteStrategy::from_id` 把历史配置里的 `usage` 归到负载均衡。
  */
 export const ROUTE_STRATEGIES = [
+  { value: 'provider', label: t('家内轮询'), tip: t('提供商之间按优先级，同一提供商内轮流使用账号。') },
   {
     value: 'order',
     label: t('顺序优先'),

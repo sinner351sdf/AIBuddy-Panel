@@ -103,7 +103,11 @@ with tempfile.TemporaryDirectory(prefix='agent2api-task-center-') as tmp:
         proc=start();token=req('/api/panel/login?auth-mode=body','POST',{'username':'task-fixture','password':password})['data']['accessToken']
         req('/api/accounts','POST',{'provider':'workbuddy','account':{'uid':'fixture-relogin','nickname':'Changed Upstream Name'},'auth':{'accessToken':'new-fixture-token'}},token=token)
         with sqlite3.connect(home/'agent2api.db') as db:
-            record=json.loads(db.execute('SELECT data FROM accounts WHERE id=?',('user-fixture-relogin',)).fetchone()[0])
+            raw=db.execute('SELECT data FROM accounts WHERE id=?',('user-fixture-relogin',)).fetchone()[0]
+            check(raw.startswith('enc1:'),'account persisted without encryption')
+            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+            import base64
+            sealed=base64.b64decode(raw[5:]); record=json.loads(AESGCM((home/'account.key').read_bytes()).decrypt(sealed[:12],sealed[12:],None))
             check(record['name']=='Custom Name' and record['enabled'] is False and record['priority']==7,'relogin changed identity/preferences')
             check(record['notes']=='keep-note' and record['customExtension']=={'keep':True},'relogin lost custom fields')
             check(record['accessToken']=='new-fixture-token','relogin did not refresh credential')

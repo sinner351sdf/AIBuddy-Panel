@@ -40,6 +40,9 @@ services:
       AGENT2API_ANTIGRAVITY_CLIENT_ID: ${AGENT2API_ANTIGRAVITY_CLIENT_ID:-}
       AGENT2API_ANTIGRAVITY_CLIENT_SECRET: ${AGENT2API_ANTIGRAVITY_CLIENT_SECRET:-}
       # 可选：AGENT2API_VERBOSE / AGENT2API_ALLOW_NO_KEY / AGENT2API_PROXY_PORT
+      # 容器内更新入口（面板「设置 → 软件更新」一键下载并替换）：镜像里默认 1 开启，
+      # 置 0 关闭。注意它替换的是容器里的文件，compose 里的镜像标签不变 —— 见 README「升级」。
+      AGENT2API_SELF_UPDATE: ${AGENT2API_SELF_UPDATE:-0}
     volumes:
       # 全部状态（SQLite 库、配置、日志）都在这一个卷里
       - ./data:/data

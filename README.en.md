@@ -375,3 +375,8 @@ One caveat: the LICENSE file carries a **Usage Notice** after the MIT text, whos
   </picture>
 </a>
 
+
+
+## Customized 3.0.5 and beta integration
+
+See the [integration record](docs/aibuddy-port/upstream-3.0.5-beta/README.md) for pinned snapshots, preserved local behavior, file decisions and validation. Back up account encryption keys separately. Auto-continuation and container self-update remain disabled by default.

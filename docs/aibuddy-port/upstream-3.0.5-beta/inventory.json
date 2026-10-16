@@ -1,0 +1,1766 @@
+[
+  {
+    "path": ".env.example",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留本地 OAuth 与更新源；补齐库外密钥和默认关闭的自更新说明"
+  },
+  {
+    "path": ".github/workflows/build.yml",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "构建双架构资产与一致性检查，保留本仓库与默认关闭自更新"
+  },
+  {
+    "path": ".github/workflows/frontend-artifacts.yml",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "Dockerfile",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "构建双架构资产与一致性检查，保留本仓库与默认关闭自更新"
+  },
+  {
+    "path": "README.en.md",
+    "initialMerge": "retain-local",
+    "source": "3.0.5",
+    "decision": "保留",
+    "reason": "保留本地英文品牌与部署说明；不引入上游公开镜像配置"
+  },
+  {
+    "path": "README.md",
+    "initialMerge": "retain-local",
+    "source": "3.0.5",
+    "decision": "保留",
+    "reason": "保留本地部署、身份与私有镜像说明；新功能详见本次整合说明"
+  },
+  {
+    "path": "agent.md",
+    "initialMerge": "retain-local",
+    "source": "3.0.5 + beta",
+    "decision": "保留",
+    "reason": "保留本地项目约定，不用上游开发指令覆盖"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/accounts.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/checkin.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/models.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/proxies.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/report.json",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/requests.json",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/settings.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/update.json",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/accounts.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/checkin.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/models.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/proxies.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/report.json",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/requests.json",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/settings.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/update.json",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/accounts.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/checkin.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/models.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/proxies.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/report.json",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/requests.json",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/settings.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/update.json",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/accounts.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/checkin.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/models.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/proxies.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/report.json",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/requests.json",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/settings.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/update.json",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/accounts.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/checkin.json",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/models.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/proxies.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/report.json",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/requests.json",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/settings.json",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/update.json",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/i18n/scan.mjs",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "合并新增词条，保留定制界面词义，词典由构建生成"
+  },
+  {
+    "path": "desktop-tauri/package.json",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/Cargo.lock",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/Cargo.toml",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/nsis-hooks.nsh",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/Cargo.toml",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/bin/agent2api-server.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/access.rs",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/account_bootstrap.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/accounts.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/auto_continue.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/billing.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/chat.rs",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/checkin_center.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/config_api.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/mod.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/model_test.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/panel.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/pipeline.rs",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/protocol.rs",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/proxies.rs",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/routing_api.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/stats_api.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/subscriptions.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/update.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/config/mod.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/config/parse.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/config/types.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/sql.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/store_admin.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/store_view.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/api_keys.rs",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合加密与历史格式，保留额度、有效期、限制及错误密钥拒绝鉴权"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/billing/activity.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/billing/checkin.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/billing/commodity.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5 + beta",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/billing/request.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/billing/usage.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5 + beta",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/checkin_records.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/client.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/crypto.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/custom_providers.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/debug_traffic.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/egress.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/legacy_api_key.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/mod.rs",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/protocol/antigravity_outbound.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/protocol/antigravity_stream.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/autoclaw/balance.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5 + beta",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/codearts/balance.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5 + beta",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/custom/emulation.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/custom/forward.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/loomy/balance.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5 + beta",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/officeace/subscription.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5 + beta",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/qoder/balance.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5 + beta",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/raccoon/balance.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5 + beta",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/trae/credentials.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5 + beta",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/trae/refresh.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5 + beta",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/workbuddy/adapter.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5 + beta",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/activation.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/balance.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5 + beta",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/mod.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/proxy_pool.rs",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/proxy_settings.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/routing.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/sub_kernel/download.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/sub_kernel/mod.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/sub_kernel/runtime.rs",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/subscriptions.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/update/check.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/update/mod.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/update/selfupdate.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/update/token.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/update/version.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/aggregate.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/continuation.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/mod.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/payload.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/provider_loop.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5 + beta",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/provider_loop/tests.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5 + beta",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/refusal.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/rotate.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/route_state.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/sse.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/usage.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/db/backup.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留任务/历史身份迁移、正文及清理策略，追加版本并适配加密恢复"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/db/migrate/requests.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/db/mod.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留任务/历史身份迁移、正文及清理策略，追加版本并适配加密恢复"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/db/schema.rs",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留任务/历史身份迁移、正文及清理策略，追加版本并适配加密恢复"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/errors.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/http.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/logs_store/mod.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/mod.rs",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats.rs",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats/aggregate.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats/backfill.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats/clock.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats/daily.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats/legacy.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats/maintenance.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats/record.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats/report.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats/sql.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/static_files.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/web_shim.rs",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/src/backend.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/src/bridge.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/src/commands.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/src/legacy_install.rs",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/src/lib.rs",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/tauri.conf.json",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-credit-detail.tsx",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5 + beta",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-domain.ts",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5 + beta",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-page.tsx",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-panels.tsx",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5 + beta",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-queue-drag.ts",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-shared.ts",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/checkin-page.tsx",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/checkin-records-tab.tsx",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/checkin-state.ts",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/model-test-dialog.tsx",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/models-custom-source.ts",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/models-fetch-modal.tsx",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/models-page.tsx",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/models-panel-state.ts",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/proxies-columns.ts",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/proxies-dialogs.tsx",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/proxies-kernel-dialog.tsx",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/proxies-page.tsx",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/proxies-state.ts",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/proxies-sub-state.ts",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/proxies-sub-view.tsx",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/report-charts.ts",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/report-page.tsx",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/request-detail.tsx",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/requests-page.tsx",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/settings-model.ts",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/settings-page.tsx",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/settings-state.ts",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/update-modal.tsx",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/update-panel.tsx",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "整合新增行为，保留 Base UI/shadcn 组件及现有交互"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/update-shared.ts",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/ui/app.js",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留本地界面外壳、品牌及主题，适配新增能力"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/app-icon-180.png",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留本地界面外壳、品牌及主题，适配新增能力"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/app-icon-192.png",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留本地界面外壳、品牌及主题，适配新增能力"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/app-icon-512.png",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留本地界面外壳、品牌及主题，适配新增能力"
+  },
+  {
+    "path": "desktop-tauri/ui/conversation-preview.js",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留本地界面外壳、品牌及主题，适配新增能力"
+  },
+  {
+    "path": "desktop-tauri/ui/css/layout.css",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留本地界面外壳、品牌及主题，适配新增能力"
+  },
+  {
+    "path": "desktop-tauri/ui/css/mobile.css",
+    "initialMerge": "new-conflict",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留本地 shadcn 抽屉/外壳，按需适配上游内容区响应式规则"
+  },
+  {
+    "path": "desktop-tauri/ui/css/page-gateway.css",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留本地界面外壳、品牌及主题，适配新增能力"
+  },
+  {
+    "path": "desktop-tauri/ui/css/page-report.css",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留本地界面外壳、品牌及主题，适配新增能力"
+  },
+  {
+    "path": "desktop-tauri/ui/css/page-requests.css",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留本地界面外壳、品牌及主题，适配新增能力"
+  },
+  {
+    "path": "desktop-tauri/ui/css/page-settings.css",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留本地界面外壳、品牌及主题，适配新增能力"
+  },
+  {
+    "path": "desktop-tauri/ui/css/tokens.css",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留本地界面外壳、品牌及主题，适配新增能力"
+  },
+  {
+    "path": "desktop-tauri/ui/css/tooltip.css",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留本地界面外壳、品牌及主题，适配新增能力"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/accounts.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/checkin.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/models.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/proxies.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/report.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/requests.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/settings.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/update.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/accounts.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/checkin.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/models.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/proxies.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/report.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/requests.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/settings.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/accounts.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/checkin.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/models.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/proxies.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/report.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/requests.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/settings.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/accounts.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/checkin.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/models.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/proxies.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/report.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/requests.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/settings.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/accounts.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/checkin.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/models.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/proxies.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/report.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/requests.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/settings.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/update.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/icons.js",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留本地界面外壳、品牌及主题，适配新增能力"
+  },
+  {
+    "path": "desktop-tauri/ui/index.html",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留本地界面外壳、品牌及主题，适配新增能力"
+  },
+  {
+    "path": "desktop-tauri/ui/islands/ui.css",
+    "initialMerge": "regenerate",
+    "source": "3.0.5",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/islands/ui.js",
+    "initialMerge": "regenerate",
+    "source": "3.0.5 + beta",
+    "decision": "重新生成",
+    "reason": "从整合后的组件及多语言源码构建，禁止拼接压缩产物"
+  },
+  {
+    "path": "desktop-tauri/ui/login.html",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留本地界面外壳、品牌及主题，适配新增能力"
+  },
+  {
+    "path": "desktop-tauri/ui/manifest.webmanifest",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/ui/mobile-columns.js",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/ui/preset-providers.js",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/ui/table-columns.js",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "desktop-tauri/ui/tooltip.js",
+    "initialMerge": "adapt-conflicts",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "保留本地界面外壳、品牌及主题，适配新增能力"
+  },
+  {
+    "path": "desktop-tauri/ui/units.js",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "docker-compose.yml",
+    "initialMerge": "auto-merge-review",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  },
+  {
+    "path": "package.json",
+    "initialMerge": "apply-upstream",
+    "source": "3.0.5",
+    "decision": "直接应用",
+    "reason": "固定快照内容；无本地业务差异"
+  },
+  {
+    "path": "scripts/release.sh",
+    "initialMerge": "retain-local",
+    "source": "3.0.5",
+    "decision": "适配",
+    "reason": "三方内容整合；保留本地鉴权、历史归属、记账及运行行为"
+  }
+]

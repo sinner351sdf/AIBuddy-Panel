@@ -10,7 +10,7 @@ type GroupId = 'pool' | 'forward' | 'ops'
 const groups = [
   { id: 'pool' as const, label: '账号与用量', icon: LayoutGrid, pages: [
     { id: 'overview', label: '用量', icon: LayoutGrid }, { id: 'accounts', label: '账号池', icon: Users },
-    { id: 'credits', label: '积分构成', icon: Blocks }, { id: 'checkin', label: '签到中心', icon: CalendarCheck },
+    { id: 'credits', label: '积分构成', icon: Blocks }, { id: 'checkin', label: '任务中心', icon: CalendarCheck },
   ] },
   { id: 'forward' as const, label: '模型与接入', icon: Workflow, pages: [
     { id: 'gateway', label: '模型与档位', icon: Workflow }, { id: 'proxies', label: '网络代理', icon: Globe },
@@ -18,7 +18,7 @@ const groups = [
   ] },
   { id: 'ops' as const, label: '运维', icon: Server, pages: [
     { id: 'requests', label: '运行日志', icon: List }, { id: 'logs', label: '系统日志', icon: FileText },
-    { id: 'tasks', label: '任务中心', icon: Activity }, { id: 'settings', label: '配置', icon: Settings },
+    { id: 'tasks', label: '系统维护', icon: Activity }, { id: 'settings', label: '配置', icon: Settings },
   ] },
 ]
 function stored(key: string) { try { return localStorage.getItem(key) } catch { return null } }

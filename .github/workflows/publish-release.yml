@@ -1,34 +1,35 @@
 name: publish-release
 
-# 从已成功的安装包构建创建本次正式 Release；不触发 Docker 发布。
-# 重跑只更新同一发行记录，不移动 tag，也不使用私有 GHCR 凭据。
+# 复用安装包构建，Windows、macOS 与 Linux 双架构均成功后创建正式 Release；不触发 Docker 发布。
+# tag 由 GITHUB_TOKEN 创建，避免触发其它 tag 工作流；重跑不会移动已有 tag。
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/publish-release.yml
-      - docs/releases/v3.0.2-aibuddy.3.zh-CN.md
 
 permissions:
   contents: write
   actions: read
 
 concurrency:
-  group: publish-release-v3.0.2-aibuddy.3
+  group: publish-release-v3.0.5-aibuddy.1
   cancel-in-progress: false
 
 jobs:
+  build:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build.yml
+
   publish:
+    needs: build
     if: github.repository == 'sinner351sdf/AIBuddy-Panel'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
-      TAG: v3.0.2-aibuddy.3
-      BUILD_RUN_ID: '38419693209'
-      EXPECTED_SHA: 360cff421cd4a6c01a50e64370823c11afdd23b5
-      NOTES_FILE: docs/releases/v3.0.2-aibuddy.3.zh-CN.md
-      RELEASE_TITLE: 'AIBuddy Panel 3.0.2 · 上游同步与账号管理优化'
+      TAG: v3.0.5-aibuddy.1
+      BUILD_RUN_ID: ${{ github.run_id }}
+      EXPECTED_SHA: ${{ github.sha }}
+      NOTES_FILE: docs/releases/v3.0.5-aibuddy.1.zh-CN.md
+      RELEASE_TITLE: 'AIBuddy Panel 3.0.5 · 安全存储、路由与代理整合（含 beta 增量）'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -36,7 +37,9 @@ jobs:
 
       - name: 核对 tag 与安装包来源
         run: |
-          test "$(git rev-parse "$TAG^{commit}")" = "$EXPECTED_SHA"
+          if git rev-parse --verify "refs/tags/$TAG" >/dev/null 2>&1; then
+            test "$(git rev-parse "$TAG^{commit}")" = "$EXPECTED_SHA"
+          fi
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID" > "$RUNNER_TEMP/release-build.json"
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID/artifacts" > "$RUNNER_TEMP/release-artifacts.json"
           python3 - <<'PY'
@@ -44,20 +47,28 @@ jobs:
           from pathlib import Path
           temp = Path(os.environ['RUNNER_TEMP'])
           run = json.loads((temp / 'release-build.json').read_text())
-          assert run['conclusion'] == 'success' and run['name'] == 'build'
-          assert run['head_sha'] == os.environ['EXPECTED_SHA'] and run['head_branch'] == os.environ['TAG']
+          assert run['path'] == '.github/workflows/publish-release.yml'
+          assert run['head_sha'] == os.environ['EXPECTED_SHA'] and run['head_branch'] == 'main'
+          import re
+          version = json.loads(Path('desktop-tauri/src-tauri/tauri.conf.json').read_text())['version']
+          assert os.environ['TAG'] == f'v{version}-aibuddy.1'
+          for package in ('package.json', 'desktop-tauri/package.json'):
+              assert json.loads(Path(package).read_text())['version'] == version
+          for package in ('desktop-tauri/src-tauri/Cargo.toml', 'desktop-tauri/src-tauri/server/Cargo.toml'):
+              assert re.search(r'^version = "([^"]+)"', Path(package).read_text(), re.M)[1] == version
           artifacts = json.loads((temp / 'release-artifacts.json').read_text())['artifacts']
-          for name in ('windows-nsis', 'macos-universal'):
+          for name in ('windows-nsis', 'macos-universal', 'linux-server-amd64', 'linux-server-arm64'):
               matches = [a for a in artifacts if a['name'] == name and not a['expired']]
-              assert len(matches) == 1 and matches[0]['workflow_run']['head_sha'] == os.environ['EXPECTED_SHA']
+              assert len(matches) == 1 and matches[0]['size_in_bytes'] > 0
+              assert matches[0]['workflow_run']['head_sha'] == os.environ['EXPECTED_SHA']
           notes = Path(os.environ['NOTES_FILE']).read_text()
           assert 1000 < len(notes) <= 4000, '发布说明必须完整且不超过面板显示上限'
-          print('tag、构建提交、两个安装包及发布说明已核对。')
+          print('tag、构建提交、四个平台产物及发布说明已核对。')
           PY
 
       - name: 下载成功构建的安装包
         run: |
-          gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --name windows-nsis --name macos-universal --dir "$RUNNER_TEMP/release-assets"
+          gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --name windows-nsis --name macos-universal --name linux-server-amd64 --name linux-server-arm64 --dir "$RUNNER_TEMP/release-assets"
 
       - name: 挂载安装包并发布正式 Release
         run: |
@@ -65,10 +76,27 @@ jobs:
           windows=("$RUNNER_TEMP"/release-assets/windows-nsis/*.exe)
           macos=("$RUNNER_TEMP"/release-assets/macos-universal/*.dmg)
           test "${#windows[@]}" -eq 1 && test "${#macos[@]}" -eq 1
+          python3 - <<'PY'
+          import hashlib, os
+          from pathlib import Path
+          directory = Path(os.environ['RUNNER_TEMP']) / 'release-assets'
+          files = sorted(directory.glob('windows-nsis/*.exe')) + sorted(directory.glob('macos-universal/*.dmg')) + sorted(directory.glob('linux-server-*/*.tar.gz'))
+          for arch in ('amd64', 'arm64'):
+              asset = directory / f'linux-server-{arch}' / f'agent2api-server-linux-{arch}.tar.gz'
+              expected = Path(str(asset) + '.sha256').read_text().split()[0]
+              assert hashlib.sha256(asset.read_bytes()).hexdigest() == expected
+          with (directory / 'SHA256SUMS.txt').open('w') as output:
+              for path in files:
+                  output.write(f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n')
+          PY
+          if ! git rev-parse --verify "refs/tags/$TAG" >/dev/null 2>&1; then
+            git tag "$TAG" "$EXPECTED_SHA"
+            git push origin "refs/tags/$TAG"
+          fi
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "$RELEASE_TITLE" --notes-file "$NOTES_FILE"
           fi
-          gh release upload "$TAG" "${windows[0]}" "${macos[0]}" --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$TAG" "${windows[0]}" "${macos[0]}" "$RUNNER_TEMP"/release-assets/linux-server-*/* "$RUNNER_TEMP/release-assets/SHA256SUMS.txt" --repo "$GITHUB_REPOSITORY" --clobber
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest --title "$RELEASE_TITLE" --notes-file "$NOTES_FILE"
 
       - name: 验证 latest 和发布说明
@@ -82,8 +110,10 @@ jobs:
           assert release['body'] == Path(os.environ['NOTES_FILE']).read_text()
           names = [a['name'] for a in release['assets']]
           assert sum(n.endswith('.exe') for n in names) == 1 and sum(n.endswith('.dmg') for n in names) == 1
+          assert all(f'agent2api-server-linux-{arch}.tar.gz{suffix}' in names for arch in ('amd64','arm64') for suffix in ('','.sha256'))
+          assert 'SHA256SUMS.txt' in names and all(a['size'] > 0 for a in release['assets'])
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
               summary.write('正式 Release 已发布：' + release['html_url'] + '\n')
-              summary.write('latest 接口、更新日志、Windows 与 macOS 附件验证通过。\n')
+              summary.write('latest 接口、更新日志、Windows、macOS 与 Linux 双架构附件验证通过。\n')
           print(release['html_url'])
           PY

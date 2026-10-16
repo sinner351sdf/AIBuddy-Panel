@@ -48,6 +48,10 @@ pub mod accounts_usage;
 pub mod audit_api;
 pub mod sql_backup_api;
 pub mod auto_checkin;
+// 长度截断的自动续写（开关 + 轮数上限）：`GET/PUT /api/auto-continue`。
+// 判据与执行链在 `core::upstream::continuation`，这里只是那两个数的读写入口；
+// 独立成文件而不是塞进 config_api —— 理由见该模块头。
+pub mod auto_continue;
 pub mod billing;
 pub mod backup_api;
 pub mod captcha;

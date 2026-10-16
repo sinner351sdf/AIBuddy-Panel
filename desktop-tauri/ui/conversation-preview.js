@@ -47,13 +47,56 @@
     const role = String(message.role || 'user');
     return { role: ['system', 'developer', 'assistant', 'tool'].includes(role) ? role : 'user', ...parts, toolCallId: String(message.tool_call_id || '') };
   }
+  // Responses items are adapted to the existing Message/Trace data contract.
+  // Keep tool results as separate messages so multi-round history stays ordered.
+  function parseResponseItem(item) {
+    if (!isPlainObject(item)) return null;
+    if (item.type === 'function_call' || item.type === 'custom_tool_call') {
+      return { role: 'assistant', ...newParts(), calls: [{ name: String(item.name || 'tool'), args: prettyJson(item.arguments ?? item.input ?? ''), id: String(item.call_id || item.id || '') }] };
+    }
+    if (item.type === 'function_call_output' || item.type === 'custom_tool_call_output') {
+      const content = isPlainObject(item.output) ? prettyJson(item.output) : item.output;
+      return parseMessage({ role: 'tool', content, tool_call_id: item.call_id });
+    }
+    if (item.type === 'reasoning') {
+      const summary = Array.isArray(item.summary) ? item.summary : [];
+      const content = summary.length ? summary : Array.isArray(item.content) ? item.content : [];
+      const thinking = content.filter(isPlainObject).map(part => typeof part.text === 'string' ? part.text : '').filter(Boolean).join('\n');
+      return thinking ? { role: 'assistant', ...newParts(), thinking } : null;
+    }
+    if (item.type === 'message' || item.role) {
+      const parsed = parseMessage({ role: 'assistant', ...item });
+      // A refusal is readable content too, rather than an unexplained empty preview.
+      const refusal = Array.isArray(item.content) ? item.content.filter(part => isPlainObject(part) && part.type === 'refusal' && typeof part.refusal === 'string').map(part => part.refusal).join('\n') : '';
+      return refusal ? { role: String(item.role || 'assistant'), ...newParts(), ...parsed, text: append(parsed?.text, refusal) } : parsed;
+    }
+    return null;
+  }
+  function mergeParts(target, source) {
+    if (!source) return;
+    target.text = append(target.text, source.text);
+    target.thinking = append(target.thinking, source.thinking);
+    for (const key of ['images', 'calls', 'results']) target[key].push(...source[key]);
+  }
+  function responseParts(body) {
+    const parts = newParts();
+    for (const item of Array.isArray(body.output) ? body.output : []) mergeParts(parts, parseResponseItem(item));
+    if (!parts.text && typeof body.output_text === 'string') parts.text = body.output_text;
+    return parts;
+  }
   function parseRequest(source) {
     let body;
     try { body = JSON.parse(source); } catch { return null; }
-    if (!isPlainObject(body) || !Array.isArray(body.messages)) return null;
+    if (!isPlainObject(body)) return null;
     const messages = [];
-    if (body.system) { const system = parseMessage({ role: 'system', content: body.system }); if (system) messages.push(system); }
-    for (const message of body.messages) { const parsed = parseMessage(message); if (parsed) messages.push(parsed); }
+    if (Array.isArray(body.messages)) {
+      if (body.system) { const system = parseMessage({ role: 'system', content: body.system }); if (system) messages.push(system); }
+      for (const message of body.messages) { const parsed = parseMessage(message); if (parsed) messages.push(parsed); }
+    } else if (typeof body.input === 'string' || Array.isArray(body.input)) {
+      if (typeof body.instructions === 'string') { const system = parseMessage({ role: 'system', content: body.instructions }); if (system) messages.push(system); }
+      const input = typeof body.input === 'string' ? [{ role: 'user', content: body.input }] : body.input;
+      for (const item of input) { const parsed = parseResponseItem(item); if (parsed) messages.push(parsed); }
+    }
     return messages.length ? messages : null;
   }
   function sseFrames(raw) {
@@ -61,10 +104,52 @@
   }
   function parseSseResponse(source) {
     const parts = newParts(); const calls = new Map(); let errorText = '';
+    const responseItems = new Map(); let completedResponse = null;
     for (const frame of sseFrames(source)) {
       if (frame.trim() === '[DONE]') continue;
       let parsed; try { parsed = JSON.parse(frame); } catch { continue; }
       if (!isPlainObject(parsed)) continue;
+      // Update each Responses output item in place. Final snapshots replace deltas,
+      // so output_text.done/item.done/completed never duplicate streamed content.
+      const type = String(parsed.type || '');
+      if (type.startsWith('response.')) {
+        if (['response.completed', 'response.done', 'response.incomplete', 'response.failed'].includes(type) && isPlainObject(parsed.response)) {
+          if ((Array.isArray(parsed.response.output) && parsed.response.output.length) || typeof parsed.response.output_text === 'string') completedResponse = parsed.response;
+          if (parsed.response.error) errorText = String(parsed.response.error.message || parsed.response.error);
+        }
+        const known = [...responseItems.entries()].find(([, item]) => parsed.item_id && item.id === parsed.item_id)?.[0];
+        const index = Number.isInteger(parsed.output_index) && parsed.output_index >= 0 ? parsed.output_index : known ?? 0;
+        if (['response.output_item.added', 'response.output_item.done'].includes(type) && isPlainObject(parsed.item)) {
+          responseItems.set(index, { ...responseItems.get(index), ...parsed.item });
+        } else if (/^response\.(content_part|reasoning_summary_part)\.(added|done)$/.test(type) && isPlainObject(parsed.part)) {
+          const reasoning = type.includes('reasoning'); const key = reasoning ? 'summary' : 'content';
+          const item = responseItems.get(index) || { type: reasoning ? 'reasoning' : 'message', role: 'assistant' };
+          const candidate = reasoning ? parsed.summary_index : parsed.content_index;
+          const partIndex = Number.isInteger(candidate) && candidate >= 0 && candidate < 10000 ? candidate : 0;
+          if (!Array.isArray(item[key])) item[key] = [];
+          item[key][partIndex] = parsed.part; responseItems.set(index, item);
+        } else if (/^response\.(output_text|refusal|reasoning_summary_text|reasoning_text)\.(delta|done)$/.test(type)) {
+          const reasoning = type.includes('reasoning');
+          const item = responseItems.get(index) || { type: reasoning ? 'reasoning' : 'message', role: 'assistant' };
+          const key = reasoning ? 'summary' : 'content';
+          if (!Array.isArray(item[key])) item[key] = [];
+          const candidate = reasoning ? parsed.summary_index ?? parsed.content_index ?? 0 : parsed.content_index ?? 0;
+          const partIndex = Number.isInteger(candidate) && candidate >= 0 && candidate < 10000 ? candidate : 0;
+          const refusal = type.includes('refusal'); const field = refusal ? 'refusal' : 'text';
+          const part = item[key][partIndex] || { type: refusal ? 'refusal' : reasoning ? 'summary_text' : 'output_text' };
+          if (type.endsWith('.delta') && typeof parsed.delta === 'string') part[field] = (part[field] || '') + parsed.delta;
+          if (type.endsWith('.done') && typeof parsed[field] === 'string') part[field] = parsed[field];
+          item[key][partIndex] = part; responseItems.set(index, item);
+        } else if (/^response\.(function_call_arguments|custom_tool_call_input)\.(delta|done)$/.test(type)) {
+          const custom = type.includes('custom_tool'); const field = custom ? 'input' : 'arguments';
+          const item = responseItems.get(index) || { type: custom ? 'custom_tool_call' : 'function_call' };
+          if (type.endsWith('.delta') && typeof parsed.delta === 'string') item[field] = (item[field] || '') + parsed.delta;
+          if (type.endsWith('.done') && typeof parsed[field] === 'string') item[field] = parsed[field];
+          if (parsed.name) item.name = parsed.name;
+          if (parsed.item_id) item.id = parsed.item_id;
+          responseItems.set(index, item);
+        }
+      }
       const choice = Array.isArray(parsed.choices) ? parsed.choices[0] : null;
       const delta = isPlainObject(choice?.delta) ? choice.delta : null;
       if (delta) {
@@ -97,14 +182,20 @@
         }
       }
       if (parsed.error && !errorText) errorText = String(isPlainObject(parsed.error) ? parsed.error.message || t('上游返回错误') : parsed.error);
+      if (type === 'error' && !errorText && typeof parsed.message === 'string') errorText = parsed.message;
     }
     parts.calls.push(...[...calls.values()].map(call => ({ name: call.name || 'tool', args: prettyJson(call.args || call.input || ''), id: call.id })));
+    mergeParts(parts, responseParts(completedResponse || { output: [...responseItems.entries()].sort(([a], [b]) => a - b).map(([, item]) => item) }));
     return hasParts(parts) || errorText ? { role: 'assistant', ...parts, errorText } : null;
   }
   function parseJsonResponse(source) {
     let body; try { body = JSON.parse(source); } catch { return null; }
     if (!isPlainObject(body)) return null;
     const errorText = body.error ? String(isPlainObject(body.error) ? body.error.message || t('上游返回错误') : body.error) : '';
+    if (Array.isArray(body.output) || typeof body.output_text === 'string') {
+      const parts = responseParts(body);
+      return hasParts(parts) || errorText ? { role: 'assistant', ...parts, errorText } : null;
+    }
     const message = body.type === 'message' ? body : Array.isArray(body.choices) ? body.choices[0]?.message : null;
     const parsed = parseMessage(message);
     return parsed || errorText ? { role: 'assistant', ...newParts(), ...parsed, errorText } : null;

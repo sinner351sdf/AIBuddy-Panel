@@ -1,0 +1,50 @@
+{
+  "rust": {
+    "passed": 654,
+    "ignored": 7,
+    "failed": 0,
+    "log": "/private/tmp/agent2api-305-rust-tests-final.log"
+  },
+  "javascript": {
+    "scripts": 22,
+    "failed": 0,
+    "logPattern": "/private/tmp/305-last-test-*.mjs.log"
+  },
+  "container": {
+    "assertions": 65,
+    "architectures": [
+      "amd64",
+      "arm64"
+    ],
+    "log": "/private/tmp/agent2api-305-container-test.log"
+  },
+  "frontend": {
+    "reproducibleFiles": 88,
+    "log": "/private/tmp/agent2api-305-artifact-check.log"
+  },
+  "linuxAssets": [
+    {
+      "name": "agent2api-server-linux-amd64.tar.gz",
+      "bytes": 8795824,
+      "sha256": "566feca439f6712a80b09f972c883c92bef9831e2d9c8bef86746ada8718554a"
+    },
+    {
+      "name": "agent2api-server-linux-arm64.tar.gz",
+      "bytes": 8414538,
+      "sha256": "106b547a643c4140761d40a22e3db908b5001eb5013d6c6fa25e7bc089fb082c"
+    }
+  ],
+  "integration": {
+    "assertions": 148,
+    "log": "/private/tmp/agent2api-305-integration-acceptance-final.log",
+    "cases": [
+      "schema lineage matrix",
+      "interrupted migration recovery",
+      "encrypted/legacy backup",
+      "missing/wrong key",
+      "persistent sessions",
+      "preserved history/retention",
+      "custom date totals"
+    ]
+  }
+}

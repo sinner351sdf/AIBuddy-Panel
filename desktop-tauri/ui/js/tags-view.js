@@ -17,14 +17,14 @@
   var LABELS = {
     overview: '用量',
     accounts: '账号池',
-    checkin: '签到中心',
+    checkin: '任务中心',
     credits: '积分构成',
     gateway: '模型与档位',
     proxies: '网络代理',
     keys: '网关 Key',
     docs: '接入文档',
     logs: '系统日志',
-    tasks: '任务中心',
+    tasks: '系统维护',
     requests: '运行日志',
     settings: '配置',
   };

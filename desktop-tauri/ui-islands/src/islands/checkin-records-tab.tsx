@@ -296,7 +296,7 @@ function RecordsTab({ active = true }: { active?: boolean }): React.ReactElement
   // 每次进入标签以及筛选 / 档位 / 每页条数 / 翻页变化时重拉；隐藏时不取数。
   React.useEffect(() => { if (active) void load({ page, size, range, filters }) }, [active, load, page, size, range, filters])
 
-  // 总数变小（清空 / 保留期裁掉一批）导致当前页越界时夹回最后一页 —— 否则会停在一片空白上
+  // 总数变小（清空 / 按筛选删除一批）导致当前页越界时夹回最后一页 —— 否则会停在一片空白上
   React.useEffect(() => { if (page > pageCount) setPage(pageCount) }, [page, pageCount])
 
   /**

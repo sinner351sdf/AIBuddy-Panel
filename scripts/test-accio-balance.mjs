@@ -58,4 +58,8 @@ assert.equal(usageSummary(undefined).kind, 'muted')
 assert.equal(usageSummary(null).text, '查询中…')
 assert.equal(usagePool({wallets: [{total: 700, balance: 698, remainingPercent: 99.7}]}).percent, 99.7)
 assert.equal(usagePool({plans: [{name: '套餐', entitlements: [{totalUnits: 100, usedUnits: 20}]}]}).percent, 80)
-console.log(`PASS: ${cases + 11} balance scenarios (Accio, legacy cache, unknown/zero, other providers and errors)`)
+for (const balance of [0, 42]) {
+  const result = usageSummary({available:null,unit:'%',wallets:[{unit:'积分',balance}]})
+  assert.equal(result.text, `可用 ${balance} 积分`); assert.equal(result.kind,'ok')
+}
+console.log(`PASS: ${cases + 13} balance scenarios (Accio, legacy cache, unknown/zero, other providers and errors)`)
