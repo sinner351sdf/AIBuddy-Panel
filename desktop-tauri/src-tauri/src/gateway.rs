@@ -194,6 +194,8 @@ fn read_api_key() -> Option<String> {
         .next()
 }
 
+
+
 fn client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .timeout(Duration::from_millis(REQUEST_TIMEOUT_MS))

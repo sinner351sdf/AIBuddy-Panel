@@ -11,7 +11,6 @@ use serde_json::{json, Value};
 use crate::server::core::auth_http::{send_raw, ApiResponse};
 use crate::server::core::proxies::{resolve_account_proxy, ProxyResolution, ResolvedProxy};
 use crate::server::errors::GatewayError;
-use crate::server::logging;
 
 use super::credentials::{self, Credentials};
 use super::endpoints::{self, Region};
@@ -59,7 +58,14 @@ pub async fn get_with_token(
             pairs.append_pair("accessToken", token);
         }
     }
-    request("GET", url.as_str(), None, &endpoints::api_headers(region), proxy).await
+    request(
+        "GET",
+        url.as_str(),
+        None,
+        &endpoints::api_headers(region),
+        proxy,
+    )
+    .await
 }
 
 /// POST + JSON body（业务接口的约定之二）
@@ -70,11 +76,80 @@ pub async fn post_json(
     proxy: Option<&ResolvedProxy>,
 ) -> Result<ApiResponse, GatewayError> {
     let url = format!("{}{}", endpoints::gateway_base(), path);
-    request("POST", &url, Some(body), &endpoints::api_headers(region), proxy).await
+    request(
+        "POST",
+        &url,
+        Some(body),
+        &endpoints::api_headers(region),
+        proxy,
+    )
+    .await
+}
+
+pub fn session_headers(credentials: &Credentials) -> Vec<(String, String)> {
+    let mut headers = endpoints::api_headers(credentials.region);
+    headers.push(("x-deploy-target".into(), "desktop".into()));
+    for (key, value) in [
+        ("x-team-id", credentials.team_id.as_str()),
+        ("x-accio-route-region", credentials.route_region.as_str()),
+        ("x-client-timezone", credentials.client_timezone.as_str()),
+    ] {
+        if !value.is_empty() {
+            headers.push((key.into(), value.into()));
+        }
+    }
+    headers
+}
+
+pub async fn post_for_session(
+    credentials: &Credentials,
+    path: &str,
+    body: &Value,
+    proxy: Option<&ResolvedProxy>,
+) -> Result<ApiResponse, GatewayError> {
+    request(
+        "POST",
+        &format!("{}{}", endpoints::gateway_base(), path),
+        Some(body),
+        &session_headers(credentials),
+        proxy,
+    )
+    .await
+}
+
+pub async fn get_for_session(
+    credentials: &Credentials,
+    path: &str,
+    proxy: Option<&ResolvedProxy>,
+) -> Result<ApiResponse, GatewayError> {
+    let mut url = url::Url::parse(&format!("{}{}", endpoints::gateway_base(), path))
+        .map_err(|_| GatewayError::with_status(500, "Accio 请求地址无效"))?;
+    url.query_pairs_mut()
+        .append_pair("accessToken", &credentials.access_token);
+    request(
+        "GET",
+        url.as_str(),
+        None,
+        &session_headers(credentials),
+        proxy,
+    )
+    .await
 }
 
 /// 把响应翻成「有效 JSON 对象」，失败时给出人话。
 pub fn payload(response: ApiResponse, action: &str) -> Result<Value, GatewayError> {
+    if let Some(value) = response.payload.as_ref() {
+        let code = super::adk_error::error_code(value);
+        let failed = value.get("success").and_then(Value::as_bool) == Some(false)
+            || (!code.is_empty() && !matches!(code.as_str(), "0" | "200" | "SUCCESS" | "success"));
+        if failed || !response.ok {
+            return Err(super::adk_error::from_payload(
+                response.status,
+                value,
+                "上游业务请求被拒绝",
+            ));
+        }
+    }
     if !response.ok {
         let hint = match response.status {
             401 | 403 => "，请确认凭证有效或重新登录",
@@ -86,10 +161,9 @@ pub fn payload(response: ApiResponse, action: &str) -> Result<Value, GatewayErro
             format!("Accio {action}失败（HTTP {}）{hint}", response.status),
         ));
     }
-    response
-        .payload
-        .filter(Value::is_object)
-        .ok_or_else(|| GatewayError::with_status(502, format!("Accio {action}未返回有效 JSON 对象")))
+    response.payload.filter(Value::is_object).ok_or_else(|| {
+        GatewayError::with_status(502, format!("Accio {action}未返回有效 JSON 对象"))
+    })
 }
 
 /// 账号级出口代理（解析失败按 400 报，不静默直连）
@@ -99,20 +173,6 @@ pub fn account_proxy(record: &Value) -> Result<Option<ResolvedProxy>, GatewayErr
         Some(ProxyResolution::Failed(reason)) => Err(GatewayError::with_status(400, reason)),
         None => Ok(None),
     }
-}
-
-/// 查用户资料（`GET /api/auth/userinfo?accessToken=…`）。
-///
-/// 上游把资料放在 `data` 里还是顶层，两种形态都见过（桌面端读的是
-/// `data.user` / 顶层混合），这里都接受。
-pub async fn fetch_profile(
-    token: &str,
-    region: Region,
-    proxy: Option<&ResolvedProxy>,
-) -> Result<Value, GatewayError> {
-    let response = get_with_token(region, endpoints::USER_INFO_PATH, token, &[], proxy).await?;
-    let payload = payload(response, "用户信息查询")?;
-    Ok(unwrap_data(payload))
 }
 
 /// 上游响应常见两层信封（`{success, data:{…}}`）；取内层
@@ -141,27 +201,28 @@ pub fn apply_profile(credentials: &mut Credentials, profile: &Value) {
     if !device_id.is_empty() && credentials.device_id.is_empty() {
         credentials.device_id = device_id;
     }
+    if profile.get("routeRegion").is_some() {
+        credentials.route_region = credentials::text(profile, &["routeRegion"]);
+    }
+    if let Some(team) = profile.get("activeTeam") {
+        credentials.team_id = credentials::text(team, &["teamId", "id"]);
+    } else if profile.get("teamId").is_some() {
+        credentials.team_id = credentials::text(profile, &["teamId"]);
+    }
 }
 
 /// 「填写凭证」路径的入口：解析 payload → 补资料 → 补齐设备指纹。
 ///
-/// ── 为什么要查一次资料（多一次往返）────────────────────────
-/// token 是不透明串，账号列表上总得显示「这是谁」；查一次资料就有了 userId /
-/// 昵称 / 邮箱三样。查询失败**不算失败**：拿不到资料照常建账号（id 走凭证
-/// 指纹兜底、名字走备注名），只是少一行副标题 —— 与 AutoClaw 的
-/// `email_or_empty` 同一取舍。
+/// 验证资料身份后才保存账号。网络或业务鉴权失败必须原样返回，
+/// 不能把未验证的授权显示为登录成功。
 pub async fn prepare_account(payload: &Value) -> Result<Credentials, GatewayError> {
     let mut credentials = Credentials::from_payload(payload)?;
+    let context =
+        super::login_http::Context::new(credentials.region, Some(&credentials.device_id))?;
+    credentials.device_id = context.device.clone();
     credentials.ensure_identity();
-    if credentials.user_id.is_empty() || credentials.name.is_empty() {
-        match fetch_profile(&credentials.access_token, credentials.region, None).await {
-            Ok(profile) => apply_profile(&mut credentials, &profile),
-            Err(error) => logging::verbose(
-                "[Accio]",
-                &format!("用户资料查询失败（不影响添加）: {}", error.message),
-            ),
-        }
-    }
+    let proxy = account_proxy(payload)?;
+    super::login_http::profile(&context, &mut credentials, proxy.as_ref()).await?;
     credentials.ensure_identity();
     Ok(credentials)
 }
@@ -169,9 +230,30 @@ pub async fn prepare_account(payload: &Value) -> Result<Credentials, GatewayErro
 /// 额度查询用的「只读快照」：不触发续期（余额是展示动作，烧一次 refreshToken
 /// 不划算 —— 过期就让上游回 401，由调用方的刷新重试那条既有链路处置）。
 pub fn snapshot(record: &Value) -> Result<Credentials, GatewayError> {
+    super::session::guard(record)?;
     let mut credentials = Credentials::from_payload(record)?;
     credentials.ensure_identity();
     Ok(credentials)
+}
+
+pub fn verify_profile(credentials: &mut Credentials, profile: &Value) -> Result<(), GatewayError> {
+    let id = credentials::text(profile, &["id", "userId", "user_id", "uid"]);
+    if id.is_empty() {
+        return Err(GatewayError::with_status(
+            502,
+            "Accio 用户资料缺少账号标识，授权未保存",
+        ));
+    }
+    if !credentials.user_id.is_empty() && credentials.user_id != id {
+        return Err(GatewayError::with_status(
+            409,
+            "Accio 授权账号与资料身份不一致，授权未保存",
+        ));
+    }
+    apply_profile(credentials, profile);
+    // Validate fields obtained from upstream before they enter HTTP headers.
+    Credentials::from_payload(&credentials.to_value())?;
+    Ok(())
 }
 
 /// 一个便于日志的账号摘要（绝不回显 token）

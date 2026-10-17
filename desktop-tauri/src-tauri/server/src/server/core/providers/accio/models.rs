@@ -1,54 +1,13 @@
-//! Accio 模型目录：静态兜底 + `/api/llm/config` 远程刷新。
+//! Accio official v2 model catalog, with independent GLOBAL/CN caches.
 //!
-//! ── 清单从哪来 ──────────────────────────────────────────────
-//!   1. **静态兜底**：`FALLBACK`（11 个可见模型，抄自客户端内置的
-//!      `@ali/accio-adk-ts/model-catalog.json`，2026-09 快照）。进程启动即可用，
-//!      没有账号 / 网络不通时 `/v1/models` 仍有内容。
-//!   2. **远程刷新**：`POST {gw}/api/llm/config`，body `{token}`，
-//!      头带 `x-package-region`（GLOBAL / CN）。上游按地区与账号权限给清单，
-//!      并支持 `If-None-Match`（我们不用 304 缓存：本网关自己按 TTL 早退，
-//!      少一条「快照与 etag 对不上」的状态）。
+//! POST /api/llm/config/v2 with {token, supportAutoModel:true}. The retired v1
+//! endpoint is never requested. v2 supplies opaque model codes; route with those
+//! codes while preserving stable client-facing aliases. Infer model families as
+//! ADK 0.3.32 does when the catalog does not expose protocol.
 //!
-//! ── 上游响应形态（2026-09 实测，解析必须按这一份）──────────────
-//! ```jsonc
-//! { "success": true, "code": "200", "message": "0",
-//!   "data": [                       // ← **provider 数组**，不是 {providers:[…]}
-//!     { "provider": "openai", "providerDisplayName": "OpenAI",
-//!       "modelList": [ { "modelCode": "1Helix-G6aS8tR2qN7m", "modelName": "…",
-//!                        "modelDisplayName": "GPT 6 Astra", "visible": true,
-//!                        "protocol": "responses", "group": "azure", … } ] } ] }
-//! ```
-//! 早先的解析假设 `data` 是 `{providers:[…]}` **对象**，而它其实是数组 ——
-//! 于是 `root.providers` 取不到、清单恒为空，而 HTTP 是 200（走不到错误分支），
-//! 前端只看到「上游目录里没有可见模型」。数组与对象两种形态都接受。
-//!
-//! ── 上游把模型名换成了混淆代号（同一批实测）────────────────────
-//! `modelCode` / `modelName` 现在是 `1Orbit-I9eY7YK8bW1f`（Claude Sonnet 4.6）、
-//! `1Helix-…`（GPT 系）、`1Nexus-…` / `1Drift-…` / `1Nova-…` / `1Chronos-…`
-//! 这类不透明代号，人类可读名只在 `modelDisplayName` 里。**老名字仍然可用**
-//! （实测 `claude-sonnet-4-6` 与代号都能正常出流），所以：
-//!   - `upstreamKey` 存上游代号 —— 发给上游的就是它，转发永远用当前代号；
-//!   - 对外 `id` 走 `STABLE_IDS`：**能沿用老名字就沿用**（用户已配好的名字
-//!     不用改），新模型没有老名字可用，才用代号。
-//! 两条合起来的效果是「清单里看到什么名字，就点什么名字」，而发上游的
-//! 始终是代号 —— 上游再换一次代号，只需要改 `STABLE_IDS` 的匹配，配置不动。
-//!
-//! ── 条目的键名口径（与另外几家对齐）──────────────────────────
-//! 聚合层的 `models::list_item` 认 `id` / `name` / `maxInputTokens` /
-//! `maxOutputTokens` / `supportsImages` / `supportsReasoning` / `supportsToolCall` /
-//! `isDefault` / `kind`（见 `core::models::shape`）。上游给的是
-//! `modelCode` / `modelDisplayName` / `contextWindow` / `multimodal` /
-//! `reasoningEfforts` / `isDefault`，本模块**在归一函数里一次翻译到位**，
-//! 让 `list()` 的返回值直接就是聚合层认识的形态（并保留 `upstreamKey`
-//! 与 `reasoningEfforts` 两个自有键 —— `list_item` 只挑它认识的键，
-//! 这两个不会被带进 `/v1/models`，但路由与思考档位要用）。
-//!
-//! ── 两个地区各自的清单（与 Qoder 同一处置）────────────────────
-//! GLOBAL 与 CN 的目录**可能不同**（上游按 `x-package-region` 过滤），
-//! 因此缓存按地区分开；`list()` 返回并集（按 id 去重，GLOBAL 优先）。
-//!
-//! ── 硬约束 ──────────────────────────────────────────────────
-//! release 是 `panic=abort`：零 unwrap/expect/panic；持锁期间绝不做网络请求。
+//! Preserve permission, image limits, default reasoning and billing metadata.
+//! Output token limits remain undeclared unless actually supplied upstream.
+//! Ignore pre-migration v1 caches. Refresh failures retain the last v2 snapshot.
 
 use std::sync::{OnceLock, RwLock};
 
@@ -82,16 +41,96 @@ const CACHE_TTL_MS: i64 = 60 * 60 * 1000;
 /// 远程清单走「读 `protocol`」，两条路都不再按模型名猜。
 const FALLBACK: &[(&str, &str, u64, bool, &[&str], bool, EffortPlacement)] = &[
     // (modelCode, 展示名, contextWindow, multimodal, reasoningEfforts, isDefault, 档位落点)
-    ("gemini-3-flash-preview", "Gemini 3 Flash", 1_000_000, true, &["low", "high"], true, EffortPlacement::Top),
-    ("gemini-3.1-pro-preview", "Gemini 3.1 Pro", 1_000_000, true, &["low", "high"], false, EffortPlacement::Top),
-    ("qwen3.6-plus", "Qwen 3.6 Plus", 991_808, false, &[], false, EffortPlacement::Top),
-    ("qwen3-max-2026-01-23", "Qwen 3 Max", 262_144, false, &[], false, EffortPlacement::Top),
-    ("gpt-5.4", "GPT 5.4", 1_050_000, true, &["low", "high"], false, EffortPlacement::Properties),
-    ("gpt-5.2-1211", "GPT 5.2", 400_000, true, &["low", "high"], false, EffortPlacement::Properties),
-    ("claude-sonnet-4-6", "Claude Sonnet 4.6", 1_000_000, true, &["low", "medium", "high", "max"], false, EffortPlacement::Top),
-    ("claude-opus-4-6", "Claude Opus 4.6", 1_000_000, true, &["low", "medium", "high", "max"], false, EffortPlacement::Top),
-    ("glm-5", "GLM-5", 200_000, false, &[], false, EffortPlacement::Top),
-    ("MiniMax-M2.5", "MiniMax M2.5", 204_800, true, &[], false, EffortPlacement::Properties),
+    (
+        "gemini-3-flash-preview",
+        "Gemini 3 Flash",
+        1_000_000,
+        true,
+        &["low", "high"],
+        true,
+        EffortPlacement::Top,
+    ),
+    (
+        "gemini-3.1-pro-preview",
+        "Gemini 3.1 Pro",
+        1_000_000,
+        true,
+        &["low", "high"],
+        false,
+        EffortPlacement::Top,
+    ),
+    (
+        "qwen3.6-plus",
+        "Qwen 3.6 Plus",
+        991_808,
+        false,
+        &[],
+        false,
+        EffortPlacement::Top,
+    ),
+    (
+        "qwen3-max-2026-01-23",
+        "Qwen 3 Max",
+        262_144,
+        false,
+        &[],
+        false,
+        EffortPlacement::Top,
+    ),
+    (
+        "gpt-5.4",
+        "GPT 5.4",
+        1_050_000,
+        true,
+        &["low", "high"],
+        false,
+        EffortPlacement::Properties,
+    ),
+    (
+        "gpt-5.2-1211",
+        "GPT 5.2",
+        400_000,
+        true,
+        &["low", "high"],
+        false,
+        EffortPlacement::Properties,
+    ),
+    (
+        "claude-sonnet-4-6",
+        "Claude Sonnet 4.6",
+        1_000_000,
+        true,
+        &["low", "medium", "high", "max"],
+        false,
+        EffortPlacement::Top,
+    ),
+    (
+        "claude-opus-4-6",
+        "Claude Opus 4.6",
+        1_000_000,
+        true,
+        &["low", "medium", "high", "max"],
+        false,
+        EffortPlacement::Top,
+    ),
+    (
+        "glm-5",
+        "GLM-5",
+        200_000,
+        false,
+        &[],
+        false,
+        EffortPlacement::Top,
+    ),
+    (
+        "MiniMax-M2.5",
+        "MiniMax M2.5",
+        204_800,
+        true,
+        &[],
+        false,
+        EffortPlacement::Properties,
+    ),
 ];
 
 /// 老模型名 → 上游**展示名**（`modelDisplayName`）。
@@ -173,33 +212,45 @@ fn cache_scope(region: Region) -> &'static str {
 /// 「搬回来」：不重新归一 —— 两处各写一份映射迟早分叉。
 fn restored_cache(region: Region) -> RegionCache {
     match catalog_cache::load(cache_scope(region)) {
-        Some(cached) => RegionCache { models: cached.models, fetched_at: cached.fetched_at },
-        None => RegionCache::default(),
+        Some(cached)
+            if cached
+                .models
+                .iter()
+                .all(|m| m.get("catalogVersion").and_then(Value::as_u64) == Some(2)) =>
+        {
+            RegionCache {
+                models: cached.models,
+                fetched_at: cached.fetched_at,
+            }
+        }
+        _ => RegionCache::default(),
     }
 }
 
 fn fallback_models() -> Vec<Value> {
     FALLBACK
         .iter()
-        .map(|(code, name, window, multimodal, efforts, is_default, placement)| {
-            let mut item = normalize_entry(&json!({
-                "modelCode": code,
-                "modelDisplayName": name,
-                "contextWindow": window,
-                "multimodal": multimodal,
-                "reasoningEfforts": efforts,
-                "isDefault": is_default,
-            }));
-            // 静态表自己带着落点（没有上游的 `protocol` 可读），写进去覆盖
-            // `normalize_entry` 的兜底值
-            if let Some(object) = item.as_object_mut() {
-                object.insert(
-                    "protocolKind".to_string(),
-                    Value::String(placement.as_str().to_string()),
-                );
-            }
-            item
-        })
+        .map(
+            |(code, name, window, multimodal, efforts, is_default, placement)| {
+                let mut item = normalize_entry(&json!({
+                    "modelCode": code,
+                    "modelDisplayName": name,
+                    "contextWindow": window,
+                    "multimodal": multimodal,
+                    "reasoningEfforts": efforts,
+                    "isDefault": is_default,
+                }));
+                // 静态表自己带着落点（没有上游的 `protocol` 可读），写进去覆盖
+                // `normalize_entry` 的兜底值
+                if let Some(object) = item.as_object_mut() {
+                    object.insert(
+                        "protocolKind".to_string(),
+                        Value::String(placement.as_str().to_string()),
+                    );
+                }
+                item
+            },
+        )
         .collect()
 }
 
@@ -223,11 +274,20 @@ fn normalize_entry(entry: &Value) -> Value {
         .get("contextWindow")
         .and_then(Value::as_u64)
         .unwrap_or(0);
-    let multimodal = entry.get("multimodal").and_then(Value::as_bool).unwrap_or(false);
+    let multimodal = entry
+        .get("multimodal")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     let efforts: Vec<Value> = entry
         .get("reasoningEfforts")
         .and_then(Value::as_array)
-        .map(|items| items.iter().filter_map(Value::as_str).map(|text| Value::String(text.to_string())).collect())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(|text| Value::String(text.to_string()))
+                .collect()
+        })
         .unwrap_or_default();
     let mut item = json!({
         // 对外 id 用老名字（能用的话），上游发送名走 `upstreamKey`
@@ -255,32 +315,41 @@ fn normalize_entry(entry: &Value) -> Value {
     // 而 models.dev 的实验室自述说它支持。上游没给这个位，就别替它答：
     // 有命名档位时按档位推断（那是上游数据），没有则留给 `core::model_meta`
     // 由 models.dev 补（两边都没有就如实停在「未声明」）。
+    for key in [
+        "maxImages",
+        "defaultReasoningEffort",
+        "locked",
+        "freeUse",
+        "effectiveMultiple",
+        "usageMultiplier",
+        "discount",
+        "discountList",
+        "hoverDesc",
+        "usageDesc",
+        "usageLevel",
+    ] {
+        if let Some(value) = entry.get(key).filter(|v| !v.is_null()) {
+            item[key] = value.clone();
+        }
+    }
+    if item.get("usageMultiple").is_none_or(Value::is_null) {
+        item["usageMultiple"] = entry.get("usageMultiplier").cloned().unwrap_or(Value::Null);
+    }
+    item["catalogVersion"] = json!(2);
     if !efforts.is_empty() {
         item["supportsReasoning"] = Value::Bool(true);
     }
     item
 }
 
-/// 思考档位该放哪一层（`properties.reasoning_effort` 还是顶层 `reasoning_effort`）。
-///
-/// ── 为什么不能按模型名猜（2026-09 实测）───────────────────────
-/// 上游把模型名换成了不透明代号（`1Helix-…` / `1Orbit-…`），
-/// `contains("gpt")` 这种判据全部失效。改用上游自己在目录里给的
-/// `protocol` 字段：
-///
-/// | `protocol`  | 例子           | 档位落点   | 依据（实测）                              |
-/// |-------------|----------------|------------|-------------------------------------------|
-/// | `responses` | GPT 系         | properties | 只有 properties 能出思考内容（80 帧 thought，顶层 0） |
-/// | `openai`    | MiniMax M3     | properties | 同上（`openai` 沿同一落点）                |
-/// | 空          | Claude / Gemini 系 | 顶层    | Gemini 系放 properties **直接 400**：`Unknown name "reasoning_effort"` |
-///
-/// 兜底取「顶层」：它是唯一在三种模型上都不会报错的落点（Gemini 系放
-/// properties 是硬错误，放顶层只是不产生思考内容 —— 少个功能好过 400）。
+/// Reasoning placement follows ADK 0.3.32: OpenAI families use properties;
+/// Gemini/Claude/Qwen use the top level. v2 opaque prefixes are authoritative
+/// when protocol is absent; explicit protocol remains supported for cached data.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum EffortPlacement {
     /// `properties.reasoning_effort`（`protocol` = `responses` / `openai`）
     Properties,
-    /// 顶层 `reasoning_effort`（`protocol` 为空或未知）
+    /// Gemini/Claude/Qwen 顶层 `reasoning_effort`。
     Top,
 }
 
@@ -308,23 +377,46 @@ impl EffortPlacement {
 /// （`azure` / `google` / `dashscope` …）是执行池、`thinkLevel` 是另一回事，
 /// 都不参与这条判定。
 fn effort_placement(entry: &Value) -> EffortPlacement {
-    match entry
+    let protocol = entry
         .get("protocol")
         .and_then(Value::as_str)
-        .map(str::trim)
         .unwrap_or("")
-        .to_ascii_lowercase()
-        .as_str()
+        .trim()
+        .to_ascii_lowercase();
+    if matches!(protocol.as_str(), "responses" | "openai") {
+        return EffortPlacement::Properties;
+    }
+    if matches!(
+        protocol.as_str(),
+        "gemini" | "anthropic" | "claude" | "qwen"
+    ) {
+        return EffortPlacement::Top;
+    }
+    let code = entry
+        .get("modelCode")
+        .or_else(|| entry.get("modelName"))
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let lower = code.to_ascii_lowercase();
+    if super::protocol::is_gemini(code)
+        || code.starts_with("1Orbit-")
+        || code.starts_with("1Drift-")
+        || lower.contains("claude")
+        || lower.contains("qwen")
+        || lower.contains("whale")
     {
-        "responses" | "openai" => EffortPlacement::Properties,
-        _ => EffortPlacement::Top,
+        EffortPlacement::Top
+    } else {
+        EffortPlacement::Properties
     }
 }
 
 /// 当前清单：远程（有的话）优先，按 id 去重后拼接兜底。
 fn region_models(region: Region) -> Vec<Value> {
     let cached = {
-        let guard = cache_slot(region).read().unwrap_or_else(|error| error.into_inner());
+        let guard = cache_slot(region)
+            .read()
+            .unwrap_or_else(|error| error.into_inner());
         guard.models.clone()
     };
     if !cached.is_empty() {
@@ -343,7 +435,10 @@ pub fn list() -> Vec<Value> {
                 continue;
             }
             if merged.iter().any(|existing| {
-                existing.get("id").and_then(Value::as_str).map(str::to_ascii_lowercase)
+                existing
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .map(str::to_ascii_lowercase)
                     == Some(id.to_ascii_lowercase())
             }) {
                 continue;
@@ -356,13 +451,17 @@ pub fn list() -> Vec<Value> {
 
 /// 某地区最近一次远程刷新是否成功过（模型管理页「来源」列用）
 pub fn remote_models(region: Region) -> Vec<Value> {
-    let guard = cache_slot(region).read().unwrap_or_else(|error| error.into_inner());
+    let guard = cache_slot(region)
+        .read()
+        .unwrap_or_else(|error| error.into_inner());
     guard.models.clone()
 }
 
 /// 某地区最近一次刷新的时刻（毫秒；0 = 从未）
 pub fn last_refreshed_at(region: Region) -> i64 {
-    let guard = cache_slot(region).read().unwrap_or_else(|error| error.into_inner());
+    let guard = cache_slot(region)
+        .read()
+        .unwrap_or_else(|error| error.into_inner());
     guard.fetched_at
 }
 
@@ -386,7 +485,10 @@ pub fn resolve(model_name: &str, region: Region) -> Option<Value> {
         for item in list() {
             let id = item.get("id").and_then(Value::as_str).unwrap_or("");
             if !merged.iter().any(|existing| {
-                existing.get("id").and_then(Value::as_str).map(str::to_ascii_lowercase)
+                existing
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .map(str::to_ascii_lowercase)
                     == Some(id.to_ascii_lowercase())
             }) {
                 merged.push(item);
@@ -414,7 +516,7 @@ pub fn known_names() -> Vec<String> {
         .collect()
 }
 
-/// 远程刷新（`POST /api/llm/config`，失败回落 `/api/llm/config/v2`）。
+/// 远程刷新（`POST /api/llm/config/v2`，不回退 v1）。
 ///
 /// `force = false` 时按 TTL 早退（自动路径：客户端每次拉模型列表都真打上游既
 /// 没必要也招风控）；`force = true` 是用户点「刷新模型清单」的语义，真打一次。
@@ -426,64 +528,32 @@ pub async fn refresh(
     proxy: Option<&crate::server::core::proxies::ResolvedProxy>,
     force: bool,
 ) -> ModelRefreshOutcome {
+    match refresh_checked(credentials, proxy, force).await {
+        Ok(outcome) => outcome,
+        Err(error) => ModelRefreshOutcome::failed(error.message),
+    }
+}
+
+pub(crate) async fn refresh_checked(
+    credentials: &Credentials,
+    proxy: Option<&crate::server::core::proxies::ResolvedProxy>,
+    force: bool,
+) -> Result<ModelRefreshOutcome, crate::server::errors::GatewayError> {
     let region = credentials.region;
     let fetched_at = last_refreshed_at(region);
     if !force && fetched_at > 0 && logging::now_ms() - fetched_at < CACHE_TTL_MS {
-        return ModelRefreshOutcome::unchanged();
+        return Ok(ModelRefreshOutcome::unchanged());
     }
-    // v1 是完整清单（见 `endpoints::MODEL_CONFIG_PATH`），v2 只在它出意外时
-    // 兜一次底 —— 两条路径的信封与解析完全一样，差别只在返回多少模型。
     let body = json!({ "token": credentials.access_token, "supportAutoModel": true });
-    let mut last_error: Option<String> = None;
-    let mut models: Vec<Value> = Vec::new();
-    for path in [endpoints::MODEL_CONFIG_PATH, endpoints::MODEL_CONFIG_PATH_V2] {
-        let response = match auth::post_json(region, path, &body, proxy).await {
-            Ok(response) => response,
-            Err(error) => {
-                last_error = Some(format!("目录请求失败：{}", error.message));
-                continue;
-            }
-        };
-        if !response.ok {
-            last_error = Some(format!(
-                "上游返回 HTTP {}（{}）",
-                response.status,
-                if response.status == 401 || response.status == 403 {
-                    "凭证可能已失效，请重新登录"
-                } else {
-                    "请稍后重试"
-                }
-            ));
-            continue;
-        }
-        let Some(payload) = response.payload else {
-            last_error = Some("上游未返回有效 JSON".to_string());
-            continue;
-        };
-        let parsed = parse_catalog(&payload);
-        if parsed.is_empty() {
-            last_error = Some("上游目录里没有可见模型".to_string());
-            continue;
-        }
-        // 兜底那条路径成功时留一行痕：它意味着 v1 那边出了问题（上游改版 /
-        // 灰度下线），排障时「这次清单为什么少了三家」要看的就是这一行
-        if path == endpoints::MODEL_CONFIG_PATH_V2 {
-            logging::log(
-                "[Models]",
-                &format!(
-                    "⚠️ Accio {}目录回落到 v2 精简清单（{} 个模型）—— v1 本次不可用",
-                    region.label(),
-                    parsed.len()
-                ),
-            );
-        }
-        models = parsed;
-        break;
-    }
+    let response =
+        auth::post_for_session(credentials, endpoints::MODEL_CONFIG_PATH, &body, proxy).await?;
+    let payload = auth::payload(response, "v2 模型目录查询")?;
+    let models = parse_catalog(&payload);
     if models.is_empty() {
-        return ModelRefreshOutcome::failed(
-            last_error.unwrap_or_else(|| "上游目录里没有可见模型".to_string()),
-        );
+        return Err(crate::server::errors::GatewayError::with_status(
+            502,
+            "Accio v2 目录没有可用的对话模型",
+        ));
     }
     let count = models.len();
     let now = logging::now_ms();
@@ -491,7 +561,9 @@ pub async fn refresh(
     // —— 缓存写入要拿库连接锁，两把锁不能嵌套。scope 与格子一一对应。
     catalog_cache::save(cache_scope(region), &models, now);
     {
-        let mut guard = cache_slot(region).write().unwrap_or_else(|error| error.into_inner());
+        let mut guard = cache_slot(region)
+            .write()
+            .unwrap_or_else(|error| error.into_inner());
         guard.models = models;
         guard.fetched_at = now;
     }
@@ -499,7 +571,7 @@ pub async fn refresh(
         "[Models]",
         &format!("Accio {}模型目录已刷新（{count} 个模型）", region.label()),
     );
-    ModelRefreshOutcome::refreshed(count)
+    Ok(ModelRefreshOutcome::refreshed(count))
 }
 
 /// 解析模型目录响应。
@@ -527,7 +599,9 @@ fn parse_catalog(payload: &Value) -> Vec<Value> {
             continue;
         };
         for entry in model_list {
-            if entry.get("visible").and_then(Value::as_bool) == Some(false) {
+            if entry.get("visible").and_then(Value::as_bool) == Some(false)
+                || entry.get("locked").and_then(Value::as_bool) == Some(true)
+            {
                 continue;
             }
             if !is_chat_entry(entry) {
@@ -539,7 +613,10 @@ fn parse_catalog(payload: &Value) -> Vec<Value> {
                 continue;
             }
             if models.iter().any(|existing| {
-                existing.get("id").and_then(Value::as_str).map(str::to_ascii_lowercase)
+                existing
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .map(str::to_ascii_lowercase)
                     == Some(id.to_ascii_lowercase())
             }) {
                 continue;
@@ -564,7 +641,8 @@ fn parse_catalog(payload: &Value) -> Vec<Value> {
 /// 填上这个字段时，宁可多收一个也不要把正常模型挡在门外（少个模型是静默的，
 /// 多一个奇怪的模型至少看得见）。
 fn is_chat_entry(entry: &Value) -> bool {
-    const NON_CHAT_OPERATIONS: &[&str] = &["VIDEO_GENERATION", "IMAGE_GENERATION", "AUDIO_GENERATION"];
+    const NON_CHAT_OPERATIONS: &[&str] =
+        &["VIDEO_GENERATION", "IMAGE_GENERATION", "AUDIO_GENERATION"];
     entry
         .get("supportedOperationList")
         .and_then(Value::as_array)
@@ -578,4 +656,50 @@ fn is_chat_entry(entry: &Value) -> bool {
                         .any(|blocked| operation.eq_ignore_ascii_case(blocked))
                 })
         })
+}
+
+#[cfg(test)]
+mod adk_v2_tests {
+    use super::*;
+
+    #[test]
+    fn v2_without_protocol_uses_official_model_families_and_permissions() {
+        let payload = json!({"data":[{"provider":"mixed","modelList":[
+            {"modelCode":"1Helix-test","modelDisplayName":"GPT fixture","contextWindow":128000,"reasoningEfforts":["low","high"],"defaultReasoningEffort":"high","maxImages":8,"usageMultiplier":2,"freeUse":false},
+            {"modelCode":"1Nexus-test","modelDisplayName":"Gemini fixture"},
+            {"modelCode":"1Orbit-test","modelDisplayName":"Claude fixture"},
+            {"modelCode":"1Drift-test","modelDisplayName":"Qwen fixture"},
+            {"modelCode":"hidden","visible":false},
+            {"modelCode":"locked","locked":true},
+            {"modelCode":"image-only","supportedOperationList":["IMAGE_GENERATION"]}
+        ]}]});
+        let models = parse_catalog(&payload);
+        assert_eq!(models.len(), 4);
+        assert_eq!(models[0]["protocolKind"], "properties");
+        for m in &models[1..] {
+            assert_eq!(m["protocolKind"], "top");
+        }
+        assert_eq!(models[0]["maxImages"], 8);
+        assert_eq!(models[0]["usageMultiple"], 2);
+        assert_eq!(models[0]["defaultReasoningEffort"], "high");
+        assert!(models[0].get("maxOutputTokens").is_none());
+        assert!(models.iter().all(|m| m["catalogVersion"] == 2));
+        assert_eq!(endpoints::MODEL_CONFIG_PATH, "/api/llm/config/v2");
+    }
+
+    #[test]
+    fn v2_envelopes_keep_opaque_upstream_codes() {
+        for value in [
+            json!({"providers":[{"modelList":[{"modelCode":"auto:fixture","modelDisplayName":"Auto fixture"}]}],"ext":{"version":"2"}}),
+            json!([{ "modelList":[{"modelName":"1Synapse-fixture"}] }]),
+        ] {
+            let models = parse_catalog(&value);
+            assert_eq!(models.len(), 1);
+            assert!(models[0]["upstreamKey"]
+                .as_str()
+                .unwrap()
+                .contains("fixture"));
+            assert_eq!(models[0]["protocolKind"], "properties");
+        }
+    }
 }

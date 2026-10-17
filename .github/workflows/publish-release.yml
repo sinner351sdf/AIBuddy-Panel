@@ -7,12 +7,10 @@ on:
       tag:
         description: 'Existing release tag'
         required: true
-        default: 'v3.0.7-aibuddy.1'
         type: string
       build_run_id:
         description: 'Successful build.yml run for exactly this tag'
         required: true
-        default: '38902204275'
         type: string
 
 permissions:
@@ -46,19 +44,19 @@ jobs:
           import json, os, re, subprocess
           from pathlib import Path
           tag = os.environ['TAG']
-          assert re.fullmatch(r'v\d+\.\d+\.\d+-aibuddy\.\d+', tag), '无效的定制版 tag'
+          assert re.fullmatch(r'v\d+\.\d+\.\d+-(?:aibuddy\.\d+(?:-beta\.\d+)?|beta\.\d+-aibuddy\.\d+)', tag), '无效的定制版 tag'
           assert re.fullmatch(r'[1-9]\d*', os.environ['BUILD_RUN_ID']), '无效的构建编号'
           def source(path):
               return subprocess.check_output(['git', 'show', f'{tag}:{path}']).decode()
           sha = subprocess.check_output(['git', 'rev-parse', '--verify', f'refs/tags/{tag}^{{commit}}']).decode().strip()
           version = json.loads(source('desktop-tauri/src-tauri/tauri.conf.json'))['version']
-          assert tag.startswith(f'v{version}-aibuddy.'), 'tag 与安装包版本不一致'
+          assert tag.startswith(f'v{version}-'), 'tag 与安装包版本不一致'
           for path in ('package.json', 'desktop-tauri/package.json'):
               assert json.loads(source(path))['version'] == version
           for path in ('desktop-tauri/src-tauri/Cargo.toml', 'desktop-tauri/src-tauri/server/Cargo.toml'):
               assert re.search(r'^version = "([^"]+)"', source(path), re.M)[1] == version
           notes = source(f'docs/releases/{tag}.zh-CN.md')
-          notes += '\n\n## 本次发布附件\n\nWindows x64、macOS Universal 和 Linux amd64／arm64 已由同一 tag 的成功 CI 构建生成；附件包含 Linux 分架构 SHA256 和总校验文件。macOS 包未进行 Developer ID 签名和公证。安装包构建不等同于所有平台的实机安装或真实提供商验收；Docker 镜像不属于本次 Release 附件。\n'
+          notes += '\n\n## 本次发布附件\n\nWindows x64、macOS Universal、Linux 桌面包（如构建包含）和 Linux amd64／arm64 已由同一 tag 的成功 CI 构建生成；附件包含 Linux 分架构 SHA256 和总校验文件。macOS 包未进行 Developer ID 签名和公证。安装包构建不等同于所有平台的实机安装或真实提供商验收；Docker 镜像不属于本次 Release 附件。\n'
           assert 1000 < len(notes) <= 4000, '发布说明长度不符合要求'
           Path(os.environ['RUNNER_TEMP'], 'release-notes.md').write_text(notes)
           with open(os.environ['GITHUB_ENV'], 'a') as out:
@@ -81,13 +79,14 @@ jobs:
 
       - name: 下载并校验安装包
         run: |
-          gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --name windows-nsis --name macos-universal --name linux-server-amd64 --name linux-server-arm64 --dir "$RUNNER_TEMP/release-assets"
+          gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/release-assets"
           node scripts/release-assets.mjs assets "$RUNNER_TEMP/release-assets" "$TAG" > "$RUNNER_TEMP/release-assets.list"
 
       - name: 挂载附件并发布正式 Release
         run: |
           mapfile -d '' -t assets < "$RUNNER_TEMP/release-assets.list"
-          test "${#assets[@]}" -eq 7
+          test "${#assets[@]}" -ge 7
+          prerelease=$(node --input-type=module -e 'const m=await import("./scripts/release-assets.mjs"); console.log(m.isPrereleaseTag(process.argv[1]))' "$TAG")
           # Never overwrite the attachments of an already published release.
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft > "$RUNNER_TEMP/existing-release.json" 2>/dev/null; then
             python3 - <<'PYTHON'
@@ -100,19 +99,29 @@ jobs:
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "$RELEASE_TITLE" --notes-file "$RUNNER_TEMP/release-notes.md"
           fi
           gh release upload "$TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
-          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest --title "$RELEASE_TITLE" --notes-file "$RUNNER_TEMP/release-notes.md"
+          latest=true
+          if [ "$prerelease" = true ]; then latest=false; fi
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease="$prerelease" --latest="$latest" --title "$RELEASE_TITLE" --notes-file "$RUNNER_TEMP/release-notes.md"
 
       - name: 验证 latest、说明及所有下载地址
         run: |
-          gh api "repos/$GITHUB_REPOSITORY/releases/latest" > "$RUNNER_TEMP/release-latest.json"
+          prerelease=$(node --input-type=module -e 'const m=await import("./scripts/release-assets.mjs"); console.log(m.isPrereleaseTag(process.argv[1]))' "$TAG")
+          endpoint=latest
+          if [ "$prerelease" = true ]; then endpoint="tags/$TAG"; fi
+          gh api "repos/$GITHUB_REPOSITORY/releases/$endpoint" > "$RUNNER_TEMP/release-latest.json"
           python3 - <<'PYTHON'
           import json, os, subprocess
           from pathlib import Path
           release = json.loads(Path(os.environ['RUNNER_TEMP'], 'release-latest.json').read_text())
-          assert release['tag_name'] == os.environ['TAG'] and not release['draft'] and not release['prerelease']
+          assert release['tag_name'] == os.environ['TAG'] and not release['draft']
+          beta = bool(__import__('re').search(r'(?:-|\.)(?:alpha|beta|rc)(?:[.\-]|$)', os.environ['TAG']))
+          assert release['prerelease'] == beta
           assert release['body'] == Path(os.environ['RUNNER_TEMP'], 'release-notes.md').read_text()
           names = [a['name'] for a in release['assets']]
-          assert len(names) == 7 and len(set(names)) == 7
+          expected = 9 if tuple(map(int, os.environ['TAG'].split('-')[0][1:].split('.'))) >= (3, 0, 8) else 7
+          assert len(names) == expected and len(set(names)) == expected
+          if expected == 9:
+              assert sum(n.endswith('.deb') for n in names) == 1 and sum(n.endswith('.AppImage') for n in names) == 1
           assert sum(n.endswith('.exe') for n in names) == 1 and sum(n.endswith('.dmg') for n in names) == 1
           assert all(f'agent2api-server-linux-{arch}.tar.gz{suffix}' in names for arch in ('amd64', 'arm64') for suffix in ('', '.sha256'))
           assert 'SHA256SUMS.txt' in names and all(a['size'] > 0 for a in release['assets'])
@@ -120,6 +129,6 @@ jobs:
               subprocess.run(['curl', '--fail', '--silent', '--show-error', '--location', '--head', asset['browser_download_url']], check=True, stdout=subprocess.DEVNULL)
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
               out.write('正式 Release 已发布：' + release['html_url'] + '\n')
-              out.write('latest、累计升级说明、7 个附件和下载地址已验证。\n')
+              out.write('latest、累计升级说明、全部附件和下载地址已验证。\n')
           print(release['html_url'])
           PYTHON

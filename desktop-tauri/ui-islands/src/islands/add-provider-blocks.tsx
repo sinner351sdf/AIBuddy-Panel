@@ -48,6 +48,7 @@ import {
 
 import {
   ADD_METHODS,
+  MAX_NAME_LENGTH,
   addButtonTextOf,
   desktopImportAvailable,
   fieldIdOf,
@@ -78,6 +79,9 @@ import {
   type OauthController,
   type WebLoginController,
 } from './add-account-bridge'
+// 二进制文件 → base64 的读取工具（订阅导入在用，同一份足够：FileReader +
+// readAsDataURL）；`add-provider-blocks` 只借这一个函数，不引订阅那边的状态
+import { readFileAsBase64 } from './proxies-sub-state'
 import { t } from '../i18n'
 import { WorkbuddyQrLogin } from './workbuddy-qr-login'
 
@@ -277,6 +281,193 @@ function DesktopSection({
         >
           {busy ? t('导入中…') : t('从本机导入桌面端登录态')}
         </Button>
+      </div>
+    </DialogSection>
+  )
+}
+
+/* ─── 访客模式（智谱清言独有）────────────────── */
+
+/**
+ * 「访客模式」段：一颗按钮 + 一个可选备注名，点下去由网关换发访客凭证。
+ *
+ * ── 为什么单独一个组件（而不是并进 ManualSection）──────────────
+ * 它**没有任何凭证输入**：用户不需要知道 token 是什么，点一下就有账号。
+ * 并进「填写凭证」会让这条路径看起来像「你得先有凭证」，那正好与它的价值相反。
+ * 载荷只有 `{ provider, guest: true, name? }` —— 后端 `api::accounts` 的
+ * Chatglm 分支按 `guest` 走 `guest/access` 换证（见那边的分支说明）。
+ */
+function GuestSection({
+  config,
+  visible,
+}: {
+  config: ProviderConfig
+  visible: boolean
+}): React.ReactElement | null {
+  const guest = config.guestLogin
+  const [busy, setBusy] = React.useState(false)
+  if (!guest) return null
+  const nameId = fieldIdOf(config, { key: 'name', label: '', placeholder: '' })
+
+  async function submit(): Promise<void> {
+    await runAdd(setBusy, async () => {
+      // 备注名从输入框读（与 ManualSection 同一取值口径：空串交给后端兜底）
+      const input = document.getElementById(nameId) as HTMLInputElement | null
+      const name = input?.value.trim() || ''
+      try {
+        const data = (await postAccount({
+          provider: config.provider,
+          guest: true,
+          ...(name ? { name } : {}),
+        })) as { account?: AccountRecord } | null
+        await afterAdd(data?.account?.name || '', config.label)
+      } catch (error) {
+        toast(t('添加失败：{reason}', { reason: describeError(error) }), 'err')
+      }
+    })
+  }
+
+  return (
+    <DialogSection hidden={!visible}>
+      <h3>{t('访客模式')}</h3>
+      {guest.noteHtml ? <Note html={guest.noteHtml} /> : null}
+      <Field>
+        <FieldLabel htmlFor={nameId}>{t('备注名')}</FieldLabel>
+        <Input
+          id={nameId}
+          type='text'
+          maxLength={MAX_NAME_LENGTH}
+          placeholder={guest.namePlaceholder || t('可选')}
+          {...draftProps(nameId)}
+        />
+      </Field>
+      <div className='field-row'>
+        <Button id={`${config.provider}-guest-button`} onClick={() => { void submit() }} disabled={busy}>
+          {busy ? guest.busyText || t('正在添加…') : guest.button}
+        </Button>
+      </div>
+    </DialogSection>
+  )
+}
+
+/* ─── 导入凭证文件（通用版；WorkBuddy 那段是另一套 payload，不要合并）─── */
+
+/**
+ * `readFileAsBase64` 返回的是**完整 data URL**（`data:…;base64,<正文>`）——
+ * 订阅那条链的服务端会自己 `split_once("base64,")`，而 `POST /api/accounts`
+ * 的 `authFileB64` 走的是裸 `BASE64.decode(encoded)`，**不认 data URL 前缀**。
+ * 因此这里剥掉逗号前的头部再交出去，否则 KukuAI 的文件导入会得到
+ * 「authFileB64 不是合法的 base64」。
+ */
+function base64BodyOf(dataUrl: string): string {
+  const comma = dataUrl.indexOf(',')
+  return comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl
+}
+
+/**
+ * 「导入凭证文件」段（通用）：用户手选桌面客户端的凭证文件，前端读内容
+ * （文本 → `authFileContent`；二进制 → `authFileB64`）交给网关解析落库。
+ *
+ * 与 `DesktopSection` 的差别：那边只有一颗按钮、读的是本机固定路径；这边选
+ * 文件、文件可来自任意机器 / 备份，落库后是**可独立转发**的账号。
+ * WorkBuddy 的同类段落不并进来：它把文件内容**摊平**成请求体字段
+ * （credentials 直读顶层键），payload 形态与这里的三字段契约不同。
+ */
+function FileImportSection({
+  config,
+  visible,
+}: {
+  config: ProviderConfig
+  visible: boolean
+}): React.ReactElement | null {
+  const [busy, setBusy] = React.useState(false)
+  // 选中文件名回显：KukuAI 的 Cookies 没有扩展名，按钮旁看不出选的是哪一份
+  const [hint, setHint] = React.useState('')
+  const fileInput = React.useRef<HTMLInputElement | null>(null)
+  const spec = config.fileImport
+  // 备注名走草稿机制（与 ManualSection 的 name 字段同一形态）
+  const nameId = `${config.provider}-file-name`
+  if (!spec) return null
+
+  async function importFile(file: File): Promise<void> {
+    const fileImport = config.fileImport
+    if (!fileImport) return
+    await runAdd(setBusy, async () => {
+      try {
+        const remark = readField(nameId)
+        const payload: Record<string, unknown> = {
+          provider: config.provider,
+          // 文件名只用于错误文案（后端会把原文件名带上），不参与解析
+          authFileName: file.name,
+        }
+        if (fileImport.binary) {
+          payload.authFileB64 = base64BodyOf(await readFileAsBase64(file))
+        } else {
+          const text = await file.text()
+          // JSON 预检只挡「选错文件」这一层：解析失败 / 不是对象在这里就变成
+          // 人话，而不是后端凭据模块吐出来的一条远端错误（与 WorkBuddy 同取向）
+          let parsed: unknown
+          try {
+            parsed = JSON.parse(text)
+          } catch {
+            toast(t('选择的文件不是合法 JSON'), 'err')
+            return
+          }
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            toast(t('不是有效的凭证文件：内容要是一个 JSON 对象'), 'err')
+            return
+          }
+          // 原始文本整串交出去：各家顶层形状不同（auth.json / settings 文件），
+          // 由后端各自的文件导入分支解析，前端不再裁剪
+          payload.authFileContent = text
+        }
+        if (remark) payload.name = remark
+        const data = (await postAccount(payload)) as { account?: AccountRecord } | null
+        setHint('')
+        await afterAdd(addedLabelOf(data?.account), config.label)
+      } catch (error) {
+        // 文件本身的问题（缺字段 / 密文解不开 / 凭证无效）后端都给 400 + 带文件名的
+        // 原因，原样透出即可
+        toast(t('导入失败：{reason}', { reason: describeError(error) }), 'err')
+      }
+    })
+  }
+
+  return (
+    <DialogSection hidden={!visible}>
+      <h3>{t('导入凭证文件')}</h3>
+      <Note text={spec.note} />
+      <div className='field-row'>
+        <label className='lb-inline' htmlFor={nameId}>{t('备注名')}</label>
+        <Input
+          id={nameId}
+          type='text'
+          maxLength={MAX_NAME_LENGTH}
+          placeholder={t('可选，留空则用文件里的昵称')}
+          {...draftProps(nameId)}
+        />
+      </div>
+      <div className='field-row'>
+        <input
+          ref={fileInput}
+          type='file'
+          // 空串 = 选择器不过滤（KukuAI 的 Cookies 没有扩展名，无从按类型筛）
+          accept={spec.accept}
+          hidden
+          onChange={event => {
+            const file = event.target.files?.[0]
+            // 清空 value：同一份文件改内容后再选一次也要能触发 onChange
+            event.target.value = ''
+            if (file) {
+              setHint(file.name)
+              void importFile(file)
+            }
+          }}
+        />
+        <Button onClick={() => fileInput.current?.click()} disabled={busy}>
+          {busy ? t('导入中…') : t('选择凭证文件导入')}
+        </Button>
+        <span className='detail'>{hint}</span>
       </div>
     </DialogSection>
   )
@@ -615,6 +806,7 @@ export function ProviderBlock({
         />
       </DialogSection>
 
+      <GuestSection config={config} visible={effective === 'guest'} />
       <OauthSection
         config={config}
         mode={oauthMode}
@@ -630,6 +822,7 @@ export function ProviderBlock({
         visible={effective === 'web'}
       />
       <ManualSection config={config} region={region} visible={effective === 'manual'} />
+      <FileImportSection config={config} visible={effective === 'file'} />
       <DesktopSection config={config} visible={effective === 'desktop'} />
     </div>
   )

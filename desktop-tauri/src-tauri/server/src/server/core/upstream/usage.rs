@@ -440,6 +440,9 @@ pub struct AttemptDetail {
     pub body_bytes: Option<i64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub timings: Vec<StageTiming>,
+    /// Provider diagnostics contain only controlled labels and counters, never raw frames.
+    #[serde(default, skip_serializing_if = "Map::is_empty")]
+    pub diagnostics: Map<String, Value>,
 }
 
 /// 一次**尝试内部**的退避重试（`AttemptDetail::retries` 的元素）。
@@ -574,6 +577,7 @@ struct LiveStamp {
     last_notice: bool,
     last_body_bytes: Option<i64>,
     last_timings: Vec<StageTiming>,
+    last_diagnostics: Map<String, Value>,
     sensitive: usize,
 }
 
@@ -596,6 +600,7 @@ impl LiveStamp {
             last_notice: last.map(|item| item.notice.is_some()).unwrap_or(false),
             last_body_bytes: last.and_then(|item| item.body_bytes),
             last_timings: last.map(|item| item.timings.clone()).unwrap_or_default(),
+            last_diagnostics: last.map(|item| item.diagnostics.clone()).unwrap_or_default(),
             sensitive: snapshot.sensitive_hits.len(),
         }
     }
@@ -639,6 +644,7 @@ pub struct RequestTelemetry {
     /// 转发层每次选路后覆盖 —— 最后一次为准）。请求日志「路由回放」的数据源；
     /// None = 没走到账号选路（转发前就失败、候选集合为空）。
     route: Mutex<Option<Value>>,
+    provider_contexts: Mutex<Map<String, Value>>,
 }
 
 impl Default for RequestTelemetry {
@@ -655,7 +661,15 @@ impl RequestTelemetry {
             live: Mutex::new(LiveWrite::default()),
             cancel: Mutex::new(None),
             route: Mutex::new(None),
+            provider_contexts: Mutex::new(Map::new()),
         }
+    }
+
+    /// Request-local provider state survives account attempts, never serialized
+    /// with telemetry and never shared with another HTTP request.
+    pub(crate) fn provider_context(&self, key: &str, init: impl FnOnce() -> Value) -> Value {
+        let mut contexts = self.provider_contexts.lock().unwrap_or_else(|p| p.into_inner());
+        contexts.entry(key.to_string()).or_insert_with(init).clone()
     }
 
     /// 挂本次请求的选路决策快照（选路层每次覆盖，最后一次 = 最终承载那次）。
@@ -894,6 +908,7 @@ impl RequestTelemetry {
             notice: None,
             body_bytes: None,
             timings: Vec::new(),
+            diagnostics: Map::new(),
         });
         // 阶段：新一轮的请求**即将发出** → 等待响应（含模型思考）。
         // 本函数在调用适配器之前执行，连接/上传仍可能发生在之后；
@@ -1027,6 +1042,29 @@ impl RequestTelemetry {
             delay_ms,
         });
         self.enter_phase(&mut guard, LogPhase::Queued);
+        self.flush_live(&guard);
+    }
+
+    /// The stream pins its attempt index before polling. A cancelled old stream
+    /// must never overwrite diagnostics of a later retry. Callers supply only
+    /// sanitized labels/counts; size and key are bounded here as a second guard.
+    pub(crate) fn note_accio_stream_diagnostics(&self, attempt: usize, value: Value) {
+        self.note_accio_diagnostics(attempt, "accioStream", value);
+    }
+
+    pub(crate) fn note_accio_diagnostics(&self, attempt: usize, key: &str, value: Value) {
+        if !["accioStream", "accioIdentity", "accioSecurityGuard", "accioTransport", "accioMedia", "accioCompression"].contains(&key) { return; }
+        if serde_json::to_vec(&value).map_or(true, |v| v.len() > 4096) {
+            return;
+        }
+        let mut guard = self.lock();
+        let Some(detail) = guard.attempts_detail.get_mut(attempt) else {
+            return;
+        };
+        if !matches!(detail.provider.as_str(), "accio" | "accio-cn") {
+            return;
+        }
+        detail.diagnostics.insert(key.into(), value);
         self.flush_live(&guard);
     }
 

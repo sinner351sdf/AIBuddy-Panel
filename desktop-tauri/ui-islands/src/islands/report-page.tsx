@@ -653,6 +653,26 @@ type PageData = { summary: StatsSummary | null; error: string | null }
 
 const EMPTY_DATA: PageData = { summary: null, error: null }
 
+// A poll with unchanged data updates only this timestamp subscriber, not every chart.
+let reportRefreshTime = 0
+const reportRefreshListeners = new Set<() => void>()
+function markReportRefresh(): void {
+  reportRefreshTime = Date.now()
+  for (const listener of reportRefreshListeners) listener()
+}
+function ReportRefreshStamp() {
+  const timestamp = React.useSyncExternalStore(
+    React.useCallback((listener: () => void) => {
+      reportRefreshListeners.add(listener)
+      return () => { reportRefreshListeners.delete(listener) }
+    }, []),
+    () => reportRefreshTime,
+  )
+  return <span className='panel-sub' style={{ fontVariantNumeric: 'tabular-nums' }}>
+    {t('上次刷新')} {timestamp ? clockText(new Date(timestamp)) : '—'}
+  </span>
+}
+
 function ReportPage() {
   const [data, setData] = React.useState<PageData>(EMPTY_DATA)
   const [range, setRange] = React.useState<string>(readRange)
@@ -666,7 +686,6 @@ function ReportPage() {
    */
   const [autoSecs, setAutoSecs] = React.useState(readUserAutoSecs)
   /** 最近一次成功加载的时刻：给「上次刷新 HH:mm:ss」读数用（读取失败不更新） */
-  const [lastRefreshAt, setLastRefreshAt] = React.useState<Date | null>(null)
   /** 单位口径（中文亿/万 ⇄ 英文 M/k）变了就整页重算：数值一个都没变，变的只是「怎么写成字」，
    *  所以拨一下开关是瞬时的 —— 不必重新拉一次报表 */
   const [, setUnitsTick] = React.useState(0)
@@ -674,8 +693,24 @@ function ReportPage() {
   /** 当前档位：异步回调（loadPanel）必须立刻读到最新值，state 的更新要等下一次渲染，
    *  所以写入时同时落 ref 与 state，读一律走 ref.current */
   const rangeRef = React.useRef(range)
+  /** 自定义区间同理（见 rangeRef 的说明）：日期一次改一个端，异步回调必须读到配好对的那份 */
+  /**
+   * 上一次**已应用**的那份数据的签名（JSON 文本）。
+   *
+   * 自动刷新是定时轮询（间隔见「定时任务」页），而两次轮询之间数据常常一个字都没变
+   * （没有新请求、没有跨整点）—— 那种时候 `setData` 进来一个内容相同的新对象，React
+   * 照样会把整页重渲染一遍：365 格热力图、两条折线、环形图、四张排行的元素全部重建一次，
+   * 而屏幕上不会有任何变化。这张签名就是用来挡掉那一轮的。
+   *
+   * 比较用 JSON 文本而不是逐字段：报表是一棵形状固定的数据树，写逐字段比较等于把
+   * 「报表有哪些字段」复制一份到这里（后端加字段就漏一个）。序列化这份数据（几十 KB）
+   * 的成本在毫秒以下，而它省掉的是整页渲染。错误态写空串 —— 从「读取失败」恢复成
+   * 正常数据时必然是一次真正的内容变化，不该被这张签名挡住。
+   */
+  const signatureRef = React.useRef('')
 
-  const applyData = React.useCallback((next: PageData) => {
+  const applyData = React.useCallback((next: PageData, signature: string) => {
+    signatureRef.current = signature
     setData(next)
   }, [])
 
@@ -698,10 +733,13 @@ function ReportPage() {
       if (token !== seq) return summaryValue
       if (!payload || typeof payload !== 'object') throw new Error('后端未返回报表数据')
       summaryValue = payload
-      // 「上次刷新」读数：任何一次成功加载都算（手动换档 / 切页 / 轮询同一口径）；
-      // 过期响应（token !== seq）在上面已经早退，不会把时刻拨回去
-      setLastRefreshAt(new Date())
-      applyData({ summary: payload, error: null })
+      markReportRefresh()
+      // 内容与上一轮完全一致就不落 state（见 signatureRef 的说明）：轮询到「没有变化」
+      // 是常态，那一轮不该付整页重渲染的代价
+      const signature = JSON.stringify(payload)
+      if (signature !== signatureRef.current) {
+        applyData({ summary: payload, error: null }, signature)
+      }
       return summaryValue
     } catch (error) {
       if (token !== seq) return summaryValue
@@ -709,7 +747,7 @@ function ReportPage() {
       summaryValue = null
       // silent：只压掉控制台噪音（首屏自持加载 / 轮询用），错误态照常显示在页面上
       if (!options.silent) console.warn('读取报表数据失败:', message)
-      applyData({ summary: null, error: message || t('未知错误') })
+      applyData({ summary: null, error: message || t('未知错误') }, '')
       return null
     }
   }, [applyData])
@@ -720,7 +758,7 @@ function ReportPage() {
   const renderData = React.useCallback((next?: StatsSummary | null): void => {
     if (next === undefined) return
     summaryValue = next || null
-    if (next) applyData({ summary: next, error: null })
+    if (next) applyData({ summary: next, error: null }, JSON.stringify(next))
   }, [applyData])
 
   /** 换档位：内存为准，localStorage 只负责跨次启动恢复；换完立刻重拉一次 */
@@ -910,9 +948,7 @@ function ReportPage() {
                 </SelectGroup>
               </SelectContent>
             </Select>
-            <span className='panel-sub' style={{ fontVariantNumeric: 'tabular-nums' }}>
-              上次刷新 {lastRefreshAt ? clockText(lastRefreshAt) : '—'}
-            </span>
+            <ReportRefreshStamp />
             {/* ── 导出 CSV ──
                 数据源就是本页已拉到的 summary（不另打接口）；空范围 / 加载中禁用，
                 原因看外层 span 的 title（禁用按钮 pointer-events-none，title 得挂外层）。

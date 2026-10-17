@@ -32,8 +32,9 @@
 //!   - `requests`：请求明细，一行一条。短窗口指标（缓存命中率的 10 分钟 / 1 小时
 //!     窗口、近 24 小时趋势）必须逐条算，按天的聚合行给不出这种精度。
 //!   - `request_daily`：按天聚合，一行一天。热力图固定 365 天、`all` 区间可能跨年，
-//!     都超出报表侧从明细取的 7 天窗口（`SUMMARY_WINDOW_MS`），所以这份**寿命独立
-//!     于明细**：明细被手动清理后当天的聚合行仍在，历史曲线不会出现空洞。
+//!     都超出报表侧读明细的窗口（`SUMMARY_WINDOW_MS`，改造后只剩 24 小时 ——
+//!     命中率四档已在 SQL 侧聚合，不再要求把窗口内的明细读回来），所以这份
+//!     **寿命独立于明细**：明细被手动清理后当天的聚合行仍在，历史曲线不会出现空洞。
 //! `request_raw` 是本次新增的第三张表：下游原始正文（请求侧 / 响应侧各 128 KiB
 //! 上限），独立成表的理由（大字段不进列表查询）见 `db/schema.rs` 的 V3_SCHEMA。
 //! 两个文件变两张表还顺带解决了原来的两个麻烦：**明细与聚合的一致性**（原来是
@@ -95,7 +96,7 @@ use record::DailyEntry;
 // remap 的库操作体、报表装配（均为 `pub(super)`，见 aggregate.rs 的模块头）
 use chrono::NaiveDate;
 use aggregate::{fold_into_daily, remap_model_days, summarize};
-use report::{entry_json, provider_label};
+use report::{entry_json, provider_label, CACHE_WINDOWS};
 
 // MAX_ENTRIES / MAX_DAILY_DAYS / MAX_RAW_ROWS / MAX_RAW_BODY_BYTES 一并在此
 // re-export：本模块内部要用（记账容量闸、raw_body 的截断判定），api::pipeline
@@ -106,14 +107,20 @@ use maintenance::VacuumStatus;
 pub use maintenance::CompactStart;
 pub use record::{
     AttemptDetail, NewRequestEntry, RequestEntry, RequestQuery, Retention, RetryEvent,
-    RunningProgress, SensitiveHit, DEFAULT_LIMIT, MAX_DAILY_DAYS, MAX_ENTRIES, MAX_LIMIT,
-    MAX_RAW_BODY_BYTES, MAX_RAW_ROWS,
+    RunningProgress, SensitiveHit, DEFAULT_LIMIT, MAX_DAILY_DAYS, MAX_ENTRIES, MAX_LIMIT, MAX_RAW_BODY_BYTES, MAX_RAW_ROWS,
 };
 
-/// 明细窗口：四档缓存命中率里最长的是 7 天，趋势窗口是 24 小时 ——
-/// 报表要从明细里取的数据**全部落在这个窗口内**，所以查询按它下界，
-/// 不必把 2 万条明细整体读回内存再逐条丢。
-const SUMMARY_WINDOW_MS: i64 = 7 * 24 * 60 * 60 * 1000;
+/// 报表的**明细窗口**：从明细读行时按它下界，不必把整张明细表读回内存
+/// （明细是全量保留，没有条数上限）。
+///
+/// 改造后只剩**近 24 小时趋势**一件事需要逐条明细（四档命中率已由
+/// `sql::sum_cache_windows` 在 SQL 侧聚合完），所以窗口从 7 天收到 1 天 ——
+/// 这是「读回来的行数」这一项的直接来源（实测库上 26,763 → 5,975 行）。
+///
+/// 与窗口大小无关的两件事：命中率四档里最长的 `last7d` 仍按 7 天算（它在 SQL
+/// 侧的 `WHERE ts >= ?` 里自带下界），`request_daily` 聚合表的读取也不受它影响
+/// （热力图与 `all` 档本来就跨年）。
+const SUMMARY_WINDOW_MS: i64 = 24 * 60 * 60 * 1000;
 
 /// 筛选下拉的候选上限（模型名与 provider id 各一份）。
 ///
@@ -593,9 +600,10 @@ impl RequestStats {
     /// 让页面显示的数据与选项对不上；两层各管一件事，这里保留兜底。
     ///
     /// ── 读取窗口 ────────────────────────────────────────────────
-    /// 聚合整表读（一年最多 365 行）；明细只取**近 7 天** ——
-    /// `cacheRates` 最长的窗口是 7 天、`cacheTrend24h` 是 24 小时，
-    /// 窗口外的条目在纯函数里本来就会被逐条判掉，不必先读回内存。
+    /// 聚合整表读（一年最多 365 行）；命中率四档**不下读明细**（由 SQL 侧按窗口
+    /// 聚合出四组合计，见 `sql::sum_cache_windows`）；明细只取**近 24 小时**的
+    /// 窄列（`sql::select_summary_rows`，只服务逐小时趋势）。窗口外的条目在
+    /// 纯函数里本来就会被逐条判掉，不必先读回内存。
     /// `now` 在这里取**一次**并同时用于查询上界与两个纯函数的窗口判定：
     /// 取两次的话，两次之间到达的条目可能落在「查出来了但不在窗口内」（无害）
     /// 或「在窗口内但没查出来」（少算）这两种边界上，而前者只是白读、后者是错。
@@ -618,20 +626,22 @@ impl RequestStats {
         custom: Option<(NaiveDate, NaiveDate)>,
     ) -> Value {
         let now = clock::now_ms();
+        let windows: Vec<i64> = CACHE_WINDOWS.iter().map(|(_, ms)| *ms).collect();
         let loaded = {
             let guard = self.guard();
             self.with_conn(&guard, |conn| {
                 let daily = daily::select_daily_map(conn)?;
-                // 报表侧排除模型测试（见 `select_between` 的说明）：
+                // 四档命中率在 SQL 侧聚合（一次索引扫描出四组合计）
+                let cache_totals = sql::sum_cache_windows(conn, now, &windows)?;
+                // 报表侧排除模型测试（见 `select_summary_rows` 的说明）：
                 // 趋势图与排行回答的是「真实流量长什么样」
-                let entries = sql::select_between(conn, now - SUMMARY_WINDOW_MS, now, true)?;
+                let entries = sql::select_summary_rows(conn, now - SUMMARY_WINDOW_MS, now)?;
                 let identities = crate::server::db::account_history::read_snapshots(conn)?;
-                Ok((daily, entries, identities))
+                Ok((daily, cache_totals, entries, identities))
             })
         };
-        let (daily, entries, identities) = loaded.unwrap_or_default();
-        // Keep chart/report computation outside the database mutex as before.
-        let mut summary = summarize(&daily, &entries, range, now, custom);
+        let (daily, cache_totals, entries, identities) = loaded.unwrap_or_default();
+        let mut summary = summarize(&daily, &cache_totals, &entries, range, now, custom);
         crate::server::db::account_history::enrich_summary(&identities, &mut summary);
         summary
     }

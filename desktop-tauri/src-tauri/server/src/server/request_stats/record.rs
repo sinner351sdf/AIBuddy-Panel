@@ -60,6 +60,8 @@ pub const MAX_RAW_ROWS: usize = 2000;
 /// 开着时的单条体积。两侧各自截断：一侧超长不该吃掉另一侧的配额。
 pub const MAX_RAW_BODY_BYTES: usize = 128 * 1024;
 
+
+
 /// 查询分页的默认条数与上限。
 /// 两个常量都被 `RequestStats::query_requests`（路由 `/api/stats/requests`）
 /// 与 `api::stats_api` 的 `limit` 解析使用。
@@ -370,6 +372,8 @@ pub struct AttemptDetail {
     pub body_bytes: Option<i64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub timings: Vec<crate::server::core::upstream::timing::StageTiming>,
+    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub diagnostics: serde_json::Map<String, Value>,
 }
 
 /// 一次尝试内部的退避重试（存储契约，与采集侧同形各自定义）。
@@ -620,6 +624,7 @@ impl NewRequestEntry {
                     // 体字节数原样透传（None = 这一轮没发出去；采集侧的理由见 usage 的字段说明）
                     body_bytes: item.body_bytes,
                     timings: item.timings,
+                    diagnostics: item.diagnostics,
                 })
                 .collect(),
             sensitive_hits: self
@@ -743,15 +748,15 @@ pub struct DailyEntry {
     /// 字段，也让「模型累计」这个概念的读者要自己分辨哪几个字段有意义。
     ///
     /// 与 `modelTokens` 同理，这份累计必须存在：`topModel` 之外的任何区间级
-    /// 分组统计都要跨过明细的 7 天报表窗口（`all` / `month` 可能跨年），
-    /// 只靠明细算会少掉一大段。
+    /// 分组统计都要跨过报表读明细的窗口（`SUMMARY_WINDOW_MS`，`all` / `month`
+    /// 可能跨年），只靠明细算会少掉一大段。
     /// 键名不沿用 `*Tokens` 是因为它承载的语义比 tokens 宽（请求数与成功数）。
     #[serde(rename = "providerStats", default, skip_serializing_if = "Vec::is_empty")]
     pub provider_stats: Vec<ProviderAccum>,
     /// 当天的按账号累计（**契约之外的补充字段**）。
     ///
-    /// 与 `providerStats` 同一理由：区间级的账号用量排行要跨过明细的 7 天
-    /// 报表窗口，只有明细的话 `all` / `month` 会少掉一大段。
+    /// 与 `providerStats` 同一理由：区间级的账号用量排行要跨过报表读明细的
+    /// 窗口，只有明细的话 `all` / `month` 会少掉一大段。
     #[serde(rename = "accountStats", default, skip_serializing_if = "Vec::is_empty")]
     pub account_stats: Vec<AccountAccum>,
 }

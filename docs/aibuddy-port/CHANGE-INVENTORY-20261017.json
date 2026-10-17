@@ -1,0 +1,1718 @@
+{
+  "baseCommit": "d3f93149fcafec9f5ffc18340ccf9e8dbbcd8275",
+  "files": 341,
+  "groups": {
+    "release and packaging": 15,
+    "server and regression tests": 113,
+    "documentation": 22,
+    "frontend and translations": 154,
+    "Accio integration": 37
+  },
+  "changes": [
+    {
+      "path": ".github/FUNDING.yml",
+      "status": "A",
+      "group": "release and packaging"
+    },
+    {
+      "path": ".github/workflows/build.yml",
+      "status": "M",
+      "group": "release and packaging"
+    },
+    {
+      "path": ".github/workflows/docker.yml",
+      "status": "M",
+      "group": "release and packaging"
+    },
+    {
+      "path": ".github/workflows/publish-release.yml",
+      "status": "M",
+      "group": "release and packaging"
+    },
+    {
+      "path": ".gitignore",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "status": "M",
+      "group": "documentation"
+    },
+    {
+      "path": "README.en.md",
+      "status": "M",
+      "group": "documentation"
+    },
+    {
+      "path": "README.ja.md",
+      "status": "M",
+      "group": "documentation"
+    },
+    {
+      "path": "README.ko.md",
+      "status": "M",
+      "group": "documentation"
+    },
+    {
+      "path": "README.md",
+      "status": "M",
+      "group": "documentation"
+    },
+    {
+      "path": "README.pt-BR.md",
+      "status": "M",
+      "group": "documentation"
+    },
+    {
+      "path": "README.zh-Hant.md",
+      "status": "M",
+      "group": "documentation"
+    },
+    {
+      "path": "assets/proxylane-logo-for-dark-bg.png",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "assets/proxylane-logo-for-light-bg.png",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "assets/qq-card.png",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "assets/screenshots/accounts.png",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "assets/screenshots/add-account.png",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "assets/screenshots/checkin-center.png",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "assets/screenshots/models.png",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "assets/screenshots/report-overview.png",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "assets/screenshots/report-trends.png",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "assets/screenshots/scheduled-tasks.png",
+      "status": "D",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "assets/sponsor-proxylane.png",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "assets/wechat-reward.png",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/accounts.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/add-account.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/assistant.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/checkin.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/common.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/models.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/proxies.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/report.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/requests.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/settings.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/tasks.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/en/update.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/accounts.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/add-account.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/assistant.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/checkin.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/common.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/models.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/proxies.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/report.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/requests.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/settings.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/tasks.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ja/update.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/accounts.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/add-account.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/assistant.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/checkin.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/common.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/models.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/proxies.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/report.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/requests.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/settings.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/tasks.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/ko/update.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/accounts.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/add-account.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/assistant.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/checkin.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/common.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/models.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/proxies.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/report.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/requests.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/settings.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/tasks.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/pt-BR/update.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/accounts.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/add-account.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/assistant.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/checkin.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/proxies.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/report.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/settings.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/i18n-src/zh-Hant/update.json",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/i18n/scan.mjs",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/package-lock.json",
+      "status": "M",
+      "group": "release and packaging"
+    },
+    {
+      "path": "desktop-tauri/package.json",
+      "status": "M",
+      "group": "release and packaging"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/Cargo.lock",
+      "status": "M",
+      "group": "release and packaging"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/Cargo.toml",
+      "status": "M",
+      "group": "release and packaging"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/Cargo.toml",
+      "status": "M",
+      "group": "release and packaging"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/access.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/accounts.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/billing.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/custom_providers.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/mod.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/pipeline.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/proxies.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/role_compat.rs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/session.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/stats_api.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/api/update.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/config/mod.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/config/types.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/accio_accounts.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/chatglm_accounts.rs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/cline_accounts.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/custom_accounts.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/mod.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/auto_checkin.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/billing/checkin.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/billing/mod.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/billing/request.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/checkin_records.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/custom_providers.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/login.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/protocol/antigravity_outbound.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/protocol/antigravity_signature_cache.rs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/protocol/antigravity_stream.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/protocol/chatglm_stream.rs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/protocol/mod.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/protocol/responses.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/adk_error.rs",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/auth.rs",
+      "status": "M",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/balance.rs",
+      "status": "M",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/chat.rs",
+      "status": "M",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/chat_tests.rs",
+      "status": "M",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/compression.rs",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/credentials.rs",
+      "status": "M",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/endpoints.rs",
+      "status": "M",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/identity.rs",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/login_http.rs",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/login_tests.rs",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/media.rs",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/mod.rs",
+      "status": "M",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/models.rs",
+      "status": "M",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/oauth.rs",
+      "status": "M",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/protocol.rs",
+      "status": "M",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/refresh.rs",
+      "status": "M",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/security_guard.cjs",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/security_guard.rs",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/session.rs",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/session_tests.rs",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/sse.rs",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/stream.rs",
+      "status": "M",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/stream_diagnostics.rs",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/accio/transport.rs",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/adapter.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/adapter.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/balance.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/endpoints.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/mod.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/models.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/catalog.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/catalog_cache.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/adapter.rs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/balance.rs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/checkin.rs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/credentials.rs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/endpoints.rs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/http.rs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/live_tests.rs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/mod.rs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/models.rs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/plan.rs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/sign.rs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/custom/balance_parse.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/kuku/credentials.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/loomy/images.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/loomy/mod.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/mod.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/adapter.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/credentials.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/login.rs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/mod.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/adapter.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/captcha.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/config_sync.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/endpoint_mapping.rs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/mod.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/plan.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/proxy_pool.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/update/check.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/update/mod.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/update/version.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/mod.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/payload.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/provider_loop.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/translate.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/usage.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/db/schema.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/errors.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/http.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/request_stats.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/request_stats/aggregate.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/request_stats/backfill.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/request_stats/legacy.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/request_stats/maintenance.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/request_stats/record.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/request_stats/report.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/server/request_stats/sql.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/server/src/web_shim.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/src/backend.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/src/bridge.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/src/commands.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/src/gateway.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/src/lib.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/src/login.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/src/update.rs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/tauri.conf.json",
+      "status": "M",
+      "group": "release and packaging"
+    },
+    {
+      "path": "desktop-tauri/src-tauri/tauri.linux.conf.json",
+      "status": "A",
+      "group": "release and packaging"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-columns.ts",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-credit-detail.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-data.ts",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-dialog-limiter.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-dialogs.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-domain.ts",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-page.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-panels.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/accounts-shared.ts",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-account-configs.ts",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-account-modal.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-custom-provider.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-provider-blocks.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/add-provider-pick.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/assistant-tools.ts",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/checkin-page.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/keys-page.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/models-fetch-modal.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/models-page.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/models-panel-state.ts",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/proxies-dialogs.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/proxies-page.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/proxies-sub-view.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/report-page.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/requests-page.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/settings-model.ts",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/settings-page.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/settings-state.ts",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/sponsor.ts",
+      "status": "A",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/update-panel.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/update-settings.tsx",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui-islands/src/islands/update-shared.ts",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/assets/proxylane-logo-for-dark-bg.png",
+      "status": "A",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/assets/proxylane-logo-for-light-bg.png",
+      "status": "A",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/css/page-accounts-providers.css",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/css/page-accounts-table.css",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/css/page-assistant.css",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/css/page-gateway.css",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/css/update-notes.css",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/accounts.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/add-account.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/assistant.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/checkin.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/common.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/models.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/proxies.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/requests.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/settings.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/tasks.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/en/update.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/accounts.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/add-account.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/assistant.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/checkin.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/common.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/models.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/proxies.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/requests.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/settings.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/tasks.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ja/update.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/accounts.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/add-account.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/assistant.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/checkin.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/common.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/models.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/proxies.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/requests.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/settings.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/tasks.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/ko/update.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/accounts.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/add-account.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/assistant.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/checkin.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/common.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/models.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/proxies.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/requests.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/settings.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/tasks.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/pt-BR/update.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/accounts.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/add-account.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/assistant.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/checkin.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/proxies.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/report.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/settings.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/tasks.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/i18n/zh-Hant/update.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/islands/ui.css",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/islands/ui.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/markdown.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/preset-providers.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "desktop-tauri/ui/web-login.js",
+      "status": "M",
+      "group": "frontend and translations"
+    },
+    {
+      "path": "docs/README.en.md",
+      "status": "A",
+      "group": "documentation"
+    },
+    {
+      "path": "docs/README.ja.md",
+      "status": "A",
+      "group": "documentation"
+    },
+    {
+      "path": "docs/README.ko.md",
+      "status": "A",
+      "group": "documentation"
+    },
+    {
+      "path": "docs/README.pt-BR.md",
+      "status": "A",
+      "group": "documentation"
+    },
+    {
+      "path": "docs/README.zh-CN.md",
+      "status": "A",
+      "group": "documentation"
+    },
+    {
+      "path": "docs/README.zh-Hant.md",
+      "status": "A",
+      "group": "documentation"
+    },
+    {
+      "path": "docs/SPONSOR.md",
+      "status": "A",
+      "group": "documentation"
+    },
+    {
+      "path": "docs/aibuddy-port/ACCIO-ADK-AUDIT-20261017.md",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "docs/aibuddy-port/ACCIO-ID-CONTEXT-AUDIT-20261017.md",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "docs/aibuddy-port/ACCIO-ID-CONTEXT-LOCAL-VALIDATION-20261017.md",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "docs/aibuddy-port/ACCIO-LOGIN-LOCAL-VALIDATION-20261017.md",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "docs/aibuddy-port/ACCIO-SDK-STREAM-LOCAL-VALIDATION-20261017.md",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "docs/aibuddy-port/ACCIO-SECURITY-GUARD.md",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "docs/aibuddy-port/ACCIO-SESSION-LOCAL-VALIDATION-20261017.md",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "docs/aibuddy-port/ACCIO-TIMEOUT-AUDIT-20261017.md",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "docs/aibuddy-port/ACCIO-TOOLS-MEDIA-SSE-DEPLOYMENT-20261017.md",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "docs/aibuddy-port/ACCIO-TOOLS-MEDIA-SSE-LOCAL-VALIDATION-20261017.md",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "docs/aibuddy-port/CHANGE-INVENTORY-20261017.json",
+      "status": "A",
+      "group": "documentation"
+    },
+    {
+      "path": "docs/aibuddy-port/CHANGE-SUMMARY-20261017.md",
+      "status": "A",
+      "group": "documentation"
+    },
+    {
+      "path": "docs/aibuddy-port/PRECOMMIT-VALIDATION-20261017.json",
+      "status": "A",
+      "group": "documentation"
+    },
+    {
+      "path": "docs/aibuddy-port/upstream-3.0.8/README.md",
+      "status": "A",
+      "group": "documentation"
+    },
+    {
+      "path": "docs/aibuddy-port/upstream-3.0.8/browser-chatglm-guest.png",
+      "status": "A",
+      "group": "documentation"
+    },
+    {
+      "path": "docs/aibuddy-port/upstream-3.0.8/browser-residential.png",
+      "status": "A",
+      "group": "documentation"
+    },
+    {
+      "path": "docs/aibuddy-port/upstream-3.0.8/inventory.json",
+      "status": "A",
+      "group": "documentation"
+    },
+    {
+      "path": "docs/aibuddy-port/upstream-3.0.8/verification.json",
+      "status": "A",
+      "group": "documentation"
+    },
+    {
+      "path": "package-lock.json",
+      "status": "M",
+      "group": "release and packaging"
+    },
+    {
+      "path": "package.json",
+      "status": "M",
+      "group": "release and packaging"
+    },
+    {
+      "path": "scripts/release-assets.mjs",
+      "status": "M",
+      "group": "release and packaging"
+    },
+    {
+      "path": "scripts/release.sh",
+      "status": "M",
+      "group": "release and packaging"
+    },
+    {
+      "path": "scripts/test-accio-balance.mjs",
+      "status": "M",
+      "group": "Accio integration"
+    },
+    {
+      "path": "scripts/test-accio-security-guard.mjs",
+      "status": "A",
+      "group": "Accio integration"
+    },
+    {
+      "path": "scripts/test-balance-display.mjs",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "scripts/test-proxy-groups.mjs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "scripts/test-release-script.py",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "scripts/test-upstream-3.0.5.py",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "scripts/test-upstream-3.0.7.py",
+      "status": "M",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "scripts/test-upstream-3.0.8-ui.mjs",
+      "status": "A",
+      "group": "server and regression tests"
+    },
+    {
+      "path": "scripts/test-upstream-3.0.8.py",
+      "status": "A",
+      "group": "server and regression tests"
+    }
+  ]
+}

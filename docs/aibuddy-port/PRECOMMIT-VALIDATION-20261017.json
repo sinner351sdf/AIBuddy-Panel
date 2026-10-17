@@ -1,0 +1,36 @@
+{
+  "baseCommit": "d3f93149fcafec9f5ffc18340ccf9e8dbbcd8275",
+  "scope": "upstream 3.0.8 + selected beta and accumulated Accio ADK v2 fixes",
+  "version": "3.0.8",
+  "currentChecks": {
+    "uiTypecheckAndViteBuild": "passed",
+    "upstream308UIRegression": "passed",
+    "releaseScriptMockScenarios": 23,
+    "upstream308IsolatedHTTPAssertions": 56
+  },
+  "precedingVerifiedChecks": {
+    "serverLib": {
+      "passed": 804,
+      "failed": 0,
+      "ignored": 15
+    },
+    "accioGzipCases": 8,
+    "accioSessionCases": 11,
+    "securityGuardBridgeCases": 18
+  },
+  "officialAccountRequestsSentForThisSubmission": 0,
+  "productionServiceRestartedForThisSubmission": false,
+  "newTagCreated": false,
+  "newReleasePublished": false,
+  "excluded": [
+    "data/",
+    "logs/",
+    "target/",
+    "node_modules/",
+    ".env",
+    "native SDK binaries",
+    "local backups and temporary validation files"
+  ],
+  "evidenceDirectory": "/private/tmp/agent2api-github-submit-20261017",
+  "verificationBoundary": "Local builds, isolated localhost fixtures and prior recorded tests; no real-provider inference or cross-platform installer validation."
+}

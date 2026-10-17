@@ -1,6 +1,6 @@
 [package]
 name = "agent2api-server"
-version = "3.0.7"
+version = "3.0.8"
 description = "Agent2API 网关本体 — 多提供商本地网关（桌面端与 headless 服务器共用）"
 authors = ["aimod-cc"]
 edition = "2021"
@@ -79,7 +79,7 @@ futures = "0.3"
 tokio-stream = "0.1"
 bytes = "1"
 # CatPaw 适配器的内联图片压缩（providers/catpaw/image_compress.rs）
-image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "bmp", "ico"] }
 base64 = "0.22"
 # Qoder 网页登录的 PKCE verifier / nonce
 getrandom = "0.2"

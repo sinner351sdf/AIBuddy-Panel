@@ -157,10 +157,44 @@ pub(super) const BILLING_DAILY_CHECKIN: BillingSpec = BillingSpec {
 /// 状态在读的），领取端点则沿用同一条 `BILLING_DAILY_CHECKIN`。
 pub(super) const BILLING_ACTIVITY_CHECKIN_STATUS: BillingSpec = BillingSpec {
     method: "POST",
-    base: BillingBase::Session,
     path: "/billing/meter/checkin-activity-status",
     body: empty_body,
     whitelist_headers: false,
+    base: BillingBase::Session,
+};
+
+/// 活动补偿领取（一次性运营补偿，每号一次）。
+///
+/// 落地实例：2026-10 的 DeepSeek 服务故障补偿（国内版全量用户额外送
+/// 500 积分，2026-10-16 公告）；更早的登录故障补偿（1000 积分）也走这条 ——
+/// 官方口径是去「用量管理」页点领取，这条端点就是那个按钮背后的调用。
+///
+/// 口径与路径按参考实现 workbuddy2api-hub 的 `claim-compensation`：
+/// POST 空体、billing 头集合；成功回 `data.credit`（本次到账积分），
+/// 已领取 / 无可领取时回业务错误 —— 调用方静默跳过，不是故障。
+///
+/// `base` 固定国内版计费站：这条端点是后加的运营端点，落点由上游固定
+/// （见 `BillingSpec::base` 的说明），不跟账号的历史 `endpoint` 走。
+/// 国际版没有对应活动，不发起。
+pub(super) const BILLING_CLAIM_COMPENSATION: BillingSpec = BillingSpec {
+    method: "POST",
+    path: "/billing/meter/claim-compensation",
+    body: empty_body,
+    whitelist_headers: false,
+    base: BillingBase::Billing,
+};
+
+/// 新手礼包领取（一次性新用户奖励，每号一次）。
+///
+/// 与活动补偿同族、同落点、同口径（参考实现 workbuddy2api-hub 两条一起领：
+/// `claim-gift` / `claim-compensation`）。没领过的账号领一份新用户积分包，
+/// 已领过的静默跳过 —— 领到的是真积分，值得顺手带上。
+pub(super) const BILLING_CLAIM_GIFT: BillingSpec = BillingSpec {
+    method: "POST",
+    path: "/billing/meter/claim-gift",
+    body: empty_body,
+    whitelist_headers: false,
+    base: BillingBase::Billing,
 };
 
 /// 国际版「对话活跃上报」端点（growth 连登的唯一点亮通道）。
@@ -171,21 +205,21 @@ pub(super) const BILLING_ACTIVITY_CHECKIN_STATUS: BillingSpec = BillingSpec {
 /// （workbuddy2api 系）同样把这条上报作为国际版每日活跃的主动作，并留有
 /// 「曾按 global 无活跃体系跳过 → 国际版账号永远点不亮连登」的修复记录。
 pub(super) const BILLING_REPORT_ACTIVITY: BillingSpec = BillingSpec {
-    base: BillingBase::Session,
     method: "POST",
     path: "/v2/report",
     body: report_body,
     whitelist_headers: false,
+    base: BillingBase::Session,
 };
 
 /// 国际版成长中心连登状态（回读用）。上报是否真的计分要靠它闭环验证 ——
 /// 实测存在「上报 200 但 streak 没涨」的静默丢弃形态（事件缺 userId 时）。
 pub(super) const GROWTH_STREAK_STATUS: BillingSpec = BillingSpec {
-    base: BillingBase::Session,
     method: "GET",
     path: "/activity/growth/streak",
     body: empty_body,
     whitelist_headers: false,
+    base: BillingBase::Session,
 };
 
 /// 活跃上报事件的缺省请求体（占位，真实体由调用方覆盖 ——

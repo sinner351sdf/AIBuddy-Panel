@@ -5,10 +5,7 @@
 //! `core::login` 里那套账号切换的安全版是 `/api/auth/safe/refresh_token`，
 //! 本网关不做账号切换，走普通那条）。
 //!
-//! ── 上游没回过期时间怎么办 ──────────────────────────────────
-//! `expiresAt` 缺失时给一个保守的默认值（1 小时）：它只影响「下次要不要续期」
-//! 的判定，给短了会多刷一次（无害），给长了会让一个已经失效的 token 留着不走
-//! 续期路径（有害）。桌面端的 token 有效期在小时级，1 小时是安全的下界。
+//! 续期响应必须包含完整令牌和有效到期时间；不完整响应不能覆盖旧会话。
 
 use std::sync::OnceLock;
 
@@ -22,9 +19,6 @@ use crate::server::logging;
 use super::auth;
 use super::credentials::{self, Credentials};
 use super::endpoints;
-
-/// 上游没给到期时间时的保守默认：1 小时
-const DEFAULT_TTL_MS: i64 = 60 * 60 * 1000;
 
 static FLIGHTS: OnceLock<Table<Credentials>> = OnceLock::new();
 
@@ -56,10 +50,7 @@ pub async fn ensure_fresh(
         return Ok(credentials);
     }
     if !credentials.can_refresh() {
-        return Err(GatewayError::with_status(
-            400,
-            "Accio 账号没有 refreshToken，无法续期，请重新登录或粘贴完整凭证",
-        ));
+        return Err(super::session::blocked_error("login_required"));
     }
     let key = format!(
         "{}:{}:{}:{}:{}",
@@ -69,14 +60,18 @@ pub async fn ensure_fresh(
         refresh_flight::fingerprint(&credentials.access_token),
         refresh_flight::fingerprint(&credentials.refresh_token),
     );
-    match FLIGHTS.get_or_init(Table::new).join(&key) {
+    let result = match FLIGHTS.get_or_init(Table::new).join(&key) {
         Join::Waiter(waiter) => waiter.wait().await,
         Join::Leader(leader) => {
             let result = refresh_and_save(store, &record, &credentials).await;
             leader.finish(result.clone());
             result
         }
+    };
+    if let Err(error) = &result {
+        super::session::record_failure(store, &record, error);
     }
+    result
 }
 
 async fn refresh_and_save(
@@ -89,25 +84,46 @@ async fn refresh_and_save(
         "accessToken": credentials.access_token,
         "refreshToken": credentials.refresh_token,
     });
-    let response = auth::post_json(credentials.region, endpoints::REFRESH_TOKEN_PATH, &body, proxy.as_ref())
-        .await?;
+    let response = auth::post_for_session(
+        credentials,
+        endpoints::REFRESH_TOKEN_PATH,
+        &body,
+        proxy.as_ref(),
+    )
+    .await?;
     let data = auth::payload(response, "凭证续期").map(auth::unwrap_data)?;
     let token = credentials::secret(&data, &["accessToken", "access_token", "token"])?;
     if token.is_empty() {
-        return Err(GatewayError::with_status(502, "Accio 续期响应缺少 accessToken，旧凭证未被覆盖"));
+        return Err(GatewayError::with_status(
+            502,
+            "Accio 续期响应缺少 accessToken，旧凭证未被覆盖",
+        ));
     }
     let mut fresh = credentials.clone();
+    if data.get("sgcookie").is_some() {
+        fresh.sgcookie = credentials::security_cookie(&data)?;
+    }
+    if data.get("sid").is_some() {
+        fresh.sid = credentials::secret(&data, &["sid"])?;
+    }
     fresh.access_token = token;
     let refresh = credentials::secret(&data, &["refreshToken", "refresh_token"])?;
-    if !refresh.is_empty() {
-        fresh.refresh_token = refresh;
+    let expiry = credentials::timestamp(data.get("expiresAt").or_else(|| data.get("expires_at")));
+    if refresh.is_empty() || expiry.is_none_or(|at| at <= logging::now_ms()) {
+        return Err(
+            GatewayError::with_status(502, "Accio 续期响应不完整，旧凭证未被覆盖")
+                .with_code("accio_refresh_invalid_response"),
+        );
     }
-    fresh.expires_at = Some(
-        credentials::timestamp(
-            data.get("expiresAt").or_else(|| data.get("expires_at")),
-        )
-        .unwrap_or_else(|| logging::now_ms() + DEFAULT_TTL_MS),
-    );
+    let user = credentials::text(&data, &["userId", "user_id"]);
+    if !user.is_empty() && !credentials.user_id.is_empty() && user != credentials.user_id {
+        return Err(GatewayError::with_status(
+            409,
+            "Accio 续期响应账号身份不一致，旧凭证未被覆盖",
+        ));
+    }
+    fresh.refresh_token = refresh;
+    fresh.expires_at = expiry;
     // 身份/地区不允许被续期结果改掉：那意味着串号（换到了另一个账号的凭证）
     if !credentials.user_id.is_empty() {
         fresh.user_id = credentials.user_id.clone();
@@ -124,4 +140,19 @@ async fn refresh_and_save(
             snapshot(store, id, credentials.region).map(|(_, credentials)| credentials)
         }
     }
+}
+
+/// Another in-flight request may already have refreshed this exact issuance.
+/// Never force a second rotation of a now-current refresh token.
+pub async fn after_unauthorized(
+    store: &AccountStore,
+    id: &str,
+    region: super::endpoints::Region,
+    rejected: &str,
+) -> Result<Credentials, GatewayError> {
+    let (_, current) = snapshot(store, id, region)?;
+    if current.access_token != rejected {
+        return Ok(current);
+    }
+    ensure_fresh(store, id, region, true).await
 }

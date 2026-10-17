@@ -9,10 +9,11 @@ const source = readFileSync(new URL('../desktop-tauri/ui-islands/src/islands/acc
 const ast = ts.createSourceFile('accounts-panels.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
 const names = ['usageSummary', 'usagePool', 'walletRemainingPercent', 'numberOrNull', 'numberText',
   'subscriptionText', 'leadPlan', 'grantUsage', 'biggestGrant']
-const functions = ast.statements.filter(node => ts.isFunctionDeclaration(node) && names.includes(node.name?.text))
+const sharedAst = ts.createSourceFile('accounts-shared.ts', readFileSync(new URL('../desktop-tauri/ui-islands/src/islands/accounts-shared.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true)
+const functions = ast.statements.filter(node => ts.isFunctionDeclaration(node) && names.includes(node.name?.text)).concat(sharedAst.statements.filter(node => ts.isFunctionDeclaration(node) && node.name?.text === 'numberText'))
 assert.equal(functions.length, names.length, 'test must load every real formatter dependency')
 const exports = {}
-vm.runInNewContext(ts.transpileModule(functions.map(node => node.getText(ast)).join('\n'), {
+vm.runInNewContext(ts.transpileModule(functions.map(node => node.getText()).join('\n'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText, {
   exports,

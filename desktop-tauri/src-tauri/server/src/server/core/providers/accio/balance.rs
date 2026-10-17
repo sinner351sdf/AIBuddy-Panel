@@ -43,38 +43,35 @@ pub async fn query(
     let proxy = auth::account_proxy(&record)?;
 
     // ── 额度用量 ────────────────────────────────────────────────
-    let quota_response = auth::get_with_token(
-        credentials.region,
-        endpoints::QUOTA_PATH,
-        &credentials.access_token,
-        &[],
-        proxy.as_ref(),
-    )
-    .await?;
-    if quota_response.status == 401 || quota_response.status == 403 {
-        return Err(GatewayError::with_status(401, "Accio 凭证已失效，请重新登录"));
-    }
-    let quota = auth::payload(quota_response, "额度查询").map(auth::unwrap_data)?;
+    let quota_response =
+        auth::get_for_session(&credentials, endpoints::QUOTA_PATH, proxy.as_ref()).await?;
+    let quota = match auth::payload(quota_response, "额度查询") {
+        Ok(value) => auth::unwrap_data(value),
+        Err(error) => {
+            if super::session::restricted(&error) {
+                super::session::record_failure(store, &record, &error);
+            }
+            return Err(error);
+        }
+    };
     let wallet = quota_wallet(&quota)?;
 
     // ── 订阅（可选，失败不影响额度的展示）──────────────────────
-    let subscription = match auth::get_with_token(
-        credentials.region,
-        endpoints::SUBSCRIPTION_PATH,
-        &credentials.access_token,
-        &[],
-        proxy.as_ref(),
-    )
-    .await
-    {
-        Ok(response) if response.ok => response
-            .payload
-            .map(auth::unwrap_data)
-            .map(|value| subscription_shape(&value))
-            .unwrap_or(Value::Null),
-        // 免费账号没有订阅：失败当「没有」，不影响额度那一半的展示
-        _ => Value::Null,
-    };
+    let subscription =
+        match auth::get_for_session(&credentials, endpoints::SUBSCRIPTION_PATH, proxy.as_ref())
+            .await
+        {
+            Ok(response) => match auth::payload(response, "订阅查询") {
+                Ok(value) => subscription_shape(&auth::unwrap_data(value)),
+                Err(error) if super::session::restricted(&error) => {
+                    super::session::record_failure(store, &record, &error);
+                    return Err(error);
+                }
+                Err(_) => Value::Null,
+            },
+            // 免费账号没有订阅：失败当「没有」，不影响额度那一半的展示
+            _ => Value::Null,
+        };
 
     Ok(json!({
         // 上游只有百分比，没有绝对剩余量：按契约给 null（见模块头）

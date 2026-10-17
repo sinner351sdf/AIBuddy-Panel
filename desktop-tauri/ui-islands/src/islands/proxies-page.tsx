@@ -1,6 +1,7 @@
 /**
  * Agent2API · 网络代理页（代理池：列表 / 新增 / 编辑 / 删除 / 启停 / 连通性测试
- * / 同步 Clash Verge / 勾选批量测试与批量删除）。
+ * / 勾选批量测试与批量删除）。Clash 出口同步与订阅导入同在「订阅管理」弹窗里
+ * （见 proxies-sub-view.tsx），页面上不再单列那颗按钮。
  *
  * 对照 OmniProxy 的 ProxiesPage（那张带 CRUD + 测试 + Clash 同步 + 批量的代理表），
  * 存储与解析在 Rust 侧：`core::proxy_pool` 是唯一事实来源（`kv` 的 `proxyPool`
@@ -27,8 +28,9 @@
  *     「订阅管理」弹窗里（见下）。
  *   两种只读来源在「操作」列**只有测试**（外加订阅孤儿的删除）：去哪儿改由只读
  *   开关的悬浮提示说明，不再摆两颗永远点不动的「去 X 改」按钮占地方。
- *   同步有两处触发：进页面时的列表接口（后端自动同步）与面板头的
- *   「同步 Clash Verge」按钮（手动，会报本次变更数）。
+ *   同步有两处触发：进页面时的列表接口（后端自动同步）与「订阅管理」弹窗里的
+ *   「同步 Clash Verge」按钮（手动，会报本次变更数 —— 2026-10 从工具条搬进那个
+ *   弹窗，与订阅摆在一处：两者都是「把外面的出口集合整份镜像进池」）。
  *
  * ── 「启用」列不再只读：本页开关管的是**本端用不用它** ─────────
  * 名称与端口必须跟随来源侧，但「这条本端用不用」是用户自己的事：某条节点常年
@@ -112,6 +114,7 @@
 
 import * as React from 'react'
 import { createRoot } from 'react-dom/client'
+import { ChevronRight } from 'lucide-react'
 import {
   Button,
   Checkbox,
@@ -119,14 +122,8 @@ import {
   InputGroupAddon,
   InputGroupInput,
   SegmentedControl,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Switch,
   cn,
-  SelectGroup,
   Table,
   TableHeader,
   TableBody,
@@ -146,12 +143,11 @@ import { poolItemAddress } from './accounts-shared'
 import {
   batchRemove, batchTest, clearSelection, durationText, enableHint, isDisabledSubscriptionItem, isMirrorOffItem, formatTime, getSnapshot, poolItemStatus,
   isOrphanSubscriptionItem, isPicked, isReadonlyPoolItem, isUnprovisionedItem, items,
-  loadPanel, readonlyHint, removeItem, setAllPicked, subscribe, syncClash, testItem,
+  loadPanel, readonlyHint, removeItem, setAllPicked, subscribe, testItem,
   toggleItem, togglePick, wb, type ProxyPoolItem,
 } from './proxies-state'
 import {
   getSnapshot as getSubSnapshot, kernel as subKernel, loadSection, subscribe as subscribeSubs,
-  type SubscriptionItem,
 } from './proxies-sub-state'
 import { KernelBar, SubscriptionManagerDialog } from './proxies-sub-view'
 import { ProxyModal, ProxySettingsModal } from './proxies-dialogs'
@@ -165,16 +161,15 @@ import { t } from '../i18n'
 
 function ProxiesPage() {
   const snapshot = React.useSyncExternalStore(subscribe, getSnapshot)
-  // 订阅清单：条数给「订阅管理」按钮带读数，id / 名字给「提供方」下拉认家
-  //（下拉的档位不靠节点名猜，就是这份清单 + 池里的 providerId）
+  // 订阅清单的条数给「订阅管理」按钮带读数。
   const subs = React.useSyncExternalStore(subscribeSubs, getSubSnapshot).data?.items ?? []
   const [modal, setModal] = React.useState<{ item: ProxyPoolItem | null } | null>(null)
   const [settingsOpen, setSettingsOpen] = React.useState(false)
   const [subsOpen, setSubsOpen] = React.useState(false)
   const [kw, setKw] = React.useState('')
   const [srcFilter, setSrcFilter] = React.useState('all')
-  const [vendorFilter, setVendorFilter] = React.useState('all')
   const [stFilter, setStFilter] = React.useState('all')
+  const [collapsedGroups, setCollapsedGroups] = React.useState<ReadonlySet<string>>(() => new Set())
   /** 列设置登记的「拿不到就重试」驱动（本岛排在 table-col-settings 之前，见 proxies-columns） */
   const [colRetry, setColRetry] = React.useState(0)
   /** 列设置改动后强制重画（登记前那一拍读的是「全列」兜底值） */
@@ -211,25 +206,8 @@ function ProxiesPage() {
 
 
   const keyword = kw.trim().toLowerCase()
-  /** 提供方下拉的档位（顺序固定：粗档在前，各家订阅按池里条数多的排前面） */
-  const vendors = vendorOptions(rows, subs)
-
-  /**
-   * 提供方是否命中：'all' 不筛；manual / clash / subscription 三个粗档按来源组比；
-   * 孤儿档看后端标的 orphan；其余按条目上的 providerId 比（就是那个订阅的 id）。
-   */
-  function vendorHit(item: ProxyPoolItem): boolean {
-    if (vendorFilter === 'all') return true
-    if (vendorFilter === 'manual' || vendorFilter === 'clash' || vendorFilter === 'subscription') {
-      return groupOf(item) === vendorFilter
-    }
-    if (vendorFilter === ORPHAN_VENDOR) return Boolean(item.orphan)
-    return item.source === 'subscription' && !item.orphan && item.providerId === vendorFilter
-  }
-
   function matches(item: ProxyPoolItem): boolean {
     if (srcFilter !== 'all' && groupOf(item) !== srcFilter) return false
-    if (!vendorHit(item)) return false
     if (stFilter !== 'all' && stateKeyOf(item) !== stFilter) return false
     if (keyword) {
       const hay = [item.name, poolItemAddress(item), item.host, item.protocol, String(item.port ?? '')]
@@ -237,26 +215,6 @@ function ProxiesPage() {
       if (!hay.includes(keyword)) return false
     }
     return true
-  }
-
-  /**
-   * 选提供方：来源那一档跟着走（选具体某家 = 来源落到「订阅」；选手动 / Clash
-   * = 来源落到同名那档）。两个控件各筛各的会筛出「手动 + 魔戒」这种恒空的组合，
-   * 而用户看不出是谁在挡着 —— 联动之后任一个控件都随时给出一个有效视图。
-   */
-  function pickVendor(next: string | null): void {
-    // 组件库的 Select 允许回 null（清除档位）：当作「全部提供方」
-    const value = next ?? 'all'
-    setVendorFilter(value)
-    if (value === 'all') setSrcFilter('all')
-    else if (value === 'manual' || value === 'clash') setSrcFilter(value)
-    else setSrcFilter('subscription') // 全部订阅 / 某一家订阅 / 已移除的订阅
-  }
-
-  /** 选来源粗档：提供方细筛回到「全部提供方」（同上，避免恒空的组合） */
-  function pickSource(next: string): void {
-    setSrcFilter(next)
-    setVendorFilter('all')
   }
 
   const shown = rows.filter(matches)
@@ -281,7 +239,7 @@ function ProxiesPage() {
 
   // 筛选 / 搜索换了结果集：回到第 1 页（停在第 5 页再筛成三条，看到的会是尾部，
   // 与签到记录 / 请求日志同一条口径；越界由 useClientPaging 自己夹回）
-  React.useEffect(() => { paging.goto(1) }, [keyword, srcFilter, vendorFilter, stFilter])
+  React.useEffect(() => { paging.goto(1) }, [keyword, srcFilter, stFilter])
 
   function testCell(item: ProxyPoolItem): React.ReactNode {
     const last = item.lastTest
@@ -345,34 +303,24 @@ function ProxiesPage() {
     if (isDisabledSubscriptionItem(item) && (item.port === null || item.port === undefined)) {
       return <span className='text-subtle'>{t('已禁用（未开监听端口）')}</span>
     }
-    // 解析失败：错误原文挂在 title 上（这一格铺不下详情，但用户需要知道为什么）。
-    // 例外是**还没分配端口的订阅节点** —— 那是 lazy listeners 的正常状态
-    // （没有账号引用它），不是「坏了」：画成红色「解析失败」会让整列看着像
-    // 出了事故（实测整页全红，其实一个能用的都没少）。按中性「未分配端口」
-    // 显示，原因照旧挂 title。
-    if (item.resolveError) {
-      const portless = item.source === 'subscription' && (item.port === null || item.port === undefined)
+    // 测试走统一测试口；只有账号引用后才需要独立监听端口。
+    if (isUnprovisionedItem(item)) {
+      const noKernel = subKernel()?.installed === false
+      const inUse = Boolean(item.usedBy?.length)
+      const hint = noKernel
+        ? t('代理内核未安装，请在「订阅管理」里下载；账号引用节点并保存后，内核会自动分配监听端口。')
+        : inUse
+          ? t('已有账号引用，正在等待内核建立监听端口；若持续等待，请检查内核运行状态和订阅缓存。')
+          : t('尚无账号引用；在账号里选择此节点并保存后，内核会自动分配独立端口。节点测试走统一测试端口。')
       return (
-        <span className={cn(portless ? 'text-subtle' : 'text-destructive')}
-          title={item.resolveError}>
-          {portless ? t('未分配端口') : t('解析失败')}
+        <span className='text-subtle'
+          title={inUse && item.resolveError ? `${hint}\n${item.resolveError}` : hint}>
+          {noKernel ? t('内核未安装') : inUse ? t('等待分配端口') : t('按需分配端口')}
         </span>
       )
     }
-    // lazy listeners：订阅节点还没有监听端口（未被账号引用，或刚引用上、内核还没补建完）
-    if (isUnprovisionedItem(item)) {
-      // 测试**不需要**端口（走统一测试口，见后端 pool_test），所以这里说的是
-      // 「地址什么时候会有」：内核没装（没下过 / 刚被删）时说「先去下载内核」，
-      // 否则说清「引用它并保存后内核自动开端口」—— 与后端 resolve_item 同口径
-      const noKernel = subKernel()?.installed === false
-      return (
-        <span className='text-subtle'
-          title={noKernel
-            ? t('代理内核未安装（在「订阅管理」里下载内核后，节点会自动分配监听端口）')
-            : t('还没有监听端口（还没有账号引用它 —— 在账号里选它并保存后，内核会自动开端口）')}>
-          {poolItemAddress(item) || t('未分配端口')}
-        </span>
-      )
+    if (item.resolveError) {
+      return <span className='text-destructive' title={item.resolveError}>{t('解析失败')}</span>
     }
     const address = poolItemAddress(item)
     return (
@@ -488,7 +436,7 @@ function ProxiesPage() {
         <TableRow>
           <TableCell colSpan={columns.length} className='empty'>
             {ready
-              ? t('还没有代理。点右上角「＋ 新增代理」手填一个，点「同步 Clash Verge」把 Clash 的出口导进来，或在「订阅管理」里导入订阅节点。')
+              ? t('还没有代理。点右上角「＋ 新增代理」手填一个，或在「订阅管理」里导入订阅节点、同步 Clash Verge 的出口。')
               : t('加载中…')}
           </TableCell>
         </TableRow>
@@ -513,16 +461,30 @@ function ProxiesPage() {
         current = key
         const group = groups().find(entry => entry.key === key)
         blocks.push(
-          <TableRow className='tr-group' key={`group:${key}:${blocks.length}`}>
+          <TableRow className='tr-group' key={`group:${key}`}>
             <TableCell colSpan={columns.length}>
-              <span className='prov-tag'>{group?.label ?? key}</span>
-              {t('{n} 个', { n: groupCounts.get(key) ?? 0 })}
-              {group?.note ? <span className='font-normal'>　·　{group.note}</span> : null}
+              <Button variant='ghost' size='xs' className='proxy-group-toggle h-auto min-h-7 w-full justify-start px-3 py-1 text-left whitespace-normal'
+                aria-expanded={!collapsedGroups.has(key)}
+                aria-label={collapsedGroups.has(key)
+                  ? t('展开「{name}」分组', { name: group?.label ?? key })
+                  : t('收起「{name}」分组', { name: group?.label ?? key })}
+                onClick={() => setCollapsedGroups(previous => {
+                  const next = new Set(previous)
+                  if (next.has(key)) next.delete(key)
+                  else next.add(key)
+                  return next
+                })}>
+                <ChevronRight data-icon='inline-start' aria-hidden='true'
+                  className={cn('transition-transform', !collapsedGroups.has(key) && 'rotate-90')} />
+                <span className='prov-tag'>{group?.label ?? key}</span>
+                <span>{t('{n} 个', { n: groupCounts.get(key) ?? 0 })}</span>
+                {group?.note ? <span className='font-normal'>· {group.note}</span> : null}
+              </Button>
             </TableCell>
           </TableRow>,
         )
       }
-      blocks.push(row(item))
+      if (!collapsedGroups.has(key)) blocks.push(row(item))
     }
     return <>{blocks}</>
   }
@@ -532,13 +494,6 @@ function ProxiesPage() {
       <Card as='section' variant='panel' size='sm' className='panel'>
         <CardHeader variant='panel' className='panel-head proxy-panel-head'>
           <h2>{t('代理池')}</h2>
-          <span className='panel-sub'>
-            {ready ? t('{n} 个出口', { n: rows.length }) : t('加载中…')}
-          </span>
-          {/* 来源说明：本表的条目不止手动添加的 —— 订阅与 Clash 的出口自动
-              镜像进来（只读），放在面板头让「源 → 消费」的关系一眼可见，
-              不必等用户看到页脚的 Clash 说明才反应过来 */}
-          <span className='text-[11px] text-subtle'>{t('订阅与 Clash 的出口自动镜像进来')}</span>
         <div className='head-actions'>
           {/* 设置放在最左：低频配置项（端口范围 / 测试网址），不必挤在主操作旁边。
               弹窗是打开时才读设置（loadSettings 在弹窗内部），这里只负责开门 */}
@@ -547,18 +502,12 @@ function ProxiesPage() {
             {t('设置')}
           </Button>
           {/* 订阅管理：订阅表的唯一入口（页面上不再有第二个面板）。
-              带订阅条数 —— 0 条时只写按钮名，免得出现「订阅管理（0）」这种读数 */}
+              带订阅条数 —— 0 条时只写按钮名，免得出现「订阅管理（0）」这种读数。
+              「同步 Clash Verge」也在这个弹窗里（与订阅同属「把外面的出口集合
+              整份镜像进池」，摆在一处），页面上因此不再单列那颗按钮 */}
           <Button variant='outline' disabled={snapshot.batchBusy}
             onClick={() => setSubsOpen(true)}>
             {subs.length ? t('订阅管理（{n}）', { n: subs.length }) : t('订阅管理')}
-          </Button>
-          {/* 同步放在刷新左边：它做的事比「刷新」多一层（把 Clash 的出口集合
-              镜像进池），而进页面时的那次自动同步是静默的 —— 用户想在
-              「我刚在 Clash 里加了出口」之后立刻见效时点它。
-              批量在跑时两个都停：它们会把正在被批量流程改写的列表整份换掉 */}
-          <Button variant='outline' disabled={snapshot.syncing || snapshot.batchBusy}
-            onClick={() => void syncClash()}>
-            {snapshot.syncing ? t('同步中…') : t('同步 Clash Verge')}
           </Button>
           <Button variant='outline' disabled={snapshot.loading || snapshot.batchBusy}
             onClick={() => { void loadPanel(); void loadSection() }}>
@@ -614,35 +563,10 @@ function ProxiesPage() {
               <SearchIcon />
             </InputGroupAddon>
           </InputGroup>
-          {/* 提供方下拉排在来源分段之前：它比来源更「具体」（来源只到手动 / Clash /
-              订阅这一层，而订阅底下是各家机场）。SelectValue 显式给当前档的文案 ——
-              组件库的 Select 不靠 value 反查展示文本（见 AGENTS 的 SelectValue 约定） */}
-          <Select value={vendorFilter} onValueChange={pickVendor}>
-            <SelectTrigger className='w-[clamp(150px,18vw,210px)]' aria-label={t('按提供方筛选')}>
-              <SelectValue>{vendors.find(option => option.value === vendorFilter)?.label ?? t('全部提供方')}</SelectValue>
-            </SelectTrigger>
-            <SelectContent><SelectGroup>
-              {vendors.map(option => (
-                <SelectItem key={option.value} value={option.value}>
-                  {/* 0 条的档弱化显示但**留着**（与来源分段的约定一致）：订阅还在、
-                      节点还没落地时，档位凭空消失会让人以为是没订阅上 */}
-                  <span className='flex w-full items-center gap-2'>
-                    <span className={cn('min-w-0 flex-1 truncate', !option.count && 'text-subtle')}>
-                      {option.label}
-                    </span>
-                    <span className='flex-none text-[11px] text-subtle'>{option.count}</span>
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectGroup></SelectContent>
-          </Select>
           <SegmentedControl options={sourceOptions(rows)} value={srcFilter}
-            onValueChange={pickSource} aria-label={t('按来源筛选')} />
+            onValueChange={setSrcFilter} aria-label={t('按来源筛选')} />
           <SegmentedControl options={stateOptions(rows)} value={stFilter}
             onValueChange={setStFilter} aria-label={t('按状态筛选')} />
-          <span className='ml-auto text-[11px] text-subtle'>
-            {t('显示 {n} / 共 {total} 个出口', { n: shown.length, total: rows.length })}
-          </span>
         </div>
       )}
 
@@ -680,8 +604,8 @@ function ProxiesPage() {
         leading={(
           /* 脚注只留**状态**（Clash 没同步上 / 列表读失败）：那两句用法说明
              （出口怎么被账号引用、只读镜像去哪儿改）已经收进各自的入口 ——
-             账号弹窗的「出网代理」、面板头的「订阅管理」与「同步 Clash Verge」，
-             页脚常驻一大段解释只会把读数挤掉 */
+             账号弹窗的「出网代理」、面板头的「订阅管理」（含里面的
+             「同步 Clash Verge」），页脚常驻一大段解释只会把读数挤掉 */
           <>
             {/* Clash 状态常驻在页脚：同步是静默的（进页面自动跑一次），没有这句话时
                 「为什么一条 Clash 条目都没有」只能靠点按钮 + 看 toast 才知道 */}
@@ -798,46 +722,6 @@ function stateOptions(rows: ProxyPoolItem[]): Array<{ value: string; label: stri
     { value: 'fail', label: t('失败'), count: count('fail') },
     { value: 'wait', label: t('未就绪'), count: count('wait') },
     { value: 'off', label: t('已禁用'), count: count('off') },
-  ]
-}
-
-/* ─── 提供方档位 ─────────────────────────────── */
-
-/** 「已移除的订阅」那一档的值：孤儿节点（所属订阅已删）单列一档，别混进各家 */
-const ORPHAN_VENDOR = '__orphan'
-
-/**
- * 提供方下拉的档位：全部 / 手动 / Clash Verge / 全部订阅 / 各家订阅 / 已移除的订阅。
- *
- * ── 家名从哪儿来（不猜）────────────────────────────────────────
- * 名字与 id 都取**订阅清单**（`getSubscriptions` 的 items），池条目只提供
- * `providerId` —— 节点名里带不带机场名是各家自己的命名习惯（「魔戒 · 香港-01」
- * 是同步时拼的展示名），拿它反推归属一改命名就错。清单里有的订阅一律列出
- *（哪怕这一家在池里 0 条：先有订阅、内核还没起监听器时就是这样，「有这家但没节点」
- * 比「下拉里找不到这家」好解释）。
- *
- * 各家按池里条数从多到少排：点这个下拉的人多半想快速切到「那一大坨」。
- */
-function vendorOptions(
-  rows: ProxyPoolItem[],
-  subs: SubscriptionItem[],
-): Array<{ value: string; label: string; count: number }> {
-  const subscription = rows.filter(item => groupOf(item) === 'subscription')
-  const named = subs
-    .map(sub => ({
-      value: sub.id,
-      label: sub.name || sub.id,
-      count: subscription.filter(item => !item.orphan && item.providerId === sub.id).length,
-    }))
-    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
-  const orphanCount = subscription.filter(item => item.orphan).length
-  return [
-    { value: 'all', label: t('全部提供方'), count: rows.length },
-    { value: 'manual', label: t('手动'), count: rows.filter(item => groupOf(item) === 'manual').length },
-    { value: 'clash', label: 'Clash Verge', count: rows.filter(item => groupOf(item) === 'clash').length },
-    { value: 'subscription', label: t('全部订阅'), count: subscription.length },
-    ...named,
-    ...(orphanCount ? [{ value: ORPHAN_VENDOR, label: t('已移除的订阅'), count: orphanCount }] : []),
   ]
 }
 

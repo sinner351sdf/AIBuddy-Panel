@@ -164,3 +164,9 @@
   font-size: 12.5px;
   line-height: 1.85;
 }
+
+.asst-markdown .md-table { border-collapse: collapse; margin-block: 8px; font-size: 12px; }
+.asst-markdown .md-table th, .asst-markdown .md-table td { border: 1px solid var(--border); padding: 5px 9px; }
+.asst-markdown .md-table th { background: var(--surface-2); }
+.asst-markdown .md-table .md-ta-c { text-align: center; }
+.asst-markdown .md-table .md-ta-r { text-align: right; }

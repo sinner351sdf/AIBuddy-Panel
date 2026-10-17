@@ -73,7 +73,7 @@ jobs:
           tags: |
             type=raw,value=${{ steps.release.outputs.version }},enable=${{ steps.release.outputs.version != '' }}
             type=raw,value=v${{ steps.release.outputs.version }},enable=${{ steps.release.outputs.version != '' }}
-            type=raw,value=latest,enable=${{ steps.release.outputs.version != '' }}
+            type=raw,value=latest,enable=${{ steps.release.outputs.version != '' && !contains(steps.release.outputs.version, '-beta.') && !contains(steps.release.outputs.version, '-rc.') && !contains(steps.release.outputs.version, '.beta.') && !contains(steps.release.outputs.version, '.rc.') }}
             type=raw,value=dev,enable=${{ steps.release.outputs.version == '' }}
 
       - name: 构建并推送

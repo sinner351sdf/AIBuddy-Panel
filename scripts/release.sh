@@ -83,18 +83,20 @@ fi
 NOTES_FILE="$WORK_DIR/notes.txt"
 git log -1 --format=%B "$TAG" > "$NOTES_FILE"
 
-echo "→ GitHub Release（全部附件已校验）"
+PRERELEASE=$(node --input-type=module -e 'const m=await import(process.argv[1]); console.log(m.isPrereleaseTag(process.argv[2]))' "file://$VALIDATOR" "$TAG")
+echo "→ GitHub Release（全部附件已校验，pre-release=${PRERELEASE}）"
 if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
   gh release upload "$TAG" --repo "$REPO" --clobber "${ASSETS[@]}"
+  gh release edit "$TAG" --repo "$REPO" --prerelease="$PRERELEASE"
   echo "  ↳ 已存在，附件覆盖上传"
 else
-  gh release create "$TAG" --repo "$REPO" --verify-tag --title "$TAG" --notes-file "$NOTES_FILE" "${ASSETS[@]}"
+  gh release create "$TAG" --repo "$REPO" --verify-tag --prerelease="$PRERELEASE" --title "$TAG" --notes-file "$NOTES_FILE" "${ASSETS[@]}"
 fi
 
 # ── 3. 验收提示 ───────────────────────────────────────────────
 echo
 echo "发版收尾完成。核对："
 echo "  [1] GitHub Release: https://github.com/$REPO/releases/tag/$TAG"
-echo "  [2] Windows / macOS 安装包版本与 $TAG 一致"
+echo "  [2] Windows / macOS / Linux 桌面安装包版本与 $TAG 一致"
 echo "  [3] Linux amd64 / arm64 更新包、对应 .sha256 与 SHA256SUMS.txt 齐全"
 echo "  [4] 本脚本不发布镜像；镜像沿用本仓库既有私有发布策略"

@@ -67,8 +67,8 @@ impl AccountStore {
                 if record_region != Some(region) {
                     return false;
                 }
-                let same_user = !credentials.user_id.is_empty()
-                    && record.user_id() == credentials.user_id;
+                let same_user =
+                    !credentials.user_id.is_empty() && record.user_id() == credentials.user_id;
                 let same_token = record
                     .get("accessToken")
                     .and_then(Value::as_str)
@@ -100,7 +100,12 @@ impl AccountStore {
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(str::to_string)
-            .or_else(|| existing.as_ref().map(StoredAccount::name).filter(|value| !value.is_empty()))
+            .or_else(|| {
+                existing
+                    .as_ref()
+                    .map(StoredAccount::name)
+                    .filter(|value| !value.is_empty())
+            })
             .unwrap_or_else(|| {
                 if !credentials.name.is_empty() {
                     credentials.name.clone()
@@ -116,10 +121,30 @@ impl AccountStore {
             .as_ref()
             .map(|record| record.fields().clone())
             .unwrap_or_default();
+        if existing.as_ref().is_some_and(|record| {
+            record.get("accessToken").and_then(Value::as_str)
+                != Some(credentials.access_token.as_str())
+        }) {
+            // A new issuance cannot inherit the old security/session binding.
+            for key in [
+                "refreshToken",
+                "expiresAt",
+                "sgcookie",
+                "sid",
+                "routeRegion",
+                "teamId",
+                "clientTimezone",
+                "sessionStatus",
+                "sessionTokenBinding",
+                "sessionRetryAt",
+            ] {
+                fields.remove(key);
+            }
+        }
         if let Value::Object(values) = credentials.to_value() {
             for (key, value) in values {
-                // 空值不覆盖既有内容（重新登录时只给了一个 accessToken，
-                // 不该把上次的 refreshToken / expiresAt 洗掉）
+                // 同一颁发记录的缺项保留；换发 accessToken 时，旧会话字段
+                // 已在上方清除，不能继承旧 refreshToken / 安全上下文。
                 if value.is_null() {
                     continue;
                 }
@@ -140,8 +165,15 @@ impl AccountStore {
         };
         fields.insert("id".to_string(), Value::String(id.clone()));
         fields.insert("provider".to_string(), Value::String(provider.to_string()));
-        fields.insert("name".to_string(), Value::String(truncate_chars(&record_name, 100)));
-        mark_name_custom(&mut fields, name.is_some_and(|value| !value.trim().is_empty()), existing.as_ref());
+        fields.insert(
+            "name".to_string(),
+            Value::String(truncate_chars(&record_name, 100)),
+        );
+        mark_name_custom(
+            &mut fields,
+            name.is_some_and(|value| !value.trim().is_empty()),
+            existing.as_ref(),
+        );
         fields.insert(
             "tokenTail".to_string(),
             Value::String(token_tail_of(&credentials.access_token)),
@@ -149,17 +181,36 @@ impl AccountStore {
         fields.insert("priority".to_string(), Value::from(priority));
         fields.insert(
             "enabled".to_string(),
-            Value::Bool(existing.as_ref().map(StoredAccount::enabled).unwrap_or(true)),
+            Value::Bool(
+                existing
+                    .as_ref()
+                    .map(StoredAccount::enabled)
+                    .unwrap_or(true),
+            ),
         );
         fields.insert("desktop".to_string(), Value::Bool(false));
         fields.insert("source".to_string(), Value::String(source.to_string()));
         fields.insert(
             "addedAt".to_string(),
-            Value::from(existing.as_ref().map(StoredAccount::added_at).unwrap_or_else(logging::now_ms)),
+            Value::from(
+                existing
+                    .as_ref()
+                    .map(StoredAccount::added_at)
+                    .unwrap_or_else(logging::now_ms),
+            ),
         );
         fields.insert("updatedAt".to_string(), Value::from(logging::now_ms()));
         fields.insert("rateLimits".to_string(), json!({}));
-        for key in ["edition", "endpoint", "prefixPath", "platform", "access", "refresh", "expires", "pat"] {
+        for key in [
+            "edition",
+            "endpoint",
+            "prefixPath",
+            "platform",
+            "access",
+            "refresh",
+            "expires",
+            "pat",
+        ] {
             fields.remove(key);
         }
         let record = StoredAccount::from_map(fields);
@@ -185,26 +236,102 @@ impl AccountStore {
         else {
             return Ok(CredentialWrite::Stale);
         };
-        for key in ["accessToken", "refreshToken", "userId", "deviceId", "addedAt"] {
+        for key in [
+            "accessToken",
+            "refreshToken",
+            "sgcookie",
+            "sid",
+            "userId",
+            "deviceId",
+            "addedAt",
+            "sessionStatus",
+            "sessionTokenBinding",
+        ] {
             if record.get(key) != expected.get(key) {
                 return Ok(CredentialWrite::Stale);
             }
         }
         if accio_region_of(&record) != Some(credentials.region) {
-            return Err(AccountStoreError::bad_request("Accio 刷新结果与原账号地区不一致"));
+            return Err(AccountStoreError::bad_request(
+                "Accio 刷新结果与原账号地区不一致",
+            ));
         }
         if !credentials.user_id.is_empty() && record.user_id() != credentials.user_id {
-            return Err(AccountStoreError::bad_request("Accio 刷新结果与原账号身份不一致"));
+            return Err(AccountStoreError::bad_request(
+                "Accio 刷新结果与原账号身份不一致",
+            ));
         }
         if let Value::Object(values) = credentials.to_value() {
             for (key, value) in values {
-                if value.is_null() || matches!(&value, Value::String(text) if text.is_empty()) {
+                if (value.is_null()
+                    && !["sgcookie", "sid", "routeRegion", "teamId", "clientTimezone"]
+                        .contains(&key.as_str()))
+                    || matches!(&value, Value::String(text) if text.is_empty())
+                {
                     continue;
                 }
                 record.fields_mut().insert(key, value);
             }
         }
-        record.set("tokenTail", Value::String(token_tail_of(&credentials.access_token)));
+        record.set(
+            "tokenTail",
+            Value::String(token_tail_of(&credentials.access_token)),
+        );
+        for key in ["sessionStatus", "sessionTokenBinding", "sessionRetryAt"] {
+            record.fields_mut().remove(key);
+        }
+        record.set_updated_at(logging::now_ms());
+        self.with_conn(&guard, |conn| sql::update_in_place(conn, &record))?;
+        Ok(CredentialWrite::Written)
+    }
+
+    pub fn mark_accio_session_if_current(
+        &self,
+        expected: &Value,
+        status: &str,
+    ) -> Result<CredentialWrite, AccountStoreError> {
+        let id = expected.get("id").and_then(Value::as_str).unwrap_or("");
+        let guard = self.guard();
+        let Some(mut record) = self
+            .record_by_id(&guard, id)
+            .filter(|r| accio_region_of(r).is_some())
+        else {
+            return Ok(CredentialWrite::Stale);
+        };
+        for key in [
+            "accessToken",
+            "refreshToken",
+            "sgcookie",
+            "userId",
+            "addedAt",
+        ] {
+            if record.get(key) != expected.get(key) {
+                return Ok(CredentialWrite::Stale);
+            }
+        }
+        if !["restricted", "login_required", "refresh_failed"].contains(&status) {
+            return Err(AccountStoreError::bad_request("Accio 会话状态无效"));
+        }
+        if record.get("sessionStatus").and_then(Value::as_str) == Some("restricted")
+            && status != "restricted"
+        {
+            return Ok(CredentialWrite::Written);
+        }
+        let token = record
+            .get("accessToken")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let binding = crate::server::core::providers::accio::session::token_binding(token);
+        record.set("sessionStatus", json!(status));
+        record.set("sessionTokenBinding", json!(binding));
+        record.set(
+            "sessionRetryAt",
+            if status == "refresh_failed" {
+                json!(logging::now_ms() + 30_000)
+            } else {
+                Value::Null
+            },
+        );
         record.set_updated_at(logging::now_ms());
         self.with_conn(&guard, |conn| sql::update_in_place(conn, &record))?;
         Ok(CredentialWrite::Written)
@@ -213,13 +340,28 @@ impl AccountStore {
     /// 公开形态（两个地区共用；`edition` / `editionLabel` 体现差异）
     pub fn to_accio_public_account(&self, record: &StoredAccount) -> Value {
         let region = accio_region_of(record);
-        let available = record.has_token() && region.is_some();
+        let session_error =
+            crate::server::core::providers::accio::session::guard(&record.to_value()).err();
+        let available = record.has_token() && region.is_some() && session_error.is_none();
         let can_refresh = Credentials::from_payload(&record.to_value())
             .map(|credentials| credentials.can_refresh())
             .unwrap_or(false);
         let mut public = Map::new();
-        for key in ["id", "provider", "name", "userId", "email", "nickname", "source", "tokenTail", "expiresAt"] {
-            public.insert(key.to_string(), record.get(key).cloned().unwrap_or(Value::Null));
+        for key in [
+            "id",
+            "provider",
+            "name",
+            "userId",
+            "email",
+            "nickname",
+            "source",
+            "tokenTail",
+            "expiresAt",
+        ] {
+            public.insert(
+                key.to_string(),
+                record.get(key).cloned().unwrap_or(Value::Null),
+            );
         }
         public.insert(
             "edition".to_string(),
@@ -244,10 +386,26 @@ impl AccountStore {
         );
         public.insert(
             "rateLimits".to_string(),
-            record.get("rateLimits").cloned().unwrap_or_else(|| json!({})),
+            record
+                .get("rateLimits")
+                .cloned()
+                .unwrap_or_else(|| json!({})),
         );
         public.insert("desktop".to_string(), Value::Bool(false));
         public.insert("available".to_string(), Value::Bool(available));
+        public.insert(
+            "sessionStatus".into(),
+            json!(session_error
+                .as_ref()
+                .and_then(|e| e.details.as_ref())
+                .and_then(|d| d.get("accio_session_state"))
+                .and_then(Value::as_str)
+                .unwrap_or("ready")),
+        );
+        public.insert(
+            "sessionMessage".into(),
+            json!(session_error.map(|e| e.message)),
+        );
         Value::Object(public)
     }
 }

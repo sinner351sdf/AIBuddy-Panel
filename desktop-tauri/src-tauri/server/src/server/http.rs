@@ -126,6 +126,17 @@ pub fn panel_router(state: ServerState) -> Router {
             "/api/session/login/kuku/complete",
             post(api::session::login_kuku_complete),
         )
+        // OrcaTerm 网页登录收尾（**兜底入口**）：正式链路是官方 OAuth —— 壳侧
+        // 把 `orcaterm://oauth_callback?session_id=…` 交给
+        // `/api/session/login/callback`，由后端 `OAuthExchangeToken` 换令牌
+        // （见 `providers/orcaterm/login.rs` 模块头）。这里留给「调用方手里已有
+        // 一枚现成令牌」的场景：把 state + 令牌一并 POST 过来，同样探活通过才落库。
+        // **免鉴权**：调用方是壳侧进程（登录窗口），不带 API Key；安全性由登录
+        // 任务的一次性 state 承担（与 kuku/complete 同款）。
+        .route(
+            "/api/session/login/orcaterm/complete",
+            post(api::session::login_orcaterm_complete),
+        )
         // AutoClaw OAuth（国际版）的 loopback 回调：**浏览器 302 到这里**
         // （授权页完成后顶层导航到我们交给上游的 navigate_uri，见
         // `providers::autoclaw::oauth`），所以同样必须免鉴权 —— 调用方是用户的
@@ -624,6 +635,15 @@ pub fn panel_router(state: ServerState) -> Router {
             "/api/sanitize",
             get(api::sanitize::get_sanitize).put(api::sanitize::put_sanitize),
         )
+        // ── 开发者角色兼容开关 ──
+        // 与 /api/sanitize 同形的单开关端点（GET 读 / PUT 写），挂 protected：
+        // 它决定出站请求里 developer 角色消息要不要归一成 system（改的是发给
+        // 上游的请求体，敏感度与那两者同级）。转换实施点见
+        // `core::upstream::payload` 的 send_body 角色归一层。
+        .route(
+            "/api/developer-role-compat",
+            get(api::role_compat::get_role_compat).put(api::role_compat::put_role_compat),
+        )
         // ── Cline 伪装头的逐键覆盖 ──
         // 与 /api/sanitize 同形（GET 读 / PUT 写，响应体就是新状态），挂
         // protected：头集合决定出站请求「长得像不像官方客户端」，敏感度同级。
@@ -1012,11 +1032,17 @@ async fn require_api_key(mut request: Request, next: Next) -> Response {
         }
     }
 
-    // ── 面板认证（headless 配置了管理员时启用）──────────────────
+    // ── 面板认证（注册过管理员即启用：headless 的注册页/环境变量，或
+    //    桌面端「局域网访问」开启流程里的注册，见 commands::panel_register）
     // `/api/*` 认「会话 cookie（人，账号密码换来）」或「API Key（程序，
     // 桌面壳/脚本自动带）」。两者都没有 → 401 并注明是面板登录 ——
-    // web_shim 据此弹账号密码框而不是 Key 框。桌面形态不开这个开关
-    // （未配置管理员环境变量），下面的原有语义原样生效。
+    // web_shim 据此弹账号密码框而不是 Key 框。
+    //
+    // 桌面端**没有登录页**，它的凭证就是第一把启用的 Key：壳发管理请求时自动
+    // 带（gateway::request_builder），界面里少数不经桥的直连请求（AI 助手页）
+    // 由桥把同一把交给页面（bridge::directCredentials → commands::
+    // direct_credentials）。因此这里对「Key 通道」的判定同时服务两种形态，
+    // 别改成只认会话 —— 那会把桌面端整体挡在外面。
     let panel_auth = crate::server::access::panel_auth_enabled();
     if panel_auth && path.starts_with("/api/") {
         if crate::server::access::session_valid(request.headers()) {

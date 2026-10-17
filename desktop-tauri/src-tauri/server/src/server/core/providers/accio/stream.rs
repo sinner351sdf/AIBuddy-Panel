@@ -35,8 +35,13 @@ pub enum Part {
     /// 思考（`thought: true` 的文本 part）
     Thought(String),
     /// 工具调用（参数是字符串，可能分片）
-    FunctionCall { id: String, name: String, args: String },
+    FunctionCall {
+        id: String,
+        name: String,
+        args: String,
+    },
     /// 其它（内联数据、函数结果回显等）：转发热路径不消费
+    Signature(String),
     Other,
 }
 
@@ -51,6 +56,7 @@ pub struct Frame {
     pub usage: Option<Value>,
     pub error_code: String,
     pub error_message: String,
+    pub error_metadata: Option<Value>,
 }
 
 impl Frame {
@@ -94,14 +100,25 @@ fn bool_field(value: &Value, camel: &str, snake: &str) -> bool {
 
 /// 单个 part → `Part`
 fn parse_part(part: &Value) -> Part {
-    let thought = part.get("thought").and_then(Value::as_bool).unwrap_or(false);
-    if let Some(function_call) = part.get("functionCall").or_else(|| part.get("function_call")) {
+    let thought = part
+        .get("thought")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    if let Some(function_call) = part
+        .get("functionCall")
+        .or_else(|| part.get("function_call"))
+    {
         let id = text_field(function_call, "id", "id");
         let name = text_field(function_call, "name", "name");
         // 参数三种形态都见过：`argsJson`（字符串包 JSON）、`args_json`、
         // 以及客户端高层 API 的 `args`（对象）。取到哪个算哪个。
-        let args = if let Some(raw) = function_call.get("argsJson").or_else(|| function_call.get("args_json")) {
-            raw.as_str().map(str::to_string).unwrap_or_else(|| raw.to_string())
+        let args = if let Some(raw) = function_call
+            .get("argsJson")
+            .or_else(|| function_call.get("args_json"))
+        {
+            raw.as_str()
+                .map(str::to_string)
+                .unwrap_or_else(|| raw.to_string())
         } else if let Some(raw) = function_call.get("args") {
             if raw.is_string() {
                 raw.as_str().unwrap_or("").to_string()
@@ -158,32 +175,107 @@ fn parse_usage(usage: &Value) -> Value {
 /// 解析失败返回 None（非 JSON 的心跳帧、`[DONE]` 之外的控制帧都按「无内容」跳过，
 /// 与客户端 `processFrame` 的「空帧返回 null」同一取向）。
 pub fn parse_frame(data: &str) -> Option<Frame> {
+    decode_frame(data).ok().flatten()
+}
+
+/// Never silently discard malformed data events or native upstream errors.
+pub fn decode_frame(data: &str) -> Result<Option<Frame>, crate::server::errors::GatewayError> {
     let trimmed = data.trim();
-    if trimmed.is_empty() || trimmed == "[DONE]" || trimmed == "[done]" {
-        return None;
+    if trimmed.is_empty() {
+        return Ok(None);
     }
-    let value: Value = serde_json::from_str(trimmed).ok()?;
-    let object = value.as_object()?;
+    if trimmed.eq_ignore_ascii_case("[DONE]") {
+        return Ok(Some(Frame {
+            turn_complete: true,
+            ..Frame::default()
+        }));
+    }
+    let value: Value =
+        serde_json::from_str(trimmed).map_err(|_| protocol_error("上游返回无效 JSON 数据帧"))?;
+    if value
+        .get("type")
+        .and_then(Value::as_str)
+        .is_some_and(|t| matches!(t, "ping" | "heartbeat" | "keepalive"))
+    {
+        return Ok(None);
+    }
+    decode_value(&value).map(Some)
+}
+
+fn decode_value(value: &Value) -> Result<Frame, crate::server::errors::GatewayError> {
+    let object = value
+        .as_object()
+        .ok_or_else(|| protocol_error("上游数据帧不是 JSON 对象"))?;
     let mut frame = Frame {
-        turn_complete: bool_field(&value, "turnComplete", "turn_complete"),
-        finish_reason: text_field(&value, "finishReason", "finish_reason"),
-        error_code: text_field(&value, "errorCode", "error_code"),
-        error_message: text_field(&value, "errorMessage", "error_message"),
+        turn_complete: bool_field(value, "turnComplete", "turn_complete"),
+        finish_reason: text_field(value, "finishReason", "finish_reason"),
+        error_code: super::adk_error::error_code(value),
+        error_message: text_field(value, "errorMessage", "error_message"),
         ..Frame::default()
     };
-    if let Some(usage) = field(&value, "usageMetadata", "usage_metadata") {
-        if usage.is_object() {
-            frame.usage = Some(parse_usage(usage));
-        }
+    if !frame.error_code.is_empty() && frame.error_message.is_empty() {
+        frame.error_message = value
+            .get("message")
+            .and_then(Value::as_str)
+            .unwrap_or("上游返回业务错误")
+            .to_string();
     }
-    if let Some(content) = object.get("content") {
-        if let Some(parts) = content.get("parts").and_then(Value::as_array) {
-            for part in parts {
-                frame.parts.push(parse_part(part));
+    frame.error_metadata = super::adk_error::metadata(value, &frame.error_code);
+    if let Some(error) = value.get("error").filter(|e| e.is_object()) {
+        return Err(super::adk_error::from_payload(200, error, "上游返回错误"));
+    }
+    if let Some(raw) = field(value, "rawResponseJson", "raw_response_json").and_then(Value::as_str)
+    {
+        if let Ok(native) = serde_json::from_str::<Value>(raw) {
+            if native.get("error").is_some()
+                || native.get("error_code").is_some()
+                || native.get("errorCode").is_some()
+            {
+                return Err(super::adk_error::from_payload(
+                    200,
+                    &native,
+                    "上游原始响应包含错误",
+                ));
             }
         }
     }
-    Some(frame)
+    if let Some(usage) = field(value, "usageMetadata", "usage_metadata").filter(|v| v.is_object()) {
+        frame.usage = Some(parse_usage(usage));
+    }
+    if let Some(parts) = object
+        .get("content")
+        .and_then(|c| c.get("parts"))
+        .and_then(Value::as_array)
+    {
+        for part in parts {
+            frame.parts.push(parse_part(part));
+            if let Some(sig) = field(part, "thoughtSignature", "thought_signature")
+                .or_else(|| {
+                    part.get("function_call")
+                        .or_else(|| part.get("functionCall"))
+                        .and_then(|c| field(c, "thoughtSignature", "thought_signature"))
+                })
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+            {
+                frame.parts.push(Part::Signature(sig.to_string()));
+            }
+        }
+    }
+    if !object.contains_key("content")
+        && !frame.turn_complete
+        && frame.usage.is_none()
+        && !frame.is_error()
+        && frame.finish_reason.is_empty()
+    {
+        return Err(protocol_error("上游返回无法识别的 ADK 数据帧"));
+    }
+    Ok(frame)
+}
+
+pub fn protocol_error(message: &str) -> crate::server::errors::GatewayError {
+    crate::server::errors::GatewayError::with_status(502, format!("Accio 流异常：{message}"))
+        .with_code("accio_stream_protocol")
 }
 
 /// 一个 SSE 帧（下发用）：`data: {json}\n\n`
@@ -217,7 +309,10 @@ impl LineBuffer {
         self.pending.extend_from_slice(chunk);
         let mut lines = Vec::new();
         let mut consumed = 0;
-        while let Some(index) = self.pending[consumed..].iter().position(|byte| *byte == b'\n') {
+        while let Some(index) = self.pending[consumed..]
+            .iter()
+            .position(|byte| *byte == b'\n')
+        {
             let end = consumed + index + 1;
             let line = String::from_utf8_lossy(&self.pending[consumed..end]);
             let trimmed = line.trim_end_matches(['\r', '\n']).to_string();
@@ -234,6 +329,10 @@ impl LineBuffer {
     /// （`data: {"content":{"pa`）。缓冲区不跟着交给续传方，那半行就永远丢了 ——
     /// 续传方会把后半截当成一条新行去 JSON 解析，解析失败、**这一帧的内容
     /// 静默丢掉**（且只在「帧恰好被切在 chunk 边界」时复现，是最难查的那类）。
+    pub fn pending_len(&self) -> usize {
+        self.pending.len()
+    }
+
     pub fn take_pending(&mut self) -> String {
         String::from_utf8_lossy(&std::mem::take(&mut self.pending)).into_owned()
     }
@@ -244,7 +343,16 @@ impl LineBuffer {
 pub enum Delta {
     Content(String),
     Reasoning(String),
-    ToolCall { index: i64, id: Option<String>, name: Option<String>, arguments: Option<String> },
+    ToolSignature {
+        index: i64,
+        signature: String,
+    },
+    ToolCall {
+        index: i64,
+        id: Option<String>,
+        name: Option<String>,
+        arguments: Option<String>,
+    },
 }
 
 /// 累积中的工具调用
@@ -255,6 +363,7 @@ struct ToolAccum {
     args: String,
     /// 已经下发过 id/name（OpenAI 的下发规则是首帧带 id 与 name，之后只带参数）
     announced: bool,
+    signature: Option<String>,
 }
 
 /// 上游帧 → 客户端帧 的翻译状态（流式与非流式共用同一套累积规则）。
@@ -273,6 +382,8 @@ pub struct Translator {
     reasoning: String,
     /// 收到过任何工具调用（决定收尾的 finish_reason 是 tool_calls 还是 stop）
     saw_tool_call: bool,
+    last_call: Option<usize>,
+    pub(crate) accio_context: Option<Value>,
 }
 
 impl Translator {
@@ -288,6 +399,8 @@ impl Translator {
             content: String::new(),
             reasoning: String::new(),
             saw_tool_call: false,
+            last_call: None,
+            accio_context: None,
         }
     }
 
@@ -305,7 +418,8 @@ impl Translator {
             }
         }
         if !frame.finish_reason.is_empty() {
-            self.finish_reason = Some(super::protocol::finish_reason(&frame.finish_reason).to_string());
+            self.finish_reason =
+                Some(super::protocol::finish_reason(&frame.finish_reason).to_string());
         }
         for part in &frame.parts {
             match part {
@@ -323,6 +437,7 @@ impl Translator {
                 }
                 Part::FunctionCall { id, name, args } => {
                     let index = self.accumulate_call(id, name, args);
+                    self.last_call = Some(index as usize);
                     // 先取快照再改标记：借用与可变借用分开，避免交叉持有
                     let (announce, call_id, call_name) = match self.tool_state.get(index as usize) {
                         Some(entry) => (!entry.announced, entry.id.clone(), entry.name.clone()),
@@ -337,9 +452,24 @@ impl Translator {
                         self.saw_tool_call = true;
                         out.push(Delta::ToolCall {
                             index,
-                            id: announce.then(|| call_id.clone()).filter(|value| !value.is_empty()),
-                            name: announce.then(|| call_name.clone()).filter(|value| !value.is_empty()),
+                            id: announce
+                                .then(|| call_id.clone())
+                                .filter(|value| !value.is_empty()),
+                            name: announce
+                                .then(|| call_name.clone())
+                                .filter(|value| !value.is_empty()),
                             arguments: Some(args.clone()),
+                        });
+                    }
+                }
+                Part::Signature(signature) => {
+                    if let Some(index) = self.last_call {
+                        if let Some(entry) = self.tool_state.get_mut(index) {
+                            entry.signature = Some(signature.clone());
+                        }
+                        out.push(Delta::ToolSignature {
+                            index: index as i64,
+                            signature: signature.clone(),
                         });
                     }
                 }
@@ -357,6 +487,17 @@ impl Translator {
     /// 判据：**已有内容仍是合法 JSON 且新来的也是完整 JSON → 那是新调用**；
     /// 否则按续写拼上去。这样两种形态都能正确聚合（详见模块头要点 2）。
     fn accumulate_call(&mut self, id: &str, name: &str, args: &str) -> i64 {
+        // IDs are authoritative, including interleaved parallel tool calls.
+        if !id.is_empty() {
+            if let Some(index) = self.tool_state.iter().position(|entry| entry.id == id) {
+                let entry = &mut self.tool_state[index];
+                if entry.name.is_empty() {
+                    entry.name = name.to_string();
+                }
+                entry.args.push_str(args);
+                return index as i64;
+            }
+        }
         let can_extend = self.tool_state.last().is_some_and(|entry| {
             if !id.is_empty() && !entry.id.is_empty() && id != entry.id {
                 return false;
@@ -365,7 +506,8 @@ impl Translator {
                 return false;
             }
             // 已有内容是完整 JSON 且新片段也完整 → 不是续写
-            let previous_complete = !entry.args.is_empty() && serde_json::from_str::<Value>(&entry.args).is_ok();
+            let previous_complete =
+                !entry.args.is_empty() && serde_json::from_str::<Value>(&entry.args).is_ok();
             let incoming_complete = !args.is_empty() && serde_json::from_str::<Value>(args).is_ok();
             !(previous_complete && incoming_complete)
         });
@@ -386,6 +528,7 @@ impl Translator {
             name: name.to_string(),
             args: args.to_string(),
             announced: false,
+            signature: None,
         });
         (self.tool_state.len() - 1) as i64
     }
@@ -413,9 +556,13 @@ impl Translator {
 
     /// 收尾的 finish_reason：上游给了就用它，没给按「有没有工具调用」推断
     pub fn final_finish_reason(&self) -> String {
-        self.finish_reason
-            .clone()
-            .unwrap_or_else(|| if self.saw_tool_call { "tool_calls".to_string() } else { "stop".to_string() })
+        if self.saw_tool_call && self.finish_reason.as_deref().is_none_or(|r| r == "stop") {
+            "tool_calls".to_string()
+        } else {
+            self.finish_reason
+                .clone()
+                .unwrap_or_else(|| "stop".to_string())
+        }
     }
 
     /// 收尾的工具调用（非流式聚合用）
@@ -426,14 +573,22 @@ impl Translator {
             .filter(|(_, entry)| !entry.name.is_empty())
             .map(|(index, entry)| {
                 let arguments = if entry.args.is_empty() { "{}".to_string() } else { entry.args.clone() };
-                json!({
+                let mut call = json!({
                     "index": index,
                     "id": if entry.id.is_empty() { format!("call_{index}") } else { entry.id.clone() },
                     "type": "function",
                     "function": { "name": entry.name, "arguments": arguments },
-                })
+                });
+                if let Some(signature) = &entry.signature {
+                    call["extra_content"] = json!({"google":{"thought_signature":signature}});
+                }
+                call
             })
             .collect()
+    }
+
+    pub fn has_output(&self) -> bool {
+        !self.content.is_empty() || !self.reasoning.is_empty() || self.saw_tool_call
     }
 
     pub fn content(&self) -> &str {

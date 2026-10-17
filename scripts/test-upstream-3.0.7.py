@@ -60,7 +60,7 @@ with tempfile.TemporaryDirectory(prefix='aibuddy-307-api-') as tmp:
   with sqlite3.connect(home/'agent2api.db') as db:db.execute('DROP TRIGGER fixture_reject_web_flag')
   process.terminate();process.wait(timeout=15)
   with sqlite3.connect(home/'agent2api.db') as db:
-   check(db.execute('PRAGMA user_version').fetchone()[0]==16,'local schema regressed')
+   check(db.execute('PRAGMA user_version').fetchone()[0]==17,'local schema regressed')
    for account in ids:
     check(db.execute('SELECT data FROM accounts WHERE id=?',(account,)).fetchone()[0].startswith('enc1:'),'import not encrypted')
     check(db.execute('SELECT COUNT(*) FROM account_history WHERE account_id=?',(account,)).fetchone()[0]==1,'historical identity missing')

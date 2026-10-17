@@ -1,0 +1,61 @@
+{
+  "localBase": "d3f93149fcafec9f5ffc18340ccf9e8dbbcd8275",
+  "upstreamBase": "a55e1eb1133685d578ea997fc0cf701b3b445716",
+  "upstreamTarget": "4f0040ff8bedce6197e78d3e25e880fa56157a28",
+  "upstreamPaths": 279,
+  "rust": {
+    "passed": 755,
+    "failed": 0,
+    "ignored": 9,
+    "doctestsIgnored": 1
+  },
+  "frontendSuites": 29,
+  "existingApiSecuritySuites": 10,
+  "newApiAssertions": 56,
+  "releaseMockScenarios": 23,
+  "deterministicGeneratedFiles": 93,
+  "headlessBuild": true,
+  "macosCargoCheck": true,
+  "shadcnCheck": true,
+  "browser": {
+    "url": "http://127.0.0.1:3066",
+    "syntheticOnly": true,
+    "screens": [
+      "chatglm guest entry",
+      "single developer-role switch and save",
+      "beta default off",
+      "ProxyLane residential card, no save action"
+    ]
+  },
+  "realProviderRequestsTested": false,
+  "installersBuilt": false,
+  "publishedRelease": false,
+  "committed": false,
+  "deployed": true,
+  "service": {
+    "oldPid": 42701,
+    "pid": 39480,
+    "url": "http://127.0.0.1:3065",
+    "health": 200,
+    "homepage": 200,
+    "before": {
+      "accounts": 13,
+      "requests": 333
+    },
+    "after": {
+      "schema": 17,
+      "accounts": 13,
+      "requests": 333,
+      "indexes": 2
+    },
+    "keyUnchanged": true,
+    "log": "/Users/zaxe/Documents/ChatGPT/agent2api/logs/local-server.log",
+    "backup": "/Users/zaxe/Documents/ChatGPT/agent2api/data/backups/pre-upstream-3.0.8-20261017"
+  },
+  "deployedAt": "2026-10-17T10:18:17.999111+08:00",
+  "currentSourceBranch": "main",
+  "currentSourceStatus": "uncommitted",
+  "backup": "/Users/zaxe/Documents/ChatGPT/agent2api/data/backups/pre-upstream-3.0.8-20261017",
+  "isolatedServiceStopped": true,
+  "temporaryWorktreeRemoved": true
+}

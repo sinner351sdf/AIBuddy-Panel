@@ -11,11 +11,21 @@ export function linuxRequired(tag) {
   return major > 3 || (major === 3 && (minor > 0 || patch >= 4))
 }
 
+export function linuxDesktopRequired(tag) {
+  linuxRequired(tag)
+  const [major, minor, patch] = tag.slice(1).split(/[.\-+]/).slice(0, 3).map(Number)
+  return major > 3 || (major === 3 && (minor > 0 || patch >= 8))
+}
+
+export function isPrereleaseTag(tag) {
+  return /(?:-|\.)(?:alpha|beta|rc)(?:[.\-]|$)/i.test(tag)
+}
+
 export function validateRun(run, artifacts, sha, tag, repo) {
   if (run.head_sha !== sha || run.status !== 'completed' || run.conclusion !== 'success') throw new Error('构建未成功完成或提交与 tag 不一致')
   if (!['.github/workflows/build.yml', '.github/workflows/publish-release.yml'].includes(run.path)) throw new Error('构建工作流来源不匹配')
   if (run.repository?.full_name !== repo) throw new Error('构建仓库来源不匹配')
-  const names = ['windows-nsis', 'macos-universal', ...(linuxRequired(tag) ? ['linux-server-amd64', 'linux-server-arm64'] : [])]
+  const names = ['windows-nsis', 'macos-universal', ...(linuxDesktopRequired(tag) ? ['linux-desktop'] : []), ...(linuxRequired(tag) ? ['linux-server-amd64', 'linux-server-arm64'] : [])]
   for (const name of names) {
     const matches = artifacts.artifacts?.filter(item => item.name === name && !item.expired && item.size_in_bytes > 0) || []
     if (matches.length !== 1) throw new Error(`缺少或重复构建附件：${name}`)
@@ -36,6 +46,13 @@ export function collectAssets(directory, tag) {
     if (!stat.isFile() || stat.size === 0) throw new Error(`附件不是非空普通文件：${file}`)
   }
   assets.push(one('windows-nsis', '.exe'), one('macos-universal', '.dmg'))
+  if (linuxDesktopRequired(tag)) {
+    // upload-artifact preserves the common bundle root (deb/ and appimage/).
+    for (const [folder, ext] of [['deb', '.deb'], ['appimage', '.AppImage']]) {
+      const nested = path.join('linux-desktop', folder)
+      assets.push(one(fs.existsSync(path.join(directory, nested)) ? nested : 'linux-desktop', ext))
+    }
+  }
   const arches = ['amd64', 'arm64']
   const hasLinux = arches.some(arch => fs.existsSync(path.join(directory, `linux-server-${arch}`)))
   if (linuxRequired(tag) || hasLinux) {

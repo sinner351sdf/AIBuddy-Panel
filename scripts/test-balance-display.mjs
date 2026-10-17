@@ -40,8 +40,10 @@ const src=file('accounts-panels.tsx')
 const ast=ts.createSourceFile('accounts-panels.tsx',src,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX)
 const rowFunction=ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='BalanceRows')
 const detailFunctions=ast.statements.filter(n=>ts.isFunctionDeclaration(n)&&['usageDetailOf','numberOrNull','numberText'].includes(n.name?.text))
+const sharedAst=ts.createSourceFile('accounts-shared.ts',file('accounts-shared.ts'),ts.ScriptTarget.Latest,true)
+detailFunctions.push(...sharedAst.statements.filter(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='numberText'))
 const render={}
-vm.runInNewContext(transpile(`${rowFunction.getText(ast)}\n${detailFunctions.map(n=>n.getText(ast)).join('\n')}\nexport { BalanceRows, usageDetailOf };`),{
+vm.runInNewContext(transpile(`${rowFunction.getText(ast)}\n${detailFunctions.map(n=>n.getText()).join('\n')}\nexport { BalanceRows, usageDetailOf };`),{
   exports:render,React,cn,
   t:message=>message,
   compactNumber:String,flatMeterName:String,planBadgeLabel:String,isFreePlan:()=>false,

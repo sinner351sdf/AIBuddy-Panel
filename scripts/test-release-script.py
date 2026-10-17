@@ -22,6 +22,7 @@ elif args[0]=='api':
  print(json.dumps(cfg['artifacts'] if args[1].endswith('/artifacts') else run))
 elif args[:2]==['run','download']:shutil.copytree(base/'assets',Path(args[args.index('-D')+1]))
 elif args[:2]==['release','view']:sys.exit(0 if cfg.get('existing') else 1)
+elif args[:2]==['release','edit']:pass
 elif args[:2] in [['release','create'],['release','upload']]:
  assets=[Path(s) for s in args if Path(s).is_file()]
  with (base/'published.json').open('w') as out:json.dump({'files':[p.name for p in assets],'sums':next((p.read_text() for p in assets if p.name=='SHA256SUMS.txt'),'')},out)
@@ -31,16 +32,18 @@ count=0
 with tempfile.TemporaryDirectory(prefix='a2a-release-test-') as temp:
  base=Path(temp);bin_dir=base/'bin';bin_dir.mkdir()
  for name in ['gh','git']:(bin_dir/name).write_text(MOCK);(bin_dir/name).chmod(0o755)
- def run(name,tag='v3.0.5-aibuddy.1',change=None,success=True,auto=False,existing=False,linux=True):
+ def run(name,tag='v3.0.5-aibuddy.1',change=None,success=True,auto=False,existing=False,linux=True,desktop=False):
   global count
   home=base/name;home.mkdir();assets=home/'assets';assets.mkdir()
   for folder,filename in [('windows-nsis','AIBuddy Setup.exe'),('macos-universal','AIBuddy Panel.dmg')]:
    p=assets/folder;p.mkdir();(p/filename).write_bytes(b'installer fixture')
+  if desktop:
+   p=assets/'linux-desktop';p.mkdir();(p/'AIBuddy.deb').write_bytes(b'fixture deb');(p/'AIBuddy.AppImage').write_bytes(b'fixture appimage')
   if linux:
    for arch in ['amd64','arm64']:
     p=assets/f'linux-server-{arch}';p.mkdir();filename=f'agent2api-server-linux-{arch}.tar.gz';content=f'synthetic-{arch}'.encode();(p/filename).write_bytes(content)
     (p/(filename+'.sha256')).write_text(hashlib.sha256(content).hexdigest()+'  '+filename+'\n')
-  cfg={'run':{'head_sha':SHA,'status':'completed','conclusion':'success','path':'.github/workflows/build.yml','repository':{'full_name':REPO}},'artifacts':{'artifacts':[{'name':n,'expired':False,'size_in_bytes':100,'workflow_run':{'head_sha':SHA}} for n in ['windows-nsis','macos-universal']+(['linux-server-amd64','linux-server-arm64'] if linux else [])]},'existing':existing}
+  cfg={'run':{'head_sha':SHA,'status':'completed','conclusion':'success','path':'.github/workflows/build.yml','repository':{'full_name':REPO}},'artifacts':{'artifacts':[{'name':n,'expired':False,'size_in_bytes':100,'workflow_run':{'head_sha':SHA}} for n in ['windows-nsis','macos-universal']+(['linux-server-amd64','linux-server-arm64'] if linux else [])+(['linux-desktop'] if desktop else [])]},'existing':existing}
   if change:change(home,cfg)
   (home/'config.json').write_text(json.dumps(cfg));(home/'dist').mkdir();(home/'dist/user-file').write_text('keep')
   result=subprocess.run(['bash',str(ROOT/'scripts/release.sh'),tag]+([] if auto else ['1']),cwd=home,env={**os.environ,'PATH':str(bin_dir)+os.pathsep+os.environ['PATH'],'FIXTURE':str(home),'HTTPS_PROXY':''},text=True,capture_output=True)
@@ -50,10 +53,13 @@ with tempfile.TemporaryDirectory(prefix='a2a-release-test-') as temp:
   mutated=[c for c in calls if c['command']=='gh' and c['args'][:2] in [['release','upload'],['release','create']]]
   assert len(mutated)==(1 if success else 0),(name,mutated)
   if success:
-   files=json.loads((home/'published.json').read_text());expected=7 if linux else 3
+   if not existing:
+    create=next(c['args'] for c in mutated if c['args'][1]=='create')
+    assert ('--prerelease=true' in create)==('beta' in tag),(name,create)
+   files=json.loads((home/'published.json').read_text());expected=(7 if linux else 3)+(2 if desktop else 0)
    assert len([f for f in files['files'] if f!='notes.txt'])==expected,(name,files)
    assert ('agent2api-server-linux-arm64.tar.gz.sha256' in files['files'])==linux
-   assert files['sums'].count('\n')==(4 if linux else 2)
+   assert files['sums'].count('\n')==(4 if linux else 2)+(2 if desktop else 0)
    assert mutated[0]['args'][1]==('upload' if existing else 'create')
    assert '--repo' in mutated[0]['args'] and REPO in mutated[0]['args']
    assert 'Docker Hub' not in result.stdout and 'aimodcc' not in result.stdout
@@ -78,4 +84,8 @@ with tempfile.TemporaryDirectory(prefix='a2a-release-test-') as temp:
   cfg['ids']=[1,2];cfg['runs']={'1':{**cfg['run'],'head_sha':'b'*40},'2':cfg['run']}
  run('auto-picks-correct-source',auto=True,change=candidates)
  run('modern-beta',tag='v3.0.4-beta.1')
+ run('linux-desktop',tag='v3.0.8-aibuddy.1',desktop=True)
+ run('linux-desktop-beta',tag='v3.0.8-aibuddy.1-beta.1',desktop=True)
+ run('missing-linux-desktop',tag='v3.0.8-aibuddy.1',success=False)
+ run('empty-linux-desktop',tag='v3.0.8-aibuddy.1',desktop=True,change=lambda h,c:(h/'assets/linux-desktop/AIBuddy.deb').write_bytes(b''),success=False)
  print(f'PASS: {count} release-script scenarios; create/upload, both Linux packages/checksums, source validation, legacy compatibility, spaces in paths, dist preservation and zero publication on failures; all gh/git commands mocked')

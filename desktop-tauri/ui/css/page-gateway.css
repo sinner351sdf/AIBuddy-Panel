@@ -215,6 +215,7 @@
   font-weight: 600;
 }
 .models-table .tr-group td:hover { background: var(--surface-2); }
+.proxies-table .tr-group td { padding: 0; }
 .models-table .prov-tag {
   display: inline-block;
   margin-right: 8px;

@@ -5,11 +5,10 @@
 //!   业务网关（国际 / 国内同一个）  https://phoenix-gw.alibaba.com
 //!     /api/oauth/token                 授权码 → accessToken / refreshToken
 //!     /api/auth/refresh_token          续期（body 带 accessToken + refreshToken）
-//!     /api/auth/userinfo               用户资料（GET，accessToken 走 query）
+//!     /api/auth/userinfo               用户资料（POST，accessToken 在 JSON body）
 //!     /api/entitlement/quota           额度用量百分比 + 重置倒计时
 //!     /api/entitlement/currentSubscription  订阅详情
-//!     /api/llm/config                  模型目录（POST，body {token}）—— 本网关用它
-//!     /api/llm/config/v2               模型目录的精简版（字段更少，见下）
+//!     /api/llm/config/v2               官方模型目录（POST，body {token, supportAutoModel}）
 //!   推理网关（ADK）                https://phoenix-gw.alibaba.com/api/adk/llm
 //!     POST /generateContent?sg_k=<md5(requestId)>   SSE，Gemini 风格信封
 //!   登录站点
@@ -50,18 +49,8 @@ pub const USER_INFO_PATH: &str = "/api/auth/userinfo";
 pub const QUOTA_PATH: &str = "/api/entitlement/quota";
 /// 订阅详情
 pub const SUBSCRIPTION_PATH: &str = "/api/entitlement/currentSubscription";
-/// 模型目录（完整版）。
-///
-/// ── 为什么是 v1 而不是 v2（2026-09 实测）───────────────────
-/// 两条路径都返回同一个信封（`data` 是 provider 数组），差别在**清单本身**：
-/// 用国际版账号实测，v1 给 9 家 provider / 69 个模型 / 41 个可见，
-/// v2 只给 6 家 / 46 个 / 26 个 —— v2 **少了 deepseek、moonshot、zhipu 三家**
-/// （DeepSeek / Kimi / GLM 全都看不到）。此外 v1 每条模型多出 `protocol`
-/// 与 `group` 两个字段，前者正是思考档位落点要用的（见 `models.rs`）。
-/// 因此目录刷新打 v1，`MODEL_CONFIG_PATH_V2` 只作为回落。
-pub const MODEL_CONFIG_PATH: &str = "/api/llm/config";
-/// 模型目录的精简版（旧路径）。只在 v1 意外失败时回落一次，见 `models::refresh`
-pub const MODEL_CONFIG_PATH_V2: &str = "/api/llm/config/v2";
+/// Official model catalog v2. v1 has been retired; never fall back to it.
+pub const MODEL_CONFIG_PATH: &str = "/api/llm/config/v2";
 
 /// OAuth 客户端 id（桌面端常量；两地逐字相同）
 pub const CLIENT_ID: &str = "accio-work";
@@ -71,7 +60,7 @@ pub const DEFAULT_TENANT: &str = "accio-agent";
 /// ADK 推理请求的来源标记（桌面端默认值 `ADK_IAI_TAG || "phoenix-desktop"`）
 pub const DEFAULT_IAI_TAG: &str = "phoenix-desktop";
 /// 推理请求头里的客户端版本（桌面端取 appVersion；缺省给一个近版号）
-pub const DEFAULT_APP_VERSION: &str = "0.32.6";
+pub const DEFAULT_APP_VERSION: &str = "0.34.5";
 
 /// 推理请求头 `appKey`（**必填**，见下）。
 ///
@@ -220,15 +209,9 @@ fn env_text(key: &str) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
-/// 业务接口的通用请求头（桌面端在拦截器里统一加的那一组里我们认得全的部分）。
-///
-/// ── 为什么只带这几项 ────────────────────────────────────────
-/// 桌面端还带 `x-source` / `x-deploy-target` / `x-cna` / `bx-ua` 等，
-/// 其中 `bx-ua` 由它内置的风控 SDK 生成（本网关没有那个 SDK，值也不可复现），
-/// `x-cna` 是设备指纹、`x-deploy-target` 是部署形态标记 —— 都不是鉴权项。
-/// **刻意不带 `Authorization`**：桌面端一个请求都不带它，鉴权全靠 body/query
-/// 里的 `accessToken`；多一个上游没见过的头只会徒增风控面。
-/// 未验证项与实测口径见 `mod.rs` 模块头的「未验证项」一节。
+/// 基础业务头；登录使用 `login_headers`，已授权业务由 `session_headers`
+/// 补充会话上下文。令牌按对应接口放入 body/query，不额外加 Bearer 头。
+/// 不填造浏览器 cookie 或风控因子，也不据此推断服务器的鉴权 / 风控规则。
 pub fn api_headers(region: Region) -> Vec<(String, String)> {
     vec![
         ("Content-Type".to_string(), "application/json".to_string()),
@@ -237,10 +220,47 @@ pub fn api_headers(region: Region) -> Vec<(String, String)> {
         ("x-language".to_string(), ACCEPT_LANGUAGE.to_string()),
         ("x-platform".to_string(), "desktop".to_string()),
         ("x-os".to_string(), std::env::consts::OS.to_string()),
+        ("x-app-version".to_string(), app_version()),
         (
-            "x-app-version".to_string(),
-            env_text("ACCIO_APP_VERSION").unwrap_or_else(|| DEFAULT_APP_VERSION.to_string()),
+            "x-package-region".to_string(),
+            region.package_region().to_string(),
         ),
-        ("x-package-region".to_string(), region.package_region().to_string()),
     ]
+}
+
+/// Official desktop business interceptor (0.34.5), scoped to login requests.
+/// No browser cookie or SDK factor is fabricated for the login API.
+pub fn login_headers(region: Region, device: &str) -> Vec<(String, String)> {
+    let os = match std::env::consts::OS {
+        "macos" => "darwin",
+        "windows" => "win32",
+        other => other,
+    };
+    let platform = match os {
+        "darwin" => "pc-mac",
+        "win32" => "pc-win",
+        _ => "pc-linux",
+    };
+    let mut headers = api_headers(region);
+    for (name, value) in &mut headers {
+        if name == "x-platform" {
+            *value = platform.into();
+        }
+        if name == "x-os" {
+            *value = os.into();
+        }
+    }
+    headers.extend([
+        ("x-locale".into(), "en-US".into()),
+        ("x-utdid".into(), device.into()),
+        ("x-deploy-target".into(), "desktop".into()),
+        ("x-source".into(), "ACCIO_DESKTOP".into()),
+        ("x-cna".into(), String::new()),
+    ]);
+    headers
+}
+
+/// Keep both client version headers on the same version, including overrides.
+pub fn app_version() -> String {
+    env_text("ACCIO_APP_VERSION").unwrap_or_else(|| DEFAULT_APP_VERSION.to_string())
 }

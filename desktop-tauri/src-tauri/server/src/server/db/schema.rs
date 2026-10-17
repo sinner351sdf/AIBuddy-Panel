@@ -53,7 +53,7 @@
 //! 当前配置项（`apiKeys` / `modelRules` / `logRetentionDays` / `debugMode` /
 //! `sanitizeBlacklistFingerprints` / `promptMode` / `promptFile` /
 //! `scheduledTasks` / `autoCheckin` / `locale` / `lastRequestModel` /
-//! `providerRoute` / `updateProxy` / 三个 `*Dir` / 三个 `*RetentionDays` /
+//! `providerRoute` / `updateProxy` / `updateBeta` / 三个 `*Dir` / 三个 `*RetentionDays` /
 //! 三个 `retry*` / 六条 `scheduledTasks.*` 子键 / 三个 `*Imported` 标记 /
 //! 旧字段 `apiKey`）与固定键**无冲突**，逐项核对过（全仓 `update_raw_field` /
 //! `raw.insert` / `KEY_*` 常量的取值集合 vs 下面的 `RESERVED_KV_KEYS`）。
@@ -249,7 +249,8 @@ pub fn is_reserved(key: &str) -> bool {
 /// `core::checkin_records`（记账点唯一：`core::billing::checkin::run_checkin`）。
 // Local v12/v13 are task/history schemas. Upstream's colliding versions are NOT replayed.
 // v14 repairs branch-specific tables and adds client; v15 marks encrypted credentials.
-pub const SCHEMA_VERSION: i64 = 16;
+/// v17: upstream report/status indexes, preserving local v16 assistant history.
+pub const SCHEMA_VERSION: i64 = 17;
 
 /// 版本 1 的全部表与索引：改造前所有 JSON / JSONL 文件的对应形态。
 ///
@@ -813,6 +814,7 @@ fn apply_version(conn: &Connection, version: i64) -> rusqlite::Result<()> {
             super::account_history::install(conn)
         }
         16 => conn.execute_batch(V16_SCHEMA),
+        17 => conn.execute_batch(V17_SCHEMA),
         _ => Ok(()),
     }
 }
@@ -863,3 +865,12 @@ CREATE INDEX IF NOT EXISTS idx_task_runs_time ON task_runs(started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_task_runs_account ON task_runs(account_id,kind,started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_task_items_run ON task_run_items(run_id,id);
 "#;
+
+const V17_SCHEMA: &str = "
+-- ── requests 补 status 索引（local schema v17）─────────────────────
+CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status);
+-- ── requests 补报表窄列覆盖索引（local schema v17）─────────────────
+CREATE INDEX IF NOT EXISTS idx_requests_summary ON requests(
+  ts, is_test, model, upstream_model, total_tokens, cache_read_tokens, prompt_tokens
+);
+";

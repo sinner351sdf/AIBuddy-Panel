@@ -13,6 +13,7 @@ fn fixture() -> (LimitContext, Arc<RequestTelemetry>) {
             store: AccountStore::with_db(None),
             account_id: String::new(),
             model: "test".into(),
+            session_record: None,
         },
         telemetry,
     )
@@ -68,6 +69,13 @@ async fn coalesced_content_tool_usage_and_terminal_are_not_lost() {
     assert!(text.contains("read"));
     assert!(text.contains("[DONE]"));
     assert_eq!(telemetry.snapshot().prompt_tokens, 17);
+    let diagnostics = telemetry.snapshot().attempts_detail[0].diagnostics["accioStream"].clone();
+    assert_eq!(diagnostics["firstFrameType"], "text");
+    assert_eq!(diagnostics["firstContentType"], "text");
+    assert_eq!(diagnostics["dataFrames"], 3);
+    assert_eq!(diagnostics["content"], 2);
+    assert_eq!(diagnostics["completion"], 1);
+    assert_eq!(diagnostics["bytes"], format!("{HEAD}{TOOL}{END}").len());
     let timings = telemetry.snapshot().attempts_detail[0].timings.clone();
     assert_eq!(
         timings.iter().map(|x| x.stage.as_str()).collect::<Vec<_>>(),
@@ -97,6 +105,15 @@ async fn every_byte_boundary_preserves_utf8_and_sse_frames() {
         assert!(text.contains("read"), "split {split}");
         assert!(!text.contains('\u{fffd}'), "split {split}");
         assert_eq!(telemetry.snapshot().total_tokens, 20, "split {split}");
+        let d = telemetry.snapshot().attempts_detail[0].diagnostics["accioStream"].clone();
+        assert_eq!(d["dataFrames"], 4, "split {split}");
+        // A terminal line can finish before the final blank separator's
+        // second newline is polled. Count received bytes, never force extra IO.
+        let received = d["bytes"].as_u64().unwrap() as usize;
+        assert!(
+            (payload.len() - 1..=payload.len()).contains(&received),
+            "split {split}: {d}"
+        );
     }
 }
 
@@ -171,6 +188,80 @@ async fn heartbeat_then_cancellation_keeps_the_waiting_stage() {
     assert_eq!(timings[1].stage, "first_content");
     assert_eq!(timings[1].completed, Some(false));
     assert!(timings[1].duration_ms.unwrap() >= 20);
+    let d = telemetry.snapshot().attempts_detail[0].diagnostics["accioStream"].clone();
+    assert_eq!(d["heartbeats"], 1);
+    assert_eq!(d["comments"], 1);
+    assert_eq!(d["firstFrameType"], "comment");
+    assert!(d["firstContentType"].is_null());
+}
+
+#[tokio::test]
+async fn received_frame_diagnostics_are_safe_and_survive_cancellation_and_retry() {
+    let (limit, telemetry) = fixture();
+    let payload = ": private-comment-cookie\r\n\r\ndata: {\"type\":\"ping\",\"token\":\"private-token\"}\n\ndata: {\"usageMetadata\":{}}\n\ndata: {\"type\":\"heartbeat\"}\n\ndata: {\"partial\":";
+    let mut waiting = Box::pin(prefetch_source(
+        source(vec![payload.as_bytes().to_vec()], true),
+        &limit,
+        &telemetry,
+    ));
+    // Poll into the wait before starting another attempt. Drop must update the
+    // original attempt, never the latest one. The last line is still incomplete.
+    tokio::select! {
+        _ = &mut waiting => panic!("only keepalives/metadata must wait"),
+        _ = tokio::time::sleep(Duration::from_millis(10)) => {}
+    }
+    telemetry.note_attempt_started("accio", "second");
+    drop(waiting);
+    let snapshot = telemetry.snapshot();
+    let d = &snapshot.attempts_detail[0].diagnostics["accioStream"];
+    assert_eq!(d["heartbeats"], 3);
+    assert_eq!(d["metadata"], 1);
+    assert_eq!(d["dataFrames"], 3);
+    assert_eq!(d["firstDataType"], "heartbeat");
+    assert_eq!(d["pendingBytes"], "data: {\"partial\":".len());
+    assert!(snapshot.attempts_detail[1].diagnostics.is_empty());
+    assert!(!d.to_string().contains("private-"));
+}
+
+#[tokio::test]
+async fn frame_diagnostics_distinguish_errors_unknown_malformed_tools_and_thoughts() {
+    for (payload, kind, counter) in [
+        ("data: {bad}\n", "malformed", "malformed"),
+        (
+            "data: {\"futureFrame\":\"private-value\"}\n",
+            "unknown",
+            "unknown",
+        ),
+        (
+            "data: {\"error_code\":\"505\",\"error_message\":\"private-error\"}\n",
+            "error",
+            "errors",
+        ),
+        (
+            "data: {\"error\":{\"code\":\"402\",\"message\":\"private-error\"}}\n",
+            "error",
+            "errors",
+        ),
+        (TOOL, "tool", "content"),
+        (
+            "data: {\"content\":{\"parts\":[{\"thought\":true,\"text\":\"private-thought\"}]}}\n",
+            "thought",
+            "content",
+        ),
+    ] {
+        let (limit, telemetry) = fixture();
+        let result = prefetch_source(
+            source(vec![payload.as_bytes().to_vec()], false),
+            &limit,
+            &telemetry,
+        )
+        .await;
+        drop(result);
+        let d = telemetry.snapshot().attempts_detail[0].diagnostics["accioStream"].clone();
+        assert_eq!(d["firstDataType"], kind, "{kind}");
+        assert_eq!(d[counter], 1, "{kind}");
+        assert!(!d.to_string().contains("private-"));
+    }
 }
 
 #[tokio::test]
@@ -213,4 +304,802 @@ async fn tool_identity_is_announced_once_even_with_empty_initial_arguments() {
     assert_eq!(text.matches("\"name\":\"read\"").count(), 1);
     assert_eq!(text.matches("\"id\":\"call_x\"").count(), 1);
     assert!(text.contains("\"arguments\":\"{}\""));
+}
+
+#[tokio::test]
+async fn premature_eof_is_an_error_without_a_success_tail() {
+    let (text, telemetry) = collect(vec![HEAD.as_bytes().to_vec()], false).await;
+    assert!(text.contains("首帧"));
+    assert!(text.contains("\"error\""));
+    assert!(!text.contains("\"finish_reason\":\"stop\""));
+    assert!(text.ends_with("data: [DONE]\n\n"));
+    assert!(telemetry.snapshot().error.is_some());
+}
+
+#[tokio::test]
+async fn malformed_data_and_errors_terminate_even_when_upstream_stays_open() {
+    for tail in [
+        "data: {broken}\n\n",
+        "data: {\"error_code\":\"505\",\"error_message\":\"bad\"}\n\n",
+    ] {
+        let (text, telemetry) = collect(vec![format!("{HEAD}{tail}").into_bytes()], true).await;
+        assert!(text.contains("\"error\""));
+        assert!(!text.contains("\"finish_reason\":\"stop\""));
+        assert!(telemetry.snapshot().error.is_some());
+    }
+}
+
+#[tokio::test]
+async fn done_after_content_completes_without_waiting_for_eof() {
+    let (text, telemetry) =
+        collect(vec![format!("{HEAD}data: [DONE]\n\n").into_bytes()], true).await;
+    assert_eq!(text.matches("data: [DONE]").count(), 1);
+    assert!(telemetry.snapshot().error.is_none());
+}
+
+#[tokio::test]
+async fn empty_heartbeat_and_done_only_responses_fail_before_handoff() {
+    for payload in [
+        "",
+        ": heartbeat\n\n",
+        "data: [DONE]\n\n",
+        "data: {bad}\n\n",
+        "data: {}\n\n",
+    ] {
+        let (limit, telemetry) = fixture();
+        assert!(
+            prefetch_source(
+                source(vec![payload.as_bytes().to_vec()], false),
+                &limit,
+                &telemetry
+            )
+            .await
+            .is_err(),
+            "{payload}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn aggregate_does_not_return_partial_text_as_success() {
+    let (limit, telemetry) = fixture();
+    let response = reqwest::Response::from(axum::http::Response::new(reqwest::Body::wrap_stream(
+        source(vec![HEAD.as_bytes().to_vec()], false),
+    )));
+    let result = drive_aggregate(
+        response,
+        Translator::new("test".into(), "model".into()),
+        telemetry,
+        &limit,
+    )
+    .await;
+    assert_eq!(
+        result.unwrap_err().code.as_deref(),
+        Some("accio_stream_protocol")
+    );
+}
+
+#[test]
+fn structured_error_category_overrides_rate_limit_words_and_preserves_retry_contract() {
+    for (category, status, cooldown) in [
+        ("policy", 403, false),
+        ("capacity", 503, false),
+        ("quota", 429, true),
+        ("auth", 401, false),
+        ("upstream", 502, false),
+    ] {
+        let value = json!({"error_code":"555","error_message":"rate limit", "error_metadata":{
+            "schema_version":1,"gateway_error_code":"555","source":"gateway_policy",
+            "category":category,"retryable":false,"replay_safe":false,"retry_after_ms":30000,"action":"none"}});
+        let frame = super::stream::decode_frame(&value.to_string())
+            .unwrap()
+            .unwrap();
+        let error = frame_error(&frame);
+        assert_eq!(error.status_code, status);
+        assert_eq!(error.is_quota_limit(), cooldown);
+        assert_eq!(
+            error.payload()["error"]["details"]["error_metadata"]["retry_after_ms"],
+            30000
+        );
+        assert!(!super::super::adk_error::allows_replay(&error));
+    }
+}
+
+#[test]
+fn invalid_metadata_is_not_trusted_and_legacy_sentinel_is_not_quota() {
+    let value = json!({"errorCode":555,"errorMessage":"internal error","errorMetadata":{
+        "schemaVersion":1,"gatewayErrorCode":"999","category":"quota"}});
+    let frame = super::stream::decode_frame(&value.to_string())
+        .unwrap()
+        .unwrap();
+    assert!(frame.error_metadata.is_none());
+    assert_eq!(frame_error(&frame).status_code, 503);
+    let error =
+        super::super::adk_error::gateway(429, "555", "blocked by sentinel rate limit", None);
+    assert_eq!(error.status_code, 403);
+    assert!(!error.is_quota_limit());
+    assert!(!super::super::adk_error::allows_replay(&error));
+}
+
+#[test]
+fn native_error_in_raw_response_is_not_a_successful_frame() {
+    let raw = json!({"error":{"message":"quota exceeded","type":"quota"}}).to_string();
+    let error =
+        super::stream::decode_frame(&json!({"raw_response_json":raw}).to_string()).unwrap_err();
+    assert_eq!(error.status_code, 429);
+}
+
+#[test]
+fn gemini_signature_and_parallel_tool_fragments_round_trip() {
+    let mut translator = Translator::new("test".into(), "model".into());
+    for (id, name, args, sig) in [
+        ("a", "read", "{\"p\":", None),
+        ("b", "read", "{}", None),
+        ("a", "read", "1}", Some("opaque-signature")),
+    ] {
+        let mut part = json!({"function_call":{"id":id,"name":name,"args_json":args}});
+        if let Some(sig) = sig {
+            part["thought_signature"] = json!(sig);
+        }
+        let frame = super::stream::decode_frame(&json!({"content":{"parts":[part]}}).to_string())
+            .unwrap()
+            .unwrap();
+        translator.consume(&frame, None);
+    }
+    let calls = translator.final_tool_calls();
+    assert_eq!(calls.len(), 2);
+    assert_eq!(calls[0]["function"]["arguments"], "{\"p\":1}");
+    assert_eq!(
+        calls[0]["extra_content"]["google"]["thought_signature"],
+        "opaque-signature"
+    );
+    let body = json!({"messages":[{"role":"assistant","tool_calls":calls}]});
+    let upstream = super::super::protocol::build_upstream_body(
+        &body,
+        "1Nexus-test",
+        "test",
+        None,
+        super::super::models::EffortPlacement::Top,
+    )
+    .body;
+    assert_eq!(
+        upstream["contents"][0]["parts"][0]["thought_signature"],
+        "opaque-signature"
+    );
+    assert!(upstream.get("tool_config").is_none());
+    assert!(upstream["properties"]["tool_config"].is_string());
+    let claude = super::super::protocol::build_upstream_body(
+        &body,
+        "1Orbit-test",
+        "test",
+        None,
+        super::super::models::EffortPlacement::Top,
+    )
+    .body;
+    assert!(claude["properties"].get("tool_config").is_none());
+}
+
+/// Opt-in live validation. Requires a copied database/key under a temporary home.
+/// Never refresh tokens, modify live accounts, or execute the returned tool call.
+#[tokio::test]
+#[ignore = "requires an explicitly prepared isolated account snapshot and network"]
+async fn live_v2_catalog_and_gemini_tool_probe() {
+    let home = std::env::var("ACCIO_ADK_AUDIT_HOME").expect("isolated audit home required");
+    assert!(home.starts_with("/private/tmp/accio-adk-"));
+    assert_eq!(std::env::var("AGENT2API_PROXY_HOME").unwrap(), home);
+    let path = std::path::Path::new(&home);
+    let db =
+        crate::server::db::Db::open(&path.join("agent2api.db")).expect("copied database must open");
+    let ids=db.with(|conn| {
+        let mut stmt=conn.prepare("SELECT id FROM accounts WHERE provider='accio' AND enabled=1 ORDER BY priority,added_at LIMIT 4").unwrap();
+        let ids=stmt.query_map([],|row|row.get::<_,String>(0)).unwrap().collect::<Result<Vec<_>,_>>().unwrap();
+        ids
+    }).unwrap();
+    let store = AccountStore::with_db(Some(db));
+    let mut selected = None;
+    let mut catalog_attempts = Vec::new();
+    for (index, id) in ids.iter().enumerate() {
+        let record = store
+            .accio_account_record(id, "accio")
+            .expect("copied account must exist");
+        let credentials =
+            super::super::auth::snapshot(&record).expect("copied credentials must decrypt");
+        let proxy = super::super::auth::account_proxy(&record).expect("account proxy must resolve");
+        let outcome = super::super::models::refresh(&credentials, proxy.as_ref(), true).await;
+        catalog_attempts.push(json!({"account_index":index,"refreshed":outcome.refreshed,"count":outcome.count,"error":outcome.message}));
+        if outcome.refreshed {
+            selected = Some((credentials, proxy));
+            break;
+        }
+    }
+    std::fs::write(
+        path.join("catalog-validation.json"),
+        serde_json::to_vec_pretty(&catalog_attempts).unwrap(),
+    )
+    .unwrap();
+    println!(
+        "catalog_attempts={}",
+        serde_json::to_string(&catalog_attempts).unwrap()
+    );
+    let (credentials, proxy) =
+        selected.expect("no copied account can access v2; credentials were not refreshed");
+    let models = super::super::models::list();
+    let gemini = models
+        .iter()
+        .filter(|m| {
+            m.get("upstreamKey")
+                .and_then(Value::as_str)
+                .is_some_and(super::super::protocol::is_gemini)
+        })
+        .min_by_key(|m| {
+            if m.get("name")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_ascii_lowercase()
+                .contains("flash")
+            {
+                0
+            } else {
+                1
+            }
+        })
+        .expect("v2 must contain an unlocked Gemini model");
+    let model = gemini["id"].as_str().unwrap();
+    let body = json!({"model":model,"messages":[{"role":"user","content":"Call echo_probe exactly once with value OK. Do not write any other text."}],
+        "max_tokens":128,"tools":[{"type":"function","function":{"name":"echo_probe","description":"Return the supplied value; this probe never executes the tool.","parameters":{"type":"object","properties":{"value":{"type":"string"}},"required":["value"]}}}]});
+    let plan = build_plan(&credentials, &body, model, None).unwrap();
+    let risk = json!({"security_guard_provider":"not_integrated","dynamic_factors_sent":false,
+        "fixed_headers":plan.headers.iter().map(|(k,_)|k.clone()).collect::<Vec<_>>(),"official_security_guard_default":true});
+    let started = std::time::Instant::now();
+    let response = tokio::time::timeout(Duration::from_secs(45), send(&plan, proxy.as_ref()))
+        .await
+        .expect("live headers timeout")
+        .expect("live transport");
+    let http_status = response.status().as_u16();
+    let request_id = response
+        .headers()
+        .get("x-phoenix-gateway-request-id")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string);
+    let (limit, telemetry) = fixture();
+    let result = if response.status().is_success() {
+        match tokio::time::timeout(
+            Duration::from_secs(90),
+            drive_aggregate(
+                response,
+                Translator::new("live-probe".into(), model.into()),
+                telemetry,
+                &limit,
+            ),
+        )
+        .await
+        {
+            Ok(result) => result,
+            Err(_) => Err(super::stream::protocol_error("live probe timed out")),
+        }
+    } else {
+        Err(http_error(http_status, response).await)
+    };
+    let mut summary = json!({"catalog":"v2","model_count":models.len(),"gemini_model":model,"http_status":http_status,
+        "gateway_request_id":request_id,"latency_ms":started.elapsed().as_millis(),"risk_comparison":risk,"inference_success":result.is_ok()});
+    match &result {
+        Ok(value) => {
+            let call = &value["choices"][0]["message"]["tool_calls"][0];
+            summary["tool_name"] = call["function"]["name"].clone();
+            summary["tool_arguments_valid"] = json!(call["function"]["arguments"]
+                .as_str()
+                .is_some_and(|s| serde_json::from_str::<Value>(s).is_ok()));
+            summary["finish_reason"] = value["choices"][0]["finish_reason"].clone();
+            summary["thought_signature_present"] = json!(call
+                .pointer("/extra_content/google/thought_signature")
+                .is_some());
+            summary["usage"] = value.get("usage").cloned().unwrap_or(Value::Null);
+        }
+        Err(error) => {
+            summary["error_status"] = json!(error.status_code);
+            summary["error_code"] = json!(error.code);
+            summary["upstream_code"] = json!(error.upstream_code);
+            summary["error_details"] = json!(error.details);
+        }
+    }
+    summary["catalog_model_count"] = catalog_attempts.last().unwrap()["count"].clone();
+    if let Ok(value) = &result {
+        let calls = value["choices"][0]["message"]["tool_calls"].clone();
+        let call_id = calls[0]["id"].clone();
+        let followup = json!({"model":model,"messages":[
+            body["messages"][0].clone(),
+            {"role":"assistant","content":null,"tool_calls":calls},
+            {"role":"tool","tool_call_id":call_id,"content":"OK"},
+            {"role":"user","content":"The probe is complete. Reply exactly OK without calling more tools."}
+        ],"max_tokens":128,"tools":body["tools"].clone()});
+        let plan = build_plan(&credentials, &followup, model, None).unwrap();
+        let response = send(&plan, proxy.as_ref())
+            .await
+            .expect("tool result round trip transport");
+        let status = response.status().as_u16();
+        let (_, telemetry) = fixture();
+        let followup_result = if response.status().is_success() {
+            match tokio::time::timeout(
+                Duration::from_secs(90),
+                drive_aggregate(
+                    response,
+                    Translator::new("live-followup".into(), model.into()),
+                    telemetry,
+                    &limit,
+                ),
+            )
+            .await
+            {
+                Ok(result) => result,
+                Err(_) => Err(super::stream::protocol_error("tool round trip timeout")),
+            }
+        } else {
+            Err(http_error(status, response).await)
+        };
+        summary["tool_result_round_trip_http_status"] = json!(status);
+        summary["tool_result_round_trip_success"] =
+            json!(followup_result
+                .as_ref()
+                .is_ok_and(|v| v["choices"][0]["message"]["content"]
+                    .as_str()
+                    .is_some_and(|t| t.trim() == "OK")));
+        if let Err(error) = &followup_result {
+            summary["tool_result_round_trip_error"] =
+                json!({"status":error.status_code,"code":error.code});
+        }
+    }
+    std::fs::write(
+        path.join("validation.json"),
+        serde_json::to_vec_pretty(&summary).unwrap(),
+    )
+    .unwrap();
+    println!("{}", serde_json::to_string(&summary).unwrap());
+    assert!(
+        result.is_ok(),
+        "live inference failed; see redacted validation.json"
+    );
+    assert_eq!(summary["tool_name"], "echo_probe");
+    assert_eq!(summary["tool_arguments_valid"], true);
+    assert_eq!(summary["finish_reason"], "tool_calls");
+    assert_eq!(summary["tool_result_round_trip_success"], true);
+}
+
+/// Explicit opt-in, isolated credential snapshot only. No token renewal or tools.
+#[tokio::test]
+#[ignore = "uses live Accio account quota and the locally installed official SDK"]
+async fn live_security_guard_ab_comparison() {
+    use super::super::security_guard::{Mode, Report};
+    let home = std::env::var("ACCIO_SG_AUDIT_HOME").expect("isolated audit home required");
+    assert!(home.starts_with("/private/tmp/accio-sg-"));
+    assert_eq!(std::env::var("AGENT2API_PROXY_HOME").unwrap(), home);
+    let path = std::path::Path::new(&home);
+    let db = crate::server::db::Db::open(&path.join("agent2api.db")).unwrap();
+    let ids = db.with(|conn| {
+        let mut query = conn.prepare("SELECT id FROM accounts WHERE provider='accio' AND enabled=1 ORDER BY priority,added_at LIMIT 4").unwrap();
+        query.query_map([], |row|row.get::<_,String>(0)).unwrap().collect::<Result<Vec<_>,_>>().unwrap()
+    }).unwrap();
+    let store = AccountStore::with_db(Some(db));
+    let mut selected = None;
+    let mut catalog_attempts = Vec::new();
+    for (index, id) in ids.iter().enumerate() {
+        let record = store.accio_account_record(id, "accio").unwrap();
+        let credentials = super::super::auth::snapshot(&record).unwrap();
+        let proxy = super::super::auth::account_proxy(&record).unwrap();
+        let outcome = super::super::models::refresh(&credentials, proxy.as_ref(), true).await;
+        catalog_attempts.push(json!({"account_index":index,"refreshed":outcome.refreshed,"model_count":outcome.count}));
+        if outcome.refreshed {
+            selected = Some((credentials, proxy, index));
+            break;
+        }
+    }
+    let (credentials, proxy, index) =
+        selected.expect("no valid snapshot account; tokens were not refreshed");
+    let models = super::super::models::list();
+    let model = models
+        .iter()
+        .filter(|m| {
+            m["upstreamKey"]
+                .as_str()
+                .is_some_and(super::super::protocol::is_gemini)
+        })
+        .min_by_key(|m| {
+            if m["name"]
+                .as_str()
+                .unwrap_or("")
+                .to_lowercase()
+                .contains("flash")
+            {
+                0
+            } else {
+                1
+            }
+        })
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let mut results = Vec::new();
+    // ABBA limits order effects for the small request; a moderate input pair
+    // checks a second shape without probing thresholds or replaying user data.
+    for (case, mode) in [
+        ("small", Mode::Off),
+        ("small", Mode::Required),
+        ("small", Mode::Required),
+        ("small", Mode::Off),
+        ("8k_context", Mode::Off),
+        ("8k_context", Mode::Required),
+    ] {
+        let context = if case == "small" {
+            String::new()
+        } else {
+            "Reference text for a transport integration test. ".repeat(175)
+        };
+        let body = json!({"model":model,"messages":[{"role":"user","content":format!("{context}\nReply exactly OK. Do not use tools.")}],"max_tokens":128});
+        let plan = build_plan(&credentials, &body, &model, Some("low")).unwrap();
+        let started = std::time::Instant::now();
+        let mut row = json!({"case":case,"mode":if mode==Mode::Off {"off"} else {"required"},
+            "input_json_bytes":serde_json::to_vec(&body).unwrap().len(),"same_account_index":index,"proxy_configured":proxy.is_some()});
+        match send_with_security_guard(&plan, proxy.as_ref(), mode).await {
+            Ok(response) => {
+                let status = response.status().as_u16();
+                row["http_status"] = json!(status);
+                row["security_guard"] =
+                    serde_json::to_value(response.extensions().get::<Report>()).unwrap();
+                row["gateway_request_id"] = json!(response
+                    .headers()
+                    .get("x-phoenix-gateway-request-id")
+                    .and_then(|v| v.to_str().ok()));
+                let (limit, telemetry) = fixture();
+                let outcome = if response.status().is_success() {
+                    tokio::time::timeout(
+                        Duration::from_secs(90),
+                        drive_aggregate(
+                            response,
+                            Translator::new("sg-ab".into(), model.clone()),
+                            telemetry,
+                            &limit,
+                        ),
+                    )
+                    .await
+                    .unwrap_or_else(|_| {
+                        Err(super::stream::protocol_error("audit response timeout"))
+                    })
+                } else {
+                    Err(http_error(status, response).await)
+                };
+                match outcome {
+                    Ok(value) => {
+                        row["success"] = json!(true);
+                        row["reply_ok"] = json!(value["choices"][0]["message"]["content"]
+                            .as_str()
+                            .is_some_and(|t| t.trim() == "OK"));
+                        row["usage"] = value["usage"].clone();
+                    }
+                    Err(error) => {
+                        row["success"] = json!(false);
+                        row["error"] = json!({"status":error.status_code,"code":error.code,"upstream_code":error.upstream_code,"details":error.details});
+                    }
+                }
+            }
+            Err(error) => {
+                row["success"] = json!(false);
+                row["error"] =
+                    json!({"status":error.status_code,"code":error.code,"details":error.details});
+            }
+        }
+        row["latency_ms"] = json!(started.elapsed().as_millis());
+        println!("sg_ab={}", serde_json::to_string(&row).unwrap());
+        results.push(row);
+        let summary = json!({"official_app_version":"0.34.5","catalog":"v2","model":model,"catalog_attempts":catalog_attempts,
+            "production_restarted":false,"tokens_refreshed":false,"results":results,
+            "limits":"Single account and local macOS ARM64 SDK; six sequential requests cannot establish long-term risk or detection rates."});
+        std::fs::write(
+            path.join("ab-comparison.json"),
+            serde_json::to_vec_pretty(&summary).unwrap(),
+        )
+        .unwrap();
+        tokio::time::sleep(Duration::from_secs(2)).await;
+    }
+    assert!(
+        results
+            .iter()
+            .filter(|r| r["mode"] == "required")
+            .all(|r| r.pointer("/security_guard/outcome") == Some(&json!("factors_generated"))),
+        "required mode did not send native factors; inspect redacted report"
+    );
+    assert!(
+        results.iter().all(|r| r["success"] == true),
+        "some requests failed; inspect the A/B report"
+    );
+}
+
+#[tokio::test]
+async fn continuous_heartbeats_do_not_keep_a_stalled_generation_alive() {
+    let (limit, telemetry) = fixture();
+    let heartbeats = futures_stream::unfold((), |()| async {
+        tokio::time::sleep(Duration::from_millis(3)).await;
+        Some((Ok(Bytes::from_static(b": ping\n\n")), ()))
+    });
+    let frame = super::stream::decode_frame(HEAD.trim().strip_prefix("data:").unwrap())
+        .unwrap()
+        .unwrap();
+    let error = tokio::time::timeout(
+        Duration::from_millis(250),
+        consume_source(
+            Box::pin(heartbeats),
+            Translator::new("test".into(), "test".into()),
+            &telemetry,
+            &limit,
+            vec![frame],
+            None,
+            Duration::from_millis(25),
+        ),
+    )
+    .await
+    .expect("semantic watchdog must fire")
+    .err()
+    .unwrap();
+    assert!(error.message.contains("空闲超时"));
+}
+
+#[test]
+fn tool_results_recover_names_by_call_id() {
+    let body = json!({"messages":[
+        {"role":"assistant","tool_calls":[{"id":"a","function":{"name":"read","arguments":"{}"}}]},
+        {"role":"tool","tool_call_id":"a","content":"ok"}
+    ]});
+    let upstream = super::super::protocol::build_upstream_body(
+        &body,
+        "1Nexus-test",
+        "test",
+        None,
+        super::super::models::EffortPlacement::Top,
+    )
+    .body;
+    assert_eq!(
+        upstream["contents"][1]["parts"][0]["function_response"]["name"],
+        "read"
+    );
+}
+
+#[test]
+fn interrupted_tool_history_repairs_only_missing_results_in_place() {
+    let body = json!({"messages":[
+        {"role":"assistant","tool_calls":[
+            {"id":"a","function":{"name":"read","arguments":"{}"}},
+            {"id":"b","function":{"name":"write","arguments":"{}"}}]},
+        {"role":"tool","tool_call_id":"a","content":"original result"},
+        {"role":"user","content":"continue"},
+        {"role":"assistant","tool_calls":[{"id":"c","function":{"name":"next","arguments":"{}"}}]}
+    ]});
+    let upstream = super::super::protocol::build_upstream_body(
+        &body,
+        "1Nexus-test",
+        "fake",
+        None,
+        super::super::models::EffortPlacement::Top,
+    )
+    .body;
+    let parts = upstream["contents"][1]["parts"].as_array().unwrap();
+    assert_eq!(parts.len(), 2);
+    assert_eq!(parts[0]["function_response"]["id"], "a");
+    let original: Value = serde_json::from_str(
+        parts[0]["function_response"]["response_json"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(original["content"], "original result");
+    assert_eq!(original["is_error"], false);
+    assert_eq!(parts[1]["function_response"]["id"], "b");
+    let repaired: Value = serde_json::from_str(
+        parts[1]["function_response"]["response_json"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(repaired["is_error"], true);
+    assert!(repaired["content"]
+        .as_str()
+        .unwrap()
+        .contains("may or may not have executed"));
+    assert_eq!(upstream["contents"][2]["role"], "user");
+    assert_eq!(
+        upstream["contents"][4]["parts"][0]["function_response"]["id"],
+        "c"
+    );
+}
+
+#[tokio::test]
+async fn multiline_events_crlf_and_eof_terminal_survive_every_split() {
+    let payload = "\u{feff}: ping\r\nid: opaque\r\nretry: 100\r\nevent: message\r\ndata: {\r\ndata: \"content\":{\"parts\":[{\"text\":\"中文🙂\"}]}}\r\n\r\ndata: [DONE]".as_bytes();
+    for split in 0..=payload.len() {
+        let (text, telemetry) = collect(
+            vec![payload[..split].to_vec(), payload[split..].to_vec()],
+            false,
+        )
+        .await;
+        assert!(text.contains("中文🙂"), "split {split}");
+        assert!(telemetry.snapshot().error.is_none(), "split {split}");
+        let d = telemetry.snapshot().attempts_detail[0].diagnostics["accioStream"].clone();
+        assert_eq!(d["dataFrames"], 2);
+        assert_eq!(d["sseEvents"], 2);
+        assert_eq!(d["idEvents"], 1);
+        assert_eq!(d["retryEvents"], 1);
+        assert_eq!(d["cleanEof"], true);
+    }
+}
+
+#[tokio::test]
+async fn valid_content_before_invalid_utf8_is_preserved_and_fails() {
+    let mut payload = HEAD.as_bytes().to_vec();
+    payload.extend_from_slice(b"data: \xff\n\n");
+    let (text, telemetry) = collect(vec![payload], true).await;
+    assert!(text.contains("首帧"));
+    assert!(text.contains("\"error\""));
+    assert!(!text.contains("\"finish_reason\":\"stop\""));
+    assert!(telemetry.snapshot().error.is_some());
+}
+
+#[tokio::test]
+async fn unterminated_event_waits_for_boundary_and_malformed_multiline_stays_invalid() {
+    let (limit, telemetry) = fixture();
+    let pending = prefetch_source(
+        source(
+            vec![b"data: {\"content\":{\"parts\":[{\"text\":\"premature\"}]}}\n".to_vec()],
+            true,
+        ),
+        &limit,
+        &telemetry,
+    );
+    assert!(tokio::time::timeout(Duration::from_millis(20), pending)
+        .await
+        .is_err());
+    let malformed = "data: {\"content\":{\"parts\":[{\"text\":\"first\ndata: second\"}]}}\n\n";
+    let (text, telemetry) = collect(vec![format!("{HEAD}{malformed}").into_bytes()], true).await;
+    assert!(!text.contains("first second"));
+    assert!(telemetry.snapshot().error.is_some());
+    assert_eq!(
+        telemetry.snapshot().attempts_detail[0].diagnostics["accioStream"]["malformed"],
+        1
+    );
+}
+
+#[tokio::test]
+#[ignore = "synthetic loopback gzip transport; run alone with --ignored --test-threads=1"]
+async fn local_gzip_transport_regression() {
+    use axum::{
+        body::Bytes as BodyBytes,
+        extract::State,
+        http::{HeaderMap, StatusCode},
+        routing::post,
+        Router,
+    };
+    use std::sync::Mutex;
+    type Seen = Arc<Mutex<Vec<(HeaderMap, Vec<u8>)>>>;
+    async fn handler(
+        State((seen, status, waf)): State<(Seen, u16, bool)>,
+        headers: HeaderMap,
+        body: BodyBytes,
+    ) -> axum::response::Response {
+        let first = {
+            let mut seen = seen.lock().unwrap();
+            seen.push((headers, body.to_vec()));
+            seen.len() == 1
+        };
+        let status = if first { status } else { 200 };
+        let mut response =
+            axum::response::Response::new(axum::body::Body::from("data: [DONE]\n\n"));
+        *response.status_mut() = StatusCode::from_u16(status).unwrap();
+        if waf {
+            response
+                .headers_mut()
+                .insert("bxpunish", "synthetic".parse().unwrap());
+        }
+        response
+    }
+    std::env::set_var("ACCIO_REQUEST_GZIP", "true");
+    for (status, waf, inline) in [
+        (415, false, false),
+        (401, false, false),
+        (403, false, false),
+        (429, false, false),
+        (500, false, false),
+        (200, false, false),
+        (415, true, false),
+        (415, false, true),
+    ] {
+        let seen: Seen = Arc::new(Mutex::new(Vec::new()));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let app = Router::new()
+            .route("/generateContent", post(handler))
+            .with_state((seen.clone(), status, waf));
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+        let credentials =
+            Credentials::from_payload(&json!({"accessToken":"synthetic-token"})).unwrap();
+        let mut plan = build_plan(
+            &credentials,
+            &json!({"messages":[{"role":"user","content":"long repeated text ".repeat(1000)}]}),
+            "gemini-3-flash-preview",
+            None,
+        )
+        .unwrap();
+        if inline {
+            use base64::Engine;
+            let mut png = std::io::Cursor::new(Vec::new());
+            image::DynamicImage::new_rgb8(2, 2)
+                .write_to(&mut png, image::ImageFormat::Png)
+                .unwrap();
+            let mut body: Value = serde_json::from_slice(&plan.body).unwrap();
+            body["contents"][0]["parts"].as_array_mut().unwrap().push(json!({"inline_data":{"mime_type":"image/png","data":base64::engine::general_purpose::STANDARD.encode(png.into_inner())}}));
+            plan.body = serde_json::to_vec(&body).unwrap();
+        }
+        plan.url = format!("http://{address}/generateContent?sg_k=synthetic");
+        let (_, telemetry) = fixture();
+        let response = send_inner(
+            &plan,
+            None,
+            super::super::security_guard::Mode::Off,
+            Some(&telemetry),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            response.status().as_u16(),
+            if status == 415 && !waf && !inline {
+                200
+            } else {
+                status
+            }
+        );
+        let seen = seen.lock().unwrap();
+        let replay = status == 415 && !waf && !inline;
+        assert_eq!(
+            seen.len(),
+            if replay { 2 } else { 1 },
+            "status={status} waf={waf}"
+        );
+        let mut decoded = Vec::new();
+        if inline {
+            assert!(seen[0].0.get("content-encoding").is_none());
+            decoded = seen[0].1.clone();
+        } else {
+            assert_eq!(seen[0].0["content-encoding"], "gzip");
+            std::io::Read::read_to_end(
+                &mut flate2::read::GzDecoder::new(seen[0].1.as_slice()),
+                &mut decoded,
+            )
+            .unwrap();
+        }
+        let compressed: Value = serde_json::from_slice(&decoded).unwrap();
+        if replay {
+            assert!(seen[1].0.get("content-encoding").is_none());
+            let original: Value = serde_json::from_slice(&seen[1].1).unwrap();
+            assert_eq!(compressed, original); // all IDs, token, span and context
+            let d = telemetry.snapshot().attempts_detail[0].diagnostics["accioCompression"].clone();
+            assert_eq!(d["downgrades"], 1);
+        }
+        drop(seen);
+        if replay {
+            let response = send_inner(
+                &plan,
+                None,
+                super::super::security_guard::Mode::Off,
+                Some(&telemetry),
+            )
+            .await
+            .unwrap();
+            assert_eq!(response.status().as_u16(), 200);
+            assert_eq!(
+                telemetry.snapshot().attempts_detail[0].diagnostics["accioCompression"]
+                    ["skipReason"],
+                "runtime_disabled"
+            );
+        }
+        server.abort();
+    }
+    std::env::remove_var("ACCIO_REQUEST_GZIP");
 }

@@ -106,6 +106,7 @@ import {
   panelLogout,
   refreshDebug,
   refreshCaptchaPool,
+  refreshDeveloperRoleCompat,
   refreshClineHeaders,
   refreshCors,
   refreshNotify,
@@ -153,6 +154,7 @@ import {
   saveRetryField,
   saveRoutingField,
   saveSanitize,
+  saveDeveloperRoleCompat,
   saveTimeoutField,
   saveToggle,
   selectCategory,
@@ -1561,6 +1563,41 @@ function GatewayPane({ snap }: { snap: SettingsSnapshot }) {
                 ? STATES.sanitizeUnavailable
                 : snap.sanitize.on ? STATES.sanitizeOn : STATES.sanitizeOff}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card as='section' variant='panel' size='sm' className='panel'>
+        <PanelHead
+          title={t('开发者角色兼容')}
+          tip={TIPS.developerRoleCompat}
+          badge={snap.developerRoleCompat.status === 'ready'
+            ? <StatusBadge tone='ok'>{t('已生效')}</StatusBadge>
+            : snap.developerRoleCompat.status === 'unavailable'
+              ? <StatusBadge tone='bad'>{t('不可用')}</StatusBadge>
+              : <StatusBadge tone='idle'>{t('检测中…')}</StatusBadge>}
+          actions={
+            <RefreshButton id='btn-role-compat-refresh' onClick={() => void refreshDeveloperRoleCompat()} />
+          }
+        />
+        <CardContent variant='panel' className='panel-body'>
+          <div className='settings-switches'>
+            <SwitchRow
+              id='settings-developer-role-compat'
+              label={t('转发前将 developer 角色消息转换为 system，兼容不支持 developer 角色的 OpenAI 兼容上游')}
+              checked={snap.developerRoleCompat.on}
+              // 读到后端值之前不许切（否则会出现「切了但不知道后端原本是什么」，回滚也没依据）
+              disabled={snap.developerRoleCompat.status !== 'ready' || snap.busy === 'developerRoleCompat'}
+              onCheckedChange={next => void saveDeveloperRoleCompat(next)}
+            />
+          </div>
+          <div className='settings-state'>
+            {snap.developerRoleCompat.status === 'loading'
+              ? STATES.appLoading
+              : snap.developerRoleCompat.status === 'unavailable'
+                ? STATES.roleCompatUnavailable
+                : snap.developerRoleCompat.on ? STATES.roleCompatOn : STATES.roleCompatOff}
+          </div>
+          <div className='hint retention-note'>{NOTES.developerRoleCompat}</div>
         </CardContent>
       </Card>
 

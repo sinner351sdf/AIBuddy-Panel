@@ -574,6 +574,7 @@ fn stored_attempt_details(list: &[usage::AttemptDetail]) -> Vec<AttemptDetail> {
             // 体字节数原样透传（None = 这一轮没发出去；采集侧的理由见 usage 的字段说明）
             body_bytes: item.body_bytes,
             timings: item.timings.clone(),
+            diagnostics: item.diagnostics.clone(),
         })
         .collect()
 }
@@ -1135,11 +1136,14 @@ mod tests {
         telemetry.note_attempt_started("accio", "test");
         telemetry.begin_stage("build_request").finish();
         let waiting = telemetry.begin_stage("send_headers");
+        telemetry.note_accio_stream_diagnostics(0, serde_json::json!({"firstFrameType":"comment", "heartbeats":3}));
         let live = only_row(&stats);
+        assert_eq!(live["attemptDetails"][0]["diagnostics"]["accioStream"]["heartbeats"], 3);
         assert_eq!(live["attemptDetails"][0]["timings"][0]["completed"], true, "stored live row: {live}; telemetry: {:?}", telemetry.snapshot());
         assert!(live["attemptDetails"][0]["timings"][1]["durationMs"].is_null());
         super::record_entry(&context, Some("客户端在响应完成前断开连接".into()));
         let final_row = only_row(&stats);
+        assert_eq!(final_row["attemptDetails"][0]["diagnostics"], live["attemptDetails"][0]["diagnostics"]);
         let timing = &final_row["attemptDetails"][0]["timings"][1];
         assert_eq!(timing["stage"], "send_headers");
         assert_eq!(timing["completed"], false);
@@ -1149,6 +1153,7 @@ mod tests {
         let old: crate::server::request_stats::AttemptDetail =
             serde_json::from_value(serde_json::json!({"provider":"accio"})).unwrap();
         assert!(old.timings.is_empty());
+        assert!(old.diagnostics.is_empty());
     }
 
     /// 生产实测到的收尾帧写法（CodeArts 走字节透传，上游发什么就下发什么）：

@@ -1,0 +1,1733 @@
+[
+  {
+    "path": ".agents/skills/release-flow/SKILL.md",
+    "decision": "retain-local-maintainer-policy",
+    "comparison": "not-copied",
+    "reason": "upstream release instructions are maintainer policy; existing fork policy retained",
+    "sha256": null
+  },
+  {
+    "path": ".github/FUNDING.yml",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "b8761718830e527b05ef2874ba6292330c2b8cd3a5f57ee31a14db3e4040fc0b"
+  },
+  {
+    "path": ".github/workflows/build.yml",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "fd90ca378f6ebb6f539c5e862a3bdf3a6da767b165c23b3582c1f8a20faf4559"
+  },
+  {
+    "path": ".github/workflows/docker.yml",
+    "decision": "local-adaptation-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "b5a023dab8c1473608268142bdc95f9337778d4ab9f02b4445dcbe79c5ac3bd7"
+  },
+  {
+    "path": ".gitignore",
+    "decision": "local-adaptation-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "4a834b8d1166c2c0581b8b9d433d587a77f9de35203e7078f83f74d6cad606e2"
+  },
+  {
+    "path": "AGENTS.md",
+    "decision": "retain-local-maintainer-policy",
+    "comparison": "not-copied",
+    "reason": "upstream release instructions are maintainer policy; existing fork policy retained",
+    "sha256": null
+  },
+  {
+    "path": "README.en.md",
+    "decision": "fork-documentation-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "16f7a5f0a01204980dce15b20d8f79c69cdd9b4fcd15eeeab6abb52fcb38da16"
+  },
+  {
+    "path": "README.ja.md",
+    "decision": "fork-documentation-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "0f4a0d313614a4cdf7a3d949ef4d4d21749bde5cfc086456d149a3ec60f885e8"
+  },
+  {
+    "path": "README.ko.md",
+    "decision": "fork-documentation-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "289d7ecd3b6d4911cb762bf9ba379e69a3aba700283362f9bfce29f76b8d9f8e"
+  },
+  {
+    "path": "README.md",
+    "decision": "fork-documentation-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "ca1a0c4bd89339ceb8fcc68808eeaee8d2f1359fdc4d03bff08b9dc7bd611092"
+  },
+  {
+    "path": "README.pt-BR.md",
+    "decision": "fork-documentation-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "0798c103b4a21a98598f9346d7fa1e00d5705c45926575a00a16750c50e25420"
+  },
+  {
+    "path": "README.zh-Hant.md",
+    "decision": "fork-documentation-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "402b22c9ec44d1f8e7763c6010a11f61fdc5ee2ec5d8e72123f1d5ec13802ed3"
+  },
+  {
+    "path": "agent.md",
+    "decision": "retain-local-maintainer-policy",
+    "comparison": "adapted-or-retained",
+    "reason": "upstream release instructions are maintainer policy; existing fork policy retained",
+    "sha256": "ee60866430501b02a86b27ba55ee8036a97db6221086befc57bfdaef6efacc74"
+  },
+  {
+    "path": "assets/proxylane-logo-for-dark-bg.png",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "3d77505c4fbb0bf115cff430f42821c5519fe46d55238cda42059502cc4a8929"
+  },
+  {
+    "path": "assets/proxylane-logo-for-light-bg.png",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "1408c99286f68a7e7f27abec1d8eced06a754cb084a3aed19c10eabb8c0e541c"
+  },
+  {
+    "path": "assets/qq-card.png",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "2ac5db0b147b11ce71bd2448887270cb101e87de8bb779bc1aa7b7b732683955"
+  },
+  {
+    "path": "assets/screenshots/accounts.png",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "b4aca909cad24a9b492d3d376230c511fd8b6d342db0e4ad6ad272aa3b944123"
+  },
+  {
+    "path": "assets/screenshots/add-account.png",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "b6517dfb2e9e807136a33f56e02010cc3dbb7d6de5460ef432180f102719fe97"
+  },
+  {
+    "path": "assets/screenshots/checkin-center.png",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "c8de1c2562f23527f99b4fd2d54b257fd8fb9a7ada8e6ee62b7e0be7b900dea1"
+  },
+  {
+    "path": "assets/screenshots/models.png",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "4cbb8a41f5a81b2b3986b0aa767acc32604e34a03acf3f31f54d2dfb65047a96"
+  },
+  {
+    "path": "assets/screenshots/report-overview.png",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "bc5dc00997f063d9494f1a31e2a9c6318358f4a3e7ec1c686ef60a4b3e303982"
+  },
+  {
+    "path": "assets/screenshots/report-trends.png",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "9351fec80fca38b06d8904c1d97493183ee5061ed0f65a5cdc2b0f04dbe298ba"
+  },
+  {
+    "path": "assets/screenshots/scheduled-tasks.png",
+    "decision": "remove-upstream",
+    "comparison": "identical",
+    "sha256": null
+  },
+  {
+    "path": "assets/sponsor-proxylane.png",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "db344d6fd7070080bb502b66298340504a4f15e4b620cece421dda35b4ba5ebd"
+  },
+  {
+    "path": "assets/wechat-reward.png",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "61dc407cd33bd35ce940140c02f94bf2299db9cb1c52634e450aea7e3bf8a452"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/accounts.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "caafe4d3eeed328f7a4fca085651b73efe1df845f414167b653a7c0f9775c086"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/add-account.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "dff5a5ca7045919fa482b1933f2f284bd77b04ad4f4e37de1879e4a3d2175f65"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/assistant.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "abd2a7e03977bc669b9711283738d391e2d4b44071a9686c10b207c373d43456"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/checkin.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "5c42404e30f337cd4133fa065b424d579fe116e88be7800b450f3306e175c31d"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/common.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "0ee8ff1aec4f5b345d1c0615265f1b5333382191fa71a214833e9697dc291360"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/models.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "583122cb9ae7fa2df52df7c3d9aea70269fe3f2cc1357fe59f9c7598e0cf7561"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/proxies.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "19928fb268858ebb19cb2720b319148780e07960d1cf0ff9b1befebff68b6565"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/requests.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "ac7bc8fcd273e304c8f51ca6a120e849fa47749bdd99187246cadf7aeacb77b8"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/settings.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "2334fcddaff66e95fb811fad8008fb66b2a0740acc41ad92fde1804552d609d2"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/tasks.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "9b43fb877b28d0f5c342eabd03e31b99462c245bd4fa2f5e88c6cdcb45000d50"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/update.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "2aa392c1aeb74ba8f5a3748ef2334aa41a8fa5333ea61dc101f3af4476eaaf26"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/accounts.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "168574ba00e2aab6664e2200b78cefc3560aebea01d546ee0bb4d5917df9efc1"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/add-account.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "8a524f7ca112683cd7598779f1bab372d8b18ece7c10ef58756e032bc4cd3efd"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/assistant.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "cdb83c6520e66ff3e29fb2904e821734db27044431fef52067696f0fac247bef"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/checkin.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "efce6dd5a4c8857cce1886577e0250123bf83755de7ee5a7150d7367285717b5"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/common.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "8c1cc6603b98fa9577e513febdd44c5ce35c54e19be733d09f5ebfe2bbaff116"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/models.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "84043b39d3c5111be590a668e9ba48324ca1483d8e06c387686f4219e91cdbcc"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/proxies.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "894c4c9f47639d29e8d14be41ef57101d334b00d92e898690671e8b000246ed7"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/requests.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "1d89392e7c8ca811b9ab6a3ac6e8352d9dfa5dc7228763b313b4100aa903c8d4"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/settings.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "b2e3de9ee43258a6b8022963ae8f16a76ad7752ddcadc8cc9a6889c6a88cff8a"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/tasks.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "411a0aa94dd449752bb4201356a07c41b9476c9d48e86515e35c7480eea73b81"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/update.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "67bc0e8f7b99ee1ca8f5ac4074add978c685e66a1011a72d4d1614975dea5640"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/accounts.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "f9a99c00342b93c2f341586200dd9b574721ee32fa8f5929179c6a4abbc310b9"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/add-account.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "3addaf698ee8aa19292d26b1ef23df275d6c65bfa655fc948a21f09fc40a27eb"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/assistant.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "31cbdd94e0acd13a429aac8b059fb888750d059dad28d0c3fbb911f0de1945e4"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/checkin.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "e0363789777cbcdd9c3796b3aa7fc63ede14951626954016ffec91768b8066d7"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/common.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "9f722c4dd8bae9971e663c9cf7beafffb987707e2a36a2976fee2b7a45b62d61"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/models.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "578365c19c76b52509a4e6c59bf290b6366daaded0ddfe8c1923691724ed81fd"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/proxies.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "d2f19e73c496a0bb002c0328a1347db4e07de17c13254cbbcbe2376fe7bebdd5"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/requests.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "31afeefde8a2b3191eeaa6716fd2cdcbdd0468df1b5b2d3f9396abcfed28abe6"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/settings.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "6b9d1db90916a9b92bcf57ea0ffe62fc9235ba08f97ab8537d89e60479eed2da"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/tasks.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "067f94beaa741a4da092bc0e3ecce1411ddf0db92a41b0da5231b0d898e1ebea"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/update.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "6d63d018959a2d7f9d819f87291f8de1872a74e2085a0bb3914a05a7cf059896"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/accounts.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "165e41e7643fdd5549ad31f23b05ab6c20d4d99ab25ad31a2e6a0384dfdd39c5"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/add-account.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "cd7f07b81e3487635ed22f464796bd87c31c8c0712828fd8740ed6ba9cbc7a81"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/assistant.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "3fe738efead9d90b248651051be49a67ff77c4beeab190878b40b823eb728845"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/checkin.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "b49d193c04297d94b0823e79e5526be2f7da8c0b2d1cd475bdd7af03baede218"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/common.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "eb72dc27838931019864e771143a165892dda567980ac40fa57fa58740cb555e"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/models.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "804faaae2d617ab27ae35ccfcee793ac23ef329a3c89e5ced4cf5b9a1301dc52"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/proxies.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "3c30c720f9736a7b7927d14d5a0bc34f42af5074a76217eba4d2addb294e4ec2"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/requests.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "129e3f9065334c0e61119b5e692820897b69a87b8b561cded3afbd3754824ba4"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/settings.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "eb0fc6a125c2a5e8dcae71b0ba03291c5307db68846ca6c7cb407dd743ae9d90"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/tasks.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "d5981f1e418102b44e6640762fa61b26b300961e1fc681550ea6bd91267a9ec5"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/update.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "8d156e952da722237ba4972e81a3c3ec174de4232eefa02967333daa005f937f"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/accounts.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "9c81e344340516465ec093d10e3a8a0ea364a55f7c7bcbbcfb75fb05ecd491a2"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/add-account.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "faacf47da9c0732d1f95d7d7c2d7256f27b2361015944ecf5aea19e7b0dd9d07"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/assistant.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "79c3996727d9842e733012f38e275200bb292d5ef12a70c81558287635af8cf7"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/checkin.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "dd5dd30d6a039acb9bf9d62bf3a9661b12ed68dfc9a6242802e86418e73b335a"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/proxies.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "2cdbae76f585e0a854cb3511343963f3c365baf869ae42dce681b92815156aff"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/settings.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "b78780db9244e2266ded8954337a674f68e8062163a5727dc2e2100915e460e6"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/update.json",
+    "decision": "adapt-i18n",
+    "comparison": "adapted-or-retained",
+    "sha256": "08968b488eec12548e75a70031563c4fc84e4c9e0ea8032b2213a2aa1538b3fe"
+  },
+  {
+    "path": "desktop-tauri/i18n/scan.mjs",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "4ef1cc7cbaa4317164cb6e8cc04d93cd236710225f17fe36f1945453d9b20b54"
+  },
+  {
+    "path": "desktop-tauri/package.json",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "c1e7bab31f1394768fb1623b0f58d0c8cb2b4596d095210379b8fffc97d42250"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/Cargo.lock",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "9f0ac521e366c12274ef653c77479f4051a609ee2f4f1f6e6bf134ae95fde156"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/Cargo.toml",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "d1e289d137edd96e487b01c7973ae75488e3e9673ae6bf83b27644b142c8260e"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/Cargo.toml",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "d95236e73477f3586f2cb72081f09090d2748f28f6fd9f7c7d14fb05bb7a1e95"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/access.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "26129405f6acecf070b87c3d45e6e8cd1857d9df1ecf7adb46688173c4a10838"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/accounts.rs",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "18cb053724b84322a3c486aa4d1357acf0e1db56b1e77248d5e22b4c9f9920a6"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/billing.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "424a6934e57dc01a4b6aaa84a66d20b6aea9bd26b9b7f94708ba52b186c958d7"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/custom_providers.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "7486612fecd7844fb72932e50b1b8b35ac428f3050bc60671284847ea639e97f"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/mod.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "27bd0dfc24d9b700f7b63f91175dfa050007b98badbf70a32ee6a03282db9b4e"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/proxies.rs",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "887162ad609148fde23dd8f0672653fc3590d8811c3fa223f21caa3b222e015f"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/role_compat.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "c85734c23e81f1cef8ac30cd3f38d5191e67b5d3c874017443e607e1ef3f4b0f"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/session.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "c8ca5730659a29a8757293b8228a16025c2fdc84de0afd78f4c24dc9fad25f03"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/stats_api.rs",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "aad3e02acbc926e0b69f88c99b1e0ba46880fce9b7093d7dee3d93287851d38d"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/update.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "5224db89b81a149db0a2f42688796b3c178fb7239572f194c02037bd287e9705"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/config/mod.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "f3b0a930037ae4f2d21ccfdcde5256494ef82a0e8cceac75f1ddc6b0aa192172"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/config/types.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "cb5352acba3e3c5ef32a127e242f096455cea69a408f6d0666117216ed9b1900"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/chatglm_accounts.rs",
+    "decision": "upstream-exact",
+    "comparison": "adapted-or-retained",
+    "sha256": "6f760078cda415ecd98c68eb1ec92f5e2dce253843436bb6ad984b79d2303d18"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/cline_accounts.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "37faa97416b52381bd01515ea562cf6fd79076f7971bedd3a0ea1c5b3df18212"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/custom_accounts.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "d91cee25e9527c0b7d4b0c886949f5f026f0d1aeaa21327b46509916c95c73ee"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/mod.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "04dd3fcf4a33102f0f7f9c521a20cf6a5b189a285512c0bd4e0719be90cdbef2"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/auto_checkin.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "e3b5add073d07e0f57cd28e50e527e6c5ada20cc2f1d502cfc72e138b8371e58"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/billing/checkin.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "d8f517e4b0a0d69f3c79dc536ece5e2ab1177c03b951834dd45724b6b28c8503"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/billing/mod.rs",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "496cfe1915eecbbc363d30c5d777692966e19967eb8261e3eb47e75517b84f01"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/billing/request.rs",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "85818f04d41b61940936eb9b5021adff66932bc0918ce1b6925b3d48daa5a10c"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/checkin_records.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "204aead92ffe5726edafceed7d8aff07afafe53b17c6c261c4e66d5b1d6d8c2b"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/custom_providers.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "775f4843e6e47048b965d1dad6fbaaab0ac57e5d532af67d835e2bff98272103"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/login.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "5c9fa3a8cec34f546dc97768dba5ccce4d3b70b86777be5e707a44c16a7a8d87"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/protocol/antigravity_outbound.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "f273e763715ebf7458a4765d5d9ae644994e3766ea79790c72bfcd629324c925"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/protocol/antigravity_signature_cache.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "ccc9c8af2fd09b150ec0552ad7e090ff9f6d0706a501702ad03e309a8cd24361"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/protocol/antigravity_stream.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "5af797048557ce86f60d0d191e6375f48064e0b68c3cdc7ffabee8159fb11eaa"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/protocol/chatglm_stream.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "1b9ee264f08019290db853cee52dfee32ee6a839a85fbe559017fba3667ef226"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/protocol/mod.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "f284024e5f9264bcd72ab2cf348f87e2c246d0b60a66fdeeb259f267ed7d4915"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/protocol/responses.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "5d401ca46616e5b40620ba6dec3b2840e99e3f951ab10f428f2576a2717664ae"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/adapter.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "4d97f2260a5fd51413b258af2bf1bb53015ab4e741eb08001597d175269cd8f9"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/adapter.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "1875f0a85b793e22184a41f8920867a8e862e2b327517c3bf3338b18dba9f9b6"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/balance.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "23cfb35128bd47a7d4121ae077f7da4169a6817db63f6ffe708b17fde8207d77"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/endpoints.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "817fbcff9dfb641589df3e3082824049851b0a8c10e41385b10d3f779d53bd2b"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/mod.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "a5c674a8cd429f799dd74ec436b090222ade00c2d90eb8f54a5778b72920ad00"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/models.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "9f00fe8544c57fe32ed0dd793c072ef846a959f1b8360e218bb5f5c047b4c7dd"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/catalog.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "6682023d62df5dd3ed984ce2edbf061cdaa775924dae66deafbf185095f78a85"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/catalog_cache.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "f0b05ee20ce4145018f33cc6cc8c2e2e15bb238355804dcc4930ee7710e61523"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/adapter.rs",
+    "decision": "upstream-exact",
+    "comparison": "adapted-or-retained",
+    "sha256": "8903a0a95bed4b84f2e9a67b7a2acabcea24fed5dbe08aa6f8943a96d2d135c4"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/balance.rs",
+    "decision": "upstream-exact",
+    "comparison": "adapted-or-retained",
+    "sha256": "11a7db96b7ca54bcd33b60516b1c726adcc63bc91337ab0cfeeb080b9ab56b8a"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/checkin.rs",
+    "decision": "upstream-exact",
+    "comparison": "adapted-or-retained",
+    "sha256": "47c062fb5168390471c37a5d6f7853dd7fb466bba4871fa8ae09c55172958ef7"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/credentials.rs",
+    "decision": "upstream-exact",
+    "comparison": "adapted-or-retained",
+    "sha256": "23b5c866cf3d08bed6d06d8407818630d0ebf4e587eb5ac823aad181f0df938e"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/endpoints.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "ea026bad63cd74e080432edc8e4eb1be139017d37c1a7bfa5723532e72b703d4"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/http.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "5feb7c41430b70ee2938413cd27cfce9e89ac1f2d76bdf516a16a46e4e20f454"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/live_tests.rs",
+    "decision": "upstream-exact",
+    "comparison": "adapted-or-retained",
+    "sha256": "d56d99fab2f2bbdcd2502ebff0cf83454a17999a088e50a62682a211a5d51fb1"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/mod.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "c62414e717b468b2d2e35472854b52b1dce71d9e55976a91576c66fbe7ce39d1"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/models.rs",
+    "decision": "upstream-exact",
+    "comparison": "adapted-or-retained",
+    "sha256": "b4cb5170e6fc76d8f16dfda7a1f9b025a81567719934d4cb3460a18128556eb3"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/plan.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "bd208d5c7e93b8f4dfaca6920f173f40cf0a3e6b2ee249b4b29122894de20352"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/sign.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "c31dfcecd145fe1f2264cf65e418b3470e666aa584080783acb866ae3ef71e1a"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/custom/balance_parse.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "921629aa5e916bac34a9c029ee97bfe0f1e456a541db531b16618d4ff883a652"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/kuku/credentials.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "ce091d068564d24bd150e9fed86c0b7eead4f745e5bf9e27f887470848a8274b"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/loomy/images.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "9f76e87f6274dab3356b1edadd062fd8db76336266b647625b0bd3ea89be28c9"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/loomy/mod.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "3db646756a525ab78000d2bd7dca5f9d3a981527e17e9248e60aa9573120569b"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/mod.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "8a58b35558cb59e7cff136d9fc227e55a0de814c33ec6149ab740ef926df3a15"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/adapter.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "02576e1a7f7ab19f873c8b0d0469a10cb9df3dc8e618968bee55f6e998c46ae2"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/credentials.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "d0bbe1c8d8db3b5519f93ba09ba46d3d58fa3bb4b7b2c9849147c6d6b829c299"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/login.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "099f0a45acdfc99612b751eb8a5d4437eb1195b64e38aeeabc4208c9d9f567d1"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/orcaterm/mod.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "de1cd31791d8914bfcd3d378abe703c9e01e859854a59a92f05876327c82a6ee"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/adapter.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "8ec29f07fa879014a2e2e77aae216fd42369a1bcd0dd784466db4fbb961f39f3"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/captcha.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "6710cf44d93d2415271568ea4ae220b873c191cd59a3d3c1e92251151ce9b3ba"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/config_sync.rs",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "29a943b29fe20e89d838a2eceb139fd2cffd8e5e6869ec49b785aa960b25b947"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/endpoint_mapping.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "b8f16a1f7a567fdb8c5e931d53ea23d19707bb15ccad0bf1acb07f0c411bc377"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/mod.rs",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "4d7f6124b930faee9c4de91da8136d1bbc73fb5d567811f393d23c3f8ca7c8f3"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/zcode/plan.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "e1ff6a1632d46c15f3f200e77dcf3893c8d169042fb66632db68c66c8b0aefac"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/proxy_pool.rs",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "d87d5576b41691aeb86379b8620be7fc37cdb82f170e9857122f3e52e9d1cb52"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/update/check.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "01acd7f335222f2f7907272ed2cdabf08dd8f7f82e0cfa5f0472f22684f10d88"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/update/mod.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "310b5c04f8678e8cab994b32fd9578fb1c6db26e7b388659e59e764af75835b3"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/update/version.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "3847b718d100aca0a030ec8866ec3e2cf591d1e26663ddf9aac9b57512c816c4"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/mod.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "4f2c2a95645be42c5aa89e915cb44d40578337b4ba6d76ee8d395242f15a2e01"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/payload.rs",
+    "decision": "upstream-exact",
+    "comparison": "adapted-or-retained",
+    "sha256": "422794580e63eda27b6f816f01617c9839ee930abbe4a7cf79a314c9b0d8c721"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/provider_loop.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "4d5f22eebcf268f4f09312bac718fc6f119b11ee1eb17a2edc89e2df76e721c3"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/translate.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "069bee4973b21cd7a26123dbe4b28c438683844ab0cc366286fc94e9e884f2bd"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/db/schema.rs",
+    "decision": "local-adaptation-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "3cc8f224e8b72b845c914d4b1c98e413ebe3cfdefc8f1124c9fbbbe95ca6c112"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/http.rs",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "ac0766e2824240e9f071268169d460789e532ccbc75734022a29937ff6631fb6"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats.rs",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "fdfa22a13f011fbdb5519af2bb2c40f4ffcc0221926ca5ad835894bf258c29d5"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats/aggregate.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "31415c322ccc46b1f895079b669f4d22dd21ec3f5ae65b79ae39efdfaac88fe0"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats/backfill.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "1c15938b114ac880c9e966c68673ea9fd7d0087ef2b30fdec071fdf030bdd522"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats/legacy.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "001127e7a31c008f9da005b3d3c917b3feded3b68e97c5d2dc4554ea537941fb"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats/maintenance.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "1ce1facf2ae0018bd753b24eecca4908eb057a46145ff4526fd7305e66a838a4"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats/record.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "f66fbe3446d8b356d6884d63dbcfbe6ac8a3691a56adc15618a9503962ac2847"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats/report.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "ef2ca33321bb225cf79014f577bbffab55ce24f30dda4c28be34c6c16aa0dfb5"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats/sql.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "08870e1d54d9ce1adde75b3af17a1d549fa85778604e632ec1d5d21b7e9c08e6"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/web_shim.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "c169937a6a82265a302b1b6948be7f0dc3bc70a4c7a9b25431850df9c23fb90c"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/src/backend.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "3d9a0746370bef3d9e6bd405fa20bbf4bce5e3d963b7ecae6d30000baf281867"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/src/bridge.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "93a01a6ded3dcc8e172d9f8b7111f7cf66245dbea37ce4018e27957dc56fee26"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/src/commands.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "48b287fd1108494716446f54d38087ef0b00af4935380b98a15f57b24fd2492f"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/src/gateway.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "5669478f2e111ceec7d45129e550ab34521b12ca7276322b59f633042e155999"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/src/lib.rs",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "24dbe94337f6f463805154aa5f86fc3290b1810e5002c6dea64f8465802f9c8c"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/src/login.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "c2d110543d493525daacdabd6ac8a2f9b5d6cb33f3e131f2f9b7c76581699a3d"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/src/update.rs",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "b910b1a9aa53165fa9df5c848d419191154509f379b5d9ba8d771d96ca7ddbdb"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/tauri.conf.json",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "4f1b615c10e319d377c88bd473f151e78950d523ef190392faa9d352e67c24c7"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/tauri.linux.conf.json",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "7dc82f71d6c278c154fbd1d44b8158b7a395e93522a0ecd0adc17697ae0eaaab"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-columns.ts",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "626bb66c644709088c46123cc1cf1a321fc2b6c1be413ec07eacb1fbbee5f3f6"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-credit-detail.tsx",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "3096609049ae88225292f425ef845200ed4923f9ace941c12257dab38497c90b"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-data.ts",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "f965db35ab78548a76ceb9f62a92f744f9afdc5f2c487bc9fae8ca6b25afbf30"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-dialog-limiter.tsx",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "9059b3f32c4b58c5a5ebca83a05b08d6755fdc0405db8fbc3add52f6d4b5be41"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-dialogs.tsx",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "ac40ef597bc76c93e1cb59bd8f2a351f52afebfb51308e7cacde349c016d7365"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-domain.ts",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "5c7219e403a401a5f8425c6efae6deee89458676520200542e1b7d62b5ab6203"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-page.tsx",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "e8eac58f2184934e00a79c27e4169cd4f1db586de290a475e755d1d6cb031769"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-panels.tsx",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "3f856f32171387e2ceabaf4cd14709126a470e9295e72f6bc5d109daac425409"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-shared.ts",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "1fb063713bae177e3253dd5ae0b96d93dc594faca91be9538340f6f919548a5f"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/add-account-configs.ts",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "66693dda5ed4225b647d9f845b1880573d0e891c9bf2f2b5d7d4dfdc2eb01821"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/add-account-modal.tsx",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "b10008d72b4f27c1a1cc4b414dd846067691e86c184809695fb17f57e121090d"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/add-custom-provider.tsx",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "838948d0d9bab2af0a22847f8fc1d8b41b0de7f71bdd68958c67281f37e0fff5"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/add-provider-blocks.tsx",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "5b6208932e737249538700f7f77495596c40b5b0b114bb7336042312df8df966"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/add-provider-pick.tsx",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "bce714541c4fc4825695a2df17f30fe253c96c867e14c28972922ee2f99f3e31"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/assistant-state.ts",
+    "decision": "local-adaptation-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "edf9f3dab3e82ac87ce0d9f02fa968d461958ace118466f2ee530453771f9da7"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/assistant-tools.ts",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "ccf6ee870f4098f59f759d558300b7854f9f15dfbddd72779a9e189554be5425"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/checkin-page.tsx",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "4da98650f14f2cf32d3ec089e34a539d580c35913a85bc3b9e6d9530cf3f369b"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/keys-page.tsx",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "43ffc71f0994390c26580788064392d531c1b0f9caeefa4787ead009e42bcd78"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/models-fetch-modal.tsx",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "5d2d1fe16337f8fbc7d4dfd8f9bdc473e6989397f8ecb7b6fbf7c54ff6a2e6c6"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/models-page.tsx",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "7941816f5bfec9592c94622d556e8cb81c48ac889e946dc1069ebd0a3e053095"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/models-panel-state.ts",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "6d9daefee78990b58b7d7aff265414b63cb997a8cf9e0be8d2f03332cd699d5d"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/proxies-dialogs.tsx",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "fa2bcdf3d1bb319c45e4f9e5061f2ecd28df8b7d88d3240d903e46cc964964e6"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/proxies-page.tsx",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "de5c48bcb95f9184a2143ad039202a5c2df53702b69190e5d22aaaf8502f0e20"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/proxies-sub-view.tsx",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "f6fd9e7aeb11a9ce2f73d79e173cf1022cea33ccebcb80eb76dcb2ca1635731b"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/report-page.tsx",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "0f121954b2105d984fc5fa0819a02ace658be2015ad62eb4494a4926963a513f"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/requests-page.tsx",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "2b093dcf1a47f5447b3f1aa9702e3a3c37a14820b1cb27729d4341ec316c04db"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/settings-model.ts",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "25eed356998a330d92e95048799997e873fc46ad396a474c80caa202f62058d5"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/settings-page.tsx",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "ae6c70701b7af219411b4fb8bc3c61e7bd4a242a6a6e941974bd6c4202eaeadf"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/settings-state.ts",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "ed775baf6b4ff852d19a03999668323576bc0ba91bf29caa1469d7d63a1d0ce4"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/sponsor.ts",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "4f99d8447f5c1a838c8c172f3edde0f190a79f0b4f38cf1ac310d42230f6a078"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/update-panel.tsx",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "caaf3a92cab5c3eda963b0d28e9ce610b5518d6e5df1c7e2f3209aae5b02eaf3"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/update-settings.tsx",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "19916ba7440d101b1243447a6000130f6ca7155fb3a79ff4a6f292090a66a5b5"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/update-shared.ts",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "14be844f03c7fc27333947fad58c1d830cb1fc1779836f3190d174ef6ff7e4fd"
+  },
+  {
+    "path": "desktop-tauri/ui/app.js",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "bb00721003fdb11345a473a0bf73c63ab5bd6118b52fd6d9f8e7bc6bd82c1d13"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/proxylane-logo-for-dark-bg.png",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "3d77505c4fbb0bf115cff430f42821c5519fe46d55238cda42059502cc4a8929"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/proxylane-logo-for-light-bg.png",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "1408c99286f68a7e7f27abec1d8eced06a754cb084a3aed19c10eabb8c0e541c"
+  },
+  {
+    "path": "desktop-tauri/ui/conversation-preview.js",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "20b1580f4bd968d2f57fba97dc34b8f1e1ecb2fb677113d786b737405110a512"
+  },
+  {
+    "path": "desktop-tauri/ui/css/page-accounts-providers.css",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "7fd110ca0f44614ad166a0c7c836d696c53107ce5c41eeec5cc5aa49c2c58d6a"
+  },
+  {
+    "path": "desktop-tauri/ui/css/page-accounts-table.css",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "05bad9c042958d6e57bdc65ae3b377ad69193d4b3f692ec5ba8832b6052ab6f2"
+  },
+  {
+    "path": "desktop-tauri/ui/css/page-assistant.css",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "b8d6afb84d54de41036dcf2f616edff7a4e69c626cc1928af731cf9d57b4f2b7"
+  },
+  {
+    "path": "desktop-tauri/ui/css/update-notes.css",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "6b860303d071a4a0561a6a4bf465f309aa108aff89d045680347c4f645b90ce5"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/accounts.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "63e6818f6f178df0057aba548957efd000331462da6d32441c36a3f5f98180e4"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/add-account.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "49eac2a85c51ce162e24bc8b7fc1560da44cffdf3fed10215eb38939c5ced252"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/assistant.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "51808aec5e67953261c80cb4b48e1988f15213c38cb11bf929bc74594e904e0e"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/checkin.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "8c648c97173c037d2e6d957c74afb66a5579f7df6192f574e49e9eccbcb945dd"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/common.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "8a36b6795b6e5b21111ccb43c60dbc654444989517f3b58348df6ee1714281fa"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/models.js",
+    "decision": "regenerate",
+    "comparison": "identical",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "741fa5ee0ac953c97db6b4338812f451baf62a2956ae04aa498e9c3d77f737a9"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/proxies.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "1e1fad463f462d4286ad0f1ec9c01481e64c2002fc643e7fa53897920f80636a"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/requests.js",
+    "decision": "regenerate",
+    "comparison": "identical",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "18087b22b8f1138b8b6b0d2bc5030f2fd4662d917663141445f2cb724b08966e"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/settings.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "afaad5a3406110e0a399c3cc446da16b81191cec31e81f6379a0035073666f3b"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/tasks.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "34f6f6bfd6195ffb175a3e5978be8a2abd93f9b89a2d969d2377ae5863c9c3bb"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/update.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "60ca0ae1344f34b268df599f54b752fad43b604f3cd38fccb71aa588f07695a3"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/accounts.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "25b89b2cc71d7c47948ddb0e9813166e4886f71f2e28d87fcefe463a73a29caa"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/add-account.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "19f677fa92f5572278d636eed151fefcf77d52812f85b445ba5f7047857b72f2"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/assistant.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "7991f5288229f60eab30831307ed6a290b16c04b350bc0a2b11b3431f50c3be2"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/checkin.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "42c87cdc016c978dc6f6fd931b50c5dd564cfc445021af54fd10043e8aa6ad16"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/common.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "8baedc522843ae02e3a4880e6c63ac8bd95f30d58d8da326d0f99a23b0f1002b"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/models.js",
+    "decision": "regenerate",
+    "comparison": "identical",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "906d3198a977ac49eaf2476e9d3dee1b9127f0c51d63b2908fb6c266d771992c"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/proxies.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "cd3651b92fd5739d6b98f0f64adca9323836aad3894b3789ee7cd1dc1b9b038b"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/requests.js",
+    "decision": "regenerate",
+    "comparison": "identical",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "16b38c0fa4ea6d0849f3a3800b9807575c4fad412b753d51e72b67d3a5849e72"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/settings.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "c97b29810237b702046babdecc01e9bda19dd702417b332f94f52538f91c66c4"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/tasks.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "1b80048e75b7297bc94f389eef2087141c2db1de13f970b43d748ff876b21611"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/update.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "a919ce7abed480693f63178655df9b7a2e120e7adac3c8d505b6b29c13bb7534"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/accounts.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "66ac5275146e8925929977558229a1a99d67fe50c19cb5e50292f70233c3ff97"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/add-account.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "ce78c1c07d5a623e4df57ee10caf53cd689db0ebdca16747096d5ae56e6f3a7f"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/assistant.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "addfe90fd37bdf97577dc03fe12603465de41fc1cac494c842355ec1a340d5bd"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/checkin.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "36f9d1c5b65a3d1e6e9309c26bbbd3c6a03d23f252a9a746185782397aeb4782"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/common.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "0ac27397d46808f4223cc2af15033ea2cfaed583d9827e07136df99a4d4332ae"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/models.js",
+    "decision": "regenerate",
+    "comparison": "identical",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "9c04a885e7b35d4c147b3e5f155de44998d9b0a0b50cafe508fedf56019a4e27"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/proxies.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "bfa5db82b879aa8a2072a2a0d29abe514997c7ca8d1aacc855d506383991e335"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/requests.js",
+    "decision": "regenerate",
+    "comparison": "identical",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "b409180d369d255d6a2d5e5c6e2a5f0b14be725f465ad62822c2654ae8b75496"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/settings.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "fc903c7583fdd8ee798acbe8a7d93d8be6bb7f29ae4af496a23593e27bbf4cd8"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/tasks.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "8c72ac14f9af09774ecf83fa26315ce20931107cf1179803e4f066762363ae86"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/update.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "75e748195e9ee22b470e2e8d546c6e394f9da99e8265148904f49b4bf7faef5b"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/accounts.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "e3398561aa9ea03574e86952aaf5be70e4117653801344f21660c64a14cdfad2"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/add-account.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "06e031f5850b8dcf502d7eb9b4cf7fbf2ca55027d55c966bb01787550a0439de"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/assistant.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "0f5e6653f1c4b7e27f2f15dcd6aa95ad0d969b92ffb0ce592f00575db5fe503d"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/checkin.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "62c46fb0d2650a92c0d7e24aa126887afc0e688c61485a5c16b5eef18ffdf4d5"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/common.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "952fc7ad0ba0fb508ad5e01b4b3797f933c261ecc1c36f237629a06e82f35501"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/models.js",
+    "decision": "regenerate",
+    "comparison": "identical",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "f1ff86d33577456fbfb6a0b06398ad7a32c3c99310fef6c39c79948ff8d31802"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/proxies.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "9e814aea892e19280b5576e53406d5959a48699b4b3f77abf3299c9104c59128"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/requests.js",
+    "decision": "regenerate",
+    "comparison": "identical",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "f5b969d9564ca322aab3ef99e80c8cdf6dc636a57d9f187564ab88e927657db5"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/settings.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "efce537ceaa1af058941ad81bc6e77be6ce0fa59319315d1ce7d4dcf77f8385d"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/tasks.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "ff58a8845e546f48e94379fd2c72d9ef07de490ac88122a8dc743a1f49aa2c1d"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/update.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "eae695fdbc7b4c4a23ef1ae1b1af3e2810a7f1ec37c8a719d45247fd187a3886"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/accounts.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "711ea67672b923ad001e1634c007736c1f59db89c9709d9868a4e1928512da9d"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/add-account.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "62c54b6a5a8fa9d82d3c49e25ae7215e476f7323e901d1010002460163988d7c"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/assistant.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "9e1c3eb2a64cf67caea449762fb5b31506026ea8e498ab68b43592f65a3e90ad"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/checkin.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "1ff023534a8d0aaba5855eb5dab1aaea4e076cd8d34c8fdb3a23a1e44c9f8dde"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/proxies.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "b0c1365085f8a9182c997fcd93fd76dbeae78f7bb1e3d55d79be4e3b414ae520"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/settings.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "6e39c1e9c24d1ce94c1251eebd68fcb8aaf199b7adc84ef405b0d8c3a445d2a1"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/tasks.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "7d2be803c599169e249ebb360917ced4a93b2b43d27e40ba3599cd05c82c8a3c"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/update.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "d62a4f6d670e8362335f6b0ad32113784df47788a141f48f95372075882b09ec"
+  },
+  {
+    "path": "desktop-tauri/ui/index.html",
+    "decision": "three-way-adapted-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "a722a64c139a603590b4cf5410202fd8aa439dcb4d311ff541d4b3c3cae98a4d"
+  },
+  {
+    "path": "desktop-tauri/ui/islands/ui.css",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "9c677d9f4e9a06bd03256c0d88e8a8114fcd7f9e5243a614008e46c60b7a3b6b"
+  },
+  {
+    "path": "desktop-tauri/ui/islands/ui.js",
+    "decision": "regenerate",
+    "comparison": "adapted-or-retained",
+    "reason": "regenerated from merged source and unioned dictionaries",
+    "sha256": "b13a5466d7b93a387d94327799c2c5c87549e8ca004b07c00084a286a2d9b3ad"
+  },
+  {
+    "path": "desktop-tauri/ui/markdown.js",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "6bb1b154128e587f280b5f1930c08aa51056b2f6e13eb73afc21292c2de0278d"
+  },
+  {
+    "path": "desktop-tauri/ui/preset-providers.js",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "b8a5b1f8e042c3eca056d887c3db1f77baf2d244e9eb5cec0d341d1092d7605b"
+  },
+  {
+    "path": "desktop-tauri/ui/web-login.js",
+    "decision": "three-way-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "26e6b3b6098c2c915c04809814653d8a02d31206ff896af729e4f05c89c4e49f"
+  },
+  {
+    "path": "docs/README.en.md",
+    "decision": "fork-documentation-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "8f8f0e26360b00caefb3d6cb4d9c75a6b3cf5c0df49d5159ceb80e06e49ec669"
+  },
+  {
+    "path": "docs/README.ja.md",
+    "decision": "fork-documentation-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "7263417cba960de2c6d59f909dafbec4fc74d046fe23ab14366221cd7d13130e"
+  },
+  {
+    "path": "docs/README.ko.md",
+    "decision": "fork-documentation-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "7d86fd5627897e38d51295a50ae820d15d33abe7a2c60d5f11aa1f0f06a804ff"
+  },
+  {
+    "path": "docs/README.pt-BR.md",
+    "decision": "fork-documentation-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "11b0c01d9da022ff7e0d5ad450b690f315a53e692b9a480093c43f878e361ffa"
+  },
+  {
+    "path": "docs/README.zh-Hant.md",
+    "decision": "fork-documentation-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "9aa240bd4839c8402b9693f94a7462094039ed93dd0fa14ea45600a16c1d93c5"
+  },
+  {
+    "path": "docs/SPONSOR.md",
+    "decision": "fork-documentation-adapted",
+    "comparison": "adapted-or-retained",
+    "sha256": "57fe400555e0e6767247c1734a3d217f0f451347d9a3176295d094135006753d"
+  },
+  {
+    "path": "package.json",
+    "decision": "upstream-exact",
+    "comparison": "identical",
+    "sha256": "a057b35ba2157cd5b70f0ae3e6da1f06a0b4ec9153c7144a786d3eded948889c"
+  },
+  {
+    "path": "scripts/release.sh",
+    "decision": "local-adaptation-reviewed",
+    "comparison": "adapted-or-retained",
+    "sha256": "e5fbbaf96e5bb45f70c3ac0df57415f334398fb153fcda8464d45de9f2f7a89f"
+  }
+]

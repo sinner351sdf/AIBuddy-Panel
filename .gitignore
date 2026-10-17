@@ -51,3 +51,7 @@ assets/brand/concepts/*installed*.png
 
 # Worktree dependency symlinks are local only.
 **/node_modules
+
+# Published documentation and upstream support references.
+!/docs/README.*.md
+!/docs/SPONSOR.md

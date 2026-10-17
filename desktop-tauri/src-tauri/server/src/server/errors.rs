@@ -39,6 +39,8 @@ pub struct GatewayError {
     pub status_code: i32,
     pub upstream_code: Option<i64>,
     pub code: Option<String>,
+    /// Provider-specific, validated diagnostics (never raw credentials or response bodies).
+    pub details: Option<Value>,
 }
 
 impl GatewayError {
@@ -49,6 +51,7 @@ impl GatewayError {
             status_code: 500,
             upstream_code: None,
             code: None,
+            details: None,
         }
     }
 
@@ -59,6 +62,7 @@ impl GatewayError {
             status_code: status,
             upstream_code: None,
             code: None,
+            details: None,
         }
     }
 
@@ -70,6 +74,11 @@ impl GatewayError {
     /// 挂上错误码字符串（Node 版手写 body 里的 `code` 字段）
     pub fn with_code(mut self, code: impl Into<String>) -> Self {
         self.code = Some(code.into());
+        self
+    }
+
+    pub fn with_details(mut self, details: Value) -> Self {
+        self.details = Some(details);
         self
     }
 
@@ -90,6 +99,9 @@ impl GatewayError {
 
     /// 是否为账号限额错误（HTTP 429 或上游 code 6004）
     pub fn is_quota_limit(&self) -> bool {
+        if self.code.as_deref().is_some_and(|c| c.starts_with("accio_")) {
+            return self.code.as_deref() == Some("accio_quota");
+        }
         self.status_code == 429 || self.upstream_code == Some(QUOTA_LIMIT_CODE)
     }
 
@@ -129,6 +141,9 @@ impl GatewayError {
         }
         if let Some(code) = self.upstream_code {
             error.insert("upstream_code".to_string(), Value::from(code));
+        }
+        if let Some(details) = &self.details {
+            error.insert("details".to_string(), details.clone());
         }
         if self.is_quota_limit() {
             let reset_at = parse_quota_reset_at(&self.message);

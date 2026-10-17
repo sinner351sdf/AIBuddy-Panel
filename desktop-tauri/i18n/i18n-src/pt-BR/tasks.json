@@ -42,5 +42,6 @@
   "还没有执行记录": "Ainda sem registros de execução",
   "间隔不能为空（可填 {min}–{max} {unit}）": "O intervalo não pode ficar vazio (aceita {min}–{max} {unit})",
   "间隔必须在 {min}–{max} {unit} 之间（当前填的是 {value}）": "O intervalo deve estar entre {min}–{max} {unit} (valor atual: {value})",
-  "间隔必须是整数": "O intervalo deve ser um número inteiro"
+  "间隔必须是整数": "O intervalo deve ser um número inteiro",
+  "定期拉取最新模型清单，重启沿用排期与缓存。客户端读取模型列表的后台刷新也遵守本任务开关、间隔和失败冷却；手动获取模型可提前刷新。同一轮顺带刷新 models.dev 模型元数据（能力位与思考档位，可在设置页单独关闭）。": "Busca periodicamente o catálogo de modelos mais recente; após reiniciar, mantém o agendamento e o cache. A atualização em segundo plano acionada quando o cliente lê a lista de modelos também respeita o interruptor, o intervalo e o cooldown de falhas desta tarefa; obter modelos manualmente permite atualizar antes. A mesma rodada também atualiza os metadados de modelos do models.dev (sinalizadores de capacidade e níveis de raciocínio, que podem ser desativados separadamente na página de configurações)."
 }

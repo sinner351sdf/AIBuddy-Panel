@@ -18,14 +18,12 @@
 //! Accio 两条都不满足（请求体要先转成 Gemini 信封、响应要拆 ADK 的帧）。
 //! 因此这里实现 `forward_conversation`，把「构造 → 发送 → 翻译」收进
 //! `chat.rs`；产出仍是 `ForwardOutcome`，网关其余链路零改动。
-//! 与 Qoder 的差别：Accio 的鉴权只是「body 里放 token」，没有签名与编码，
-//! 所以不需要 `cosy.rs` 那种签名层。
+//! Accio 的账号鉴权放在 body 的 token 中；官方 SecurityGuard 动态请求头
+//! 由 `security_guard` 模块在发送前调用原生 SDK 生成。
 //!
 //! ── 未验证项（接上线后第一次真实调用要盯的）──────────────────
-//!   1. `utdid` / `version` / `x-package-region` 三个头是否被风控校验
-//!      （桌面端都带；本实现按账号生成稳定的 utdid，可被 `ACCIO_*` 环境变量
-//!      覆盖）—— **已实测（2026-09）**：三者都不是鉴权项，缺了也能跑通；
-//!      真正必带的是 `appKey`（见 `endpoints::DEFAULT_APP_KEY`）。
+//!   1. 登录的 POST 用户资料、平台与设备字段已按官方静态代码对齐并做本地验证；
+//!      请求形态一致不代表官方授权成功或账号限制解除。
 //!   2. `redirect_uri` 白名单是否放行本网关的 loopback 地址（桌面端自己用的
 //!      就是 `http://127.0.0.1:<port>/auth/callback`，形态一致，风险低）；
 //!   3. 上游目录里 `visible: false` 的模型是否真的不可用（本实现按不可用过滤）。
@@ -33,30 +31,42 @@
 //! ── panic=abort ────────────────────────────────────────────
 //! 本模块在对话链路上，绝不 unwrap/expect/panic。
 
+pub mod adk_error;
 pub mod auth;
 pub mod balance;
 pub mod chat;
+mod compression;
 pub mod credentials;
 pub mod endpoints;
+mod identity;
+mod login_http;
+#[cfg(test)]
+mod login_tests;
+mod media;
 pub mod models;
 pub mod oauth;
 pub mod protocol;
 pub mod refresh;
+pub(crate) mod security_guard;
+pub(crate) mod session;
+#[cfg(test)]
+mod session_tests;
+mod sse;
 pub mod stream;
+mod transport;
 
 use axum::http::HeaderMap;
 use serde_json::Value;
 
 use crate::server::core::account_store::AccountStore;
-use crate::server::core::providers::content_block;
 use crate::server::core::providers::adapter::{
     adapter_for, ChatRequestPlan, ModelRefreshOutcome, ProviderAdapter, ReasoningPatch,
     UpstreamErrorClass,
 };
+use crate::server::core::providers::ProviderKind;
 use crate::server::core::proxies::ResolvedProxy;
 use crate::server::core::upstream::usage::RequestTelemetry;
 use crate::server::core::upstream::ForwardOutcome;
-use crate::server::core::providers::ProviderKind;
 use crate::server::errors::GatewayError;
 use crate::server::logging;
 
@@ -64,7 +74,9 @@ use self::credentials::Credentials;
 use self::endpoints::Region;
 
 /// 国际版适配器实例（`adapter_for(ProviderKind::Accio)` 给出这一个）
-pub static ACCIO_ADAPTER: AccioAdapter = AccioAdapter { region: Region::Global };
+pub static ACCIO_ADAPTER: AccioAdapter = AccioAdapter {
+    region: Region::Global,
+};
 /// 国内版适配器实例（同一份实现，只有登录站点与 `x-package-region` 不同）
 pub static ACCIO_CN_ADAPTER: AccioAdapter = AccioAdapter { region: Region::Cn };
 
@@ -116,30 +128,27 @@ impl ProviderAdapter for AccioAdapter {
         ))
     }
 
-    /// 非 2xx 的分类。**注意**业务错误多数不体现在状态码上（在 SSE 帧里），
-    /// 那些由 `forward_conversation` 直接转成带状态码的网关错误。
     fn classify_error(&self, status: u16, error_body: &Value) -> UpstreamErrorClass {
-        let raw = error_body
-            .get("message")
-            .and_then(Value::as_str)
-            .filter(|text| !text.is_empty())
-            .unwrap_or("上游错误");
-        let message = format!("上游返回 {status}: {raw}");
-        match protocol::classify_upstream_error(status, raw) {
-            protocol::UpstreamKind::Auth => UpstreamErrorClass::TokenExpired { message },
-            protocol::UpstreamKind::Quota => UpstreamErrorClass::QuotaLimited {
-                reset_at: None,
-                message,
-                upstream_code: error_body.get("code").and_then(Value::as_i64),
-                status: if status == 0 { 429 } else { status },
+        let error = adk_error::from_payload(status, error_body, "Accio 上游错误");
+        self.classify_conversation_error(&error)
+    }
+
+    fn classify_conversation_error(&self, error: &GatewayError) -> UpstreamErrorClass {
+        match error.code.as_deref() {
+            Some("accio_quota") => UpstreamErrorClass::QuotaLimited {
+                reset_at: adk_error::quota_reset(error),
+                message: error.message.clone(),
+                upstream_code: error.upstream_code,
+                status: 429,
             },
-            // 内容策略拦截 → ContentBlocked（不罚账号，换中性提示词重试一次）
-            protocol::UpstreamKind::Other => content_block::classify_or_fatal(
-                status,
-                error_body,
-                message,
-                error_body.get("code").and_then(Value::as_i64),
-            ),
+            Some("accio_auth") => UpstreamErrorClass::TokenExpired {
+                message: error.message.clone(),
+            },
+            _ => UpstreamErrorClass::Fatal {
+                status: u16::try_from(error.status_code).unwrap_or(502),
+                message: error.message.clone(),
+                upstream_code: error.upstream_code,
+            },
         }
     }
 
@@ -147,7 +156,9 @@ impl ProviderAdapter for AccioAdapter {
         &'a self,
         store: &'a AccountStore,
         account_id: &'a str,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String, GatewayError>> + Send + 'a>> {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<String, GatewayError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             refresh::ensure_fresh(store, account_id, self.region, false)
                 .await
@@ -161,7 +172,9 @@ impl ProviderAdapter for AccioAdapter {
         &'a self,
         store: &'a AccountStore,
         account_id: &'a str,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String, GatewayError>> + Send + 'a>> {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<String, GatewayError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             refresh::ensure_fresh(store, account_id, self.region, true)
                 .await
@@ -193,13 +206,19 @@ impl ProviderAdapter for AccioAdapter {
     /// 可靠的「关闭思考」表达）。
     fn reasoning_patch(&self, level: &str, _model: &str, body: &Value) -> ReasoningPatch {
         if crate::server::core::model_rules::reasoning_is_off(level) {
-            return ReasoningPatch::Skip { reason: "Accio 没有「关闭思考」的可靠表达，跳过注入" };
+            return ReasoningPatch::Skip {
+                reason: "Accio 没有「关闭思考」的可靠表达，跳过注入",
+            };
         }
         if crate::server::core::model_rules::read_client_level(body).is_some() {
-            return ReasoningPatch::Skip { reason: "客户端请求体里已指定思考等级，绑定让位" };
+            return ReasoningPatch::Skip {
+                reason: "客户端请求体里已指定思考等级，绑定让位",
+            };
         }
         if crate::server::core::model_rules::reasoning_rank(level).is_none() {
-            return ReasoningPatch::Skip { reason: "该等级不在通用档位表内，Accio 不注入未知档位" };
+            return ReasoningPatch::Skip {
+                reason: "该等级不在通用档位表内，Accio 不注入未知档位",
+            };
         }
         ReasoningPatch::Set {
             field: REASONING_FIELD,
@@ -220,18 +239,23 @@ impl ProviderAdapter for AccioAdapter {
         force: bool,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ModelRefreshOutcome> + Send + 'a>> {
         Box::pin(async move {
-            let Some(record) = store.accio_account_record(account_id, self.region.provider_id()) else {
+            let Some(record) = store.accio_account_record(account_id, self.region.provider_id())
+            else {
                 logging::verbose(
                     "[Models]",
-                    &format!("Accio {}模型目录刷新跳过：尚未添加账号", self.region.label()),
+                    &format!(
+                        "Accio {}模型目录刷新跳过：尚未添加账号",
+                        self.region.label()
+                    ),
                 );
                 if account_id.is_empty() {
                     return ModelRefreshOutcome::unchanged();
                 }
                 return ModelRefreshOutcome::failed("指定的账号不存在或不可用，请重新选择");
             };
-            let Ok(credentials) = auth::snapshot(&record) else {
-                return ModelRefreshOutcome::failed("Accio 账号凭证无效，请重新登录或粘贴凭证");
+            let credentials = match auth::snapshot(&record) {
+                Ok(c) => c,
+                Err(error) => return ModelRefreshOutcome::failed(error.message),
             };
             if credentials.region != self.region {
                 return ModelRefreshOutcome::failed("指定的账号不属于这家（地区不匹配）");
@@ -240,7 +264,15 @@ impl ProviderAdapter for AccioAdapter {
                 Ok(proxy) => proxy,
                 Err(error) => return ModelRefreshOutcome::failed(error.message),
             };
-            models::refresh(&credentials, proxy.as_ref(), force).await
+            match models::refresh_checked(&credentials, proxy.as_ref(), force).await {
+                Ok(outcome) => outcome,
+                Err(error) => {
+                    if session::restricted(&error) {
+                        session::record_failure(store, &record, &error);
+                    }
+                    ModelRefreshOutcome::failed(error.message)
+                }
+            }
         })
     }
 
@@ -253,7 +285,8 @@ impl ProviderAdapter for AccioAdapter {
         &'a self,
         store: &'a AccountStore,
         account_id: &'a str,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, GatewayError>> + Send + 'a>> {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, GatewayError>> + Send + 'a>>
+    {
         Box::pin(async move { balance::query(store, account_id, self.region).await })
     }
 
@@ -282,7 +315,9 @@ impl ProviderAdapter for AccioAdapter {
         store: &'a AccountStore,
         code: &'a str,
         state: &'a str,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String, GatewayError>> + Send + 'a>> {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<String, GatewayError>> + Send + 'a>,
+    > {
         Box::pin(async move {
             let Some(pending) = oauth::take_pending(state) else {
                 return Err(GatewayError::with_status(
@@ -323,7 +358,7 @@ impl ProviderAdapter for AccioAdapter {
         store: &'a AccountStore,
         account_id: &'a str,
         body: &'a Value,
-        _client_headers: &'a HeaderMap,
+        client_headers: &'a HeaderMap,
         proxy: Option<ResolvedProxy>,
         stream: bool,
         telemetry: &'a std::sync::Arc<RequestTelemetry>,
@@ -331,126 +366,262 @@ impl ProviderAdapter for AccioAdapter {
         Box<dyn std::future::Future<Output = Result<ForwardOutcome, GatewayError>> + Send + 'a>,
     > {
         Box::pin(async move {
-            let account_id = account_id.to_string();
-            if account_id.is_empty() {
-                return Err(GatewayError::with_status(
-                    503,
-                    "没有可用的 Accio 账号：请在账号页添加并启用账号",
-                ));
-            }
-            let model_name = body
-                .get("model")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_string();
-            // 凭证（含临期主动刷新）。显式账号必填 —— Accio 没有环境变量旁路。
-            let prepare = telemetry.begin_stage("credentials");
-            let context = account_context(store, &account_id, self.region, false).await?;
-            prepare.finish();
-            let build = telemetry.begin_stage("build_request");
-            // 思考档位：客户端显式指定 > 映射绑定（`body` 里已由 payload 层注入）
-            let effort = protocol::client_effort(body);
-            let plan = chat::build_plan(&context.credentials, body, &model_name, effort.as_deref())?;
-            let effective_proxy = proxy.or(context.proxy);
-            telemetry.note_attempt_body_bytes(plan.body.len() as i64);
-            build.finish();
+            let (expected, credentials) = refresh::snapshot(store, account_id, self.region)?;
+            let call = identity::Call::for_request(
+                body,
+                client_headers,
+                telemetry,
+                &format!("{}:{account_id}", self.region.provider_id()),
+            )?;
 
-            logging::verbose(
-                "[Accio]",
-                &format!(
-                    "POST {} model={} upstream={} stream={} region={} account={}",
-                    plan.url,
-                    if model_name.is_empty() { "(默认)" } else { &model_name },
-                    plan.upstream_key,
-                    stream,
-                    self.region.edition(),
-                    account_id,
-                ),
-            );
-
-            let capture = telemetry.capture();
-            if let Some(capture) = capture.as_deref() {
-                let headers: Vec<(String, String)> = plan.headers.clone();
-                capture.reset_request(&plan.url, "accio", &headers, body);
-            }
-
-            // reqwest exposes response headers, not independent DNS/TCP/TLS/upload
-            // milestones. Keep this combined duration honest, including pool reuse.
-            let headers = telemetry.begin_stage("send_headers");
-            let response = chat::send(&plan, effective_proxy.as_ref()).await?;
-            headers.finish();
-            if let Some(capture) = capture.as_deref() {
-                capture.attach_response(response.status().as_u16(), response.headers());
-            }
-            if !response.status().is_success() {
-                let status = response.status().as_u16();
-                let error = chat::http_error(status, response).await;
-                if error.status_code == 429 {
-                    chat::record_limited(
-                        &LimitContext {
-                            store: store.clone(),
-                            account_id: account_id.clone(),
-                            model: model_name.clone(),
-                        },
-                        status,
-                        &error.message,
-                    );
+            let used = std::sync::Mutex::new(expected.clone());
+            let result = session::recover(
+                || {
+                    self.forward_once(
+                        store,
+                        account_id,
+                        body,
+                        proxy.clone(),
+                        stream,
+                        telemetry,
+                        &used,
+                        &call,
+                    )
+                },
+                || async {
+                    let rejected = used
+                        .lock()
+                        .ok()
+                        .and_then(|record| {
+                            record
+                                .get("accessToken")
+                                .and_then(Value::as_str)
+                                .map(str::to_string)
+                        })
+                        .unwrap_or_else(|| credentials.access_token.clone());
+                    let refreshed =
+                        refresh::after_unauthorized(store, account_id, self.region, &rejected)
+                            .await;
+                    if let Err(error) = &refreshed {
+                        if !session::restricted(error) && error.status_code != 401 {
+                            if let Ok(record) = used.lock() {
+                                session::record_failure(store, &record, error);
+                            }
+                            return Err(session::blocked_error("refresh_failed"));
+                        }
+                    }
+                    refreshed.map(|_| ())
+                },
+                || {
+                    telemetry
+                        .snapshot()
+                        .attempts_detail
+                        .last()
+                        .is_some_and(|attempt| {
+                            attempt
+                                .timings
+                                .iter()
+                                .any(|t| t.stage == "first_content" && t.completed == Some(true))
+                        })
+                },
+            )
+            .await;
+            let result = result.map_err(|error| call.annotate(error));
+            match result {
+                Err(error) if session::restricted(&error) || error.status_code == 401 => {
+                    if let Ok(record) = used.lock() {
+                        session::record_failure(store, &record, &error);
+                    }
+                    Err(
+                        call.annotate(session::blocked_error(if session::restricted(&error) {
+                            "restricted"
+                        } else {
+                            "login_required"
+                        })),
+                    )
                 }
-                return Err(error);
-            }
-
-            let translator = chat::Translator::new(chat::response_id(), plan.model_name.clone());
-            let limit = chat::LimitContext {
-                store: store.clone(),
-                account_id: account_id.clone(),
-                model: model_name.clone(),
-            };
-            if stream {
-                // 首帧预读：额度/鉴权错误在 200 + 帧里，拦在返回之前换号无损
-                let (prefetched, source) = chat::prefetch_stream_head(response, &limit, telemetry).await?;
-                let (sender, receiver) =
-                    tokio::sync::mpsc::channel::<Result<bytes::Bytes, std::io::Error>>(64);
-                let telemetry = telemetry.clone();
-                crate::spawn_task(async move {
-                    chat::drive_stream(source, translator, telemetry, limit, sender, prefetched).await;
-                });
-                return Ok(ForwardOutcome::Stream {
-                    status: 200,
-                    stream: Box::new(tokio_stream::wrappers::ReceiverStream::new(receiver)),
-                });
-            }
-            // 非流式：上游只支持流式，因此内部仍走流式拉取再聚合成完整响应
-            match chat::drive_aggregate(response, translator, telemetry.clone(), &limit).await {
-                Ok(body) => Ok(ForwardOutcome::Completion { body }),
-                Err(error) => Err(error),
+                other => other,
             }
         })
     }
 }
 
+impl AccioAdapter {
+    async fn forward_once(
+        &self,
+        store: &AccountStore,
+        account_id: &str,
+        body: &Value,
+        proxy: Option<ResolvedProxy>,
+        stream: bool,
+        telemetry: &std::sync::Arc<RequestTelemetry>,
+        used: &std::sync::Mutex<Value>,
+        call: &identity::Call,
+    ) -> Result<ForwardOutcome, GatewayError> {
+        let account_id = account_id.to_string();
+        if account_id.is_empty() {
+            return Err(GatewayError::with_status(
+                503,
+                "没有可用的 Accio 账号：请在账号页添加并启用账号",
+            ));
+        }
+        let model_name = body
+            .get("model")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        // 凭证（含临期主动刷新）。显式账号必填 —— Accio 没有环境变量旁路。
+        let prepare = telemetry.begin_stage("credentials");
+        let context = account_context(store, &account_id, self.region, false).await?;
+        if let Ok(mut expected) = used.lock() {
+            *expected = context.record.clone();
+        }
+        prepare.finish();
+        let build = telemetry.begin_stage("build_request");
+        // 思考档位：客户端显式指定 > 映射绑定（`body` 里已由 payload 层注入）
+        let effort = protocol::client_effort(body);
+        let mut plan = chat::build_plan_with_context(
+            &context.credentials,
+            body,
+            &model_name,
+            effort.as_deref(),
+            call,
+        )?;
+        let attempt = telemetry.snapshot().attempts_detail.len().checked_sub(1);
+        if let Some(attempt) = attempt {
+            telemetry.note_accio_diagnostics(
+                attempt,
+                "accioIdentity",
+                serde_json::to_value(call).unwrap_or(Value::Null),
+            );
+        }
+        let effective_proxy = proxy.or(context.proxy);
+        chat::prepare_media(&mut plan, effective_proxy.as_ref()).await?;
+        telemetry.note_attempt_body_bytes(plan.body.len() as i64);
+        build.finish();
+
+        logging::verbose(
+            "[Accio]",
+            &format!(
+                "POST {} model={} upstream={} stream={} region={} account={}",
+                plan.url,
+                if model_name.is_empty() {
+                    "(默认)"
+                } else {
+                    &model_name
+                },
+                plan.upstream_key,
+                stream,
+                self.region.edition(),
+                account_id,
+            ),
+        );
+
+        let capture = telemetry.capture();
+        if let Some(capture) = capture.as_deref() {
+            let headers: Vec<(String, String)> = plan.headers.clone();
+            let mut wire: Value = serde_json::from_slice(&plan.body).unwrap_or(Value::Null);
+            if let Some(object) = wire.as_object_mut() {
+                object.insert("token".into(), Value::String("[REDACTED]".into()));
+            }
+            capture.reset_request(&plan.url, self.region.provider_id(), &headers, &wire);
+        }
+
+        // reqwest exposes response headers, not independent DNS/TCP/TLS/upload
+        // milestones. Keep this combined duration honest, including pool reuse.
+        let headers = telemetry.begin_stage("send_headers");
+        let response = chat::send_observed(&plan, effective_proxy.as_ref(), telemetry).await?;
+        headers.finish();
+        if let Some(capture) = capture.as_deref() {
+            capture.attach_response(response.status().as_u16(), response.headers());
+        }
+        let response_report = transport::report(&response, Some(&plan.url));
+        if let Some(attempt) = attempt {
+            telemetry.note_accio_diagnostics(attempt, "accioTransport", response_report.clone());
+        }
+        if let Some(error) = transport::rejection(&response, Some(&plan.url)) {
+            return Err(error);
+        }
+        if !response.status().is_success() {
+            let status = response.status().as_u16();
+            let error = chat::http_error(status, response).await;
+            if let (Some(attempt), Some(facts)) = (
+                attempt,
+                error.details.as_ref().and_then(|v| v.get("transport")),
+            ) {
+                telemetry.note_accio_diagnostics(attempt, "accioTransport", facts.clone());
+            }
+            if error.status_code == 429 {
+                chat::record_quota(
+                    &LimitContext {
+                        store: store.clone(),
+                        account_id: account_id.clone(),
+                        model: model_name.clone(),
+                        session_record: Some(context.record.clone()),
+                    },
+                    &error,
+                );
+            }
+            return Err(error);
+        }
+
+        let mut translator = chat::Translator::new(chat::response_id(), plan.model_name.clone());
+        translator.accio_context = Some(call.response_context());
+        let limit = chat::LimitContext {
+            store: store.clone(),
+            account_id: account_id.clone(),
+            model: model_name.clone(),
+            session_record: Some(context.record.clone()),
+        };
+        if stream {
+            // 首帧预读：HTTP 200 内的业务错误交给会话恢复策略处理；
+            // 明确受限时停止，只有允许重放的 401 才续期一次。
+            let (prefetched, source) =
+                chat::prefetch_stream_head(response, &limit, telemetry).await?;
+            let (sender, receiver) =
+                tokio::sync::mpsc::channel::<Result<bytes::Bytes, std::io::Error>>(64);
+            let telemetry = telemetry.clone();
+            crate::spawn_task(async move {
+                chat::drive_stream(source, translator, telemetry, limit, sender, prefetched).await;
+            });
+            return Ok(ForwardOutcome::Stream {
+                status: 200,
+                stream: Box::new(tokio_stream::wrappers::ReceiverStream::new(receiver)),
+            });
+        }
+        // 非流式：上游只支持流式，因此内部仍走流式拉取再聚合成完整响应
+        match chat::drive_aggregate(response, translator, telemetry.clone(), &limit).await {
+            Ok(body) => Ok(ForwardOutcome::Completion { body }),
+            Err(error) => Err(error),
+        }
+    }
+}
+
 /// 一次转发用的凭证 + 出口快照
 struct AccountContext {
+    record: Value,
     credentials: Credentials,
     proxy: Option<ResolvedProxy>,
 }
 
 /// 取账号凭证（含临期主动刷新）与出口。
 ///
-/// `force` 语义与 `refresh::ensure_fresh` 一致；401 之后的强制刷新由编排层经
-/// `refresh_access_token` 调用，不在这里。
+/// `force` 与 `refresh::ensure_fresh` 同义；401 的一次恢复由上面的
+/// 会话式入口控制，仅在上游允许重放且未输出内容时执行。
 async fn account_context(
     store: &AccountStore,
     account_id: &str,
     region: Region,
     force: bool,
 ) -> Result<AccountContext, GatewayError> {
-    let credentials = refresh::ensure_fresh(store, account_id, region, force).await?;
-    let proxy = store
-        .accio_account_record(account_id, region.provider_id())
-        .map(|record| auth::account_proxy(&record))
-        .transpose()?
-        .flatten();
-    Ok(AccountContext { credentials, proxy })
+    refresh::ensure_fresh(store, account_id, region, force).await?;
+    let (record, credentials) = refresh::snapshot(store, account_id, region)?;
+    let proxy = auth::account_proxy(&record)?;
+    Ok(AccountContext {
+        record,
+        credentials,
+        proxy,
+    })
 }
 
 /// 会话式转发里的限额记账素材（`chat` 与 `protocol` 都要用，重导出避免深层路径）
@@ -472,4 +643,3 @@ pub fn adapter_label() -> &'static str {
 pub fn adapter_for_self(region: Region) -> &'static dyn ProviderAdapter {
     adapter_for(region.kind())
 }
-

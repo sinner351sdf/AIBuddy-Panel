@@ -126,7 +126,7 @@ with tempfile.TemporaryDirectory(prefix='a2a-305-integration-') as tmp:
                     db.execute(f'PRAGMA user_version={version}')
                 g.start();g.login();g.req('/api/task-records');g.req('/api/stats/summary?range=all');g.stop()
                 with sqlite3.connect(g.home/'agent2api.db') as db:
-                    check(db.execute('PRAGMA user_version').fetchone()[0]==16,'schema did not migrate')
+                    check(db.execute('PRAGMA user_version').fetchone()[0]==17,'schema did not migrate')
                     check(db.execute('SELECT COUNT(*) FROM assistant_conversations').fetchone()[0]==0,'assistant history table missing')
                     check(db.execute('SELECT request_body FROM request_raw').fetchone()[0]=='old body','migration deleted body')
                     check(db.execute('SELECT total_tokens FROM requests').fetchone()[0]==1000,'migration changed tokens')
@@ -163,7 +163,7 @@ with tempfile.TemporaryDirectory(prefix='a2a-305-integration-') as tmp:
                 db.execute('DROP TRIGGER fixture_interrupt')
             g.start();g.login();g.req('/api/task-records');g.stop()
             with sqlite3.connect(g.home/'agent2api.db') as db:
-                check(db.execute('PRAGMA user_version').fetchone()[0]==16,'migration did not resume')
+                check(db.execute('PRAGMA user_version').fetchone()[0]==17,'migration did not resume')
                 check(db.execute('SELECT total_tokens FROM requests').fetchone()[0]==1000,'resumed migration changed totals')
                 check(db.execute('SELECT edition FROM account_history').fetchone()[0]=='intl','resumed migration lost history')
         finally:g.stop()

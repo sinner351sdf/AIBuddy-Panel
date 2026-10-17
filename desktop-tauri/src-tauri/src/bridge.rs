@@ -627,6 +627,11 @@ const BRIDGE_JS: &str = r#"
     // 写传 {token: '…' | null}（null = 清除）。加密落库在后端做
     getUpdateToken: () => call('GET', '/api/update/token'),
     setUpdateToken: payload => call('POST', '/api/update/token', payload),
+    // 「加入 beta 版」：读只报 {enabled}，写传 {enabled: true|false}。
+    // 打开后更新检查把 GitHub 的预发布版一并纳入候选（后端下一次检查就换通道）；
+    // 写响应带 saved（false = 本次运行已生效、重启会回到原通道）
+    getUpdateBeta: () => call('GET', '/api/update/beta'),
+    setUpdateBeta: payload => call('POST', '/api/update/beta', payload),
     downloadUpdate: payload => invoke('download_update', {
       url: String((payload && payload.url) || ''),
       name: (payload && payload.name) ? String(payload.name) : null,
@@ -642,6 +647,13 @@ const BRIDGE_JS: &str = r#"
     getSanitize: () => call('GET', '/api/sanitize'),
     saveSanitize: enabled =>
       call('PUT', '/api/sanitize', { sanitizeBlacklistFingerprints: enabled === true }),
+
+    // ── 开发者角色兼容开关 ──
+    // 与 getSanitize / saveSanitize 同形：GET 读、PUT 写，响应体就是新状态。
+    // 与 web_shim.rs 的同名方法逐字同形（漏一侧的症状见下面 getCors 那段）。
+    getDeveloperRoleCompat: () => call('GET', '/api/developer-role-compat'),
+    saveDeveloperRoleCompat: enabled =>
+      call('PUT', '/api/developer-role-compat', { developerRoleCompat: enabled === true }),
 
     // ── Cline 伪装头 ──
     // 与 getSanitize / saveSanitize 同形：GET 读（overrides + effective），
