@@ -405,12 +405,14 @@ export function runScheduledTask(id: string): Promise<unknown> {
 /* ─── Agent 接管 ───────────────────────────────── */
 
 export type AgentClient = {
-  id?: string
-  name?: string
-  path?: string
-  applied?: boolean
-  mode?: string
-  [key: string]: unknown
+  id: string
+  name: string
+  configPath: string
+  resolvedPath: string
+  viaGateway: boolean
+  configMode: 'single' | 'multi'
+  installed: boolean
+  hasBackup: boolean
 }
 
 export function fetchAgents(signal?: AbortSignal): Promise<{ clients?: AgentClient[] }> {
@@ -418,5 +420,5 @@ export function fetchAgents(signal?: AbortSignal): Promise<{ clients?: AgentClie
 }
 
 export function restoreAgentClient(id: string): Promise<unknown> {
-  return apiCall('/api/agents/restore', { method: 'POST', body: { id } })
+  return apiCall('/api/agents/restore', { method: 'POST', body: { clientId: id } })
 }

@@ -21,7 +21,8 @@
 //! 的 run 同款），前端能按一个套路处理。
 
 use axum::body::Bytes;
-use axum::extract::State;
+use axum::extract::{State, Query};
+use std::collections::HashMap;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
@@ -33,8 +34,10 @@ use crate::server::logging;
 use crate::server::ServerState;
 
 /// `GET /api/travel-schedule` —— 当前配置与运行状态。
-pub async fn get_state() -> Response {
-    ok_json(growth_scheduler::state())
+pub async fn get_state(Query(query): Query<HashMap<String, String>>) -> Response {
+    let state=growth_scheduler::state_for(query.get("batchId").map(String::as_str));
+    if let Some(error)=state.get("error").and_then(Value::as_str) { return bad_request(error); }
+    ok_json(state)
 }
 
 /// `POST /api/travel-schedule` —— 改开关与时刻（只改传进来的字段）。
@@ -80,16 +83,17 @@ pub async fn configure(body: Bytes) -> Response {
 
 /// `POST /api/travel-schedule/run` —— 立即巡检一轮。
 ///
-/// 响应带本轮摘要与刷新后的状态：界面点完按钮就地重绘，不必再拉一次
-/// （与 `/api/scheduled-tasks/{id}/run` 同一取舍）。
+/// 入队成功后返回 batchId；完成摘要通过 GET ?batchId=… 查询，避免把入队当成执行完成。
 pub async fn run_now(State(state): State<ServerState>) -> Response {
     let queue = crate::server::core::growth_queue::global(state.store().clone(), state.billing().clone());
-    match queue.run_selected(1, None, crate::server::core::growth_queue::RunOptions { kind: "travel".into(), ..Default::default() }).await.ok().map(|count| json!({"queued":count})) {
-        Some(summary) => ok_json(json!({
-            "summary": summary,
-            "schedule": growth_scheduler::state(),
-        })),
-        None => bad_request("猫猫旅行巡检正在执行中，请稍候"),
+    match queue.run_selected(1, None, crate::server::core::growth_queue::RunOptions { kind: "travel".into(), ..Default::default() }).await {
+        Ok(0) => ok_json(json!({"queued":0,"batchId":null,"summary":{"accounts":0,"actions":[],"credit":null,"failed":0,"running":false},"schedule":growth_scheduler::state()})),
+        Ok(queued) => {
+            let snapshot=queue.state();
+            let batch=snapshot["items"].as_array().and_then(|items|items.first()).and_then(|item|item["runId"].as_i64()).and_then(|id|crate::server::core::task_records::detail(id).ok().flatten()).and_then(|row|row["batchId"].as_str().map(str::to_string));
+            ok_json(json!({"queued":queued,"batchId":batch,"summary":null,"schedule":growth_scheduler::state_for(batch.as_deref())}))
+        }
+        Err(()) => bad_request("已有任务正在执行，请稍候"),
     }
 }
 

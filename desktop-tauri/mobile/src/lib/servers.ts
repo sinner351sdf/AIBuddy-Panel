@@ -45,19 +45,23 @@ export function isPackaged(): boolean {
  * 非法输入返回空串，由调用方提示。
  */
 export function normalizeBase(raw: string): string {
-  let text = raw.trim()
-  if (!text) return ''
-  // 用户从浏览器地址栏复制时会带 /m、/v1、#hash 之类，一律砍掉
-  text = text.replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//, '')
-  text = text.split(/[/?#]/)[0]
-  if (!text) return ''
-  const match = /^([^:]+)(?::(\d+))?$/.exec(text)
-  if (!match) return ''
-  const host = match[1]
-  const port = match[2] || '3065'
-  // 只接受 IPv4 / 主机名 / 方括号 IPv6；localhost 也走这条
-  if (!/^[\w.-]+$|^\[[0-9a-fA-F:]+\]$/.test(host)) return ''
-  return `http://${host}:${port}`
+  const text = raw.trim()
+  if (!text || /[\s\\]/.test(text)) return ''
+  const explicitScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(text)
+  try {
+    const address = explicitScheme ? text : `http://${text}`
+    const parsed = new URL(address)
+    if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) return ''
+    if (!parsed.hostname) return ''
+    // URL normalizes default ports away; preserve a port the user supplied explicitly.
+    const authority = address.split('://')[1].split(/[/?#]/)[0]
+    const explicitPort = /:(\d+)$/.exec(authority)?.[1]
+    const port = parsed.port || explicitPort || (explicitScheme ? '' : '3065')
+    if (port && (Number(port) < 1 || Number(port) > 65535)) return ''
+    return `${parsed.protocol}//${parsed.hostname}${port ? `:${Number(port)}` : ''}`
+  } catch {
+    return ''
+  }
 }
 
 /** 从基地址里取出给用户看的 host:port */

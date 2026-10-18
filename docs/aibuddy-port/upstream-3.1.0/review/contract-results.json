@@ -1,0 +1,235 @@
+[
+  {
+    "name": "APK login CORS header",
+    "passed": true,
+    "detail": {
+      "status": 204,
+      "allowHeaders": "Content-Type, Authorization, x-api-key, x-panel-token, x-panel-refresh, x-panel-auth-mode, x-agent2api-assistant"
+    }
+  },
+  {
+    "name": "APK refresh CORS headers",
+    "passed": true,
+    "detail": {
+      "status": 204,
+      "allowHeaders": "Content-Type, Authorization, x-api-key, x-panel-token, x-panel-refresh, x-panel-auth-mode, x-agent2api-assistant"
+    }
+  },
+  {
+    "name": "APK refresh token rotation",
+    "passed": true,
+    "detail": {
+      "status": 200,
+      "hasRotatedToken": true
+    }
+  },
+  {
+    "name": "Mobile Agent restore payload",
+    "passed": true,
+    "detail": {
+      "status": 200,
+      "error": null
+    }
+  },
+  {
+    "name": "Mobile Agent field contract",
+    "passed": true,
+    "detail": {
+      "mobileExpects": [
+        "configPath",
+        "viaGateway",
+        "configMode",
+        "hasBackup"
+      ],
+      "actualFields": [
+        "activeId",
+        "caps",
+        "configMode",
+        "configPath",
+        "format",
+        "hasBackup",
+        "hue",
+        "icon",
+        "iconFull",
+        "id",
+        "installed",
+        "letter",
+        "live",
+        "name",
+        "needsRestart",
+        "profiles",
+        "profilesAreLive",
+        "protocol",
+        "readError",
+        "resolvedPath",
+        "vendor",
+        "viaGateway"
+      ]
+    }
+  },
+  {
+    "name": "Travel completed-slot state",
+    "passed": true,
+    "detail": {
+      "firedToday": [
+        "09:15"
+      ],
+      "lastResult": {
+        "accounts": 1,
+        "actions": [
+          {
+            "accountId": "deleted-fixture",
+            "credit": null,
+            "message": "synthetic completed travel",
+            "name": "Fixture",
+            "outcome": "success"
+          }
+        ],
+        "at": 1792335673735,
+        "batchId": "review-fixture",
+        "credit": null,
+        "failed": 0,
+        "running": false
+      },
+      "databaseContainsCompletedSlot": true
+    }
+  },
+  {
+    "name": "Travel run summary contract",
+    "passed": true,
+    "detail": {
+      "summary": {
+        "accounts": 0,
+        "actions": [],
+        "credit": null,
+        "failed": 0,
+        "running": false
+      },
+      "UIRequires": [
+        "actions",
+        "credit",
+        "failed"
+      ]
+    }
+  },
+  {
+    "name": "WorkBuddy preserves other providers",
+    "passed": true,
+    "detail": {
+      "providerIdsAfterApply": [
+        "keep-existing",
+        "agent2api"
+      ],
+      "otherSetting": "keep"
+    }
+  },
+  {
+    "name": "WorkBuddy backup restores original",
+    "passed": true,
+    "detail": {
+      "restoredOriginalBytes": true
+    }
+  },
+  {
+    "name": "WorkBuddy merges existing provider in place",
+    "passed": true,
+    "detail": {
+      "providerIds": [
+        "first",
+        "agent2api",
+        "last"
+      ],
+      "custom": "preserve"
+    }
+  },
+  {
+    "name": "WorkBuddy malformed configuration fails before backup",
+    "passed": true,
+    "detail": {
+      "unchanged": true,
+      "backupUnchanged": true
+    }
+  },
+  {
+    "name": "Failed apply preserves useful restore point",
+    "passed": true,
+    "detail": {
+      "restoredOriginal": true,
+      "restoredPreviouslyAppliedConfig": false
+    }
+  },
+  {
+    "name": "Mobile read endpoints",
+    "passed": true,
+    "detail": {
+      "/api/session": 200,
+      "/api/stats/summary?range=yesterday": 200,
+      "/api/stats/requests?limit=5": 200,
+      "/api/logs?limit=5": 200,
+      "/api/checkin-center": 200,
+      "/api/models/manage": 200,
+      "/api/keys": 200,
+      "/api/proxies/pool": 200,
+      "/api/scheduled-tasks": 200,
+      "/api/agents": 200
+    }
+  },
+  {
+    "name": "Mobile key toggle endpoint",
+    "passed": true,
+    "detail": {
+      "status": 200
+    }
+  },
+  {
+    "name": "Travel pending batch is not completed",
+    "passed": true,
+    "detail": {
+      "running": true,
+      "accounts": 2
+    }
+  },
+  {
+    "name": "Travel completed batch totals",
+    "passed": true,
+    "detail": {
+      "accounts": 2,
+      "actions": [
+        {
+          "accountId": "pending-fixture",
+          "credit": 37,
+          "message": "synthetic",
+          "name": "pending-fixture",
+          "outcome": "success"
+        },
+        {
+          "accountId": "failed-fixture",
+          "credit": null,
+          "message": "synthetic",
+          "name": "failed-fixture",
+          "outcome": "failed"
+        }
+      ],
+      "at": 1792335673737,
+      "batchId": "pending-review",
+      "credit": 37,
+      "failed": 1,
+      "running": false
+    }
+  },
+  {
+    "name": "Travel batch correlation and unknown reward",
+    "passed": true,
+    "detail": {
+      "batchId": "review-fixture",
+      "credit": null
+    }
+  },
+  {
+    "name": "Travel next execution time",
+    "passed": true,
+    "detail": {
+      "nextRunAt": 1792372500000
+    }
+  }
+]

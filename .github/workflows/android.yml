@@ -4,6 +4,8 @@ on:
     branches: [beta]
     paths:
       - 'desktop-tauri/mobile/**'
+      - 'assets/brand/**'
+      - 'build/make-icon.mjs'
       - 'desktop-tauri/ui-kit/**'
       - 'desktop-tauri/ui/**'
       - '.github/workflows/android.yml'
@@ -26,6 +28,7 @@ jobs:
           cache-dependency-path: |
             desktop-tauri/mobile/package-lock.json
             desktop-tauri/ui-kit/package-lock.json
+            assets/brand/generator/package-lock.json
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -33,10 +36,13 @@ jobs:
           cache: gradle
       - name: Install locked frontend dependencies
         run: |
+          npm --prefix assets/brand/generator ci
           npm --prefix desktop-tauri/ui-kit ci
           npm --prefix desktop-tauri/mobile ci
       - name: Build packaged mobile frontend
-        run: npm --prefix desktop-tauri/mobile run build:apk
+        run: |
+          node assets/brand/generator/render.js --check-mobile
+          npm --prefix desktop-tauri/mobile run build:apk
       - name: Install Android command-line tools
         uses: android-actions/setup-android@v3
         with:

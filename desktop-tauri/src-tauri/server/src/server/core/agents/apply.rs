@@ -264,11 +264,8 @@ fn single_targets(def: &ClientDef, profile: &Profile, credential: &str) -> Vec<(
     }
 }
 
-/// 写进客户端的那把 key：本机网关的固定占位值。
+/// Resolve the selected, enabled gateway credential only at manual application time.
 ///
-/// 不用真实网关 Key 是刻意的：客户端配置是明文文件、会被同步/备份/贴到别处，
-/// 而网关的鉴权靠「网关 Key」页那套独立管理。这里给一个可识别的固定串，
-/// 网关侧对 `127.0.0.1` 的请求本就放行（默认只监听本机）。
 fn selected_gateway_key(profile: &Profile) -> Result<String, String> {
     if profile.kind != "gateway" {
         return Err("写入只支持本机网关配置；外部提供商请保留客户端原配置，避免覆盖其凭据".into());
@@ -308,6 +305,32 @@ fn set_path(root: &mut Value, path: &str, value: Value) {
     }
 }
 
+fn apply_targets(def: &ClientDef, value: &mut Value, targets: &[(String, Value)]) -> Result<(), String> {
+    if !value.is_object() { return Err("客户端配置顶层必须是对象，未修改文件".into()); }
+    for (key, item) in targets {
+        if def.id == "workbuddy" && key == "providers" {
+            let incoming = item.as_array().and_then(|a| a.first()).ok_or("网关提供商配置无效")?;
+            let providers = value.as_object_mut().ok_or("配置无效")?.entry("providers").or_insert(json!([]));
+            let entries = providers.as_array_mut().ok_or("providers 不是数组，未修改文件")?;
+            if entries.iter().filter(|p| p["id"] == "agent2api").count() > 1 {
+                return Err("存在重复 agent2api 提供商，请先在客户端处理".into());
+            }
+            if let Some(existing) = entries.iter_mut().find(|p| p["id"] == "agent2api") {
+                let object = existing.as_object_mut().ok_or("提供商配置无效")?;
+                for (key, value) in incoming.as_object().ok_or("网关配置无效")? { object.insert(key.clone(), value.clone()); }
+            } else { entries.push(incoming.clone()); }
+        } else { set_path(value, key, item.clone()); }
+    }
+    Ok(())
+}
+
+/// All read-only validation happens before a backup becomes the restore point.
+pub fn validate_apply(def: &ClientDef, path: &Path, profile: &Profile) -> Result<(), String> {
+    if !def.multi { selected_gateway_key(profile)?; }
+    preview(def, path, profile)?;
+    Ok(())
+}
+
 /// 单配置写入：读原文 → 改指定键 → 原子写回。
 ///
 /// TOML 走「解析成表 → 改 → 序列化」：`toml` crate 的序列化会丢掉注释。
@@ -323,17 +346,13 @@ pub fn apply_single(def: &ClientDef, path: &Path, profile: &Profile) -> Result<(
     let rendered = match def.format {
         ConfigFormat::Toml => {
             let mut value = parse_toml(&original)?;
-            for (key, item) in &targets {
-                set_path(&mut value, key, item.clone());
-            }
+            apply_targets(def, &mut value, &targets)?;
             if def.id == "codex" { if let Some(provider)=value.pointer_mut("/model_providers/agent2api").and_then(Value::as_object_mut) { provider.remove("env_key"); } }
             toml::to_string_pretty(&value).map_err(|error| format!("生成 TOML 失败: {error}"))?
         }
         _ => {
             let mut value = parse_json_like(def.format, &original)?;
-            for (key, item) in &targets {
-                set_path(&mut value, key, item.clone());
-            }
+            apply_targets(def, &mut value, &targets)?;
             serde_json::to_string_pretty(&value)
                 .map_err(|error| format!("生成 JSON 失败: {error}"))?
                 + "\n"
@@ -497,17 +516,13 @@ pub fn preview(def: &ClientDef, path: &Path, profile: &Profile) -> Result<Value,
     let rendered = match def.format {
         ConfigFormat::Toml => {
             let mut value = parse_toml(&original)?;
-            for (key, item) in &targets {
-                set_path(&mut value, key, item.clone());
-            }
+            apply_targets(def, &mut value, &targets)?;
             if def.id == "codex" { if let Some(provider)=value.pointer_mut("/model_providers/agent2api").and_then(Value::as_object_mut) { provider.remove("env_key"); } }
             toml::to_string_pretty(&value).unwrap_or_default()
         }
         _ => {
             let mut value = parse_json_like(def.format, &original)?;
-            for (key, item) in &targets {
-                set_path(&mut value, key, item.clone());
-            }
+            apply_targets(def, &mut value, &targets)?;
             serde_json::to_string_pretty(&value).unwrap_or_default() + "\n"
         }
     };

@@ -1,0 +1,20 @@
+PASS APK login CORS header: {"status": 204, "allowHeaders": "Content-Type, Authorization, x-api-key, x-panel-token, x-panel-refresh, x-panel-auth-mode, x-agent2api-assistant"}
+PASS APK refresh CORS headers: {"status": 204, "allowHeaders": "Content-Type, Authorization, x-api-key, x-panel-token, x-panel-refresh, x-panel-auth-mode, x-agent2api-assistant"}
+PASS APK refresh token rotation: {"status": 200, "hasRotatedToken": true}
+PASS Mobile Agent restore payload: {"status": 200, "error": null}
+PASS Mobile Agent field contract: {"mobileExpects": ["configPath", "viaGateway", "configMode", "hasBackup"], "actualFields": ["activeId", "caps", "configMode", "configPath", "format", "hasBackup", "hue", "icon", "iconFull", "id", "installed", "letter", "live", "name", "needsRestart", "profiles", "profilesAreLive", "protocol", "readError", "resolvedPath", "vendor", "viaGateway"]}
+PASS Travel completed-slot state: {"firedToday": ["09:15"], "lastResult": {"accounts": 1, "actions": [{"accountId": "deleted-fixture", "credit": null, "message": "synthetic completed travel", "name": "Fixture", "outcome": "success"}], "at": 1792335673735, "batchId": "review-fixture", "credit": null, "failed": 0, "running": false}, "databaseContainsCompletedSlot": true}
+PASS Travel run summary contract: {"summary": {"accounts": 0, "actions": [], "credit": null, "failed": 0, "running": false}, "UIRequires": ["actions", "credit", "failed"]}
+PASS WorkBuddy preserves other providers: {"providerIdsAfterApply": ["keep-existing", "agent2api"], "otherSetting": "keep"}
+PASS WorkBuddy backup restores original: {"restoredOriginalBytes": true}
+PASS WorkBuddy merges existing provider in place: {"providerIds": ["first", "agent2api", "last"], "custom": "preserve"}
+PASS WorkBuddy malformed configuration fails before backup: {"unchanged": true, "backupUnchanged": true}
+PASS Failed apply preserves useful restore point: {"restoredOriginal": true, "restoredPreviouslyAppliedConfig": false}
+PASS Mobile read endpoints: {"/api/session": 200, "/api/stats/summary?range=yesterday": 200, "/api/stats/requests?limit=5": 200, "/api/logs?limit=5": 200, "/api/checkin-center": 200, "/api/models/manage": 200, "/api/keys": 200, "/api/proxies/pool": 200, "/api/scheduled-tasks": 200, "/api/agents": 200}
+PASS Mobile key toggle endpoint: {"status": 200}
+PASS Travel pending batch is not completed: {"running": true, "accounts": 2}
+PASS Travel completed batch totals: {"accounts": 2, "actions": [{"accountId": "pending-fixture", "credit": 37, "message": "synthetic", "name": "pending-fixture", "outcome": "success"}, {"accountId": "failed-fixture", "credit": null, "message": "synthetic", "name": "failed-fixture", "outcome": "failed"}], "at": 1792335673737, "batchId": "pending-review", "credit": 37, "failed": 1, "running": false}
+PASS Travel batch correlation and unknown reward: {"batchId": "review-fixture", "credit": null}
+PASS Travel next execution time: {"nextRunAt": 1792372500000}
+Review contracts: 18 passed; 0 failed
+BASELINE: 60 isolated 3.1 assertions; admin gating, credential-safe preview, real-key selection, backup failure, two-file restore, shared scheduler and local history

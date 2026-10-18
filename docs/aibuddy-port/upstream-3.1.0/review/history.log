@@ -1,0 +1,1 @@
+PASS: v12 to v13 migration, 25 built-in providers + custom provider; real deletion API; historical backfill; stable totals; restart; request pruning and custom-provider removal preserve identity

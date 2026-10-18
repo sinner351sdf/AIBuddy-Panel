@@ -25,14 +25,17 @@ elif args[:2]==['release','view']:sys.exit(0 if cfg.get('existing') else 1)
 elif args[:2]==['release','edit']:pass
 elif args[:2] in [['release','create'],['release','upload']]:
  assets=[Path(s) for s in args if Path(s).is_file()]
- with (base/'published.json').open('w') as out:json.dump({'files':[p.name for p in assets],'sums':next((p.read_text() for p in assets if p.name=='SHA256SUMS.txt'),'')},out)
+ previous=json.loads((base/'published.json').read_text()) if (base/'published.json').exists() else {'files':[],'sums':''}
+ if args[1]=='upload' and len(assets)!=1:sys.exit('Uploads must be sequential')
+ previous['files'] += [p.name for p in assets];previous['sums']=next((p.read_text() for p in assets if p.name=='SHA256SUMS.txt'),previous['sums'])
+ with (base/'published.json').open('w') as out:json.dump(previous,out)
 else:sys.exit('Unexpected gh invocation '+str(args))
 '''
 count=0
 with tempfile.TemporaryDirectory(prefix='a2a-release-test-') as temp:
  base=Path(temp);bin_dir=base/'bin';bin_dir.mkdir()
  for name in ['gh','git']:(bin_dir/name).write_text(MOCK);(bin_dir/name).chmod(0o755)
- def run(name,tag='v3.0.5-aibuddy.1',change=None,success=True,auto=False,existing=False,linux=True,desktop=False):
+ def run(name,tag='v3.0.5-aibuddy.1',change=None,success=True,auto=False,existing=False,linux=True,desktop=False,windows=False):
   global count
   home=base/name;home.mkdir();assets=home/'assets';assets.mkdir()
   for folder,filename in [('windows-nsis','AIBuddy Setup.exe'),('macos-universal','AIBuddy Panel.dmg')]:
@@ -43,7 +46,9 @@ with tempfile.TemporaryDirectory(prefix='a2a-release-test-') as temp:
    for arch in ['amd64','arm64']:
     p=assets/f'linux-server-{arch}';p.mkdir();filename=f'agent2api-server-linux-{arch}.tar.gz';content=f'synthetic-{arch}'.encode();(p/filename).write_bytes(content)
     (p/(filename+'.sha256')).write_text(hashlib.sha256(content).hexdigest()+'  '+filename+'\n')
-  cfg={'run':{'head_sha':SHA,'status':'completed','conclusion':'success','path':'.github/workflows/build.yml','repository':{'full_name':REPO}},'artifacts':{'artifacts':[{'name':n,'expired':False,'size_in_bytes':100,'workflow_run':{'head_sha':SHA}} for n in ['windows-nsis','macos-universal']+(['linux-server-amd64','linux-server-arm64'] if linux else [])+(['linux-desktop'] if desktop else [])]},'existing':existing}
+  if windows:
+   p=assets/'windows-server-amd64';p.mkdir();filename='agent2api-server-windows-amd64.zip';(p/filename).write_bytes(b'windows fixture');(p/(filename+'.sha256')).write_text(hashlib.sha256(b'windows fixture').hexdigest()+'  '+filename+'\n')
+  cfg={'run':{'head_sha':SHA,'status':'completed','conclusion':'success','path':'.github/workflows/build.yml','repository':{'full_name':REPO}},'artifacts':{'artifacts':[{'name':n,'expired':False,'size_in_bytes':100,'workflow_run':{'head_sha':SHA}} for n in ['windows-nsis','macos-universal']+(['linux-server-amd64','linux-server-arm64'] if linux else [])+(['linux-desktop'] if desktop else [])+(['windows-server-amd64'] if windows else [])]},'existing':existing}
   if change:change(home,cfg)
   (home/'config.json').write_text(json.dumps(cfg));(home/'dist').mkdir();(home/'dist/user-file').write_text('keep')
   result=subprocess.run(['bash',str(ROOT/'scripts/release.sh'),tag]+([] if auto else ['1']),cwd=home,env={**os.environ,'PATH':str(bin_dir)+os.pathsep+os.environ['PATH'],'FIXTURE':str(home),'HTTPS_PROXY':''},text=True,capture_output=True)
@@ -51,15 +56,17 @@ with tempfile.TemporaryDirectory(prefix='a2a-release-test-') as temp:
   assert (home/'dist/user-file').read_text()=='keep','must not erase existing dist/'
   calls=[json.loads(line) for line in (home/'calls.jsonl').read_text().splitlines()]
   mutated=[c for c in calls if c['command']=='gh' and c['args'][:2] in [['release','upload'],['release','create']]]
-  assert len(mutated)==(1 if success else 0),(name,mutated)
+  expected_assets=(7 if linux else 3)+(2 if desktop else 0)+(2 if windows else 0)
+  assert len(mutated)==(expected_assets+(0 if existing else 1) if success else 0),(name,mutated)
+  assert all(len([arg for arg in c['args'] if arg.endswith(('.exe','.dmg','.tar.gz','.sha256','.zip','.deb','.AppImage','.txt'))])==1 for c in mutated if c['args'][1]=='upload'),(name,'non-sequential upload')
   if success:
    if not existing:
     create=next(c['args'] for c in mutated if c['args'][1]=='create')
     assert ('--prerelease=true' in create)==('beta' in tag),(name,create)
-   files=json.loads((home/'published.json').read_text());expected=(7 if linux else 3)+(2 if desktop else 0)
+   files=json.loads((home/'published.json').read_text());expected=(7 if linux else 3)+(2 if desktop else 0)+(2 if windows else 0)
    assert len([f for f in files['files'] if f!='notes.txt'])==expected,(name,files)
    assert ('agent2api-server-linux-arm64.tar.gz.sha256' in files['files'])==linux
-   assert files['sums'].count('\n')==(4 if linux else 2)+(2 if desktop else 0)
+   assert files['sums'].count('\n')==(4 if linux else 2)+(2 if desktop else 0)+(1 if windows else 0)
    assert mutated[0]['args'][1]==('upload' if existing else 'create')
    assert '--repo' in mutated[0]['args'] and REPO in mutated[0]['args']
    assert 'Docker Hub' not in result.stdout and 'aimodcc' not in result.stdout
@@ -88,4 +95,9 @@ with tempfile.TemporaryDirectory(prefix='a2a-release-test-') as temp:
  run('linux-desktop-beta',tag='v3.0.8-aibuddy.1-beta.1',desktop=True)
  run('missing-linux-desktop',tag='v3.0.8-aibuddy.1',success=False)
  run('empty-linux-desktop',tag='v3.0.8-aibuddy.1',desktop=True,change=lambda h,c:(h/'assets/linux-desktop/AIBuddy.deb').write_bytes(b''),success=False)
+ run('windows-server',tag='v3.1.0-aibuddy.1',desktop=True,windows=True)
+ run('windows-server-existing',tag='v3.1.0-aibuddy.1',desktop=True,windows=True,existing=True)
+ run('missing-windows-server',tag='v3.1.0-aibuddy.1',desktop=True,success=False)
+ run('corrupt-windows-server',tag='v3.1.0-aibuddy.1',desktop=True,windows=True,change=lambda h,c:(h/'assets/windows-server-amd64/agent2api-server-windows-amd64.zip').write_bytes(b'corrupt'),success=False)
+ run('missing-windows-checksum',tag='v3.1.0-aibuddy.1',desktop=True,windows=True,change=lambda h,c:(h/'assets/windows-server-amd64/agent2api-server-windows-amd64.zip.sha256').unlink(),success=False)
  print(f'PASS: {count} release-script scenarios; create/upload, both Linux packages/checksums, source validation, legacy compatibility, spaces in paths, dist preservation and zero publication on failures; all gh/git commands mocked')

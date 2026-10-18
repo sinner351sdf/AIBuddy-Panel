@@ -1,0 +1,1 @@
+PASS: 40 isolated 3.1 assertions; admin gating, credential-safe preview, real-key selection, backup failure, two-file restore, shared scheduler and local history

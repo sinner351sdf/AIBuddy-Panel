@@ -28,6 +28,7 @@
   "外部配置只读；自动写入仅支持选择网关 Key 的本机网关配置。": "",
   "多套配置": "Multiple profiles",
   "多配置 · 已启用 {n}": "Multi-profile · {n} enabled",
+  "多配置文件": "Multiple config files",
   "官方直连": "Official direct",
   "客户端列表加载失败：{reason}": "Failed to load the client list: {reason}",
   "客户端清单": "Clients",

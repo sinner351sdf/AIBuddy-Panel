@@ -86,17 +86,19 @@ git log -1 --format=%B "$TAG" > "$NOTES_FILE"
 PRERELEASE=$(node --input-type=module -e 'const m=await import(process.argv[1]); console.log(m.isPrereleaseTag(process.argv[2]))' "file://$VALIDATOR" "$TAG")
 echo "→ GitHub Release（全部附件已校验，pre-release=${PRERELEASE}）"
 if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
-  gh release upload "$TAG" --repo "$REPO" --clobber "${ASSETS[@]}"
   gh release edit "$TAG" --repo "$REPO" --prerelease="$PRERELEASE"
-  echo "  ↳ 已存在，附件覆盖上传"
 else
-  gh release create "$TAG" --repo "$REPO" --verify-tag --prerelease="$PRERELEASE" --title "$TAG" --notes-file "$NOTES_FILE" "${ASSETS[@]}"
+  gh release create "$TAG" --repo "$REPO" --verify-tag --prerelease="$PRERELEASE" --title "$TAG" --notes-file "$NOTES_FILE"
 fi
+# Upload one verified file per request so a clobber conflict cannot abort an entire batch.
+for asset in "${ASSETS[@]}"; do
+  gh release upload "$TAG" --repo "$REPO" --clobber "$asset"
+done
 
 # ── 3. 验收提示 ───────────────────────────────────────────────
 echo
 echo "发版收尾完成。核对："
 echo "  [1] GitHub Release: https://github.com/$REPO/releases/tag/$TAG"
 echo "  [2] Windows / macOS / Linux 桌面安装包版本与 $TAG 一致"
-echo "  [3] Linux amd64 / arm64 更新包、对应 .sha256 与 SHA256SUMS.txt 齐全"
+echo "  [3] Linux 双架构及 3.1+ Windows 服务端包、对应 .sha256 与 SHA256SUMS.txt 齐全"
 echo "  [4] 本脚本不发布镜像；镜像沿用本仓库既有私有发布策略"

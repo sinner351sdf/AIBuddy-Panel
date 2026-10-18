@@ -100,10 +100,10 @@ export function AgentPage() {
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {client.path || '—'}
+                  {client.configPath || '—'}
                 </div>
               </div>
-              <Badge tone={client.applied ? 'ok' : 'mute'}>{client.applied ? t('已接管') : t('未接管')}</Badge>
+              <Badge tone={client.viaGateway ? 'ok' : 'mute'}>{client.viaGateway ? t('已接管') : t('未接管')}</Badge>
             </div>
             <div
               style={{
@@ -117,8 +117,8 @@ export function AgentPage() {
                 color: 'var(--m-text-3)',
               }}
             >
-              <span>{client.mode || t('单配置文件')}</span>
-              {client.applied ? (
+              <span>{client.configMode === 'multi' ? t('多配置文件') : t('单配置文件')}</span>
+              {client.hasBackup ? (
                 <button
                   type='button'
                   className='m-btn m-sm m-ghost'

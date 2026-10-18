@@ -1013,6 +1013,7 @@ pub fn shim_js() -> &'static str {
     // Agent（本机 AI 客户端的配置接管；与桌面壳 bridge.rs 的同名方法成对
     // 存在 —— 只加一边时另一形态下的页面会报「桥接方法缺失」。契约见
     // api::agents 的模块头：写操作都返回整份 {clients}，就地替换）
+      getTravelSchedule: function (batchId) { return call('GET', '/api/travel-schedule' + (batchId ? '?batchId=' + encodeURIComponent(batchId) : '')); },
     saveTravelSchedule: function (patch) { return call('POST', '/api/travel-schedule', patch); },
     runTravelScheduleNow: function () { return call('POST', '/api/travel-schedule/run', {}); },
     getAgents: function () { return call('GET', '/api/agents'); },

@@ -17,6 +17,12 @@ export function linuxDesktopRequired(tag) {
   return major > 3 || (major === 3 && (minor > 0 || patch >= 8))
 }
 
+export function windowsServerRequired(tag) {
+  linuxRequired(tag)
+  const [major, minor] = tag.slice(1).split(/[.\-+]/).slice(0, 2).map(Number)
+  return major > 3 || (major === 3 && minor >= 1)
+}
+
 export function isPrereleaseTag(tag) {
   return /(?:-|\.)(?:alpha|beta|rc)(?:[.\-]|$)/i.test(tag)
 }
@@ -25,7 +31,7 @@ export function validateRun(run, artifacts, sha, tag, repo) {
   if (run.head_sha !== sha || run.status !== 'completed' || run.conclusion !== 'success') throw new Error('构建未成功完成或提交与 tag 不一致')
   if (!['.github/workflows/build.yml', '.github/workflows/publish-release.yml'].includes(run.path)) throw new Error('构建工作流来源不匹配')
   if (run.repository?.full_name !== repo) throw new Error('构建仓库来源不匹配')
-  const names = ['windows-nsis', 'macos-universal', ...(linuxDesktopRequired(tag) ? ['linux-desktop'] : []), ...(linuxRequired(tag) ? ['linux-server-amd64', 'linux-server-arm64'] : [])]
+  const names = ['windows-nsis', 'macos-universal', ...(linuxDesktopRequired(tag) ? ['linux-desktop'] : []), ...(linuxRequired(tag) ? ['linux-server-amd64', 'linux-server-arm64'] : []), ...(windowsServerRequired(tag) ? ['windows-server-amd64'] : [])]
   for (const name of names) {
     const matches = artifacts.artifacts?.filter(item => item.name === name && !item.expired && item.size_in_bytes > 0) || []
     if (matches.length !== 1) throw new Error(`缺少或重复构建附件：${name}`)
@@ -65,6 +71,15 @@ export function collectAssets(directory, tag) {
       if (!match || match[2] !== name || hash(file) !== match[1].toLowerCase()) throw new Error(`SHA256 校验失败：${name}`)
       assets.push(file, checksum)
     }
+  }
+  if (windowsServerRequired(tag) || fs.existsSync(path.join(directory, 'windows-server-amd64'))) {
+    const name = 'agent2api-server-windows-amd64.zip'
+    const file = path.join(directory, 'windows-server-amd64', name)
+    const checksum = `${file}.sha256`
+    requireFile(file); requireFile(checksum)
+    const match = /^([a-f\d]{64})[ \t]+\*?([^\r\n]+)\r?\n?$/i.exec(fs.readFileSync(checksum, 'utf8'))
+    if (!match || match[2] !== name || hash(file) !== match[1].toLowerCase()) throw new Error(`SHA256 校验失败：${name}`)
+    assets.push(file, checksum)
   }
   const sums = path.join(directory, 'SHA256SUMS.txt')
   fs.writeFileSync(sums, assets.filter(file => !file.endsWith('.sha256')).map(file => `${hash(file)}  ${path.basename(file)}\n`).join(''))

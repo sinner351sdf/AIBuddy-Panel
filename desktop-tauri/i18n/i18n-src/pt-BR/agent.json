@@ -28,6 +28,7 @@
   "外部配置只读；自动写入仅支持选择网关 Key 的本机网关配置。": "",
   "多套配置": "Vários perfis",
   "多配置 · 已启用 {n}": "Vários perfis · {n} ativos",
+  "多配置文件": "Vários arquivos de configuração",
   "官方直连": "Oficial direto",
   "客户端列表加载失败：{reason}": "Falha ao carregar a lista de clientes: {reason}",
   "客户端清单": "Clientes",

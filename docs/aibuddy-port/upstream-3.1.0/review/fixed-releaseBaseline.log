@@ -1,0 +1,1 @@
+PASS: 28 release-script scenarios; create/upload, both Linux packages/checksums, source validation, legacy compatibility, spaces in paths, dist preservation and zero publication on failures; all gh/git commands mocked

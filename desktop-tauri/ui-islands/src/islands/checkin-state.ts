@@ -163,10 +163,12 @@ export type TravelScheduleState = {
   lastFiredTime?: string | null
   /** 上一轮摘要：`{accounts, actions[], credit, failed, at}` */
   lastResult?: {
+    batchId?: string
+    running?: boolean
     at?: number
     accounts?: number
     actions?: Array<{ accountId?: string; name?: string; outcome?: string; message?: string; credit?: number }>
-    credit?: number
+    credit?: number | null
     failed?: number
   } | null
   running?: boolean
@@ -275,8 +277,9 @@ export type GrowthCache = {
 /* ─── 本岛用到的桥（在 accounts-shared 的 AccountsBridge 之上补签到两组）─── */
 
 type CheckinBridge = {
+  getTravelSchedule?(batchId?: string): Promise<TravelScheduleState>
   saveTravelSchedule?(patch: Record<string, unknown>): Promise<TravelScheduleState>
-  runTravelScheduleNow?(): Promise<{ schedule?: TravelScheduleState; summary?: Record<string, unknown> }>
+  runTravelScheduleNow?(): Promise<{ queued?: number; batchId?: string; schedule?: TravelScheduleState; summary?: Record<string, unknown> | null }>
   getCheckinCenter?(): Promise<CheckinCenterSnapshot | null | undefined>
   getAutoCheckin?(): Promise<AutoCheckinState>
   saveAutoCheckin?(patch: Record<string, unknown>): Promise<AutoCheckinState>
@@ -859,23 +862,35 @@ export async function runTravelScheduleNow(): Promise<void> {
   if (store.travelRunning) return
   patch({ travelRunning: true })
   try {
-    const result = await bridge().runTravelScheduleNow?.()
-    const schedule = result?.schedule as TravelScheduleState | undefined
-    if (schedule) patch({ snapshot: mergeTravel(schedule) })
-    const summary = (result?.summary ?? {}) as {
-      actions?: unknown
-      credit?: unknown
-      failed?: unknown
+    const api = bridge()
+    if (!api.runTravelScheduleNow || !api.getTravelSchedule) throw new Error(t('当前环境不支持旅行排程'))
+    const result = await api.runTravelScheduleNow()
+    if (result.schedule) patch({ snapshot: mergeTravel(result.schedule) })
+    let summary = result.summary
+    if (Number(result.queued) > 0) {
+      if (!result.batchId) throw new Error(t('巡检已入队，请在任务记录中查看结果'))
+      toast(t('巡检已入队，正在等待执行结果'))
+      const deadline = Date.now() + 300_000
+      while (Date.now() < deadline) {
+        const next = await api.getTravelSchedule(result.batchId)
+        patch({ snapshot: mergeTravel(next) })
+        if (next.lastResult?.batchId === result.batchId && !next.lastResult.running) {
+          summary = next.lastResult as unknown as Record<string, unknown>
+          break
+        }
+        await new Promise(resolve => setTimeout(resolve, 1500))
+      }
+      if (!summary) { toast(t('巡检仍在执行，请稍后在任务记录查看结果')); return }
     }
+    if (!summary) throw new Error(t('未取得巡检结果，请查看任务记录'))
     const actions = Array.isArray(summary.actions) ? summary.actions.length : 0
-    const credit = numberOf(summary.credit) ?? 0
     const failed = numberOf(summary.failed) ?? 0
-    toast(
-      failed > 0
-        ? t('猫猫旅行：{n} 个动作，+{credit} 积分，{failed} 个失败', { n: actions, credit, failed })
-        : t('猫猫旅行：{n} 个动作，+{credit} 积分', { n: actions, credit }),
-      failed > 0 ? 'err' : 'ok',
-    )
+    const credit = numberOf(summary.credit)
+    const reward = summary.credit === null || summary.credit === undefined || credit === null
+      ? t('收益未声明') : t('+{credit} 积分', { credit })
+    toast(Number(summary.accounts) === 0 ? t('没有可巡检的账号') :
+      t('猫猫旅行：{n} 个账号结果，{reward}，{failed} 个失败', { n: actions, reward, failed }),
+      failed > 0 ? 'err' : 'ok')
     // 全池跑过之后，单账号缓存里的旅行状态已过期：清掉那些缓存，
     // 让下次展开重新查（否则界面还显示「在途」，实际已领奖）
     if (actions > 0) {

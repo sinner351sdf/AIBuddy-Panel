@@ -378,6 +378,7 @@ const BRIDGE_JS: &str = r#"
     //   · restoreAgentClient  按最近一次备份还原
     //   · importAgentClient   从客户端现有文件里读回一套配置
     //   写操作都返回整份 `{clients}`（就地替换，页面不必再拉一次）。
+  getTravelSchedule: (batchId) => call('GET', '/api/travel-schedule' + (batchId ? '?batchId=' + encodeURIComponent(batchId) : '')),
     saveTravelSchedule: patch => call('POST', '/api/travel-schedule', patch),
     runTravelScheduleNow: () => call('POST', '/api/travel-schedule/run', {}),
     getAgents: () => call('GET', '/api/agents'),

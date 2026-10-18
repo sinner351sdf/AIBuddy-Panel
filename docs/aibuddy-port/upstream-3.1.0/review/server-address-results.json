@@ -1,0 +1,26 @@
+[
+  {
+    "input": "https://gateway.example:443",
+    "expected": "https://gateway.example:443",
+    "actual": "http://gateway.example:443",
+    "passed": false
+  },
+  {
+    "input": "https://gateway.example",
+    "expected": "https://gateway.example",
+    "actual": "http://gateway.example:3065",
+    "passed": false
+  },
+  {
+    "input": "http://192.168.1.2:3065/m",
+    "expected": "http://192.168.1.2:3065",
+    "actual": "http://192.168.1.2:3065",
+    "passed": true
+  },
+  {
+    "input": "http://[::1]:3065",
+    "expected": "http://[::1]:3065",
+    "actual": "",
+    "passed": false
+  }
+]

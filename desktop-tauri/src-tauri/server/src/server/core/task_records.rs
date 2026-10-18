@@ -228,6 +228,35 @@ pub fn detail(id: i64) -> Result<Option<Value>, String> {
         } Ok(result)
     }).ok_or("任务记录数据库不可用")?
 }
+/// Aggregate travel status from the same durable rows used by the task center.
+/// A batch remains pending until every account reaches a terminal outcome.
+pub fn travel_history(batch: Option<&str>) -> Result<Value, String> {
+    let today = super::beijing::today_key();
+    db()?.with(|conn| -> Result<Value, String> {
+        let mut fired = conn.prepare("SELECT DISTINCT substr(slot,12,5) FROM task_runs WHERE kind='travel' AND slot LIKE ?1 AND outcome NOT IN ('running','interrupted') ORDER BY 1").map_err(|e|e.to_string())?;
+        let fired = fired.query_map([format!("{today}T%")],|r|r.get::<_,String>(0)).map_err(|e|e.to_string())?.collect::<rusqlite::Result<Vec<_>>>().map_err(|e|e.to_string())?;
+        let selected: Option<String> = match batch {
+            Some(batch) => Some(batch.to_string()),
+            None => conn.query_row("SELECT batch_id FROM task_runs WHERE kind='travel' ORDER BY started_at DESC,id DESC LIMIT 1",[],|r|r.get(0)).optional().map_err(|e|e.to_string())?,
+        };
+        let mut summary = Value::Null;
+        if let Some(batch) = selected {
+            let mut stmt = conn.prepare("SELECT r.account_id,r.account_name,r.outcome,r.message,r.started_at,r.finished_at,SUM(i.credit),COUNT(i.credit) FROM task_runs r LEFT JOIN task_run_items i ON i.run_id=r.id WHERE r.kind='travel' AND r.batch_id=?1 GROUP BY r.id ORDER BY r.id").map_err(|e|e.to_string())?;
+            let rows = stmt.query_map([&batch],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?,r.get::<_,i64>(4)?,r.get::<_,Option<i64>>(5)?,r.get::<_,Option<i64>>(6)?,r.get::<_,i64>(7)?))).map_err(|e|e.to_string())?.collect::<rusqlite::Result<Vec<_>>>().map_err(|e|e.to_string())?;
+            if !rows.is_empty() {
+                let running=rows.iter().any(|r|r.2=="running");
+                let at=rows.iter().map(|r|r.5.unwrap_or(r.4)).max();
+                let known=rows.iter().any(|r|r.7>0);
+                let credit=known.then(||rows.iter().filter_map(|r|r.6).sum::<i64>());
+                let failed=rows.iter().filter(|r|matches!(r.2.as_str(),"failed"|"interrupted")).count();
+                let actions=rows.iter().map(|r|json!({"accountId":r.0,"name":r.1,"outcome":r.2,"message":r.3,"credit":r.6})).collect::<Vec<_>>();
+                summary=json!({"batchId":batch,"at":at,"accounts":rows.len(),"actions":actions,"credit":credit,"failed":failed,"running":running});
+            }
+        }
+        Ok(json!({"firedToday":fired,"lastResult":summary}))
+    }).ok_or("任务记录数据库不可用")?
+}
+
 pub fn retention_days() -> i64 {
     crate::server::config::current()
         .raw()

@@ -132,6 +132,7 @@ fn client_payload(def: &agents::ClientDef) -> Value {
         object.insert("profilesAreLive".into(), json!(profiles.is_empty() && !live.is_empty()));
         object.insert("readError".into(), json!(read_error));
         object.insert("viaGateway".into(), json!(agents::via_gateway(shown)));
+        object.insert("hasBackup".into(), json!(apply::latest_backup(def.id).is_some()));
         object.insert(
             "activeId".into(),
             json!(agents::active_profile(shown).map(|item| item.id.clone())),
@@ -268,6 +269,9 @@ pub async fn apply_profile(State(state): State<ServerState>, body: Bytes) -> Res
         _ => return management_error(400, "写入地址必须指向当前本机网关，禁止向外部地址写入网关凭据"),
     };
     let _ = url;
+    if let Err(error) = apply::validate_apply(def, &path, &profile) {
+        return management_error(400, error);
+    }
     let backup_path = match apply::backup(def.id, &path) {
         Ok(path) => path,
         Err(error) => return management_error(400, format!("备份失败，未改动客户端配置：{error}")),
@@ -298,6 +302,8 @@ pub async fn apply_profile(State(state): State<ServerState>, body: Bytes) -> Res
         }
         Err(message) => {
             let rollback = apply::restore_snapshot(&backup_path, &path);
+            // A fully rolled-back failed attempt must not hide the prior restore point.
+            if rollback.is_ok() { let _ = std::fs::remove_file(&backup_path); }
             management_error(400, if rollback.is_ok() { format!("{message}；已还原原配置") } else { format!("{message}；自动还原失败，请使用备份恢复") })
         }
     }

@@ -663,7 +663,7 @@ function TravelPanel({
   const [draft, setDraft] = React.useState<string | null>(null)
   const text = draft ?? times.join(', ')
   const dirty = draft !== null && draft.replace(/\s+/g, '') !== times.join(',')
-  const last = travel?.lastResult
+  const last = travel?.lastResult?.running ? null : travel?.lastResult
   const actions = Array.isArray(last?.actions) ? last!.actions! : []
   const submit = (): void => {
     const list = text
@@ -729,10 +729,10 @@ function TravelPanel({
         </div>
         {last && actions.length > 0 ? (
           <div className='ck-fold-note'>
-            {t('上一轮（{time}）：{n} 个动作，+{credit} 积分', {
+            {t('上一轮（{time}）：{n} 个账号结果，{reward}', {
               time: last.at ? formatTime(Number(last.at)) : '',
               n: actions.length,
-              credit: Number(last.credit) || 0,
+              reward: last.credit === null || last.credit === undefined ? t('收益未声明') : t('+{credit} 积分', { credit: Number(last.credit) }),
             })}
             {actions
               .slice(0, 6)

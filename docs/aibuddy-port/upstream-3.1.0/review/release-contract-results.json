@@ -1,0 +1,15 @@
+{
+  "windowsServerCollected": false,
+  "acceptsRunWithoutWindowsServer": true,
+  "assets": [
+    "setup.exe",
+    "setup.dmg",
+    "setup.deb",
+    "setup.AppImage",
+    "agent2api-server-linux-amd64.tar.gz",
+    "agent2api-server-linux-amd64.tar.gz.sha256",
+    "agent2api-server-linux-arm64.tar.gz",
+    "agent2api-server-linux-arm64.tar.gz.sha256",
+    "SHA256SUMS.txt"
+  ]
+}

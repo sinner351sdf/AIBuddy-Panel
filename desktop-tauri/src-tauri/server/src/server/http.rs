@@ -52,7 +52,7 @@ pub const MAX_BODY_SIZE: usize = 32 * 1024 * 1024;
 /// Include configuration PUT/PATCH for the desktop assistant's scoped HTTP transport.
 const CORS_METHODS: &str = "GET, POST, PUT, PATCH, OPTIONS, DELETE";
 /// CORS 允许的请求头，逐字照抄 Node 版
-const CORS_HEADERS: &str = "Content-Type, Authorization, x-api-key, x-panel-token, x-panel-refresh, x-agent2api-assistant";
+const CORS_HEADERS: &str = "Content-Type, Authorization, x-api-key, x-panel-token, x-panel-refresh, x-panel-auth-mode, x-agent2api-assistant";
 
 /// 组装完整路由（面板 + 网关**同端口**：默认形态与桌面壳）。
 ///

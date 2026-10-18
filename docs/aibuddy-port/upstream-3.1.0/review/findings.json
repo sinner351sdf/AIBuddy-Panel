@@ -1,0 +1,98 @@
+[
+  {
+    "id": "F1",
+    "priority": "P1",
+    "origin": "整合遗漏",
+    "title": "APK 登录及续期的 CORS 请求头漏接",
+    "file": "desktop-tauri/src-tauri/server/src/server/http.rs",
+    "line": 55,
+    "evidence": "OPTIONS /api/panel/login 返回 204，但 Access-Control-Allow-Headers 不含 x-panel-auth-mode。云端 APK 真实网页资源在跨域浏览器夹具中提交登录后停在 Failed to fetch。同源 /m 登录成功。",
+    "fix": "合并 x-panel-auth-mode 与现有 x-agent2api-assistant 请求头；补跨域登录和刷新测试。",
+    "status": "fixed",
+    "validation": "See FIXES.md and contract-results.json; original evidence above is pre-fix"
+  },
+  {
+    "id": "F2",
+    "priority": "P1",
+    "origin": "上游原有缺陷",
+    "title": "服务器地址强制改为 HTTP，IPv6 也不被接受",
+    "file": "desktop-tauri/mobile/src/lib/servers.ts",
+    "line": 47,
+    "evidence": "https://gateway.example:443 变成 http://gateway.example:443；https://gateway.example 变成 http://gateway.example:3065；http://[::1]:3065 变为空串。普通局域网 HTTP 地址正确。",
+    "fix": "使用 URL 解析保留显式协议与端口，支持方括号 IPv6；只对缺省输入补协议和默认端口。",
+    "status": "fixed",
+    "validation": "See FIXES.md and contract-results.json; original evidence above is pre-fix"
+  },
+  {
+    "id": "F3",
+    "priority": "P1",
+    "origin": "上游原有缺陷",
+    "title": "Agent 写入 WorkBuddy 时覆盖全部现有提供商",
+    "file": "desktop-tauri/src-tauri/server/src/server/core/agents/apply.rs",
+    "line": 202,
+    "evidence": "临时 models.json 原有 keep-existing 提供商，应用网关 profile 后 providers 只剩 agent2api。other 字段保留。备份可以还原原始字节，但写入行为本身丢掉了其他提供商。",
+    "fix": "按提供商 ID 合并/更新 agent2api 条目，保留其余提供商及原顺序。",
+    "status": "fixed",
+    "validation": "See FIXES.md and contract-results.json; original evidence above is pre-fix"
+  },
+  {
+    "id": "F4",
+    "priority": "P2",
+    "origin": "上游原有缺陷",
+    "title": "手机 Agent 的 DTO 与还原参数不匹配",
+    "file": "desktop-tauri/mobile/src/api/gateway.ts",
+    "line": 407,
+    "evidence": "手机读取 path/applied/mode，服务端返回 configPath/viaGateway/configMode，因此路径显示 —、已接管的合成 Codex 仍显示未接管，且还原按钮不出现。手机还原提交 {id:codex}，实际 API 要 clientId，实测 404 未知客户端。",
+    "fix": "统一 DTO 字段；还原请求发送 {clientId}；用真实后端快照做组件合同测试。",
+    "status": "fixed",
+    "validation": "See FIXES.md and contract-results.json; original evidence above is pre-fix"
+  },
+  {
+    "id": "F5",
+    "priority": "P2",
+    "origin": "适配未完成",
+    "title": "旅行排程的执行状态和结果摘要没有接完",
+    "file": "desktop-tauri/src-tauri/server/src/server/core/growth_scheduler.rs",
+    "line": 8,
+    "evidence": "临时数据库写入当天已完成旅行记录后，接口 firedToday 仍为空、lastResult 仍为 null。run 接口只返回 summary.queued，前端却读取 actions/credit/failed，因此不能展示实际完成情况，还会把未返回的结果呈现成 0 动作、0 积分。",
+    "fix": "从持久任务记录生成状态；将入队响应与完成摘要分开，前端轮询完成结果后再显示收益及失效缓存。",
+    "status": "fixed",
+    "validation": "See FIXES.md and contract-results.json; original evidence above is pre-fix"
+  },
+  {
+    "id": "F6",
+    "priority": "P2",
+    "origin": "整合遗漏",
+    "title": "Windows 服务端没有接入 Release 附件收集和完整性校验",
+    "file": "scripts/release-assets.mjs",
+    "line": 28,
+    "evidence": "合成完整 3.1 构建目录包含 Windows 服务端 ZIP 与 SHA256，collectAssets 仍只输出 9 项、不包含 Windows ZIP；validateRun 接受缺少 Windows 服务端的 3.1 构建。build.yml 已有 windows-server 作业。",
+    "fix": "为 3.1 起的版本增加 Windows 服务端附件及 SHA256 校验，保留旧 tag 兼容。",
+    "status": "fixed",
+    "validation": "See FIXES.md and contract-results.json; original evidence above is pre-fix"
+  },
+  {
+    "id": "F7",
+    "priority": "P2",
+    "origin": "本次加固引入的恢复问题",
+    "title": "无效 Key 的失败应用会占据最近备份位置",
+    "file": "desktop-tauri/src-tauri/server/src/server/api/agents.rs",
+    "line": 271,
+    "evidence": "先成功应用 Codex，再用不存在的 gatewayKeyId 失败应用，最后点击按最近备份还原，得到的是第一次应用后的配置，而非首次应用前原文件。原因是创建备份早于 Key 校验，失败尝试也留下新的恢复点。更早备份仍在磁盘，不是永久丢失。",
+    "fix": "在创建备份前完成所有可预检的 profile/Key 校验；失败尝试不覆盖最近成功应用对应的恢复入口，或允许选择恢复点。",
+    "status": "fixed",
+    "validation": "See FIXES.md and contract-results.json; original evidence above is pre-fix"
+  },
+  {
+    "id": "F8",
+    "priority": "P3",
+    "origin": "生成流程适配缺口",
+    "title": "手机/PWA 图标的生成没有接入品牌脚本",
+    "file": "assets/brand/generator/render.js",
+    "line": 29,
+    "evidence": "当前 B 品牌图标文件已经存在，但 make-icon.mjs 只调用本地 generateRasters；该函数不生成 ui/assets/app-icon-180/192/512 和 maskable-512，也不生成 Android mipmap/splash。上游 rasterize/maskable 扩展没有移植到本地 B 品牌生成器。",
+    "fix": "扩展现有品牌生成器统一输出手机、maskable 和 Android 图标，增加可复现检查。",
+    "status": "fixed",
+    "validation": "See FIXES.md and contract-results.json; original evidence above is pre-fix"
+  }
+]

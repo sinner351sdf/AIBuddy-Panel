@@ -1,0 +1,1 @@
+PASS: 69 AI SDK API checks; scoped patch, desktop preflights, real OpenAI-to-UI CRLF stream, errors/truncation never release tool input, actual usage and restart; disposable fixtures only

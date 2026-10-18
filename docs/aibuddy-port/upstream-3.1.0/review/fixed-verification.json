@@ -1,0 +1,25 @@
+{
+  "rustLibrary": {
+    "passed": 839,
+    "failed": 0,
+    "ignored": 18
+  },
+  "desktopRustCheck": "passed",
+  "serverBuild": "passed",
+  "desktopFrontend": "TypeScript + Vite passed",
+  "mobileFrontend": "TypeScript + Vite passed",
+  "shadcnCheck": "passed",
+  "nodeUiScripts": 32,
+  "problemRegressionProbes": 18,
+  "serverAddressCases": 4,
+  "existingAssistantApi": 69,
+  "existing308Api": 56,
+  "assistantHistoryMigration": "passed",
+  "taskCenterApi": 59,
+  "growthApi": 69,
+  "releaseScriptMockScenarios": 28,
+  "mobileBrandAssets": 31,
+  "browser": "cross-origin mobile login and live Agent path/state/restore availability; disposable HOME; Capacitor marker simulation; no physical Android device",
+  "android": "must compile on GitHub Actions; pending beta push; no local Android compilation",
+  "production3065": "original PID 69008 preserved"
+}

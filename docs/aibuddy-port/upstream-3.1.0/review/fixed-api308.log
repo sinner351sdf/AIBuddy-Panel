@@ -1,0 +1,1 @@
+PASS: 56 isolated 3.0.8 API checks; role forwarding, beta persistence, credential files, encryption/history, management auth and schema16 migration
