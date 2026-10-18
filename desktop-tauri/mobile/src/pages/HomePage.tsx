@@ -40,7 +40,7 @@ export function HomePage() {
 
   // 首页只轮询签到与最近请求：会话本身由 App 启动时拉一次，
   // 用户下拉刷新（下面的按钮）才重拉
-  usePolling(load, 60_000)
+  usePolling(load, 60_000, [session])
 
   useEffect(() => {
     if (!session) void store.refresh()

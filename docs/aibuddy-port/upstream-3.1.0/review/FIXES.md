@@ -13,6 +13,8 @@
 | F7 | 只读预检与有效 Key 校验先于备份；失败并成功回滚后清理失败尝试的备份 | 无效 Key 不遮住成功应用前恢复点；错误配置不留备份 |
 | F8 | 同一 B 品牌源生成 PWA/maskable、Android launcher/adaptive/splash 共 31 个产物；CI 字节比对 | --check-mobile 通过，Android 与前端 CI 接入 |
 
+最终 APK 复测另发现首页登录前的请求错误缓存会残留到下一分钟；首页轮询现在随会话快照变化立即刷新，真实 HomePage 组件补测登录后清除错误。
+
 新文案补齐 en/ja/ko/pt-BR，zh-Hant 由既有构建生成。品牌和前端产物均从源码重建。
 
 验证通过：839 Rust 库测试（18 忽略）、桌面 cargo check、服务端构建、桌面/手机 TypeScript + Vite、32 Node 脚本、18 问题合同探针、4 地址样例、28 Release 模拟场景、3.1 API、69 助手 API、56 旧版 API、历史迁移、59 任务中心及 69 成长 API 断言。可变的 3.1 脚本计数包含启动轮询，不以该数字做覆盖率承诺。
