@@ -36,7 +36,7 @@
 use std::sync::Arc;
 
 use axum::body::Bytes;
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde_json::{json, Map, Value};
@@ -62,6 +62,8 @@ const MAX_MODEL_CHARS: usize = 128;
 const MAX_MESSAGES: usize = 200;
 /// tools 数组的长度上限（前端目前最多 9 只，留足余量）
 const MAX_TOOLS: usize = 64;
+/// 思考等级的长度上限（与 `model_rules::normalize_reasoning` 同一口径）
+const MAX_REASONING_CHARS: usize = 32;
 
 /* ─── 设置（设置页「AI 助手」分类）───────────────────────── */
 
@@ -151,7 +153,7 @@ async fn write_config(body: Bytes, partial: bool) -> Response {
 fn merge_config(current: &AssistantConfig, patch: &Map<String, Value>) -> Result<Map<String, Value>, String> {
     let mut next = current.status_value().as_object().cloned().unwrap_or_default();
     for (key, value) in patch {
-        if !["model", "systemPrompt", "systemPromptEnabled", "tools"].contains(&key.as_str()) {
+        if !["model", "reasoning", "systemPrompt", "systemPromptEnabled", "tools"].contains(&key.as_str()) {
             return Err(format!("未知的助手配置字段：{key}"));
         }
         if key == "tools" {
@@ -220,6 +222,20 @@ fn parse_config(block: &Map<String, Value>) -> Result<AssistantConfig, String> {
         }
         Some(_) => return Err("model 必须是字符串或 null".to_string()),
     };
+    let reasoning = match block.get("reasoning") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(text)) => {
+            let level = text.trim();
+            if level.is_empty() {
+                None
+            } else if level.chars().count() > MAX_REASONING_CHARS {
+                return Err(format!("思考等级最长 {MAX_REASONING_CHARS} 个字符"));
+            } else {
+                Some(level.to_string())
+            }
+        }
+        Some(_) => return Err("reasoning 必须是字符串或 null".to_string()),
+    };
     let system_prompt = match block.get("systemPrompt") {
         None | Some(Value::Null) => String::new(),
         Some(Value::String(text)) => {
@@ -240,6 +256,7 @@ fn parse_config(block: &Map<String, Value>) -> Result<AssistantConfig, String> {
     };
     Ok(AssistantConfig {
         model,
+        reasoning,
         system_prompt_enabled: block
             .get("systemPromptEnabled")
             .and_then(Value::as_bool)
@@ -316,6 +333,12 @@ async fn chat_forward(state: ServerState, body: Bytes) -> Response {
     }
     outbound_messages.extend(messages);
 
+    // 思考等级：本次请求点名的优先，没点名就用设置里存的（与模型同一套「本次
+    // 覆盖 > 默认值」语义）。写进 `reasoning_effort` —— 那是客户端显式指定的
+    // 形态，按既有口径**优先于映射上绑定的等级**（见 `model_rules::reasoning`
+    // 的模块头）；各家适配器再把它翻译成本家上游认识的档位字段。
+    let reasoning = reasoning_from(&payload).or_else(|| config.reasoning.clone());
+
     let mut upstream = json!({
         "model": model,
         "messages": outbound_messages,
@@ -324,6 +347,9 @@ async fn chat_forward(state: ServerState, body: Bytes) -> Response {
     });
     if !tools.is_empty() {
         upstream["tools"] = Value::Array(tools);
+    }
+    if let Some(level) = reasoning.as_deref() {
+        upstream["reasoning_effort"] = Value::String(level.to_string());
     }
 
     // 模型路由：对外名 → 上游名（默认值 / 映射别名 / 目录校验与 /v1/* 同源）
@@ -381,7 +407,7 @@ async fn chat_forward(state: ServerState, body: Bytes) -> Response {
                 started_at,
                 model: requested_model,
                 client_model: model.clone(),
-                client_reasoning: String::new(),
+                client_reasoning: reasoning.clone().unwrap_or_default(),
                 status: i64::from(status.as_u16()),
                 raw_request: None,
                 raw_response: None,
@@ -412,7 +438,7 @@ async fn chat_forward(state: ServerState, body: Bytes) -> Response {
                     started_at,
                     model: requested_model,
                     client_model: model.clone(),
-                    client_reasoning: String::new(),
+                    client_reasoning: reasoning.clone().unwrap_or_default(),
                     status: 200,
                     raw_request: None,
                     raw_response,
@@ -435,7 +461,7 @@ async fn chat_forward(state: ServerState, body: Bytes) -> Response {
                     started_at,
                     model: requested_model,
                     client_model: model.clone(),
-                    client_reasoning: String::new(),
+                    client_reasoning: reasoning.clone().unwrap_or_default(),
                     status,
                     raw_request: None,
                     raw_response: None,
@@ -449,6 +475,20 @@ async fn chat_forward(state: ServerState, body: Bytes) -> Response {
             errors::management_error(status as i32, message)
         }
     }
+}
+
+/// 从请求体读本次点名的思考等级（字符串；缺失 / null / 空串 → None）。
+///
+/// 只做长度与空白处理，**不校验取值**：等级表（`model_rules::REASONING_LEVELS`）
+/// 是「界面上的候选」，不是白名单 —— 用户可以在模型管理页填表外的自定义等级，
+/// 这里若只放行表内的值，同一个值在「映射绑定」与「本次覆盖」两条路上就会有
+/// 两种命运。真正的合法性由各适配器的翻译层判定（不认识的档位不会注入）。
+fn reasoning_from(payload: &Value) -> Option<String> {
+    let text = payload.get("reasoning").and_then(Value::as_str)?.trim();
+    if text.is_empty() || text.chars().count() > 32 {
+        return None;
+    }
+    Some(text.to_string())
 }
 
 /// 从请求体读本次点名的模型：**对外模型名**（字符串；缺失 / null → None）。

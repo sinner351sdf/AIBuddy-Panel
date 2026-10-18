@@ -4,7 +4,7 @@ import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 import { Badge, Button, Progress } from '@ui'
 import {
-  errorMessage, handleExternalClick, markdownHtml, QQ_GROUP, safeExternal, shared, toast,
+  errorMessage, handleExternalClick, markdownHtml, safeExternal, shared, toast,
   type DownloadTask, type UpdateInfo,
 } from './update-shared'
 import { showUpdateModal } from './update-modal'
@@ -930,10 +930,8 @@ function downloadButton(snap: Snapshot): { label: string; disabled: boolean } | 
   return { label, disabled: snap.actionBusy }
 }
 
-/** 更新日志（最新一版）：正文与「在 GitHub 查看」都在一张静态卡片里，不再折叠。
- *  第二个参数是页脚「加入 QQ 群」的动作 —— 卡片本体是普通函数不是组件（用不了
- *  hook），弹窗开关得留在面板组件里，所以从那儿递进来 */
-function changelogCard(snap: Snapshot, onJoinQq: () => void): React.ReactNode {
+/** 更新日志（最新一版）：正文与「在 GitHub 查看」都在一张静态卡片里，不再折叠。 */
+function changelogCard(snap: Snapshot): React.ReactNode {
   const info = snap.info
   const notes = String(info?.notes || '').trim()
   if (!notes) {
@@ -948,10 +946,26 @@ function changelogCard(snap: Snapshot, onJoinQq: () => void): React.ReactNode {
   const published = formatDateTime(info?.publishedAt)
   return (
     <div className='rel-note'>
+      {/* 卡头：版本号 + 预发布标记 + 「在 GitHub 查看完整说明」+ 日期。
+          链接放这里而不是正文末尾 —— 正文是限高滚动的（.rel-note-body 46vh），
+          日志一长，页脚那个入口就要滚到底才看得见，等于没有。卡头不参与滚动，
+          永远在第一屏。 */}
       <div className='rel-note-head'>
         <Badge variant='brand'>{String(info?.latestVersion || t('最新版本'))}</Badge>
         {/* 旧的 .badge.tag.warn → Badge 的 tag 形态 + warning 语义色 */}
         {info?.prerelease === true ? <Badge shape='tag' variant='warning'>{t('预发布')}</Badge> : null}
+        {pageUrl ? (
+          <a
+            className='rel-head-link'
+            href={pageUrl}
+            data-external={pageUrl}
+            target='_blank'
+            rel='noopener'
+            title={t('在浏览器中打开 GitHub 发布页')}
+          >
+            {t('在 GitHub 查看完整说明')}
+          </a>
+        ) : null}
         {published ? <span className='rel-date'>{published}</span> : null}
       </div>
       <div className='rel-note-body'>
@@ -976,16 +990,6 @@ function changelogCard(snap: Snapshot, onJoinQq: () => void): React.ReactNode {
               {t('在 GitHub 查看完整说明')}
             </a>
           ) : null}
-          <Button
-            type='button'
-            variant='link'
-            size='xs'
-            className='h-auto px-0'
-            title={t('群号：{group}', { group: QQ_GROUP })}
-            onClick={onJoinQq}
-          >
-            {t('加入 QQ 群')}
-          </Button>
         </div>
       </div>
     </div>
@@ -1000,8 +1004,8 @@ function UpdatePanel() {
   // 「更新设置」弹窗的开关：弹窗是本组件条件渲染的（Dialog 自带 Portal 挂 body），
   // 读数在弹窗自己那里现拉（见 update-settings.tsx 的说明），不进模块快照
   const [settingsOpen, setSettingsOpen] = React.useState(false)
-  // 「加入 QQ 群」弹窗：同上（更新日志卡片里那颗按钮点开，卡片是普通函数、挂不了
-  // hook，所以开关留在这一层）
+  // 「加入交流群」弹窗：入口在「关于作者」那一行的按钮组里，开关留在这一层
+  // （弹窗经 Portal 挂 body，与面板同一棵 React 树即可）
   const [qqGroupOpen, setQqGroupOpen] = React.useState(false)
 
   // 面板常驻（root 随应用生命周期），正常不会卸载；万一将来被卸载（骨架变化 / 页面
@@ -1127,6 +1131,18 @@ function UpdatePanel() {
               </span>
             </div>
             <div className='update-author-actions'>
+              {/* 「加入交流群」放在「收藏项目」左边：两个都是「去别处」的动作，
+                  排在同一行比散在更新日志页脚更好找。用 outline 而不是 link 变体 ——
+                  这一行是按钮组，两枚按钮同款才不显得一主一次 */}
+              <Button
+                type='button'
+                size='sm'
+                variant='outline'
+                title={t('QQ 群 / Telegram / Discord 都在这里')}
+                onClick={() => setQqGroupOpen(true)}
+              >
+                {t('加入交流群')}
+              </Button>
               <Button
                 id='btn-update-favorite'
                 type='button'
@@ -1149,7 +1165,7 @@ function UpdatePanel() {
             <span className='update-log-meta' id='update-log-meta'>{logMeta}</span>
           </div>
           <div className='update-log-body' id='update-log-body'>
-            {changelogCard(snap, () => setQqGroupOpen(true))}
+            {changelogCard(snap)}
           </div>
         </div>
       </CardContent>
@@ -1166,7 +1182,7 @@ function UpdatePanel() {
           }}
         />
       ) : null}
-      {/* 「加入 QQ 群」：二维码 + 群号（图在项目仓库里，见 update-shared.ts 的说明） */}
+      {/* 「加入交流群」：QQ 群号（可复制）+ Telegram / Discord 外链 */}
       {qqGroupOpen ? <QqGroupDialog open onClose={() => setQqGroupOpen(false)} /> : null}
     </Card>
   )

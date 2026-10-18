@@ -210,6 +210,7 @@ export {
 } from './message'
 
 export {
+  SheetBody,
   Sheet,
   SheetTrigger,
   SheetClose,

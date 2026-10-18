@@ -1,6 +1,6 @@
 # AIBuddy Panel · 多提供商 AI 网关
 
-基于 [agent2api](https://github.com/aimod-cc/agent2api) 的定制版本。当前源码整合上游 **3.0.8 + beta**（`4f0040f`），保留 AIBuddy Panel 品牌、账号池、任务中心、本地 AI 助手与数据策略。
+基于 [agent2api](https://github.com/Agent2API/agent2api) 的定制版本。当前源码整合上游 **3.1.0**（`072e3c7`，beta 整合中），保留 AIBuddy Panel 品牌、账号池、任务中心、本地 AI 助手与数据策略。
 
 **简体中文** | [English](docs/README.en.md) | [繁體中文](docs/README.zh-Hant.md) | [日本語](docs/README.ja.md) | [한국어](docs/README.ko.md) | [Português (BR)](docs/README.pt-BR.md)
 
@@ -24,7 +24,14 @@ API Key: 面板创建的网关 Key
 
 在「接入文档」查看 Chat Completions、Responses、Messages 端点和模型映射。账号池可添加桌面登录态、凭证文件、预置 API 或自定义提供商；具体登录方式与能力以提供商为准。
 
-## 本轮新增
+## 手机端与 Agent
+
+- 移动网页 / PWA：访问网关的 `/m.html`，应用名称与图标使用 AIBuddy Panel。PWA 安装需要浏览器支持的安全上下文。
+- Android：在 GitHub Actions 的 `android` 工作流生成测试 APK 和未签名 Release APK。本机保留独立正式签名，不上传私钥。debug 使用独立 `.debug` 包名，不能当作正式签名版本覆盖升级。
+- Agent：读取网关所在机器的 AI 客户端配置；写入需管理员会话、明确选择网关 Key 和手动确认。备份失败停止写入，Gemini 配置与 `.env` 一起备份还原，预览隐藏凭据。
+- 旅行和成长任务共用原有持久化队列，保留已有开关；批量签到后自动补签、兑换档位并使用已有抽奖次数。
+
+## 已保留的 3.0.8 定制能力
 
 - Accio ADK v2：补齐登录会话、SecurityGuard 桥接、ID 与上下文、工具历史恢复、图片解析、条件 gzip、完整 SSE event 与脱敏诊断。
 - 小浣熊、CatPaw、Cline 凭据文件导入；KukuAI Cookies SQLite 文件导入。

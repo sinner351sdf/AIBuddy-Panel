@@ -136,10 +136,11 @@ function applyZoom(percent) {
 // ─── 页面导航 ────────────────────────────────
 
 const PAGE_KEY = 'workbuddy-desktop-page';
-const PAGES = ['assistant', 'overview', 'accounts', 'checkin', 'credits', 'gateway', 'proxies', 'keys', 'docs', 'logs', 'tasks', 'requests', 'settings'];
+const PAGES = ['agent', 'assistant', 'overview', 'accounts', 'checkin', 'credits', 'gateway', 'proxies', 'keys', 'docs', 'logs', 'tasks', 'requests', 'settings'];
 /** 页签中文名：顶栏面包屑用。overview 的用户可见名是「报表」、gateway 的是「模型管理」
  *  （内部标识保持不变：localStorage 记忆、showPage 与 CSS 的 [data-page] 选择器都依赖它） */
 const PAGE_LABELS = {
+  agent: wbI18n.t('Agent'),
   assistant: wbI18n.t('AI 助手'),
   overview: wbI18n.t('报表'),
   accounts: wbI18n.t('账号'),
@@ -215,8 +216,14 @@ function showPage(name, { persist = true } = {}) {
   // 账号页被加过 / 改过 / 删过（提供商记录与它的模型清单），而这一页的数据是
   // 自持的、不随主状态轮询更新。两件事（自定义目录 + 内置清单）都在面板里，
   // 这里只转发 —— 它自己保证「切页这次刷新一定落地」。
+  if (page === 'agent') { void window.wbAgentPanel?.load?.(); }
   if (page === 'gateway') {
     void window.wbModelsPanel?.refreshAll?.();
+  }
+  // Agent 页自持客户端清单与配置，切进去时拉一次最新（配置文件可能被
+  // 客户端自己改过、也可能刚在别的窗口里被别的工具改过）
+  if (page === 'agent') {
+    void window.wbAgentPanel?.load?.();
   }
   // 网络代理页自持清单（代理池），切进去时拉一次最新：别的窗口 / 别的页面
   // （账号弹窗里改过引用）都可能让它变过。面板内部保证「这次刷新一定落地」

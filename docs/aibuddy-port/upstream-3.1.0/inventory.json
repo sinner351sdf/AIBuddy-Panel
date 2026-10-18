@@ -1,0 +1,1566 @@
+[
+  {
+    "path": ".agents/skills/release-flow/SKILL.md",
+    "action": "retain-local"
+  },
+  {
+    "path": ".github/FUNDING.yml",
+    "action": "upstream"
+  },
+  {
+    "path": ".github/secret_scanning.yml",
+    "action": "retain-local"
+  },
+  {
+    "path": ".github/workflows/build.yml",
+    "action": "conflict"
+  },
+  {
+    "path": ".github/workflows/frontend-artifacts.yml",
+    "action": "upstream"
+  },
+  {
+    "path": ".gitignore",
+    "action": "conflict"
+  },
+  {
+    "path": "AGENTS.md",
+    "action": "retain-local"
+  },
+  {
+    "path": "LICENSE",
+    "action": "upstream"
+  },
+  {
+    "path": "README.md",
+    "action": "conflict"
+  },
+  {
+    "path": "agent.md",
+    "action": "retain-local"
+  },
+  {
+    "path": "build/make-icon.mjs",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/accounts.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/agent.json",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/assistant.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/checkin.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/common.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/docs.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/keys.json",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/logs.json",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/models.json",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/proxies.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/report.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/requests.json",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/settings.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/tasks.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/en/update.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/accounts.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/agent.json",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/assistant.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/checkin.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/common.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/docs.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/keys.json",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/logs.json",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/models.json",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/proxies.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/report.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/requests.json",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/settings.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/tasks.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ja/update.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/accounts.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/agent.json",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/assistant.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/checkin.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/common.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/docs.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/keys.json",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/logs.json",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/models.json",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/proxies.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/report.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/requests.json",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/settings.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/tasks.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/ko/update.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/accounts.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/agent.json",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/assistant.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/checkin.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/common.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/docs.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/keys.json",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/logs.json",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/models.json",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/proxies.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/report.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/requests.json",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/settings.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/tasks.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/pt-BR/update.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/accounts.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/agent.json",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/assistant.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/checkin.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/common.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/docs.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/keys.json",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/logs.json",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/models.json",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/proxies.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/report.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/requests.json",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/settings.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/tasks.json",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/i18n/i18n-src/zh-Hant/update.json",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/i18n/scan.mjs",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/.gitignore",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/.gitignore",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/build.gradle",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/capacitor.build.gradle",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/proguard-rules.pro",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/androidTest/java/com/getcapacitor/myapp/ExampleInstrumentedTest.java",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/AndroidManifest.xml",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/java/com/agent2api/mobile/MainActivity.java",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/drawable-land-hdpi/splash.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/drawable-land-mdpi/splash.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/drawable-land-xhdpi/splash.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/drawable-land-xxhdpi/splash.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/drawable-land-xxxhdpi/splash.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/drawable-port-hdpi/splash.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/drawable-port-mdpi/splash.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/drawable-port-xhdpi/splash.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/drawable-port-xxhdpi/splash.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/drawable-port-xxxhdpi/splash.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/drawable/ic_launcher_background.xml",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/drawable/splash.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/layout/activity_main.xml",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/mipmap-hdpi/ic_launcher.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/mipmap-mdpi/ic_launcher.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/values/ic_launcher_background.xml",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/values/strings.xml",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/values/styles.xml",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/xml/file_paths.xml",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/main/res/xml/network_security_config.xml",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/app/src/test/java/com/getcapacitor/myapp/ExampleUnitTest.java",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/build.gradle",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/capacitor.settings.gradle",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/gradle.properties",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/gradle/wrapper/gradle-wrapper.jar",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/gradle/wrapper/gradle-wrapper.properties",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/gradlew",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/gradlew.bat",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/keystore.properties.example",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/settings.gradle",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/android/variables.gradle",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/apk.html",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/capacitor.config.ts",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/package-lock.json",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/package.json",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/public/manifest.webmanifest",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/public/sw.js",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/App.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/api/auth.ts",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/api/client.ts",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/api/gateway.ts",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/components/Icon.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/components/NavBar.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/components/ProviderLogo.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/components/PwaNotice.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/components/Shell.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/components/ui.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/i18n.ts",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/lib/format.ts",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/lib/providerFacts.ts",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/lib/providers.ts",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/lib/pwa.ts",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/lib/servers.ts",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/lib/usePolling.ts",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/lib/usePwa.ts",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/main.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/pages/AccountSheet.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/pages/AccountsPage.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/pages/AgentPage.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/pages/AssistantPage.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/pages/CheckinPage.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/pages/DocsPage.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/pages/HomePage.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/pages/KeysPage.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/pages/LoginPage.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/pages/LogsPage.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/pages/ModelsPage.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/pages/MorePage.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/pages/ProxiesPage.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/pages/ReportPage.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/pages/RequestsPage.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/pages/ServersPage.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/pages/SettingsPage.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/pages/TasksPage.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/state/store.ts",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/src/styles/mobile.css",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/tsconfig.json",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/mobile/vite.config.ts",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/package.json",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/Cargo.lock",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/Cargo.toml",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/nsis-template.nsi",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/Cargo.toml",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/bin/agent2api-server.rs",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/bin/service.rs",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/access.rs",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/agents.rs",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/assistant.rs",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/checkin_center.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/growth_schedule.rs",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/mod.rs",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/onboarding.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/api/stats_api.rs",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/config/assistant_config.rs",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/chatglm_accounts.rs",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/store_admin.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/account_store/store_view.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/agents/apply.rs",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/agents/discover.rs",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/agents/mod.rs",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/assistant_sessions.rs",
+    "action": "retain-local"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/auth.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/billing/checkin.rs",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/credential_maintenance.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/growth_scheduler.rs",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/mod.rs",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/model_rules/mod.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/model_rules/workbuddy.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/models/mod.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/protocol/chatglm_stream.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/adapter.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/antigravity/models.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/catalog/routing.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/catalog/view.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/adapter.rs",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/balance.rs",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/checkin.rs",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/credentials.rs",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/endpoints.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/live_tests.rs",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/mod.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/models.rs",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/plan.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/chatglm/tasks.rs",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/codearts/models.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/mod.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/qoder/models.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/raccoon/models.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/workbuddy/adapter.rs",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/workbuddy/growth/mod.rs",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/workbuddy/growth/streak.rs",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/providers/workbuddy/growth/travel.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/update/version.rs",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/provider_loop.rs",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/core/upstream/translate.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/db/schema.rs",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/http.rs",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/logging.rs",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/mod.rs",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/server/request_stats/report.rs",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/server/src/web_shim.rs",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/src/bridge.rs",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/src-tauri/tauri.conf.json",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-credit-detail.tsx",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-domain.ts",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-page.tsx",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-panels.tsx",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/accounts-shared.ts",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/agent-editor.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/agent-page.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/agent-preview.tsx",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/agent-state.ts",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/assistant-page.tsx",
+    "action": "retain-local"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/assistant-state.ts",
+    "action": "retain-local"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/assistant-tools.ts",
+    "action": "retain-local"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/checkin-page.tsx",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/checkin-schedule-tab.tsx",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/checkin-state.ts",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/models-custom-source.ts",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/models-page.tsx",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/models-panel-state.ts",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/proxies-page.tsx",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/proxies-sub-state.ts",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/proxies-sub-view.tsx",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/report-charts.ts",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/report-page.tsx",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/settings-model.ts",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/settings-page.tsx",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/settings-state.ts",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/update-panel.tsx",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/update-qq-group.tsx",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/ui-islands/src/islands/update-shared.ts",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/ui-kit/src/index.ts",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/ui-kit/src/sheet.tsx",
+    "action": "add-add-review"
+  },
+  {
+    "path": "desktop-tauri/ui/app.js",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/agents/claude-code.svg",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/agents/cline.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/agents/codex.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/agents/crush.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/agents/cursor-cli.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/agents/gemini-cli.svg",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/agents/kimi-code.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/agents/opencode.svg",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/agents/qoder.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/agents/workbuddy.svg",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/agents/zcode.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/agents/zed.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/app-icon-maskable-512.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/providers/chatglm.png",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui/assets/qq-group/1127656296.jpg",
+    "action": "retain-deletion-review"
+  },
+  {
+    "path": "desktop-tauri/ui/css/layout.css",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/ui/css/mobile.css",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/ui/css/page-accounts-table.css",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/ui/css/page-agent.css",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui/css/page-assistant.css",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/ui/css/page-gateway.css",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/ui/css/tokens.css",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/ui/css/update-notes.css",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/accounts.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/agent.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/assistant.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/checkin.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/common.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/models.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/report.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/settings.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/en/update.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/accounts.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/agent.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/assistant.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/checkin.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/common.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/models.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/report.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/settings.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ja/update.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/accounts.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/agent.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/assistant.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/checkin.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/common.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/models.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/report.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/settings.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/ko/update.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/manifest.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/accounts.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/agent.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/assistant.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/checkin.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/common.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/models.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/report.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/settings.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/pt-BR/update.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/accounts.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/agent.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/assistant.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/checkin.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/common.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/docs.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/keys.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/logs.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/models.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/proxies.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/report.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/requests.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/settings.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/tasks.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/i18n/zh-Hant/update.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/icons.js",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/ui/index.html",
+    "action": "conflict"
+  },
+  {
+    "path": "desktop-tauri/ui/islands/ui.css",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/islands/ui.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/login.html",
+    "action": "merged"
+  },
+  {
+    "path": "desktop-tauri/ui/m.html",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui/m/manifest.webmanifest",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/m/mobile.css",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/m/mobile.js",
+    "action": "regenerate"
+  },
+  {
+    "path": "desktop-tauri/ui/sw.js",
+    "action": "add"
+  },
+  {
+    "path": "desktop-tauri/ui/table-columns.js",
+    "action": "upstream"
+  },
+  {
+    "path": "desktop-tauri/ui/units.js",
+    "action": "upstream"
+  },
+  {
+    "path": "docs/README.en.md",
+    "action": "conflict"
+  },
+  {
+    "path": "docs/README.ja.md",
+    "action": "conflict"
+  },
+  {
+    "path": "docs/README.ko.md",
+    "action": "conflict"
+  },
+  {
+    "path": "docs/README.pt-BR.md",
+    "action": "conflict"
+  },
+  {
+    "path": "docs/README.zh-Hant.md",
+    "action": "conflict"
+  },
+  {
+    "path": "docs/SPONSOR.md",
+    "action": "merged"
+  },
+  {
+    "path": "docs/install.en.md",
+    "action": "add"
+  },
+  {
+    "path": "docs/install.ja.md",
+    "action": "add"
+  },
+  {
+    "path": "docs/install.ko.md",
+    "action": "add"
+  },
+  {
+    "path": "docs/install.md",
+    "action": "add"
+  },
+  {
+    "path": "docs/install.pt-BR.md",
+    "action": "add"
+  },
+  {
+    "path": "docs/install.zh-Hant.md",
+    "action": "add"
+  },
+  {
+    "path": "package.json",
+    "action": "upstream"
+  },
+  {
+    "path": "packaging/linux/agent2api.env.example",
+    "action": "add"
+  },
+  {
+    "path": "packaging/linux/agent2api.service",
+    "action": "add"
+  },
+  {
+    "path": "packaging/linux/install.sh",
+    "action": "add"
+  },
+  {
+    "path": "packaging/windows/install-service.ps1",
+    "action": "add"
+  },
+  {
+    "path": "scripts/release.sh",
+    "action": "conflict"
+  }
+]

@@ -86,6 +86,7 @@ export async function gatewayBase(force = false): Promise<string> {
  *  映射名都行），不再是「提供商 + 模型」的组合 —— 助手的路由语义与普通客户端
  *  完全一致，同名在多家时按账号优先级主备。 */
 export type AssistantConfig = {
+  reasoning?: string | null
   model: string | null
   systemPromptEnabled: boolean
   systemPrompt: string
@@ -215,6 +216,7 @@ export async function loadAssistantConfig(): Promise<AssistantConfig> {
     : (config.model as { id?: unknown } | null)?.id
   const normalized: AssistantConfig = {
     model: typeof model === 'string' && model.trim() ? model : null,
+    reasoning: typeof config.reasoning === 'string' ? config.reasoning : null,
     systemPromptEnabled: config.systemPromptEnabled !== false,
     systemPrompt: typeof config.systemPrompt === 'string' ? config.systemPrompt : '',
     tools: config.tools && typeof config.tools === 'object' ? config.tools : {},

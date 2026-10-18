@@ -4,7 +4,7 @@ import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 import { getToolName, isToolUIPart, type UIMessage } from 'ai'
 import { CheckIcon, CopyIcon, RefreshCcwIcon, SparklesIcon, WrenchIcon } from 'lucide-react'
-import { Alert, AlertDescription, Badge, Bubble, BubbleContent, Button, CodeBlock, CodeBlockContent, Empty, EmptyDescription, EmptyHeader, EmptyTitle, Item, ItemActions, ItemContent, ItemDescription, ItemTitle, Message, MessageContent, MessageFooter, MessageScrollerProvider, MessageScroller, MessageScrollerViewport, MessageScrollerContent, MessageScrollerItem, MessageScrollerButton, Spinner, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Trace, TraceCollapsible, TraceCollapsibleContent, TraceCollapsibleTrigger, TraceDescription, TraceIcon, TraceLine, TraceTitle } from '@ui'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem, Alert, AlertDescription, Badge, Bubble, BubbleContent, Button, CodeBlock, CodeBlockContent, Empty, EmptyDescription, EmptyHeader, EmptyTitle, Item, ItemActions, ItemContent, ItemDescription, ItemTitle, Message, MessageContent, MessageFooter, MessageScrollerProvider, MessageScroller, MessageScrollerViewport, MessageScrollerContent, MessageScrollerItem, MessageScrollerButton, Spinner, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Trace, TraceCollapsible, TraceCollapsibleContent, TraceCollapsibleTrigger, TraceDescription, TraceIcon, TraceLine, TraceTitle } from '@ui'
 import { ChatAttachment, PromptInput } from '../components/ai-elements/prompt-input'
 import { t } from '../i18n'
 import { useAssistantChat, type ToolView } from './assistant-chat'
@@ -132,7 +132,11 @@ function AssistantPage() {
       {!chat.messages.length && <div className='asst-suggestions' aria-label={t('快捷问题')}>
         {[{ title: t('查找重复模型'), prompt: t('看看哪些模型在多家重复了') }, { title: t('查看账号余额'), prompt: t('查看各账号的剩余额度') }, { title: t('分析文件'), prompt: t('请帮我分析附件中的内容') }, { title: t('检查网关配置'), prompt: t('帮我检查当前网关配置，先给出建议，不要修改。') }].map(({ title, prompt }) => <Button key={title} variant='outline' size='sm' aria-label={prompt} onClick={() => { setDraft(prompt); document.querySelector<HTMLTextAreaElement>('.page[data-page="assistant"] textarea')?.focus() }}>{title}</Button>)}
       </div>}
-      <PromptInput key={composerKey} value={draft} onChange={setDraft} onFilesChange={setDraftFiles} disabled={locked} busy={chat.busy} awaiting={chat.awaiting} onStop={chat.stop} model={<div className='flex min-w-0 flex-wrap items-center gap-1'>{modelPicker}<AssistantContextPopover config={config} model={models.find(model => model.id === config?.model)} messages={chat.messages} draft={draft} files={draftFiles} /><AssistantToolsPopover config={config} /></div>} onSend={async ({ text, files }) => {
+      <PromptInput key={composerKey} value={draft} onChange={setDraft} onFilesChange={setDraftFiles} disabled={locked} busy={chat.busy} awaiting={chat.awaiting} onStop={chat.stop} model={<div className='flex min-w-0 flex-wrap items-center gap-1'>{modelPicker}<Select value={config?.reasoning || 'default'} disabled={locked} onValueChange={level => {
+        setSavingModel(true); void saveAssistantConfig({ reasoning: level === 'default' ? null : level }).catch(error => setStatus(errorText(error))).finally(() => setSavingModel(false))
+      }}><SelectTrigger aria-label={t('思考等级')} className='w-auto'><SelectValue /></SelectTrigger><SelectContent><SelectGroup>
+        {['default','none','minimal','low','medium','high','xhigh','max'].map(level => <SelectItem key={level} value={level}>{level === 'default' ? t('默认思考等级') : level}</SelectItem>)}
+      </SelectGroup></SelectContent></Select><AssistantContextPopover config={config} model={models.find(model => model.id === config?.model)} messages={chat.messages} draft={draft} files={draftFiles} /><AssistantToolsPopover config={config} /></div>} onSend={async ({ text, files }) => {
         if (locked) return false
         if (chat.messages.length >= 198) { setStatus(t('这段对话已达到消息上限，请新建对话后继续。')); return false }
         if (!config?.model) { setStatus(t('请先选择对话模型，输入的内容会保留。')); return false }

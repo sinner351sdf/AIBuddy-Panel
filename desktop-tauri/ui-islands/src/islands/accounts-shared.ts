@@ -136,6 +136,16 @@ export type AccountRecord = {
   hasCodingToken?: boolean
   zcodePlanAutoSupported?: boolean
   hasRefreshToken?: boolean
+  /**
+   * 后端判定「这个账号的登录态已被上游注销，只能重新登录」（issue #215）。
+   *
+   * 连续多次刷新都收到 `12153:refresh token is invalid` 时由刷新链路落标记。
+   * 这类账号的 refresh token 链已经死了，再刷新不会好，凭证维护也会跳过它 ——
+   * 界面必须说出来，否则用户只会看到「刷新一直失败」而不知道该怎么办。
+   */
+  needsRelogin?: boolean
+  /** 与 `needsRelogin` 成对：后端给出的原因文案（为空表示没有标记）。 */
+  needsReloginReason?: string
   hasBalanceToken?: boolean
   /**
    * 自定义账号：记录里有没有非空 `apiKey`（设置弹窗据此决定输入框的提示文案与

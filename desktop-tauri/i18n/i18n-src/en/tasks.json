@@ -42,5 +42,18 @@
   "间隔不能为空（可填 {min}–{max} {unit}）": "Interval cannot be empty (allowed: {min}–{max} {unit})",
   "间隔必须在 {min}–{max} {unit} 之间（当前填的是 {value}）": "Interval must be between {min} and {max} {unit} (currently {value})",
   "间隔必须是整数": "Interval must be an integer",
-  "定期拉取最新模型清单，重启沿用排期与缓存。客户端读取模型列表的后台刷新也遵守本任务开关、间隔和失败冷却；手动获取模型可提前刷新。同一轮顺带刷新 models.dev 模型元数据（能力位与思考档位，可在设置页单独关闭）。": "Periodically fetches the latest model list; the schedule and cache carry over across restarts. The background refresh when clients read the model list also respects this task's toggle, interval, and failure cooldown; a manual model fetch can refresh ahead of schedule. The same round also refreshes the models.dev model metadata (capability flags and reasoning tiers, which can be turned off separately on the Settings page)."
+  "定期拉取最新模型清单，重启沿用排期与缓存。客户端读取模型列表的后台刷新也遵守本任务开关、间隔和失败冷却；手动获取模型可提前刷新。同一轮顺带刷新 models.dev 模型元数据（能力位与思考档位，可在设置页单独关闭）。": "Periodically fetches the latest model list; the schedule and cache carry over across restarts. The background refresh when clients read the model list also respects this task's toggle, interval, and failure cooldown; a manual model fetch can refresh ahead of schedule. The same round also refreshes the models.dev model metadata (capability flags and reasoning tiers, which can be turned off separately on the Settings page).",
+  "「{name}」已执行": "",
+  "分": "",
+  "可填 {min}–{max} {unit}": "",
+  "后台任务": "",
+  "已{action}「{name}」": "",
+  "已更新间隔": "",
+  "开启": "",
+  "改间隔": "",
+  "每 {n} {unit}": "",
+  "没有后台任务": "",
+  "间隔必须是 {min}–{max} 的整数": "",
+  "页面刷新由浏览器执行，只在页面打开时生效": "",
+  "页面自动刷新": ""
 }

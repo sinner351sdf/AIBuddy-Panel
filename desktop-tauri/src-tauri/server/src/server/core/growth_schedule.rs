@@ -85,6 +85,9 @@ fn minutes(text: &str) -> Option<u32> {
 }
 fn slots(c: &Value, kind: &str) -> Vec<u32> {
     if kind == "travel" {
+        if let Some(times) = c.get("travelTimes").and_then(Value::as_array) {
+            return times.iter().filter_map(|t| t.as_str().and_then(minutes)).collect();
+        }
         c.get("travelHours")
             .and_then(Value::as_array)
             .into_iter()
@@ -175,7 +178,14 @@ pub fn write_config(patch: &Value) -> Result<Value, String> {
             c[key] = json!(t);
         }
     }
+    if let Some(times) = patch.get("travelTimes") {
+        let times = times.as_array().filter(|a| !a.is_empty() && a.len() <= 6).ok_or("旅行时刻需为1–6项")?;
+        let mut parsed = Vec::new();
+        for time in times { parsed.push(super::auto_checkin::normalize_time(Some(time)).map_err(|e| e.message)?); }
+        parsed.sort(); parsed.dedup(); c["travelTimes"] = json!(parsed);
+    }
     if let Some(hours) = patch.get("travelHours") {
+        c.as_object_mut().map(|o| o.remove("travelTimes"));
         let a = hours.as_array().ok_or("travelHours必须是小时数组")?;
         let mut parsed = Vec::new();
         for h in a {

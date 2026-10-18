@@ -165,7 +165,7 @@ try {
 
   assert.equal(document.body.classList.contains('shell-collapsed'), true, 'restore the existing collapsed storage key')
   assert.equal(trigger().getAttribute('aria-expanded'), 'false')
-  assert.equal(document.querySelectorAll('#nav .nav-item[data-page]').length, 13, 'collapsed rail renders all routes including the assistant')
+  assert.equal(document.querySelectorAll('#nav .nav-item[data-page]').length, 14, 'collapsed rail renders all routes including the assistant')
   assert.equal(group('forward').getAttribute('aria-expanded'), 'true')
   assert.equal(localStorage.getItem('nav-group-forward'), 'closed', 'rail expansion must not overwrite the saved group state')
   assert.equal(document.querySelector('#shell-sidebar #sidebar-user'), account)
@@ -306,7 +306,7 @@ try {
   assert.equal(statusButton.textContent, '2', 'the retained status React root remains interactive')
   await act(() => retainedRoots.forEach(root => root.unmount()))
   retainedRoots = []
-  console.log('PASS: real shell navigation: 12 routes, collapsed persistence/cookie, keyboard editing and overlay guards, group persistence/active reveal, badge handle retention, theme bridge, 1000px mobile Sheet and retained live account/status roots')
+  console.log('PASS: real shell navigation: 14 routes, collapsed persistence/cookie, keyboard editing and overlay guards, group persistence/active reveal, badge handle retention, theme bridge, 1000px mobile Sheet and retained live account/status roots')
 } finally {
   if (fixture && retainedRoots.length) await fixture.React.act(async () => retainedRoots.forEach(root => root.unmount()))
   dom?.window.close()

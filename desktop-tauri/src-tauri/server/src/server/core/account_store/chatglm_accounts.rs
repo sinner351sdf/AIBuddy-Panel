@@ -14,9 +14,13 @@
 //! ── 记录里的字段 ────────────────────────────────────────────
 //! ```text
 //! { id, provider: "chatglm", name, uid, loginName(=昵称),
-//!   auth: { accessToken, refreshToken }, tokenTail,
+//!   accessToken, refreshToken, tokenTail,
 //!   deviceId, isGuest, source, priority, enabled, addedAt, updatedAt }
 //! ```
+//! 令牌在**顶层**（全仓的存储契约，理由见 `add_chatglm_account` 里那段注释）；
+//! 嵌套 `auth.accessToken` 是**会话形态**（`StoreView::to_session` 的产物），
+//! 不是记录形态。
+//!
 //! `deviceId` 必须落盘：它是**身份的一部分**（服务端把设备号写进 JWT，
 //! 访客身份按它分配 —— 每次现随机就是每次换身份，见 `credentials` 的模块头）。
 //! `refreshToken` 也要落：续期与新访客的失效恢复都靠它。
@@ -149,17 +153,23 @@ impl AccountStore {
             "loginName".to_string(),
             Value::String(nickname.clone()),
         );
-        // 令牌成对落 `auth`（与各家同一形态：`auth.accessToken` 是转发读的那一格）
-        let mut auth = Map::new();
-        auth.insert(
+        // ── 令牌落**顶层** `accessToken` / `refreshToken`（不是嵌套 auth）─────
+        // 全仓的凭证约定是顶层键：`StoredAccount::access_token()` 只读顶层
+        // `accessToken`，而 `has_credentials()`（转发选路 / 余额查询 / 本轮行
+        // 的 `hasCredentials` 三处的统一判据）正是建立在它之上。
+        // 落进嵌套 `auth` 的后果是**静默吞掉一整家**：账号导入成功、目录也拉得到，
+        // 但 `/v1/models` 里一个模型都没有、余额报「没有可用凭证」、点名转发报
+        // 没有可用账号 —— 与 `state.rs::has_officeace_key` 那段注释描述的同款症状。
+        // 参考实现（`Acainkao` 那套）读的是 `auth.accessToken`，本仓的存储契约
+        // 不是它，别照抄。
+        record.insert(
             "accessToken".to_string(),
             Value::String(credentials.access_token.clone()),
         );
-        auth.insert(
+        record.insert(
             "refreshToken".to_string(),
             Value::String(credentials.refresh_token.clone()),
         );
-        record.insert("auth".to_string(), Value::Object(auth));
         let tail_source = if !credentials.access_token.is_empty() {
             &credentials.access_token
         } else {
@@ -227,22 +237,19 @@ impl AccountStore {
             return Err(AccountStoreError::new("智谱清言凭证已变化，拒绝用旧续期结果覆盖", 409));
         }
         let mut merged = record.fields().clone();
-        let mut auth = merged
-            .get("auth")
-            .and_then(Value::as_object)
-            .cloned()
-            .unwrap_or_default();
-        auth.insert(
+        merged.insert(
             "accessToken".to_string(),
             Value::String(access_token.to_string()),
         );
         if !refresh_token.trim().is_empty() {
-            auth.insert(
+            merged.insert(
                 "refreshToken".to_string(),
                 Value::String(refresh_token.to_string()),
             );
         }
-        merged.insert("auth".to_string(), Value::Object(auth));
+        // 历史上若把令牌写在嵌套 `auth` 里，一并清掉（避免两处不一致时
+        // 哪个是权威变成看运气）
+        merged.remove("auth");
         merged.insert(
             "tokenTail".to_string(),
             Value::String(token_tail_of(access_token)),
@@ -275,11 +282,89 @@ mod local_regressions {
         store.add_chatglm_account(&imported, Some("renamed"), "manual").unwrap();
         assert_eq!(store.update_chatglm_tokens(id, "late-access", "late-refresh", &original).unwrap_err().status_code, 409);
         let row = store.chatglm_account_record(id).unwrap();
-        assert_eq!(row["auth"]["accessToken"], imported.access_token);
+        assert_eq!(crate::server::core::providers::chatglm::credentials::from_record(Some(&row)).unwrap().access_token, imported.access_token);
         let guard = store.guard();
         store.with_conn(&guard, |conn| conn.execute("DELETE FROM accounts WHERE id=?1", [id]).map(|_| ())).unwrap();
         drop(guard);
         assert_eq!(store.update_chatglm_tokens(id, "late-access", "late-refresh", &imported).unwrap_err().status_code, 404);
         assert!(store.chatglm_account_record(id).is_none());
     }
+}
+
+pub(crate) fn migrate_nested_tokens(accounts: &mut [StoredAccount]) -> usize {
+    let mut healed = 0usize;
+    for record in accounts.iter_mut() {
+        if record.provider() != chatglm_id() {
+            continue;
+        }
+        // 先把要读的东西**全部克隆成自有值**再改：`record.get` 是共享借用，
+        // 与后面的 `record.set` / `record.remove`（可变借用）不能同时活着
+        // （与 `clear_rate_limit` / `migrate_rate_limit_keys` 同一处置）。
+        let Some(nested) = record.get("auth").and_then(Value::as_object).cloned() else {
+            continue;
+        };
+        // 嵌套里有没有值得搬的令牌（只认这两枚键）
+        let nested_token = |key: &str| -> Option<String> {
+            nested
+                .get(key)
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+        };
+        let nested_access = nested_token("accessToken");
+        let nested_refresh = nested_token("refreshToken");
+        // 顶层已有的值不动：写入侧已按新约定落过，那份比旧壳里的更可信
+        let top_access = record
+            .get("accessToken")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .unwrap_or("")
+            .to_string();
+        let top_refresh = record
+            .get("refreshToken")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .unwrap_or("")
+            .to_string();
+        let mut changed = false;
+        if top_access.is_empty() {
+            if let Some(token) = nested_access.as_ref() {
+                record.set("accessToken", Value::String(token.clone()));
+                changed = true;
+            }
+        }
+        if top_refresh.is_empty() {
+            if let Some(token) = nested_refresh.as_ref() {
+                record.set("refreshToken", Value::String(token.clone()));
+                changed = true;
+            }
+        }
+        // 空壳才删：`auth` 里除了这两枚令牌没别的东西
+        let only_tokens = nested
+            .keys()
+            .all(|key| key == "accessToken" || key == "refreshToken");
+        if only_tokens {
+            record.remove("auth");
+            changed = true;
+        }
+        if !changed {
+            continue;
+        }
+        // 尾段跟着新令牌重算（原实现也是从令牌算的；顶层一旦补齐，界面读的就是它）
+        let tail_source: &str = if !top_access.is_empty() {
+            &top_access
+        } else {
+            nested_access
+                .as_deref()
+                .or(nested_refresh.as_deref())
+                .unwrap_or("")
+        };
+        if !tail_source.is_empty() {
+            record.set("tokenTail", Value::String(token_tail_of(tail_source)));
+        }
+        record.set_updated_at(logging::now_ms());
+        healed += 1;
+    }
+    healed
 }

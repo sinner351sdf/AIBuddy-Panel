@@ -442,6 +442,14 @@ pub fn kv_get(key: &str) -> Option<String> {
     .flatten()
 }
 
+/// Checked persistence for configuration writes that must never report success after a disk failure.
+pub fn kv_put_checked(key: &str, value: &str) -> Result<(), String> {
+    let db=db().ok_or("数据库不可用")?;
+    db.with_mut(|conn| conn.execute("INSERT INTO kv(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",rusqlite::params![key,value]))
+        .ok_or("数据库锁不可用")?.map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 /// 写一个 kv 固定键（upsert）。调用方只传「RESERVED_KV_KEYS 里登记过的
 /// 固定名」—— 配置写入按那个集合排除，这里写错键会被一次配置改动删掉。
 pub fn kv_put(key: &str, value: &str) {
@@ -824,6 +832,27 @@ pub fn session_valid(headers: &HeaderMap) -> bool {
         }
         None => false,
     }
+}
+
+/// 请求里是否带了**任何**凭证候选（会话 cookie 的任一段、`x-panel-token`、
+/// `x-panel-refresh`、`Authorization: Bearer`、`x-api-key`）。
+///
+/// ── 为什么需要这个判据 ──────────────────────────────────────
+/// 「面板会话无效」那一行原先对所有 401 一视同仁，但其中两种情形的含义完全不同：
+///   · **什么都没带** —— 浏览器第一次打开面板、登录页每次加载的 `/api/session`
+///     探测。这是正常未登录，不是安全事件；而主界面首屏一次会并发十几条
+///     `/api/*`，按 error 记等于把正常流程刷成一屏红字，还会顶起侧栏的未读
+///     错误徽标、把 500 条的日志表挤满。
+///   · **带了但对不上** —— 罐里的僵尸 cookie、重放、Key 配错。这才是要报的。
+///
+/// 判据只看「有没有候选」，不看值对不对 —— 值对不对正是那行日志在记的内容。
+///
+/// 探针 cookie（`PROBE_COOKIE`）**不算**凭证：它不关联任何会话，登录前就会被
+/// 种下，把它算进来会让「未登录」全部误判成「带了凭证」。
+pub fn presents_credentials(headers: &HeaderMap) -> bool {
+    !access_candidates(headers).is_empty()
+        || !refresh_candidates(headers).is_empty()
+        || headers.contains_key("x-api-key")
 }
 
 /// 本次请求里能看到的 access 指纹（诊断日志用，最多两把 —— 排查「同名 cookie

@@ -1,0 +1,21 @@
+{
+  "scope": "beta integration; no 3.1 Release",
+  "upstream": "072e3c71d253cd6dc265f3656d8cb481dd7c9f84",
+  "rustLibrary": {
+    "passed": 839,
+    "failed": 0,
+    "ignored": 18
+  },
+  "isolated310Api": 51,
+  "existingAssistantApi": 69,
+  "existing308Api": 56,
+  "assistantHistoryMigration": "passed",
+  "desktopFrontend": "TypeScript + Vite passed",
+  "mobileFrontend": "TypeScript + Vite passed",
+  "shadcnCheck": "passed",
+  "nodeUiScripts": "passed",
+  "releaseScriptMockScenarios": 23,
+  "browser": "isolated empty-account gateway; mobile 390x844 login/home/assistant; desktop Agent; no real clients modified",
+  "android": "GitHub Actions; pending remote run; no local Android SDK compilation",
+  "production3065": "original process preserved"
+}

@@ -75,7 +75,7 @@
 /* Upstream content responsiveness; shell drawer remains the local shadcn implementation. */
 /* ═══ 内容区：留白收窄，面板贴住视口边 ═══ */
 @media (max-width: 767px) {
-  .content { padding: 12px 12px 20px; }
+  .content { padding: 10px 12px 0; }
 }
 
 /* ═══ 面板：标题 / 副题 / 动作区在窄屏重排 ═══
@@ -86,43 +86,44 @@
    纯 column 纵排会让「添加条目」「立即全部签到」这类按钮孤零零落到第三行、
    离标题很远，看不出它属于哪个面板。 */
 @media (max-width: 767px) {
+  /* 用 flex-wrap 而不是两列 grid：grid 的 `auto` 列会按动作区的**内容宽度**
+     参与分配，动作区一宽（概览页五档时间选择器实测 334px）就把 1fr 列压到
+     0px，标题「统计概览」逐字竖排。这在 381-767px 区间（平板 / 手机横屏 /
+     网页版窄窗口）稳定复现 —— 原来只在 ≤380px 兜底，中间是空档。
+     flex 下 .head-actions 用 margin-left:auto 靠右，放不下时自然折行。 */
   .panel-head {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     column-gap: 8px;
     row-gap: 6px;
     padding: 12px;
   }
-  /* 标题与问号同在第一行第一列（问号紧贴标题之后） */
-  .panel-head > h2 { grid-column: 1; grid-row: 1; min-width: 0; }
-  .panel-head > .tip-q { grid-column: 1; grid-row: 1; justify-self: end; }
-  /* 动作区（.head-actions）或裸按钮：第一行第二列，靠右。
-     但动作区很宽时（如概览页的五档时间选择器 202px）在 320px 屏上会
-     把标题挤成 20px 宽（竖排）—— 见下方 ≤430px 的整行下移规则。 */
+  /* 标题：占据剩余宽度，永不被压到 0 */
+  .panel-head > h2 { flex: 1 1 auto; min-width: 0; }
+  .panel-head > .tip-q { flex: 0 0 auto; }
+  /* 动作区：靠右；放不下时整组折到下一行（flex-wrap 负责） */
   .panel-head > .head-actions {
-    grid-column: 2; grid-row: 1;
-    margin-left: 0;
+    flex: 0 0 auto;
+    margin-left: auto;
     width: auto;
     min-width: 0;
     justify-content: flex-end;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }
   .panel-head > .head-actions > * { flex: 0 0 auto; }
   /* 裸按钮（没有 .head-actions 包裹的，如「添加条目」「立即全部签到」） */
-  .panel-head > button { grid-column: 2; grid-row: 1; justify-self: end; align-self: center; }
-  /* 副题说明：整行第二行，允许换行 */
+  .panel-head > button { flex: 0 0 auto; margin-left: auto; align-self: center; }
+  /* 副题说明：独占一行 */
   .panel-head > .panel-sub {
-    grid-column: 1 / -1; grid-row: 2;
+    flex: 1 1 100%;
     min-width: 0;
     white-space: normal;
   }
   /* 其它零星元素（标签、开关等）自然落到后续行 */
-  /* 通栏块：.mm-titlebar / .mm-filters 这类自带 width:100% 的行必须跨两列，
-     否则被塞进第一列（1fr）里，与右侧的 auto 列并存 → 宽度被压到 10px、
-     内容全竖排（模型管理页实测）。 */
+  /* 通栏块：.mm-titlebar / .mm-filters 这类自带 width:100% 的行独占一行 */
   .panel-head > .mm-titlebar,
-  .panel-head > .mm-filters { grid-column: 1 / -1; grid-row: auto; }
+  .panel-head > .mm-filters { flex: 1 1 100%; }
   .panel-body { padding: 12px; }
   .panel-foot { padding: 10px 12px; }
 }
@@ -142,6 +143,180 @@
   }
   .table-foot-size input,
   .table-foot-jump input { width: 54px; }
+}
+
+/* ═══ 账号页：筛选收进右侧抽屉（≤767px） ═══
+   桌面端工具条平铺四个筛选组（提供商 / 搜索 / 状态 / 限额）是合理的 —— 屏幕宽、
+   一屏能容下，平铺让「当前筛选状态」始终可见。手机上这四行要吃掉 190px
+   （812px 屏的近四分之一），首屏只剩一半给账号，且每行只有一个小控件。
+
+   改成：工具条只留「筛选」按钮 + 三个常用动作，四个筛选组移进右侧抽屉。
+   常用动作留在外面（折叠 / 添加账号 / 查询余额 是高频），不常用筛选收起。
+
+   ★ 桌面端零影响：抽屉标题栏（.acct-filter-head）、遮罩（.acct-filter-scrim）、
+   「筛选」按钮（.acct-filter-open）、角标（.acct-filter-badge）全部
+   display:none；.acct-filter-group 在桌面是 display:contents（不产生盒子，
+   子元素照旧参与 .toolbar 的 flex 排布），与改动前逐像素一致。
+
+   ★★ 层级：抽屉必须**低于**浮层（Select / Popover / Tooltip 都是 z 35），
+   否则抽屉里的下拉一展开就被抽屉自己盖住 —— 选项全在、点着没反应，看起来
+   就是「下拉没有值」（2026-10 实测：26 个提供商选项齐全，命中测试打到的是
+   抽屉的标签，不是选项）。
+   现有层级表：30 弹窗 / 35 浮层 / 38 确认框 / 40 toast / 50 抽屉 / 51 标题栏
+   / 52 抽屉内浮层兜底。抽屉整体压在 35 之下，抽屉里才会浮出下拉。 */
+
+/* 桌面端：这些元素不存在。
+   用 min-width 媒体查询限定「只在桌面隐藏」，而不是全局 display:none ——
+   全局写会让下面的小屏规则要靠 !important 才能覆盖回来。
+   !important 是必须的：组件库的 Button 自带 inline-flex 工具类
+   （Tailwind utilities 层带 !important，且 islands/ui.css 在本文件之后加载）。 */
+@media (min-width: 768px) {
+  .acct-filter-open,
+  .acct-filter-scrim,
+  .acct-filter-head { display: none; }
+}
+/* 桌面端：容器透明化，四个筛选组仍是 .toolbar 的直接 flex 子项 */
+.acct-filter-group { display: contents; }
+
+/* 断点写 767.98 而不是 767：某些环境（含测试用的浏览器视口）的实际宽度
+   是 767.0000x 这类浮点值，`max-width: 767px` 会在正好 767 时不匹配，
+   而 767.98 能覆盖到。真实设备 innerWidth 是整数，两种写法等价。 */
+@media (max-width: 767.98px) {
+  /* 「筛选」按钮：工具条第一行左侧，带生效条数角标 */
+  /* 原生 button：组件库 Button 的样式在这里手工补齐（outline 档的观感） */
+  .acct-filter-open {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 34px;
+    padding: 0 12px;
+    position: relative;
+    border: 1px solid var(--control-border, var(--border));
+    border-radius: var(--r-md, 8px);
+    background: var(--control, var(--surface));
+    color: var(--text);
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .acct-filter-open:active { transform: translateY(.5px); }
+  .acct-filter-badge {
+    display: inline-grid;
+    place-items: center;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  /* 筛选组容器：在窄屏变成一个占位的普通盒子，由下面把它固定到抽屉里 */
+  .acct-filter-group { display: block; }
+
+  /* 抽屉里的四个筛选组：从工具条「搬」进来 —— position:fixed 相对视口定位，
+     靠 right/top 把它们叠到抽屉面板里。用 fixed 而不是挪 DOM 是为了让控件
+     保持挂载（受控输入不丢焦点、id 不重复）。 */
+  /* 筛选组容器：与标题栏、面板同处右侧，从视口外滑入。
+     三者用同一套 right/width/transform，视觉上拼成一张完整抽屉。
+     顶部 52px 留给标题栏（它是 fixed，层级更高，会盖在这里上面）。 */
+  .acct-filter-group {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 25;
+    width: min(320px, 86vw);
+    padding: 52px 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    transform: translateX(100%);
+    transition: transform .2s ease;
+    -webkit-overflow-scrolling: touch;
+  }
+  .acct-filter-group.open { transform: translateX(0); }
+
+  /* 抽屉内每个筛选组：标签在上、控件整行 */
+  .acct-filter-group > .group {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    width: 100%;
+  }
+  /* 标签：整行左对齐的小标题。
+     组件库的 button/通用控件在 .group 里被居中，span 自身 text-align 不生效
+     （父级 justify-content 决定），所以这里同时压 .group 的 align-items 与
+     label 的 width。 */
+  .acct-filter-group > .group {
+    align-items: stretch;
+    text-align: left;
+  }
+  .acct-filter-group > .group > .label {
+    flex: 0 0 auto;
+    width: 100%;
+    font-size: 11.5px;
+    color: var(--text-3);
+    text-align: left;
+    font-weight: 600;
+    letter-spacing: .02em;
+  }
+  .acct-filter-group > .group > *:not(.label) {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100% !important;
+    max-width: none !important;
+  }
+  .acct-filter-group > .divider { display: none; }
+  .acct-filter-group [data-slot="segmented-control"] { width: 100%; }
+  .acct-filter-group [data-slot="segmented-control"] > * { flex: 1 1 0; min-width: 0; justify-content: center; }
+
+  /* 抽屉标题栏：钉在顶部，与面板同一层 */
+  .acct-filter-head {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 26;
+    width: min(320px, 86vw);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 52px;
+    padding: 0 8px 0 14px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    border-bottom: 1px solid var(--hairline);
+    box-sizing: border-box;
+    transform: translateX(100%);
+    transition: transform .2s ease;
+  }
+  .acct-filter-head.open { transform: translateX(0); }
+  .acct-filter-title { font-size: 14px; font-weight: 650; }
+  .acct-filter-clear { margin-left: auto; }
+  .acct-filter-close { min-width: 32px; min-height: 32px; font-size: 14px; }
+
+  /* 遮罩：抽屉打开时盖住内容区，点它收起 */
+  .acct-filter-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 24;
+    background: rgba(0, 0, 0, .34);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease;
+  }
+  .acct-filter-scrim.open { opacity: 1; pointer-events: auto; }
 }
 
 /* ═══ 账号页工具条：筛选项各自整行、按钮等宽成网格 ═══ */
@@ -527,26 +702,109 @@
   .mm-filters .batch-chip { width: auto; }
 }
 
-/* ═══ 设置页：左侧分类导航变顶部横条（复用 900px 断点已有的横排形态），
-        开关区竖排 ═══ */
-@media (max-width: 767px) {
-  .settings-layout { flex-direction: column; gap: 12px; }
+/* ═══ 设置页：手机改成「一级菜单 -> 二级设置页」 ═══
+   之前是「顶部横条 + 下方内容」：11 个分类横向滚动才能找全，找到后内容
+   又直接铺在下面，两个层级混在一屏里。
+   现在按手机原生设置页的习惯分两层（只在 ≤767px 生效）：
+     · 一级：只有分类列表，一屏看全 11 项
+     · 二级：点进某一类，显示该类的面板，顶部一条「返回 + 分类名」
+   层级由 .settings-layout.is-detail 切换，该 class 由 React 的
+   mobileDetail 状态控制（settings-page.tsx）。
+
+   ★ 桌面端：.settings-back-bar 必须**彻底不占位**（display:none 而不是
+   视觉隐藏）—— .settings-layout 是 flex 容器，多一个子元素就会改变
+   导航与内容区的排布。 */
+
+/* 返回栏：桌面端不存在 */
+.settings-back-bar { display: none; }
+
+/* 断点用 900px 而不是 767：page-settings.css 在 ≤900px 就把左栏折成顶部横条，
+   767-900px（平板 / 窄窗口）落在那套「横条 + 内容」里 —— 11 个分类要横滚才
+   找得全。两级模式在 900px 以下全部接管，与导航折叠的断点对齐。 */
+@media (max-width: 900px) {
+  .settings-layout { flex-direction: column; gap: 0; }
+
+  /* ── 一级：分类列表 ──
+     纵向列表而不是横条：一屏 11 项、每项 44px 触控高度、右侧留箭头暗示可进入。 */
   .settings-nav {
     width: auto;
-    flex-direction: row;
-    gap: 4px;
-    padding: 0 0 8px;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
     border-right: 0;
-    border-bottom: 1px solid var(--border);
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
+    border-bottom: 0;
+    overflow-x: visible;
+    overflow-y: auto;
   }
   .settings-nav-item {
-    width: auto;
+    width: 100%;
     flex: 0 0 auto;
+    min-height: 46px;
     padding: 0 12px;
+    border-radius: 0;
+    border-bottom: 1px solid var(--hairline);
+    font-size: 13.5px;
   }
+  /* 列表项右侧的进入箭头（纯装饰，用 ::after 画，不额外加 DOM） */
+  .settings-nav-item::after {
+    content: "";
+    width: 7px;
+    height: 7px;
+    margin-left: auto;
+    border-top: 1.5px solid var(--text-3);
+    border-right: 1.5px solid var(--text-3);
+    transform: rotate(45deg);
+    flex: 0 0 auto;
+  }
+  /* 一级里不强调「选中」：列表是入口不是状态，选中色留给二级 */
+  .settings-nav-item.active { background: transparent; color: var(--text); }
+  .settings-nav-item.active::after { border-color: var(--text-3); }
+
+  /* ── 层级切换 ──
+     一级：显示导航、藏内容区；二级：反过来。 */
+  .settings-layout:not(.is-detail) .settings-panes { display: none; }
+  .settings-layout.is-detail .settings-nav { display: none; }
+
+  /* ── 二级：返回栏 + 内容 ── */
+  .settings-layout.is-detail .settings-back-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .settings-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 32px;
+    padding: 0 8px 0 2px;
+    border: 0;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--primary);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .settings-back-btn .ico { display: grid; place-items: center; transform: rotate(180deg); }
+  .settings-back-btn .ico svg { display: block; }
+  .settings-back-title {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--text-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* 二级页内容区占满剩余高度、自己滚 */
+  .settings-layout.is-detail .settings-panes {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 0 20px;
+  }
+
   .settings-switches { flex-direction: column; }
   /* 保留天数 / 提示词阈值一类「标签 + 输入」的两列表，窄屏改成标签在上 */
   .retention-row { grid-template-columns: max-content 1fr; row-gap: 4px; }
@@ -591,17 +849,29 @@
   .rank-row .num { grid-column: 2; grid-row: 2; }
 }
 
-/* ═══ 文档页：接口地址值允许折行 ═══
+/* ═══ 文档页：接口地址行 ═══
    .ep-value 是 code 元素，桌面一行放得下。窄屏下 code + 复制按钮挤在一行，
-   长地址（含路径参数）被省略号吃掉后半段 —— 而这半段正是用户要复制的部分。 */
+   长地址（含路径参数）被省略号吃掉后半段 —— 而这半段正是用户要复制的部分。
+
+   但「值独占整行 + 按钮折到下一行」也不好：按钮孤零零占一行、每行多出
+   30px 空白，六个接口地址就是 180px 的浪费。改成：值占满左侧并允许折行，
+   按钮钉在右上角（align-self: flex-start），两者同行。 */
 @media (max-width: 767px) {
-  .ep-line { flex-wrap: wrap; gap: 6px 8px; }
+  .ep-line {
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 8px;
+  }
   .ep-value {
-    flex: 1 1 100%;
+    flex: 1 1 auto;
     min-width: 0;
     word-break: break-all;
     white-space: normal;
+    line-height: 1.5;
+    /* 给按钮让出一点呼吸空间，长地址折行时不贴着按钮 */
+    padding-right: 2px;
   }
+  .ep-line button { flex: 0 0 auto; align-self: flex-start; }
 }
 
 /* ═══ 签到中心：面板被内容撑破（461px vs 375px 视口） ═══
@@ -779,35 +1049,69 @@
    长组名把 ⋯ 按钮推出 td 右缘（实测 ⋯ 按钮出界 14-63px）。
    修法：让名字可截断，按钮钉死在行尾。 */
 @media (max-width: 767px) {
-  .grp-band-inner { min-width: 0; flex-wrap: nowrap; }
-  .grp-band-inner .grp-name {
-    flex: 0 1 auto;
+  /* 分组带是一条信息密度很高的横条：把手 + 顺位 + 徽标 + 家名 + 统计 + 余额
+     + 两个按钮。所有元素都写 `flex: 0 1 auto` 时它们会平均收缩，
+     实测「小浣熊」被压到 16px（只剩一个字的宽度）、余额被压到 43px
+     塞进「可用合计345计入 1/4⚠」。
+     这里按重要性重新分配：
+       · 固定不动：把手、徽标、两个按钮（触控目标，不能被压）
+       · 保证宽度：家名（至少要显示 2-3 个字）
+       · 优先压缩：统计（「4 个账号 · 启用 4 · 禁用 0」→ 省略）、余额
+     放不下时整体允许折行，而不是把每个元素都挤成一条。 */
+  /* 分组带在 335px 里要塞 9 个元素（把手 / 顺位 / 徽标 / 家名 / 统计 /
+     余额 / 两个按钮），内容需求 363px —— 物理上装不下。之前靠「全部可
+     压缩」硬塞，结果是每个都被压成半截（「4 个...」「可用」）。
+     这里改成：允许整条横向滚动，各元素保持完整宽度。
+     按钮固定在行尾不动（position: sticky），滚到哪都能点到。 */
+  /* ── 分组带：一条横条塞 9 个元素，335px 里装不下（内容需求 363px）──
+     之前靠「所有元素都可压缩」硬塞，结果每个都被压成半截：
+     「4 个...」「可用」。改为按重要性分配：
+       · 固定不压：把手、徽标、家名、两个按钮（触控目标）
+       · 完整显示：统计、余额（允许整条横向滚动看全）
+       · 收掉：spacer（横滚时它只会把内容推得更远）
+     按钮 position:sticky 钉在右缘，滚到哪都能点到。 */
+  .grp-band-inner {
     min-width: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .grp-band-inner::-webkit-scrollbar { display: none; }
+  .grp-band-inner > * { flex: 0 0 auto; }
+  .grp-band-inner .grp-spacer { display: none; }
+
+  .grp-band-inner .grp-name {
+    min-width: 3.2em;
+    max-width: 7em;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .grp-band-inner .grp-stat { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  .grp-band-inner .grp-iconbtn { flex: 0 0 auto; }
-  /* 拖动把手与折叠/⋯ 按钮的触控目标放大（原 18-22px，手指难点） */
+  /* 「第 1 顺位」收成小号灰字：顺位靠拖动把手感知，不值得占 45px */
+  .grp-band-inner .grp-rank {
+    white-space: nowrap;
+    font-size: 10.5px;
+    color: var(--text-3);
+  }
+  .grp-band-inner .grp-stat { white-space: nowrap; }
+  /* 余额：「计入 x/y」是脚注，窄屏丢掉；读数与 ⚠ 保留 */
+  .grp-band-inner .grp-balance { white-space: nowrap; }
+  .grp-band-inner .grp-balance .n { display: none; }
+
+  /* 按钮钉右缘 */
+  .grp-band-inner .grp-iconbtn {
+    position: sticky;
+    right: 0;
+    background: var(--rail-bg, var(--surface));
+    z-index: 1;
+  }
+  .grp-band-inner .grp-iconbtn + .grp-iconbtn { right: 30px; }
+
+  /* 触控目标放大（原 18-22px，手指难点） */
   .grp-band-inner .queue-grip,
   .grp-band-inner .grp-iconbtn { width: 30px; height: 30px; min-width: 30px; }
-}
-
-/* ═══ 超窄屏（≤380px）：面板头的宽动作区整行下移 ═══
-   概览页的 .head-actions 是五档时间选择器（今天/7天/30天/本月/全部，
-   实测 202px）。在 320px 屏上「标题 + 202px」超出容器，grid 的 1fr 列
-   被压到 20px —— 标题「统计概览」逐字竖排。让动作区整行下移，
-   标题拿回整行。 */
-@media (max-width: 380px) {
-  .panel-head > .head-actions {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    justify-content: flex-start;
-    width: 100%;
-    flex-wrap: wrap;
-  }
-  .panel-head > .head-actions > * { flex: 1 1 auto; min-width: 0; }
-  .panel-head > .panel-sub { grid-row: 3; }
 }
 
 /* ═══ 全局触控与滚动 ═══

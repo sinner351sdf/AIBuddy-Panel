@@ -79,6 +79,7 @@ use rusqlite::Connection;
 /// 清单里可能有**没有使用方常量**的项（如遗留的 `desensitize`）：那些是
 /// 「功能已删、数据留着」的键，登记它们的唯一目的就是让配置写入别去动它。
 pub const RESERVED_KV_KEYS: &[&str] = &[
+    "agentProfiles",
     // 账号优先级的全局作用域（core::account_store::sql）
     "priorityScope",
     // 事件日志的下一个 id 水位（logs_store::sql）

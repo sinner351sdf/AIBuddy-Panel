@@ -71,6 +71,8 @@
 //! api/ 里的 handler 负责把 HTTP 输入转成 core 调用、再把结果转成响应。
 
 pub mod account_store;
+// 本机 AI 客户端的接管注册表（「Agent」页）：客户端定义 + 配置读写
+pub mod agents;
 pub mod account_transfer;
 pub mod api_keys;
 pub mod auth;
@@ -103,6 +105,7 @@ pub mod growth_queue;
 // streak 挂签到后；默认全关，配置与游标落 task_state 的 kv，设置 API 在
 // `api::growth_tasks::schedule`）
 pub mod growth_schedule;
+pub mod growth_scheduler;
 pub mod task_records;
 pub mod task_execution;
 pub mod import_ccswitch;

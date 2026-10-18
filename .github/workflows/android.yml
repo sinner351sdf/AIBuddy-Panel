@@ -1,0 +1,67 @@
+name: android
+on:
+  push:
+    branches: [beta]
+    paths:
+      - 'desktop-tauri/mobile/**'
+      - 'desktop-tauri/ui-kit/**'
+      - 'desktop-tauri/ui/**'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            desktop-tauri/mobile/package-lock.json
+            desktop-tauri/ui-kit/package-lock.json
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Install locked frontend dependencies
+        run: |
+          npm --prefix desktop-tauri/ui-kit ci
+          npm --prefix desktop-tauri/mobile ci
+      - name: Build packaged mobile frontend
+        run: npm --prefix desktop-tauri/mobile run build:apk
+      - name: Prepare Android SDK
+        run: |
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > desktop-tauri/mobile/android/local.properties
+      - name: Compile debug and unsigned release APKs
+        working-directory: desktop-tauri/mobile/android
+        env:
+          AIBUDDY_UNSIGNED_APK: '1'
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace assembleDebug assembleRelease
+      - name: Verify APK identity and checksums
+        run: |
+          mkdir -p dist/android
+          cp desktop-tauri/mobile/android/app/build/outputs/apk/debug/app-debug.apk dist/android/AIBuddy-Panel-debug.apk
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -f -p 4 desktop-tauri/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk dist/android/AIBuddy-Panel-release-unsigned.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify dist/android/AIBuddy-Panel-debug.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/android/AIBuddy-Panel-release-unsigned.apk > dist/android/apk-identity.txt
+          grep -F "name='com.aibuddy.panel.mobile'" dist/android/apk-identity.txt
+          grep -F "application-label:'AIBuddy Panel'" dist/android/apk-identity.txt
+          (cd dist/android && sha256sum *.apk > SHA256SUMS.txt)
+          echo 'Debug uses a separate .debug package id. Release APK is unsigned; production private keys never enter CI.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: android-apks
+          path: dist/android/*
+          if-no-files-found: error
+          retention-days: 7

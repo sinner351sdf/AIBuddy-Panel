@@ -149,5 +149,21 @@
   "开启后只更新到 beta 版（预发布），取版本最高的一个；beta 版可能不稳定。开启期间不会因为正式版发布而自动切回正式版 —— 想切回请关闭本开关。关闭后只更新到正式版，且不会降级到版本号更低的版本。": "Quando ativado, as atualizações vêm apenas de versões beta (pré-lançamento), sempre a de versão mais alta; versões beta podem ser instáveis. Enquanto estiver ativado, o lançamento de uma versão estável não faz você voltar automaticamente — desative este interruptor para voltar. Quando desativado, as atualizações vêm apenas de versões estáveis e nunca fazem downgrade para uma versão mais baixa.",
   "正在下载安装包…（下载完成后会交给系统安装器，按提示输入密码即可完成安装）": "Baixando o instalador… (ao terminar, ele é entregue ao instalador do sistema; informe sua senha quando solicitado)",
   "正在下载安装包…（下载完成后会启动新的 AppImage；把它替换掉旧文件即完成升级）": "Baixando o instalador… (ao terminar, o novo AppImage é iniciado; mova-o sobre o arquivo antigo para concluir a atualização)",
-  "通道已切换，但写入磁盘失败（重启后会回到原设置）": "O canal foi alterado, mas não foi possível gravar no disco (a configuração anterior volta após reiniciar)"
+  "通道已切换，但写入磁盘失败（重启后会回到原设置）": "O canal foi alterado, mas não foi possível gravar no disco (a configuração anterior volta após reiniciar)",
+  "Discord 群": "Servidor do Discord",
+  "QQ 群": "Grupo do QQ",
+  "QQ 群 / Telegram / Discord 都在这里": "Grupos do QQ, Telegram e Discord estão todos aqui",
+  "QQ 群 1": "Grupo do QQ 1",
+  "QQ 群 2": "Grupo do QQ 2",
+  "Telegram 群": "Grupo do Telegram",
+  "加入交流群": "Entrar na comunidade",
+  "即将满员": "Quase lotado",
+  "即将满员，请优先加群 2": "Quase lotado — prefira o grupo 2",
+  "在 QQ 里搜索群号即可加入。": "Pesquise o número do grupo no QQ para entrar.",
+  "在浏览器中打开": "Abrir no navegador",
+  "在浏览器中打开 GitHub 发布页": "Abrir a página de releases no GitHub no navegador",
+  "复制群号 {group}": "Copiar o número do grupo {group}",
+  "点击在浏览器中打开": "Clique para abrir no navegador",
+  "点击复制群号": "Clique para copiar o número do grupo",
+  "遇到问题或有使用心得，欢迎到群里交流。": "Dúvidas e dicas são bem-vindas em qualquer um dos grupos."
 }

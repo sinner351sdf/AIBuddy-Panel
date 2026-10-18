@@ -165,6 +165,8 @@ function ProxiesPage() {
   const subs = React.useSyncExternalStore(subscribeSubs, getSubSnapshot).data?.items ?? []
   const [modal, setModal] = React.useState<{ item: ProxyPoolItem | null } | null>(null)
   const [settingsOpen, setSettingsOpen] = React.useState(false)
+  /** 窄屏筛选抽屉（见 css/mobile.css 的 .px-filter-group） */
+  const [filterOpen, setFilterOpen] = React.useState(false)
   const [subsOpen, setSubsOpen] = React.useState(false)
   const [kw, setKw] = React.useState('')
   const [srcFilter, setSrcFilter] = React.useState('all')
@@ -495,6 +497,14 @@ function ProxiesPage() {
         <CardHeader variant='panel' className='panel-head proxy-panel-head'>
           <h2>{t('代理池')}</h2>
         <div className='head-actions'>
+          {/* 窄屏「筛选」入口：桌面隐藏（CSS 控制）。角标是生效的筛选条数 */}
+          <Button variant='outline' type='button' className='px-filter-open hidden max-md:inline-flex' onClick={() => setFilterOpen(true)}
+            aria-label={t('打开筛选')}>
+            {t('筛选')}
+            {(kw ? 1 : 0) + 0 + (srcFilter !== 'all' ? 1 : 0) + (stFilter !== 'all' ? 1 : 0) > 0
+              ? <span className='px-filter-badge'>{(kw ? 1 : 0) + 0 + (srcFilter !== 'all' ? 1 : 0) + (stFilter !== 'all' ? 1 : 0)}</span>
+              : null}
+          </Button>
           {/* 设置放在最左：低频配置项（端口范围 / 测试网址），不必挤在主操作旁边。
               弹窗是打开时才读设置（loadSettings 在弹窗内部），这里只负责开门 */}
           <Button variant='outline' disabled={snapshot.batchBusy}
@@ -553,8 +563,11 @@ function ProxiesPage() {
           </div>
         </div>
       ) : (
-        /* 内边距与 .batch-bar 的 10px 16px 对齐：两条同高，互为替换时表格不下移 */
-        <div className='flex flex-wrap items-center gap-2.5 border-b border-border px-4 py-[10px]'>
+        /* 内边距与 .batch-bar 的 10px 16px 对齐：两条同高，互为替换时表格不下移。
+           窄屏这四个控件收进右侧抽屉（见 css/mobile.css 的 .px-filter-group），
+           工具条只留一个「筛选」按钮 —— 否则面板头 + 筛选区在 812px 屏上占掉
+           近一半高度，表格只剩 200px 可看。 */
+        <div className={cn('flex flex-wrap items-center gap-2.5 border-b border-border px-4 py-[10px]', 'px-filter-group', filterOpen && 'open')}>
           <InputGroup className='w-[clamp(150px,22vw,220px)]'>
             <InputGroupInput type='search' value={kw} aria-label={t('搜索节点')}
               placeholder={t('搜索名称 / 地址 / 端口')}

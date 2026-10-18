@@ -15,7 +15,7 @@ const groups = [
   ] },
   { id: 'forward' as const, label: '模型与接入', icon: Workflow, pages: [
     { id: 'gateway', label: '模型与档位', icon: Workflow }, { id: 'proxies', label: '网络代理', icon: Globe },
-    { id: 'keys', label: '网关 Key', icon: KeyRound }, { id: 'docs', label: '接入文档', icon: FileText },
+    { id: 'keys', label: '网关 Key', icon: KeyRound }, { id: 'docs', label: '接入文档', icon: FileText }, { id: 'agent', label: 'Agent', icon: Workflow },
   ] },
   { id: 'ops' as const, label: '运维', icon: Server, pages: [
     { id: 'requests', label: '运行日志', icon: List }, { id: 'logs', label: '系统日志', icon: FileText },
