@@ -37,6 +37,11 @@ jobs:
           npm --prefix desktop-tauri/mobile ci
       - name: Build packaged mobile frontend
         run: npm --prefix desktop-tauri/mobile run build:apk
+      - name: Install Android command-line tools
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - name: Prepare Android SDK
         run: |
           sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
