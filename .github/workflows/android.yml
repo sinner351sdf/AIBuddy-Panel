@@ -69,7 +69,8 @@ jobs:
           targets: aarch64-linux-android,x86_64-linux-android
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: desktop-tauri/src-tauri
+          workspaces: desktop-tauri/src-tauri -> ../../target
+          cache-workspace-crates: true
           key: android-native-gateway
           cache-on-failure: true
       - name: Build the embedded Rust gateway for device and emulator
