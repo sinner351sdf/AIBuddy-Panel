@@ -140,7 +140,7 @@ export {
   BreadcrumbEllipsis,
 } from './breadcrumb'
 
-export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants } from './tabs'
+export { Tabs, TabsList, TabsTrigger, TabsIcon, TabsContent, tabsListVariants } from './tabs'
 export { ScrollArea, ScrollBar } from './scroll-area'
 export { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuCheckboxItem, ContextMenuRadioItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuShortcut, ContextMenuGroup, ContextMenuPortal, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuRadioGroup } from './context-menu'
 

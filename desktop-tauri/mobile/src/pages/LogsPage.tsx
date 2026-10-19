@@ -1,3 +1,6 @@
+import { Icon } from '../components/Icon'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@ui'
+import { MobileButton, Surface } from '../components/primitives'
 import { useState } from 'react'
 import { PageIntro, IconButton, Empty, ErrorNote, SkeletonList } from '../components/ui'
 import { store } from '../state/store'
@@ -45,35 +48,7 @@ export function LogsPage() {
       />
 
       <div className='m-section' style={{ marginTop: 0 }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            height: 38,
-            padding: '0 12px',
-            borderRadius: 11,
-            background: 'var(--m-surface)',
-            border: '1px solid var(--m-line)',
-            color: 'var(--m-text-3)',
-          }}
-        >
-          <span style={{ fontSize: 13 }}>🔍</span>
-          <input
-            value={keyword}
-            onChange={event => setKeyword(event.target.value)}
-            placeholder={t('搜索关键字')}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              border: 0,
-              outline: 'none',
-              background: 'transparent',
-              color: 'var(--m-text)',
-              fontSize: 16,
-            }}
-          />
-        </div>
+        <InputGroup className='min-h-11'><InputGroupAddon><Icon name='search'/></InputGroupAddon><InputGroupInput value={keyword} onChange={event=>setKeyword(event.target.value)} placeholder={t('搜索关键字')} aria-label={t('搜索关键字')} className='text-base'/></InputGroup>
       </div>
 
       <div className='m-chips' style={{ padding: '10px 16px 12px' }}>
@@ -84,7 +59,7 @@ export function LogsPage() {
             { value: '' as Level, label: t('全部') },
           ]
         ).map(item => (
-          <button
+          <MobileButton
             key={item.value || 'all'}
             type='button'
             className='m-chip'
@@ -92,7 +67,7 @@ export function LogsPage() {
             onClick={() => setLevel(item.value)}
           >
             {item.label}
-          </button>
+          </MobileButton>
         ))}
       </div>
 
@@ -101,15 +76,15 @@ export function LogsPage() {
 
       {entries && !entries.length ? (
         <div className='m-section'>
-          <div className='m-card'>
+          <Surface className='m-card'>
             <Empty text={t('没有符合条件的日志')} />
-          </div>
+          </Surface>
         </div>
       ) : null}
 
       {entries && entries.length ? (
         <div className='m-section' style={{ marginTop: 0 }}>
-          <div className='m-card'>
+          <Surface className='m-card'>
             {entries.map((entry, index) => (
               <div
                 key={entry.id || index}
@@ -151,12 +126,12 @@ export function LogsPage() {
                 </span>
               </div>
             ))}
-          </div>
+          </Surface>
         </div>
       ) : null}
 
       <div className='m-section' style={{ paddingBottom: 8 }}>
-        <button
+        <MobileButton
           type='button'
           className='m-btn m-ghost'
           onClick={() => {
@@ -174,7 +149,7 @@ export function LogsPage() {
           }}
         >
           {t('复制当前筛选结果')}
-        </button>
+        </MobileButton>
       </div>
     </div>
   )

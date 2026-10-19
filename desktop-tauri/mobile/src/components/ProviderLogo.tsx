@@ -1,3 +1,4 @@
+import { Avatar, AvatarImage, AvatarFallback } from '@ui'
 import { Icon } from './Icon'
 import { providerIcon, providerLabel } from '../lib/providers'
 
@@ -17,15 +18,8 @@ export function ProviderLogo({
 }) {
   const icon = providerIcon(id)
   const text = providerLabel(id, label)
-  return (
-    <span className={size === 'lg' ? 'm-logo m-lg' : 'm-logo'}>
-      {icon ? (
-        <img src={icon} alt='' loading='lazy' />
-      ) : (
-        <span style={{ fontSize: size === 'lg' ? 16 : 14, fontWeight: 600 }}>{text.slice(0, 1)}</span>
-      )}
-    </span>
-  )
+  return <Avatar className={size==='lg'?'size-10 rounded-md':'size-9 rounded-md'}><AvatarImage src={icon||undefined} alt='' loading='lazy' className='object-contain p-1'/><AvatarFallback className='rounded-md'>{text.slice(0,1)}</AvatarFallback></Avatar>
+
 }
 
 /** 通用图标块：给「不是提供商」的入口用（签到、Key、代理…） */

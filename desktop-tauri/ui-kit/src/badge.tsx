@@ -45,6 +45,7 @@ const badgeVariants = cva(
       shape: {
         pill: 'min-h-[21px] rounded-pill px-[9px] py-px text-[11.5px]',
         tag: 'min-h-[19px] rounded-xs px-2 py-0 text-[11px]',
+        counter: 'min-h-4 min-w-4 rounded-full border-0 px-1 py-0 text-[10px] leading-4 ring-2 ring-background',
       },
     },
     defaultVariants: { variant: 'default', shape: 'pill' },

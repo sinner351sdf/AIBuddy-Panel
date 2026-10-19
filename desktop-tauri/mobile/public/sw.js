@@ -1,59 +1,29 @@
 /*
- * Agent2API 手机端 Service Worker。
- *
- * ── 为什么放在 `ui/` 根、而不是 `ui/m/` ──────────────────────
- * SW 的默认 scope 上限是它自己所在的目录：`ui/m/sw.js` 最多只能控制
- * `/m/*`，而手机端的入口是 `/m.html` —— 它落在 scope 之外，注册成 `/`
- * 会被浏览器拒绝（`The path of the provided scope is not under the max
- * scope`），注册成 `/m/` 又管不到入口页。放在 `ui/` 根目录就没有这个
- * 矛盾：`/sw.js` 天然可以 scope 到 `/`。
- *
- * 构建脚本（vite.config.ts 的 swBuildStamp）把 `mobile/public/sw.js`
- * 复制到这里并写入时间戳，所以这个文件是产物 —— 改它请改源文件。
- *
- * ── 只拦截手机端，桌面端一字未变 ─────────────────────────────
- * scope 是 `/`，但下面的 fetch 处理只认 `/m` 与 `/m/*`，其余请求直接
- * return（浏览器按原样处理）。桌面面板与 `/api/*` 都不受影响。
- *
- * ── 三条策略，按资源性质分 ────────────────────────────────────
- *   · **入口页**（`/m`、`/m.html`）：network-first + 离线回退缓存。
- *     不能 stale-while-revalidate —— 入口页决定加载哪个版本的 JS，
- *     先给旧的再在后台更新会让「新 JS + 旧 HTML」错配一轮。
- *   · **外壳**（mobile.js / mobile.css / manifest / 图标）：stale-while-revalidate。
- *     首屏秒开，后台拉新版留给下次打开。
- *   · **数据**（`/api/*`、`/v1/*`）：**完全不碰**。网关数据必须实时，
- *     缓存一份只会让用户看到过期读数却以为是真的。
- *
- * ── 版本 ────────────────────────────────────────────────────
- * SW 的更新判据是文件内容。产物变了但 sw.js 不变时浏览器不会重装 SW，
- * 旧缓存会一直生效 —— 时间戳让每次构建都必然更新。
- * 新 SW 装好后不立刻 skipWaiting，而是等页面发消息 —— 否则用户正在
- * 填的表单会被一次自动刷新清掉。页面侧在设置页给「重启以更新」按钮。
+ * Shared panel Service Worker. Source copied to ui/sw.js by the Web build.
+ * The complete panel and old /m aliases share one entry. API traffic is never cached.
+ * A deterministic content hash versions the cache; activation removes only our caches.
+ * Waiting updates require an explicit SKIP_WAITING message to preserve in-progress forms.
  */
 
 const CACHE = 'agent2api-mobile-__BUILD__'
 
 /** 预缓存的外壳文件（相对 SW 所在目录，即 `ui/` 根） */
 const SHELL = [
-  './m.html',
-  './m/mobile.js',
-  './m/mobile.css',
-  './m/manifest.webmanifest',
-  './assets/app-icon-192.png',
-  './assets/app-icon-512.png',
-  './assets/app-icon-maskable-512.png',
+  './index.html', './m.html', './web-mobile-entry.js',
+  './islands/ui.js', './islands/ui.css', './css/mobile.css',
+  './m/manifest.webmanifest', './assets/app-icon-192.png', './assets/app-icon-512.png',
 ]
 
 /** 这个请求属不属于手机端（决定要不要拦） */
 function isMobileAsset(pathname) {
-  if (pathname === '/m' || pathname === '/m.html') return true
-  return pathname.startsWith('/m/')
+  if (['/', '/index.html', '/m', '/m/', '/m.html'].includes(pathname)) return true
+  return /^\/(css|islands|assets|brand|i18n|m)\//.test(pathname) || /^\/[^/]+\.(js|css)$/.test(pathname)
 }
 
 /** 是不是入口页导航（`/m` 或 `/m.html`，含 query / hash 之外的路径部分） */
 function isEntryNavigation(request, url) {
   if (request.mode !== 'navigate') return false
-  return url.pathname === '/m' || url.pathname === '/m.html'
+  return ['/', '/index.html', '/m', '/m/', '/m.html'].includes(url.pathname)
 }
 
 /**
@@ -88,7 +58,7 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     caches
       .keys()
-      .then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key))))
+      .then(keys => Promise.all(keys.filter(key => key.startsWith('agent2api-mobile-') && key !== CACHE).map(key => caches.delete(key))))
       .then(() => self.clients.claim()),
   )
 })
@@ -112,7 +82,7 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
-  // 桌面面板与接口一律不碰
+  // 仅处理面板静态资源，接口不进入缓存
   if (!isMobileAsset(url.pathname)) return
 
   // 入口页：network-first，离线回退缓存
@@ -127,13 +97,13 @@ self.addEventListener('fetch', event => {
             const copy = response.clone()
             void caches
               .open(CACHE)
-              .then(cache => cache.put('./m.html', copy))
+              .then(cache => cache.put(url.pathname.startsWith('/m') ? './m.html' : './index.html', copy))
               .catch(() => undefined)
           }
           return response
         })
         .catch(async () => {
-          const cached = await caches.match('./m.html')
+          const cached = await caches.match(url.pathname.startsWith('/m') ? './m.html' : './index.html')
           if (cached) return cached
           // 连外壳都没有（首次访问就断网）：给一句可读的话，别让浏览器报网络错误
           return new Response(

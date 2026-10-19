@@ -59,17 +59,19 @@ function AlertDialogOverlay({ className, ...props }: AlertDialogPrimitive.Backdr
 type AlertDialogContentProps = AlertDialogPrimitive.Popup.Props & {
   /** 是否自带右上角关闭按钮，默认 false —— 强制选择类弹窗不留「✕」这条模糊出口 */
   showCloseButton?: boolean
+  layer?: 'default' | 'above-drawer'
 }
 
 function AlertDialogContent({
   className,
   children,
   showCloseButton = false,
+  layer = 'default',
   ...props
 }: AlertDialogContentProps) {
   return (
     <AlertDialogPortal>
-      <AlertDialogOverlay />
+      <AlertDialogOverlay className={layer === 'above-drawer' ? 'z-[1099]' : undefined} />
       <AlertDialogPrimitive.Popup
         data-slot='alert-dialog-content'
         className={cn(
@@ -78,6 +80,7 @@ function AlertDialogContent({
           'transition-[opacity,transform] duration-200 [transition-timing-function:cubic-bezier(.2,.9,.3,1)]',
           'data-open:animate-in data-open:fade-in-0 data-open:zoom-in-[.985] data-open:slide-in-from-bottom-2.5',
           'data-closed:animate-out data-closed:fade-out-0 data-closed:fill-mode-forwards',
+          layer === 'above-drawer' && 'z-[1100]',
           className
         )}
         {...props}

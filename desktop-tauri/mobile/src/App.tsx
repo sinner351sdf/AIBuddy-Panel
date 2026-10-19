@@ -1,4 +1,9 @@
-import React, { useEffect } from 'react'
+import { GatewayLauncher } from './pages/GatewayLauncher'
+import { isPackaged } from './lib/servers'
+import { Toaster } from '@ui'
+import { ConfirmHost } from './components/confirm'
+import { usePolling } from './lib/usePolling'
+import React, { useEffect, useLayoutEffect, useRef } from 'react'
 import { store, useStore, bootstrapTheme } from './state/store'
 import { TabBar, Toast, AuthGate, ThemeSync } from './components/Shell'
 import { PwaNotice } from './components/PwaNotice'
@@ -54,9 +59,14 @@ const SCREENS: Record<string, ScreenDef> = {
   servers: { title: t('服务器'), component: ServersPage },
 }
 
-export function App() {
+function MobileApp() {
   const state = useStore()
   const pwa = usePwa()
+  const scrollRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0
+  }, [state.route.screen])
+  usePolling(() => { if (!state.packaged || state.server) return store.refresh() }, 20_000, [state.server?.id])
   const def = SCREENS[state.route.screen] || SCREENS.home
   const Page = def.component
   const isPrimary = Boolean(def.primary)
@@ -106,6 +116,7 @@ export function App() {
       <PwaNotice />
       {isPrimary ? null : <NavBar title={def.title} onBack={() => store.back()} />}
       <div
+        ref={scrollRef}
         className='m-scroll'
         style={fillHeight ? { overflow: 'hidden' } : undefined}
         data-screen={state.route.screen}
@@ -118,3 +129,5 @@ export function App() {
     </div>
   )
 }
+
+export function App() { return <Toaster>{isPackaged() ? <GatewayLauncher/> : <MobileApp/>}<ConfirmHost/></Toaster> }

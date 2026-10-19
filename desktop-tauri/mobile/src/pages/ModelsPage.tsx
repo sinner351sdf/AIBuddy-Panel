@@ -1,5 +1,9 @@
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@ui'
+import { Badge as SharedBadge } from '@ui'
+import { Switch } from '@ui'
+import { Surface, MobileButton } from '../components/primitives'
 import { useMemo, useState } from 'react'
-import { PageIntro, IconButton, Badge, Empty, ErrorNote, SkeletonList } from '../components/ui'
+import { PageIntro, IconButton, Empty, ErrorNote, SkeletonList } from '../components/ui'
 import { ProviderLogo } from '../components/ProviderLogo'
 import { Icon } from '../components/Icon'
 import { store } from '../state/store'
@@ -103,35 +107,7 @@ export function ModelsPage() {
       />
 
       <div className='m-section' style={{ marginTop: 0 }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            height: 38,
-            padding: '0 12px',
-            borderRadius: 11,
-            background: 'var(--m-surface)',
-            border: '1px solid var(--m-line)',
-            color: 'var(--m-text-3)',
-          }}
-        >
-          <Icon name='search' style={{ width: 16, height: 16, flex: 'none' }} />
-          <input
-            value={query}
-            onChange={event => setQuery(event.target.value)}
-            placeholder={t('搜索模型 ID / 提供商')}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              border: 0,
-              outline: 'none',
-              background: 'transparent',
-              color: 'var(--m-text)',
-              fontSize: 16,
-            }}
-          />
-        </div>
+        <InputGroup className='min-h-11'><InputGroupAddon><Icon name='search'/></InputGroupAddon><InputGroupInput value={query} onChange={event=>setQuery(event.target.value)} placeholder={t('搜索模型 ID / 提供商')} aria-label={t('搜索模型 ID / 提供商')} className='text-base'/></InputGroup>
       </div>
 
       <div className='m-chips' style={{ padding: '10px 16px 12px' }}>
@@ -145,9 +121,9 @@ export function ModelsPage() {
 
       {models && !groups.length ? (
         <div className='m-section'>
-          <div className='m-card'>
+          <Surface className='m-card'>
             <Empty text={t('没有匹配的模型')} />
-          </div>
+          </Surface>
         </div>
       ) : null}
 
@@ -155,7 +131,7 @@ export function ModelsPage() {
         const isCollapsed = collapsed.has(group.provider)
         return (
           <div key={group.provider} className='m-section' style={{ marginTop: 12 }}>
-            <button
+            <MobileButton
               type='button'
               onClick={() => {
                 const next = new Set(collapsed)
@@ -187,9 +163,9 @@ export function ModelsPage() {
                   transition: 'transform .16s',
                 }}
               />
-            </button>
+            </MobileButton>
             {isCollapsed ? null : (
-              <div className='m-card'>
+              <Surface className='m-card'>
                 {group.list.map(model => {
                   const key = `${model.provider}:${model.id}`
                   const hidden = model.visibility === 'hidden'
@@ -214,22 +190,22 @@ export function ModelsPage() {
                           {model.id}
                         </div>
                         <div style={{ display: 'flex', gap: 6, marginTop: 4, fontSize: 10.5, color: 'var(--m-text-3)', flexWrap: 'wrap' }}>
-                          {caps.context ? <span className='m-pill'>{caps.context}</span> : null}
-                          <span className='m-pill'>{sourceLabel(model.source)}</span>
+                          {caps.context ? <SharedBadge variant='secondary'>{caps.context}</SharedBadge> : null}
+                          <SharedBadge variant='secondary'>{sourceLabel(model.source)}</SharedBadge>
                           {model.aliases?.length ? (
-                            <span className='m-pill' style={{ color: 'var(--m-primary)' }}>
+                            <SharedBadge variant='secondary' >
                               {t('{n} 个映射', { n: model.aliases.length })}
-                            </span>
+                            </SharedBadge>
                           ) : null}
                           {hidden ? (
-                            <span className='m-pill' style={{ color: 'var(--m-warn)' }}>
+                            <SharedBadge variant='secondary' >
                               {t('不展示')}
-                            </span>
+                            </SharedBadge>
                           ) : null}
                           {caps.reasoning ? (
-                            <span className='m-pill' style={{ color: 'var(--m-primary)' }}>
+                            <SharedBadge variant='secondary' >
                               {t('思考')}
-                            </span>
+                            </SharedBadge>
                           ) : null}
                         </div>
                       </div>
@@ -242,16 +218,16 @@ export function ModelsPage() {
                     </div>
                   )
                 })}
-              </div>
+              </Surface>
             )}
           </div>
         )
       })}
 
       <div className='m-section' style={{ paddingBottom: 8 }}>
-        <div className='m-card m-card-pad' style={{ fontSize: 11.5, color: 'var(--m-text-3)', lineHeight: 1.7 }}>
+        <Surface className='m-card m-card-pad' style={{ fontSize: 11.5, color: 'var(--m-text-3)', lineHeight: 1.7 }}>
           {t('映射、思考等级、上下文窗口与工具调用能力在桌面端「模型管理」里改；手机端只做启停。')}
-        </div>
+        </Surface>
       </div>
     </div>
   )
@@ -259,61 +235,14 @@ export function ModelsPage() {
 
 function Chip({ label, count, on, onClick }: { label: string; count: number; on: boolean; onClick: () => void }) {
   return (
-    <button type='button' className='m-chip' data-on={on} onClick={onClick}>
+    <MobileButton type='button' className='m-chip' data-on={on} onClick={onClick}>
       {label}
       <span className='m-n'>{count}</span>
-    </button>
+    </MobileButton>
   )
 }
 
-function SwitchSmall({
-  checked,
-  onChange,
-  disabled,
-  label,
-}: {
-  checked: boolean
-  onChange: (next: boolean) => void
-  disabled?: boolean
-  label: string
-}) {
-  return (
-    <button
-      type='button'
-      role='switch'
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      style={{
-        width: 40,
-        height: 24,
-        borderRadius: 999,
-        border: checked ? '0' : '1px solid var(--m-line-strong)',
-        background: checked ? 'var(--m-ok)' : 'var(--m-surface-3)',
-        position: 'relative',
-        transition: 'background .18s',
-        padding: 0,
-        flex: 'none',
-        opacity: disabled ? 0.5 : 1,
-      }}
-    >
-      <span
-        style={{
-          position: 'absolute',
-          top: 2,
-          left: checked ? 18 : 2,
-          width: 20,
-          height: 20,
-          borderRadius: '50%',
-          background: '#fff',
-          boxShadow: '0 1px 3px rgba(0,0,0,.25)',
-          transition: 'left .18s cubic-bezier(.3,.9,.4,1)',
-        }}
-      />
-    </button>
-  )
-}
+function SwitchSmall({checked,onChange,disabled,label}:{checked:boolean;onChange:(next:boolean)=>void;disabled?:boolean;label:string}) {return <Switch checked={checked} onCheckedChange={onChange} disabled={disabled} aria-label={label}/>}
 
 function sourceLabel(source?: string): string {
   if (source === 'remote') return t('远程')

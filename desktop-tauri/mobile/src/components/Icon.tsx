@@ -91,6 +91,8 @@ export function Icon({ name, ...props }: IconProps) {
   const inner = PATHS[name] || PATHS.info
   return (
     <svg
+      width={24}
+      height={24}
       viewBox='0 0 24 24'
       fill='none'
       stroke='currentColor'
@@ -104,12 +106,12 @@ export function Icon({ name, ...props }: IconProps) {
   )
 }
 
-/** 品牌标：与桌面端 icons.js 的 brand 同一造型（蓝底双向箭头） */
+/** 品牌标：与桌面端 icons.js 的 brand 同一造型（主题色双向箭头） */
 export function BrandMark({ size = 32 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox='0 0 24 24' aria-hidden='true'>
-      <rect width='24' height='24' rx='5.4' fill='#007AFF' />
-      <g fill='none' stroke='#fff' strokeWidth='2.2' strokeLinecap='round' strokeLinejoin='round'>
+      <rect width='24' height='24' rx='5.4' fill='var(--primary)' />
+      <g fill='none' stroke='var(--primary-foreground)' strokeWidth='2.2' strokeLinecap='round' strokeLinejoin='round'>
         <path d='M5.23 9.24h10.71' />
         <path d='M15.94 6.72 18.77 9.24 15.94 11.76' />
         <path d='M18.77 14.76H8.06' />

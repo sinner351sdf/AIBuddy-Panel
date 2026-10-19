@@ -1,35 +1,66 @@
 import { useEffect, useState } from 'react'
-import { PageHead, IconButton, SectionHead, Empty, ErrorNote, copyWithToast } from '../components/ui'
-import { ProviderLogo, GlyphLogo } from '../components/ProviderLogo'
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+  Button,
+  Alert,
+  AlertDescription,
+  Badge,
+  Progress,
+} from '@ui'
+import { Surface, MobileButton } from '../components/primitives'
+import {
+  PageHead,
+  IconButton,
+  SectionHead,
+  Empty,
+  ErrorNote,
+  copyWithToast,
+} from '../components/ui'
+import { ProviderLogo } from '../components/ProviderLogo'
 import { Icon } from '../components/Icon'
 import { useStore, store } from '../state/store'
-import { fetchCheckinCenter, fetchRequests, type CheckinCenter, type RequestPage } from '../api/gateway'
-import { formatCompact, formatInt, formatDuration, ellipsisMiddle } from '../lib/format'
+import {
+  fetchCheckinCenter,
+  fetchRequests,
+  type CheckinCenter,
+  type RequestPage,
+} from '../api/gateway'
+import { formatInt, formatDuration, ellipsisMiddle } from '../lib/format'
 import { apiBase, baseLabel } from '../lib/servers'
 import { providerLabel } from '../lib/providers'
+import { accountLimitState } from '../lib/accountLimits'
 import { usePolling } from '../lib/usePolling'
 import { t } from '../i18n'
 
-/**
- * 首页。
- *
- * 回答三个问题：网关活着吗、今天花了多少、还有什么该做。
- * 这三件事在桌面端分散在报表 / 签到 / 设置三页 —— 手机上一屏给全，
- * 其余细节点进去看。
- */
 export function HomePage() {
-  const state = useStore()
-  const session = state.session
-  const accounts = session?.accounts?.accounts || []
-  const enabled = accounts.filter(item => item.enabled).length
-  const limited = accounts.filter(item => item.enabled && hasRateLimit(item)).length
+  const state = useStore(),
+    session = state.session,
+    accounts = session?.accounts?.accounts || []
+  const enabled = accounts.filter((account) => account.enabled !== false).length
+  const limited = accounts.filter(
+    (account) => accountLimitState(account, state.balancesSnapshot).limited,
+  ).length
+  const available = accounts.filter(
+    (account) =>
+      account.enabled !== false &&
+      account.available !== false &&
+      !accountLimitState(account, state.balancesSnapshot).limited,
+  ).length
   const [checkin, setCheckin] = useState<CheckinCenter | null>(null)
   const [requests, setRequests] = useState<RequestPage | null>(null)
   const [error, setError] = useState('')
 
   const load = async () => {
     try {
-      const [center, page] = await Promise.all([fetchCheckinCenter(), fetchRequests({ limit: 3 })])
+      const [center, page] = await Promise.all([
+        fetchCheckinCenter(),
+        fetchRequests({ limit: 3 }),
+      ])
       setCheckin(center)
       setRequests(page)
       setError('')
@@ -38,344 +69,234 @@ export function HomePage() {
     }
   }
 
-  // 首页只轮询签到与最近请求：会话本身由 App 启动时拉一次，
-  // 用户下拉刷新（下面的按钮）才重拉
+  // Check-in and request data poll independently of the shared session/usage snapshot.
   usePolling(load, 60_000, [session])
 
   useEffect(() => {
     if (!session) void store.refresh()
   }, [session])
 
-  const gateway = session?.health?.upstreamConfigured
-  const daily = checkin?.daily
-  const eligible = daily?.todayEligible || 0
-  const done = daily?.todayDone || 0
-  const percent = eligible ? Math.round((done / eligible) * 100) : 0
+  const gateway = session?.health?.upstreamConfigured,
+    daily = checkin?.daily,
+    eligible = daily?.todayEligible || 0,
+    done = daily?.todayDone || 0
   const recent = requests?.entries || []
-
   return (
-    <div className='m-page'>
+    <div className="m-page">
       <PageHead
         title={t('网关运行中')}
-        subtitle={t('{n} 个账号启用 · {m} 个限流中', { n: enabled, m: limited })}
-        actions={<IconButton name='refresh' label={t('刷新')} onClick={() => void store.refresh(true)} />}
+        subtitle={t('{n} 个账号启用 · {m} 个限流中', {
+          n: enabled,
+          m: limited,
+        })}
+        actions={
+          <IconButton
+            name="refresh"
+            label={t('刷新')}
+            onClick={() => void store.refresh(true)}
+          />
+        }
       />
-
       {state.sessionError ? <ErrorNote text={state.sessionError} /> : null}
-
-      {/* 运行状态与今日读数 */}
-      <div className='m-section' style={{ marginTop: 0 }}>
-        <div
-          className='m-card'
-          style={{
-            padding: '16px 16px 14px',
-            borderRadius: 'var(--m-r-xl)',
-            background: 'linear-gradient(150deg, oklch(0.60 0.21 257), oklch(0.50 0.21 257))',
-            border: 0,
-            color: '#fff',
-            boxShadow: '0 16px 34px -18px oklch(0.50 0.21 257 / 90%)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '4px 9px 4px 8px',
-                borderRadius: 999,
-                background: 'rgba(255,255,255,.18)',
-                fontSize: 12,
-                fontWeight: 600,
-              }}
-            >
-              <i
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: gateway ? '#6ef2a4' : '#ffd166',
-                  boxShadow: gateway ? '0 0 0 3px rgba(110,242,164,.28)' : '0 0 0 3px rgba(255,209,102,.28)',
-                }}
-              />
-              {gateway ? t('运行中') : t('未配置上游')}
-            </span>
-            <button
-              type='button'
-              onClick={() => void copyWithToast(apiBase() + '/v1', 'Base URL')}
-              style={{
-                marginLeft: 'auto',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '4px 8px',
-                borderRadius: 8,
-                background: 'rgba(255,255,255,.12)',
-                color: 'rgba(255,255,255,.9)',
-                fontFamily: 'var(--m-mono)',
-                fontSize: 11.5,
-                border: 0,
-              }}
-            >
-              {baseLabel(apiBase())}/v1
-              <Icon name='copy' style={{ width: 13, height: 13 }} />
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-            <HeroMetric label={t('可用账号')} value={`${enabled}`} unit={`/ ${accounts.length}`} />
-            <div style={{ width: 1, background: 'rgba(255,255,255,.22)', margin: '2px 4px' }} />
-            <HeroMetric label={t('限流中')} value={`${limited}`} />
-            <div style={{ width: 1, background: 'rgba(255,255,255,.22)', margin: '2px 4px' }} />
-            <HeroMetric label={t('今日请求')} value={formatInt(requests?.total || 0)} />
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              gap: 14,
-              marginTop: 13,
-              paddingTop: 11,
-              borderTop: '1px solid rgba(255,255,255,.18)',
-              fontSize: 12,
-              color: 'rgba(255,255,255,.82)',
-            }}
-          >
-            <span>{t('今日签到 {done}/{total}', { done, total: eligible })}</span>
-            <span>{t('最近请求 {n} 条', { n: requests?.matched || 0 })}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 签到卡 */}
-      <div className='m-section'>
-        <div className='m-card' style={{ display: 'flex', alignItems: 'center', gap: 13, padding: 15 }}>
-          <Ring percent={percent} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14.5, fontWeight: 600 }}>
-              {t('今日签到 {done} / {total}', { done, total: eligible })}
+      <section className="m-section mt-0">
+        <Card className="gap-4 py-4 shadow-none">
+          <CardHeader className="gap-3 px-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Badge variant={gateway ? 'success' : 'secondary'}>
+                {gateway ? t('运行中') : t('未配置上游')}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="min-w-0 max-w-full truncate font-mono text-xs"
+                onClick={() =>
+                  void copyWithToast(apiBase() + '/v1', 'Base URL')
+                }
+              >
+                {baseLabel(apiBase())}/v1
+                <Icon name="copy" data-icon="inline-end" />
+              </Button>
             </div>
-            <div style={{ fontSize: 12, color: 'var(--m-text-3)', marginTop: 3, whiteSpace: 'nowrap' }}>
-              {eligible - done > 0
+            <CardTitle>{t('网关概览')}</CardTitle>
+            <CardDescription>
+              {t('当前连接的网关状态与账号概况')}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-3 gap-3 px-4">
+            <Metric
+              label={t('可用账号')}
+              value={`${available} / ${accounts.length}`}
+            />
+            <Metric label={t('限流中')} value={String(limited)} />
+            <Metric
+              label={t('最近请求')}
+              value={formatInt(requests?.matched ?? requests?.total ?? 0)}
+            />
+          </CardContent>
+          <CardFooter className="justify-between gap-3 px-4 py-3 text-xs text-muted-foreground">
+            <span>
+              {t('今日签到 {done}/{total}', { done, total: eligible })}
+            </span>
+            <span>{t('共 {n} 个账号', { n: accounts.length })}</span>
+          </CardFooter>
+        </Card>
+      </section>
+      <section className="m-section">
+        <Card className="gap-3 py-4 shadow-none">
+          <CardHeader className="px-4">
+            <CardTitle className="flex items-center justify-between gap-2">
+              <span>
+                {t('今日签到 {done} / {total}', { done, total: eligible })}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="min-h-9"
+                onClick={() => store.push('checkin')}
+              >
+                <Icon name="checkin" data-icon="inline-start" />
+                {t('签到')}
+              </Button>
+            </CardTitle>
+            <CardDescription>
+              {eligible > done
                 ? t('还有 {n} 个待签', { n: eligible - done })
                 : t('今天都签完了')}
-            </div>
-          </div>
-          <button type='button' className='m-btn m-sm' onClick={() => store.push('checkin')}>
-            <Icon name='checkin' />
-            {t('签到')}
-          </button>
-        </div>
-      </div>
-
-      {/* 快捷入口 */}
-      <div className='m-section'>
-        <div className='m-card' style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', padding: '14px 8px 12px' }}>
-          <QuickEntry icon='checkin' label={t('签到')} onClick={() => store.push('checkin')} />
-          <QuickEntry icon='model' label={t('模型')} onClick={() => store.push('models')} />
-          <QuickEntry icon='key' label={t('Key')} onClick={() => store.push('keys')} />
-          <QuickEntry icon='doc' label={t('接入')} onClick={() => store.push('docs')} />
-        </div>
-      </div>
-
-      {/* 限流告警：只留一条，按严重度取最需要处理的那条 */}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="px-4">
+            <Progress
+              value={eligible ? (done / eligible) * 100 : 0}
+              aria-label={t('今日签到进度')}
+            />
+          </CardContent>
+        </Card>
+      </section>
+      <section className="m-section">
+        <Card className="py-2 shadow-none">
+          <CardContent className="grid grid-cols-4 gap-1 px-2">
+            {(
+              [
+                { icon: 'checkin', label: t('签到'), screen: 'checkin' },
+                { icon: 'model', label: t('模型'), screen: 'models' },
+                { icon: 'key', label: t('Key'), screen: 'keys' },
+                { icon: 'doc', label: t('接入'), screen: 'docs' },
+              ] as const
+            ).map((item) => (
+              <Button
+                key={item.screen}
+                variant="ghost"
+                className="h-auto min-h-16 flex-col gap-2 py-3"
+                onClick={() => store.push(item.screen)}
+              >
+                <Icon name={item.icon} data-icon="inline-start" />
+                <span className="text-xs">{item.label}</span>
+              </Button>
+            ))}
+          </CardContent>
+        </Card>
+      </section>
       {limited > 0 ? (
-        <div className='m-section'>
-          <button
-            type='button'
-            onClick={() => store.go('accounts')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              width: '100%',
-              padding: '11px 13px',
-              borderRadius: 'var(--m-r-md)',
-              background: 'var(--m-warn-soft)',
-              border: '1px solid color-mix(in srgb, var(--m-warn) 26%, transparent)',
-              fontSize: 12.5,
-              textAlign: 'left',
-            }}
-          >
-            <Icon name='alert' style={{ width: 17, height: 17, color: 'var(--m-warn)', flex: 'none' }} />
-            <span style={{ flex: 1 }}>
-              {t('{n} 个账号正在限流，转发会自动跳过它们', { n: limited })}
-            </span>
-            <span style={{ color: 'var(--m-warn)', fontWeight: 600, fontSize: 12, flex: 'none' }}>{t('查看')}</span>
-          </button>
-        </div>
+        <section className="m-section">
+          <Alert className="border-warning-bd bg-warning-soft text-warning">
+            <Icon name="alert" />
+            <AlertDescription className="flex items-center justify-between gap-2 text-inherit">
+              <span>{t('{n} 个账号存在限流或额度限制', { n: limited })}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0 text-inherit"
+                onClick={() => store.push('accounts', { filter: 'limited' })}
+              >
+                {t('查看')}
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </section>
       ) : null}
-
-      {/* 最近请求 */}
-      <div className='m-section'>
-        <SectionHead title={t('最近请求')} action={{ label: t('全部'), onClick: () => store.push('requests') }} />
-        <div className='m-card'>
+      <section className="m-section">
+        <SectionHead
+          title={t('最近请求')}
+          action={{ label: t('全部'), onClick: () => store.push('requests') }}
+        />
+        <Surface>
           {error ? (
             <Empty text={error} />
           ) : recent.length ? (
             recent.map((row, index) => (
-              <button
-                key={row.id || `${row.ts}-${index}`}
-                type='button'
-                className='m-row'
+              <MobileButton
+                className="m-row"
+                key={row.id || index}
                 onClick={() => store.push('requests')}
-                style={{ minHeight: 46 }}
               >
                 <StatusDot status={row.status} />
-                <span
-                  className='m-mono'
-                  style={{ flex: 1, minWidth: 0, fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                >
+                <span className="min-w-0 flex-1 truncate font-mono text-xs">
                   {ellipsisMiddle(row.upstreamModel || row.model || '—', 26)}
                 </span>
-                <span style={{ fontSize: 11, color: 'var(--m-text-3)', flex: 'none' }}>
+                <span className="text-xs text-muted-foreground">
                   {row.durationMs ? formatDuration(row.durationMs) : '—'}
                 </span>
-              </button>
+              </MobileButton>
             ))
           ) : (
             <Empty text={t('还没有请求记录')} />
           )}
-        </div>
-      </div>
-
-      {/* 提供商概览 */}
-      <div className='m-section'>
-        <SectionHead title={t('账号分布')} action={{ label: t('管理'), onClick: () => store.go('accounts') }} />
-        <div className='m-card'>
-          {(session?.accounts?.providers || []).slice(0, 5).map(item => (
-            <button
-              key={item.id}
-              type='button'
-              className='m-row'
-              onClick={() => store.go('accounts')}
-            >
-              <ProviderLogo id={item.id} label={item.label} />
-              <div className='m-grow'>
-                <div className='m-t1'>{providerLabel(item.id, item.label)}</div>
-                <div className='m-t2'>{t('{n} 个账号', { n: item.count || 0 })}</div>
-              </div>
-              <span className='m-chev'>
-                <Icon name='chev' />
-              </span>
-            </button>
-          ))}
-          {!(session?.accounts?.providers || []).length ? <Empty text={t('还没有添加账号')} /> : null}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function HeroMetric({ label, value, unit }: { label: string; value: string; unit?: string }) {
-  return (
-    <div style={{ flex: 1, minWidth: 0 }}>
-      <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,.72)' }}>{label}</div>
-      <div
-        style={{
-          fontSize: 24,
-          fontWeight: 650,
-          letterSpacing: '-0.03em',
-          marginTop: 2,
-          fontVariantNumeric: 'tabular-nums',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {value}
-        {unit ? <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.8, marginLeft: 3 }}>{unit}</span> : null}
-      </div>
-    </div>
-  )
-}
-
-function Ring({ percent }: { percent: number }) {
-  const size = 54
-  const radius = (size - 8) / 2
-  const circumference = 2 * Math.PI * radius
-  const dash = (Math.min(100, Math.max(0, percent)) / 100) * circumference
-  return (
-    <div style={{ width: size, height: size, position: 'relative', flex: 'none' }}>
-      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }} aria-hidden='true'>
-        <circle cx={size / 2} cy={size / 2} r={radius} fill='none' stroke='var(--m-surface-3)' strokeWidth={5} />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill='none'
-          stroke='var(--m-primary)'
-          strokeWidth={5}
-          strokeLinecap='round'
-          strokeDasharray={`${dash} ${circumference}`}
+        </Surface>
+      </section>
+      <section className="m-section">
+        <SectionHead
+          title={t('账号分布')}
+          action={{ label: t('管理'), onClick: () => store.go('accounts') }}
         />
-      </svg>
-      <span
-        style={{
-          position: 'absolute',
-          inset: 0,
-          display: 'grid',
-          placeItems: 'center',
-          fontSize: 12.5,
-          fontWeight: 650,
-          fontVariantNumeric: 'tabular-nums',
-        }}
-      >
-        {percent}%
-      </span>
+        <Surface>
+          {(session?.accounts?.providers || [])
+            .filter((item) => (item.count || 0) > 0)
+            .map((item) => (
+              <MobileButton
+                key={item.id}
+                className="m-row"
+                onClick={() => store.go('accounts')}
+              >
+                <ProviderLogo id={item.id} label={item.label} />
+                <div className="m-grow">
+                  <div className="m-t1">
+                    {providerLabel(item.id, item.label)}
+                  </div>
+                  <div className="m-t2">
+                    {t('{n} 个账号', { n: item.count || 0 })}
+                  </div>
+                </div>
+                <Icon name="chev" data-icon="inline-end" />
+              </MobileButton>
+            ))}
+          {!accounts.length ? <Empty text={t('还没有添加账号')} /> : null}
+        </Surface>
+      </section>
     </div>
   )
 }
-
-function QuickEntry({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: Parameters<typeof GlyphLogo>[0]['name']
-  label: string
-  onClick: () => void
-}) {
+function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <button
-      type='button'
-      onClick={onClick}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 7,
-        padding: '6px 2px',
-        background: 'none',
-        border: 0,
-        fontSize: 11.5,
-        color: 'var(--m-text-2)',
-      }}
-    >
-      <span
-        style={{
-          width: 42,
-          height: 42,
-          borderRadius: 13,
-          display: 'grid',
-          placeItems: 'center',
-          background: 'var(--m-surface-2)',
-          border: '1px solid var(--m-line)',
-          color: 'var(--m-primary)',
-        }}
-      >
-        <Icon name={icon} style={{ width: 21, height: 21 }} />
-      </span>
-      {label}
-    </button>
+    <div className="min-w-0">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-2 text-xl font-semibold tabular-nums sm:text-2xl">
+        {value}
+      </div>
+    </div>
   )
 }
-
-/** 状态圆点：成功绿、4xx/5xx 红、在途黄 */
 export function StatusDot({ status }: { status?: number }) {
-  const tone = !status ? 'warn' : status >= 200 && status < 400 ? 'ok' : 'bad'
-  const color = tone === 'ok' ? 'var(--m-ok)' : tone === 'warn' ? 'var(--m-warn)' : 'var(--m-danger)'
-  return <i style={{ width: 7, height: 7, borderRadius: '50%', background: color, flex: 'none' }} />
-}
-
-function hasRateLimit(account: { rateLimits?: Record<string, unknown> }): boolean {
-  return Boolean(account.rateLimits && Object.keys(account.rateLimits).length)
+  return (
+    <Badge
+      variant={
+        !status
+          ? 'warning'
+          : status >= 200 && status < 400
+            ? 'success'
+            : 'destructive'
+      }
+      className="size-2 min-h-0 shrink-0 rounded-full p-0"
+      aria-label={status ? String(status) : t('查询中…')}
+    />
+  )
 }

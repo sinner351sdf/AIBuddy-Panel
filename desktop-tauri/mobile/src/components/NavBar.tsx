@@ -1,3 +1,4 @@
+import { MobileButton } from './primitives'
 import { Icon } from './Icon'
 import { t } from '../i18n'
 
@@ -20,9 +21,9 @@ export function NavBar({
 }) {
   return (
     <div className='m-navbar'>
-      <button type='button' className='m-icon-btn' onClick={onBack} aria-label={t('返回')}>
+      <MobileButton type='button' className='m-icon-btn' onClick={onBack} aria-label={t('返回')}>
         <Icon name='back' />
-      </button>
+      </MobileButton>
       <span className='m-navbar-title'>{title}</span>
       <span className='m-navbar-slot'>{actions}</span>
     </div>

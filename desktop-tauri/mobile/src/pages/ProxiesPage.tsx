@@ -1,3 +1,5 @@
+import { Switch } from '@ui'
+import { Surface, MobileButton } from '../components/primitives'
 import { useState } from 'react'
 import { PageIntro, IconButton, Badge, Empty, ErrorNote, SkeletonList } from '../components/ui'
 import { GlyphLogo } from '../components/ProviderLogo'
@@ -104,8 +106,8 @@ export function ProxiesPage() {
       />
 
       <div className='m-section' style={{ marginTop: 0 }}>
-        <div className='m-card'>
-          <button type='button' className='m-row' onClick={() => void sync()} disabled={busy === 'sync'}>
+        <Surface className='m-card'>
+          <MobileButton type='button' className='m-row' onClick={() => void sync()} disabled={busy === 'sync'}>
             <GlyphLogo name='refresh' />
             <div className='m-grow'>
               <div className='m-t1'>{busy === 'sync' ? t('同步中…') : t('同步 Clash Verge 出口')}</div>
@@ -118,8 +120,8 @@ export function ProxiesPage() {
             <span className='m-chev'>
               <Icon name='chev' />
             </span>
-          </button>
-        </div>
+          </MobileButton>
+        </Surface>
       </div>
 
       {error ? <ErrorNote text={error} /> : null}
@@ -127,9 +129,9 @@ export function ProxiesPage() {
 
       {data && !items.length ? (
         <div className='m-section'>
-          <div className='m-card'>
+          <Surface className='m-card'>
             <Empty text={t('还没有出口。在桌面端「网络代理」页新增，或点上面同步 Clash。')} />
-          </div>
+          </Surface>
         </div>
       ) : null}
 
@@ -149,7 +151,7 @@ export function ProxiesPage() {
             : t('未测试')
         return (
           <div key={id} className='m-section' style={{ marginTop: 10 }}>
-            <div className='m-card m-card-pad'>
+            <Surface className='m-card m-card-pad'>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <GlyphLogo name='globe' />
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -194,7 +196,7 @@ export function ProxiesPage() {
                 </span>
                 {item.usedBy ? <span style={{ flex: 'none' }}>{t('{n} 个账号引用', { n: item.usedBy })}</span> : null}
                 {last?.at ? <span style={{ flex: 'none' }}>{formatRelative(last.at)}</span> : null}
-                <button
+                <MobileButton
                   type='button'
                   className='m-btn m-sm m-ghost'
                   style={{ marginLeft: 'auto', height: 28, fontSize: 11.5, padding: '0 10px' }}
@@ -202,7 +204,7 @@ export function ProxiesPage() {
                   onClick={() => void test(item)}
                 >
                   {busy === id ? t('测试中…') : t('测试')}
-                </button>
+                </MobileButton>
               </div>
 
               {item.source === 'subscription' ? (
@@ -214,15 +216,15 @@ export function ProxiesPage() {
                   <Badge tone='mute'>{t('Clash 镜像')}</Badge>
                 </div>
               ) : null}
-            </div>
+            </Surface>
           </div>
         )
       })}
 
       <div className='m-section' style={{ paddingBottom: 8 }}>
-        <div className='m-card m-card-pad' style={{ fontSize: 11.5, color: 'var(--m-text-3)', lineHeight: 1.7 }}>
+        <Surface className='m-card m-card-pad' style={{ fontSize: 11.5, color: 'var(--m-text-3)', lineHeight: 1.7 }}>
           {t('新增出口、编辑地址与订阅管理在桌面端完成；手机端做启停与连通性测试。')}
-        </div>
+        </Surface>
       </div>
     </div>
   )
@@ -235,51 +237,4 @@ function addressOf(item: PoolItem): string {
   return t('未分配端口')
 }
 
-function SwitchSmall({
-  checked,
-  onChange,
-  disabled,
-  label,
-}: {
-  checked: boolean
-  onChange: (next: boolean) => void
-  disabled?: boolean
-  label: string
-}) {
-  return (
-    <button
-      type='button'
-      role='switch'
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      style={{
-        width: 40,
-        height: 24,
-        borderRadius: 999,
-        border: checked ? '0' : '1px solid var(--m-line-strong)',
-        background: checked ? 'var(--m-ok)' : 'var(--m-surface-3)',
-        position: 'relative',
-        transition: 'background .18s',
-        padding: 0,
-        flex: 'none',
-        opacity: disabled ? 0.5 : 1,
-      }}
-    >
-      <span
-        style={{
-          position: 'absolute',
-          top: 2,
-          left: checked ? 18 : 2,
-          width: 20,
-          height: 20,
-          borderRadius: '50%',
-          background: '#fff',
-          boxShadow: '0 1px 3px rgba(0,0,0,.25)',
-          transition: 'left .18s cubic-bezier(.3,.9,.4,1)',
-        }}
-      />
-    </button>
-  )
-}
+function SwitchSmall({checked,onChange,disabled,label}:{checked:boolean;onChange:(next:boolean)=>void;disabled?:boolean;label:string}) {return <Switch checked={checked} onCheckedChange={onChange} disabled={disabled} aria-label={label}/>}

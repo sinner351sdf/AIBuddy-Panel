@@ -1,3 +1,5 @@
+import { toast as notifications } from '@ui'
+import type { BalanceSnapshot } from '../lib/accountLimits'
 import * as React from 'react'
 
 /**
@@ -14,7 +16,7 @@ import * as React from 'react'
  * 都宝贵，只在页面可见时刷新。
  */
 
-import { fetchSession, type SessionPayload, type Account } from '../api/gateway'
+import { fetchBalanceSnapshot, fetchSession, type SessionPayload, type Account } from '../api/gateway'
 import {
   activeServer,
   isPackaged,
@@ -40,6 +42,7 @@ type AppState = {
   route: Route
   /** 二级页栈（一级页切换时清空） */
   stack: Route[]
+  balancesSnapshot: BalanceSnapshot | null
   session: SessionPayload | null
   sessionError: string
   loading: boolean
@@ -96,7 +99,7 @@ function applyTheme(mode: ThemeMode): void {
   // 「系统是浅色」那条盖回去。
   const metas = document.querySelectorAll('meta[name="theme-color"]')
   metas.forEach((meta, index) => {
-    meta.setAttribute('content', effective === 'dark' ? '#0a0a0a' : '#f3f3f6')
+    meta.setAttribute('content', effective === 'dark' ? '#0a0a0a' : '#ffffff')
     if (index === 0) meta.removeAttribute('media')
   })
 }
@@ -105,7 +108,7 @@ class Store {
   private state: AppState = {
     route: readInitialRoute(),
     stack: [],
-    session: null,
+    session: null, balancesSnapshot: null,
     sessionError: '',
     loading: false,
     theme: readTheme(),
@@ -171,7 +174,10 @@ class Store {
     const { route } = this.state
     const id = route.params?.id ? `${route.screen}/${route.params.id}` : route.screen
     try {
-      history.replaceState(null, '', `#${id}`)
+      // The entry uses <base href='/'> for assets: a bare hash would resolve to /.
+      const url = new URL(location.href)
+      url.hash = id
+      history.replaceState(null, '', url.href)
     } catch {
       /* 极端情况下忽略 */
     }
@@ -199,7 +205,9 @@ class Store {
     this.patch({ loading: true })
     try {
       const session = await fetchSession(controller.signal)
-      this.patch({ session, sessionError: '', loading: false, authLost: null })
+      const balancesSnapshot = await fetchBalanceSnapshot(controller.signal).catch(() => this.state.balancesSnapshot)
+      if (controller.signal.aborted) return
+      this.patch({ session, balancesSnapshot, sessionError: '', loading: false, authLost: null })
     } catch (error) {
       if (controller.signal.aborted) return
       const message = error instanceof Error ? error.message : String(error)
@@ -225,7 +233,7 @@ class Store {
     setActiveServer(entry.id)
     this.reloadServers()
     // 换服务器 = 换一份会话，先把旧快照清掉，避免界面上短暂显示上一台的账号
-    this.patch({ session: null, sessionError: '', authLost: null })
+    this.patch({ session: null, balancesSnapshot: null, sessionError: '', authLost: null })
     return entry.id
   }
 
@@ -234,13 +242,13 @@ class Store {
     saveServer({ id, ...input })
     this.reloadServers()
     // 地址变了，原来那份会话对不上新网关，重新拉
-    if (this.state.server?.id === id) this.patch({ session: null, sessionError: '' })
+    if (this.state.server?.id === id) this.patch({ session: null, balancesSnapshot: null, sessionError: '' })
   }
 
   deleteServer(id: string): void {
     removeServer(id)
     this.reloadServers()
-    this.patch({ session: null, sessionError: '', authLost: null })
+    this.patch({ session: null, balancesSnapshot: null, sessionError: '', authLost: null })
   }
 
   /** 切到另一台服务器：清掉旧快照，界面随后自行 refresh */
@@ -248,7 +256,7 @@ class Store {
     if (this.state.server?.id === id) return
     setActiveServer(id)
     this.reloadServers()
-    this.patch({ session: null, sessionError: '', authLost: null, stack: [], route: { screen: 'home' } })
+    this.patch({ session: null, balancesSnapshot: null, sessionError: '', authLost: null, stack: [], route: { screen: 'home' } })
   }
 
   /* ── 主题 ── */
@@ -276,6 +284,7 @@ class Store {
   /* ── 提示 ── */
 
   toast(text: string, tone: 'ok' | 'err' = 'ok'): void {
+    notifications.add({ description: text, type: tone === 'err' ? 'error' : 'success' })
     if (this.toastTimer !== null) window.clearTimeout(this.toastTimer)
     this.patch({ toast: { text, tone } })
     this.toastTimer = window.setTimeout(() => this.patch({ toast: null }), 2000)

@@ -1,3 +1,5 @@
+import { Progress } from '@ui'
+import { Surface, MobileButton } from '../components/primitives'
 import { useState } from 'react'
 import { PageIntro, IconButton, Badge, Empty, ErrorNote, SkeletonList } from '../components/ui'
 import { ProviderLogo, GlyphLogo } from '../components/ProviderLogo'
@@ -74,7 +76,7 @@ export function CheckinPage() {
       {data ? (
         <>
           <div className='m-section' style={{ marginTop: 0 }}>
-            <div className='m-card m-card-pad' style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
+            <Surface className='m-card m-card-pad' style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
               <div style={{ flex: 'none' }}>
                 <div style={{ fontSize: 30, fontWeight: 650, letterSpacing: '-0.035em', fontVariantNumeric: 'tabular-nums' }}>
                   {done}
@@ -83,17 +85,7 @@ export function CheckinPage() {
                 <div style={{ fontSize: 12, color: 'var(--m-text-3)', marginTop: 2 }}>{t('今日已签')}</div>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ height: 7, borderRadius: 4, background: 'var(--m-surface-3)', overflow: 'hidden' }}>
-                  <i
-                    style={{
-                      display: 'block',
-                      height: '100%',
-                      width: `${percent}%`,
-                      borderRadius: 4,
-                      background: 'linear-gradient(90deg, var(--m-primary), oklch(0.62 0.19 250))',
-                    }}
-                  />
-                </div>
+                <Progress value={percent} aria-label={t('今日签到进度')}/>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11, color: 'var(--m-text-3)' }}>
                   <span>{percent}%</span>
                   <span>
@@ -101,11 +93,11 @@ export function CheckinPage() {
                   </span>
                 </div>
               </div>
-            </div>
+            </Surface>
           </div>
 
           <div className='m-section'>
-            <div className='m-card' style={{ padding: '12px 15px', display: 'flex', gap: 10 }}>
+            <Surface className='m-card' style={{ padding: '12px 15px', display: 'flex', gap: 10 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 11.5, color: 'var(--m-text-3)' }}>{t('定时签到')}</div>
                 <div style={{ fontSize: 14, fontWeight: 600, marginTop: 3 }}>
@@ -125,22 +117,22 @@ export function CheckinPage() {
                   {data.history?.[0]?.at ? formatRelative(data.history[0].at) : t('还没有记录')}
                 </div>
               </div>
-            </div>
+            </Surface>
           </div>
 
           <div className='m-section'>
             <div className='m-section-head'>
               <h2>{t('每日签到')}</h2>
-              <button
+              <MobileButton
                 type='button'
                 className='m-link'
                 disabled={busy === 'all'}
                 onClick={() => void sign()}
               >
                 {busy === 'all' ? t('签到中…') : t('立即全部签到')}
-              </button>
+              </MobileButton>
             </div>
-            <div className='m-card'>
+            <Surface className='m-card'>
               {providers.length ? (
                 providers.map(group => {
                   const key = String(group.id || '')
@@ -152,7 +144,7 @@ export function CheckinPage() {
                   const isOpen = expanded === key
                   return (
                     <div key={key} style={{ borderBottom: '1px solid var(--m-line)' }}>
-                      <button
+                      <MobileButton
                         type='button'
                         onClick={() => setExpanded(isOpen ? null : key)}
                         style={{
@@ -185,7 +177,7 @@ export function CheckinPage() {
                             transition: 'transform .16s',
                           }}
                         />
-                      </button>
+                      </MobileButton>
                       {isOpen ? (
                         <div style={{ padding: '0 14px 12px' }}>
                           {(group.accounts || []).map(account => (
@@ -215,7 +207,7 @@ export function CheckinPage() {
                               <span style={{ fontSize: 11, color: 'var(--m-text-3)', flex: 'none' }}>
                                 {account.checkinAt ? formatStamp(account.checkinAt) : '—'}
                               </span>
-                              <button
+                              <MobileButton
                                 type='button'
                                 className='m-btn m-sm m-ghost'
                                 disabled={busy === account.id || account.available === false}
@@ -227,7 +219,7 @@ export function CheckinPage() {
                                   : isToday(account.checkinAt)
                                     ? t('重签')
                                     : t('签到')}
-                              </button>
+                              </MobileButton>
                             </div>
                           ))}
                         </div>
@@ -238,7 +230,7 @@ export function CheckinPage() {
               ) : (
                 <Empty text={t('没有可签到的账号')} />
               )}
-            </div>
+            </Surface>
           </div>
 
           {(data.daily?.outOfScope || []).length ? (
@@ -246,7 +238,7 @@ export function CheckinPage() {
               <div className='m-section-head'>
                 <h2>{t('不参与签到')}</h2>
               </div>
-              <div className='m-card'>
+              <Surface className='m-card'>
                 {(data.daily?.outOfScope || []).map(item => (
                   <div key={item.label} className='m-row'>
                     <GlyphLogo name='info' />
@@ -257,7 +249,7 @@ export function CheckinPage() {
                     <span className='m-val'>{t('{n} 个', { n: item.count || 0 })}</span>
                   </div>
                 ))}
-              </div>
+              </Surface>
             </div>
           ) : null}
 
@@ -266,7 +258,7 @@ export function CheckinPage() {
               <div className='m-section-head'>
                 <h2>{t('新手福利与活动')}</h2>
               </div>
-              <div className='m-card'>
+              <Surface className='m-card'>
                 {(data.extras?.onboarding || []).map(item => (
                   <div key={item.id} className='m-row'>
                     <ProviderLogo id={item.provider} />
@@ -289,7 +281,7 @@ export function CheckinPage() {
                     </Badge>
                   </div>
                 ))}
-              </div>
+              </Surface>
               <div style={{ marginTop: 8, fontSize: 11.5, color: 'var(--m-text-3)', padding: '0 2px' }}>
                 {t('福利与套餐的逐项领取在桌面端签到中心完成')}
               </div>

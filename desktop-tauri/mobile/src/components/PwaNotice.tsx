@@ -1,3 +1,5 @@
+import { Alert, AlertDescription } from '@ui'
+import { MobileButton } from './primitives'
 import { useState } from 'react'
 import { Icon } from './Icon'
 import { usePwa } from '../lib/usePwa'
@@ -31,16 +33,16 @@ export function PwaNotice() {
   return (
     <>
       {pwa.offline ? (
-        <div className='m-notice-top' role='status'>
+        <Alert className='m-notice-top' role='status'>
           <Icon name='alert' />
-          <span>{t('已离线 · 显示的是缓存内容')}</span>
-        </div>
+          <AlertDescription>{t('已离线 · 显示的是缓存内容')}</AlertDescription>
+        </Alert>
       ) : null}
 
       {showUpdate ? (
-        <div className='m-notice-update' role='status'>
+        <Alert className='m-notice-update' role='status'><AlertDescription className='flex flex-wrap items-center gap-2'>
           <span className='m-notice-text'>{t('有新版本，重启后生效')}</span>
-          <button
+          <MobileButton
             type='button'
             className='m-btn m-sm'
             disabled={busy}
@@ -50,11 +52,11 @@ export function PwaNotice() {
             }}
           >
             {busy ? t('重启中…') : t('重启更新')}
-          </button>
-          <button type='button' className='m-notice-later' onClick={() => setSnoozed(true)}>
+          </MobileButton>
+          <MobileButton type='button' className='m-notice-later' onClick={() => setSnoozed(true)}>
             {t('稍后')}
-          </button>
-        </div>
+          </MobileButton></AlertDescription>
+        </Alert>
       ) : null}
     </>
   )

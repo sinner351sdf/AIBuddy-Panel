@@ -42,6 +42,7 @@ function swBuildStamp(): Plugin {
       // sw.js 自身也算：只改缓存策略、不改 JS/CSS 时，版本号同样要变，
       // 否则浏览器不重装 SW，新策略永远不生效。
       hash.update(fs.readFileSync(path.resolve(__dirname, 'public', 'sw.js')))
+      for (const file of ['m.html', 'index.html', 'web-mobile-entry.js', 'css/mobile.css', 'islands/ui.js', 'islands/ui.css']) hash.update(fs.readFileSync(path.resolve(__dirname, '../ui', file)))
       for (const name of ['mobile.js', 'mobile.css']) {
         const file = path.resolve(__dirname, '../ui/m', name)
         if (fs.existsSync(file)) hash.update(fs.readFileSync(file))

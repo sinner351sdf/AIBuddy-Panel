@@ -1,3 +1,6 @@
+import { Field, FieldLabel } from '@ui'
+import { Badge as SharedBadge } from '@ui'
+import { MobileButton, Surface, MobileInput } from '../components/primitives'
 import { useState } from 'react'
 import { Icon } from '../components/Icon'
 import { PageHead, SectionHead, ErrorNote } from '../components/ui'
@@ -84,10 +87,10 @@ export function ServersPage() {
         title={t('服务器')}
         subtitle={servers.length ? t('已添加 {n} 台', { n: servers.length }) : t('先添加一台网关')}
         actions={
-          <button type='button' className='m-btn m-sm' onClick={startAdd} disabled={editing === 'new'}>
+          <MobileButton type='button' className='m-btn m-sm' onClick={startAdd} disabled={editing === 'new'}>
             <Icon name='plus' />
             {t('添加')}
-          </button>
+          </MobileButton>
         }
       />
 
@@ -96,14 +99,14 @@ export function ServersPage() {
       {/* 编辑表单：新增与修改共用 */}
       {editing ? (
         <div className='m-section' style={{ marginTop: 0 }}>
-          <div className='m-card m-card-pad'>
+          <Surface className='m-card m-card-pad'>
             <div style={{ fontSize: 13, fontWeight: 600 }}>
               {editing === 'new' ? t('添加服务器') : t('编辑服务器')}
             </div>
-            <label style={{ display: 'block', marginTop: 12 }}>
-              <span style={{ fontSize: 12, color: 'var(--m-text-3)' }}>{t('地址')}</span>
-              <input
-                value={draftBase}
+            <Field className='mt-3'>
+              <FieldLabel htmlFor='server-address'>{t('地址')}</FieldLabel>
+              <MobileInput
+                id='server-address' value={draftBase}
                 onChange={event => setDraftBase(event.target.value)}
                 placeholder='192.168.1.23:3065'
                 inputMode='url'
@@ -124,14 +127,14 @@ export function ServersPage() {
                   fontFamily: 'var(--m-mono)',
                 }}
               />
-            </label>
+            </Field>
             <div style={{ fontSize: 11.5, color: 'var(--m-text-3)', marginTop: 6, lineHeight: 1.6 }}>
               {t('只填「IP:端口」即可，不写端口默认 3065。地址里的 /m、/v1 会自动去掉。')}
             </div>
-            <label style={{ display: 'block', marginTop: 12 }}>
-              <span style={{ fontSize: 12, color: 'var(--m-text-3)' }}>{t('备注名（可选）')}</span>
-              <input
-                value={draftName}
+            <Field className='mt-3'>
+              <FieldLabel htmlFor='server-name'>{t('备注名（可选）')}</FieldLabel>
+              <MobileInput
+                id='server-name' value={draftName}
                 onChange={event => setDraftName(event.target.value)}
                 placeholder={t('例如：家里、公司')}
                 style={{
@@ -147,27 +150,27 @@ export function ServersPage() {
                   fontSize: 16,
                 }}
               />
-            </label>
+            </Field>
             <div className='m-btn-row' style={{ marginTop: 14 }}>
-              <button type='button' className='m-btn m-ghost' onClick={cancel} disabled={busy}>
+              <MobileButton type='button' className='m-btn m-ghost' onClick={cancel} disabled={busy}>
                 {t('取消')}
-              </button>
-              <button type='button' className='m-btn' onClick={() => void save()} disabled={busy || !draftBase.trim()}>
+              </MobileButton>
+              <MobileButton type='button' className='m-btn' onClick={() => void save()} disabled={busy || !draftBase.trim()}>
                 {busy ? t('正在连接…') : t('连接并保存')}
-              </button>
+              </MobileButton>
             </div>
-          </div>
+          </Surface>
         </div>
       ) : null}
 
       <div className='m-section'>
         <SectionHead title={t('已添加的服务器')} />
         {servers.length === 0 ? (
-          <div className='m-card m-card-pad' style={{ fontSize: 12.5, color: 'var(--m-text-2)', lineHeight: 1.7 }}>
+          <Surface className='m-card m-card-pad' style={{ fontSize: 12.5, color: 'var(--m-text-2)', lineHeight: 1.7 }}>
             {t('还没有添加服务器。点右上角「添加」，填入网关所在机器的局域网 IP 与端口。')}
-          </div>
+          </Surface>
         ) : (
-          <div className='m-card'>
+          <Surface className='m-card'>
             {servers.map(entry => {
               const current = server?.id === entry.id
               return (
@@ -182,7 +185,7 @@ export function ServersPage() {
                   >
                     <Icon name='server' />
                   </span>
-                  <button
+                  <MobileButton
                     type='button'
                     className='m-grow'
                     onClick={() => {
@@ -194,16 +197,16 @@ export function ServersPage() {
                     <div className='m-t1' style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       {entry.name || baseLabel(entry.base)}
                       {current ? (
-                        <span className='m-badge m-badge-brand' style={{ height: 18, fontSize: 10.5 }}>
+                        <SharedBadge variant='secondary' >
                           {t('当前')}
-                        </span>
+                        </SharedBadge>
                       ) : null}
                     </div>
                     <div className='m-t2 m-mono' style={{ fontSize: 11.5 }}>
                       {baseLabel(entry.base)}
                     </div>
-                  </button>
-                  <button
+                  </MobileButton>
+                  <MobileButton
                     type='button'
                     className='m-icon-btn'
                     aria-label={t('编辑')}
@@ -211,8 +214,8 @@ export function ServersPage() {
                     style={{ width: 30, height: 30, boxShadow: 'none' }}
                   >
                     <Icon name='edit' />
-                  </button>
-                  <button
+                  </MobileButton>
+                  <MobileButton
                     type='button'
                     className='m-icon-btn'
                     aria-label={t('删除')}
@@ -224,18 +227,18 @@ export function ServersPage() {
                     style={{ width: 30, height: 30, boxShadow: 'none', color: 'var(--m-danger)' }}
                   >
                     <Icon name='trash' />
-                  </button>
+                  </MobileButton>
                 </div>
               )
             })}
-          </div>
+          </Surface>
         )}
       </div>
 
       <div className='m-section' style={{ paddingBottom: 8 }}>
-        <div className='m-card m-card-pad' style={{ fontSize: 11.5, color: 'var(--m-text-3)', lineHeight: 1.7 }}>
+        <Surface className='m-card m-card-pad' style={{ fontSize: 11.5, color: 'var(--m-text-3)', lineHeight: 1.7 }}>
           {t('每台服务器的登录状态各自独立保存，切换后不用重新登录。地址改掉后需要重新登录。')}
-        </div>
+        </Surface>
       </div>
     </div>
   )

@@ -7,6 +7,12 @@
  */
 
 import { apiCall } from './client'
+import type { BalanceSnapshot } from '../lib/accountLimits'
+
+/** Cached readings only: this endpoint never starts an upstream balance query. */
+export function fetchBalanceSnapshot(signal?: AbortSignal): Promise<BalanceSnapshot> {
+  return apiCall('/api/accounts/usage/snapshot', { signal })
+}
 
 /* ─── 会话 / 账号 ─────────────────────────────── */
 

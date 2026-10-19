@@ -1,9 +1,13 @@
+import { Surface } from '../components/primitives'
+import { accountLimitState, activeRateLimits, type BalanceSnapshot } from '../lib/accountLimits'
+import { confirmAction } from '../components/confirm'
+import { MobileButton } from '../components/primitives'
 import { useState } from 'react'
 import { Sheet, SheetContent, SheetHeader, SheetBody, SheetFooter, SheetTitle } from '@ui'
 import { Icon } from '../components/Icon'
 import { ProviderLogo } from '../components/ProviderLogo'
 import { Badge } from '../components/ui'
-import { store } from '../state/store'
+import { store, useStore } from '../state/store'
 import { deleteAccount, refreshAccount, setAccountEnabled, type Account } from '../api/gateway'
 import { accountName, formatExpiry, formatRelative, formatStamp } from '../lib/format'
 import { expiryOf, hasExpiry } from '../lib/providerFacts'
@@ -26,6 +30,7 @@ export function AccountSheet({
   onClose: () => void
   onChanged: () => void
 }) {
+  const {balancesSnapshot} = useStore()
   const [busy, setBusy] = useState('')
   const open = Boolean(account)
 
@@ -46,17 +51,17 @@ export function AccountSheet({
     if (!account) return
     const name = accountName(account)
     // 删除不可恢复：手机上用两次确认（第一次进二次确认态）
-    if (!window.confirm(t('确定删除账号「{name}」？这个操作不可恢复。', { name }))) return
+    if (!(await confirmAction(t('确定删除账号「{name}」？这个操作不可恢复。', { name })))) return
     await run('delete', () => deleteAccount(account.id), t('已删除账号'))
     onClose()
   }
 
-  const limits = account?.rateLimits ? Object.entries(account.rateLimits) : []
+  const limits = activeRateLimits(account)
   const expiresAt = account ? expiryOf(account) : 0
 
   return (
     <Sheet open={open} onOpenChange={next => { if (!next) onClose() }}>
-      <SheetContent>
+      <SheetContent side='bottom' className='max-h-[85dvh]'>
         <SheetHeader>
           <SheetTitle>{t('账号详情')}</SheetTitle>
         </SheetHeader>
@@ -74,35 +79,35 @@ export function AccountSheet({
                     {account.priority !== undefined ? ` · #${account.priority}` : ''}
                   </div>
                 </div>
-                <Badge tone={statusTone(account)} dot>
-                  {statusText(account)}
+                <Badge tone={statusTone(account, balancesSnapshot)} dot>
+                  {statusText(account, balancesSnapshot)}
                 </Badge>
               </div>
 
               <div className='m-kv'>
                 {hasExpiry(account.provider) ? (
-                  <div className='m-kv-cell'>
+                  <Surface className='m-kv-cell'>
                     <div className='k'>{t('有效期')}</div>
                     <div className='v'>{formatExpiry(expiresAt)}</div>
-                  </div>
+                  </Surface>
                 ) : null}
-                <div className='m-kv-cell'>
+                <Surface className='m-kv-cell'>
                   <div className='k'>{t('凭证')}</div>
                   <div className='v'>{account.hasCredentials === false ? t('缺失') : t('完整')}</div>
-                </div>
-                <div className='m-kv-cell'>
+                </Surface>
+                <Surface className='m-kv-cell'>
                   <div className='k'>{t('限流模型')}</div>
                   <div className='v'>{limits.length}</div>
-                </div>
-                <div className='m-kv-cell'>
+                </Surface>
+                <Surface className='m-kv-cell'>
                   <div className='k'>{t('最近更新')}</div>
                   <div className='v m-mono' style={{ fontSize: 12 }}>
                     {formatStamp(account.updatedAt as number)}
                   </div>
-                </div>
+                </Surface>
               </div>
 
-              <div className='m-rows'>
+              <Surface className='m-rows'>
                 <div className='m-row'>
                   <span className='m-k'>{t('账号 ID')}</span>
                   <span className='m-v m-mono' style={{ fontSize: 11 }}>
@@ -127,10 +132,10 @@ export function AccountSheet({
                     </span>
                   </div>
                 ) : null}
-              </div>
+              </Surface>
 
               {limits.length ? (
-                <div className='m-rows'>
+                <Surface className='m-rows'>
                   {limits.map(([model, info]) => (
                     <div key={model} className='m-row'>
                       <span className='m-k m-mono' style={{ fontSize: 11 }}>
@@ -141,13 +146,13 @@ export function AccountSheet({
                       </span>
                     </div>
                   ))}
-                </div>
+                </Surface>
               ) : null}
             </>
           ) : null}
         </SheetBody>
         <SheetFooter style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
-          <button
+          <MobileButton
             type='button'
             className='m-btn'
             disabled={busy === 'refresh' || !account}
@@ -155,9 +160,9 @@ export function AccountSheet({
           >
             <Icon name='refresh' />
             {busy === 'refresh' ? t('刷新中…') : t('刷新凭证')}
-          </button>
+          </MobileButton>
           <div className='m-btn-row'>
-            <button
+            <MobileButton
               type='button'
               className='m-btn m-ghost'
               style={{ flex: 1 }}
@@ -173,8 +178,8 @@ export function AccountSheet({
             >
               <Icon name={account?.enabled ? 'pause' : 'play'} />
               {account?.enabled ? t('禁用') : t('启用')}
-            </button>
-            <button
+            </MobileButton>
+            <MobileButton
               type='button'
               className='m-btn m-danger'
               style={{ flex: 1 }}
@@ -183,7 +188,7 @@ export function AccountSheet({
             >
               <Icon name='trash' />
               {busy === 'delete' ? t('删除中…') : t('删除')}
-            </button>
+            </MobileButton>
           </div>
         </SheetFooter>
       </SheetContent>
@@ -191,19 +196,19 @@ export function AccountSheet({
   )
 }
 
-function statusTone(account: Account): 'ok' | 'warn' | 'bad' | 'mute' {
-  if (!account.enabled) return 'mute'
+function statusTone(account: Account, snapshot: BalanceSnapshot | null): 'ok' | 'warn' | 'bad' | 'mute' {
+  if (account.enabled === false) return 'mute'
   if (account.needsRelogin) return 'bad'
-  if (account.rateLimits && Object.keys(account.rateLimits).length) return 'warn'
+  if (accountLimitState(account, snapshot).limited) return 'warn'
   const expiresAt = expiryOf(account)
   if (expiresAt > 0 && expiresAt <= Date.now()) return 'bad'
   return 'ok'
 }
 
-function statusText(account: Account): string {
-  if (!account.enabled) return t('已禁用')
+function statusText(account: Account, snapshot: BalanceSnapshot | null): string {
+  if (account.enabled === false) return t('已禁用')
   if (account.needsRelogin) return t('需重登')
-  if (account.rateLimits && Object.keys(account.rateLimits).length) return t('限流中')
+  if (accountLimitState(account, snapshot).limited) return accountLimitState(account, snapshot).balance ? t('余额不足') : accountLimitState(account, snapshot).token ? t('Token 限额') : t('限流中')
   const expiresAt = expiryOf(account)
   if (expiresAt > 0 && expiresAt <= Date.now()) return t('已过期')
   return t('正常')

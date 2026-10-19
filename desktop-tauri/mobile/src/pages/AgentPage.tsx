@@ -1,3 +1,5 @@
+import { confirmAction } from '../components/confirm'
+import { Surface, MobileButton } from '../components/primitives'
 import { useState } from 'react'
 import { PageIntro, IconButton, Badge, Empty, ErrorNote, SkeletonList } from '../components/ui'
 import { GlyphLogo } from '../components/ProviderLogo'
@@ -39,7 +41,7 @@ export function AgentPage() {
 
   const restore = async (client: AgentClient) => {
     if (!client.id) return
-    if (!window.confirm(t('确定按最近一次备份还原「{name}」？', { name: client.name || client.id }))) return
+    if (!(await confirmAction(t('确定按最近一次备份还原「{name}」？', { name: client.name || client.id })))) return
     setBusy(client.id)
     try {
       await restoreAgentClient(client.id)
@@ -59,7 +61,7 @@ export function AgentPage() {
       />
 
       <div className='m-section' style={{ marginTop: 0 }}>
-        <div
+        <Surface
           className='m-card m-card-pad'
           style={{ background: 'var(--m-warn-soft)', borderColor: 'color-mix(in srgb, var(--m-warn) 24%, transparent)' }}
         >
@@ -68,7 +70,7 @@ export function AgentPage() {
             <b style={{ color: 'var(--m-text)' }}>{t('（手机读不到本机文件）')}</b>
             {t('。这里的开关与还原作用在网关所在的机器上。')}
           </div>
-        </div>
+        </Surface>
       </div>
 
       {error ? <ErrorNote text={error} /> : null}
@@ -76,15 +78,15 @@ export function AgentPage() {
 
       {clients && !clients.length ? (
         <div className='m-section'>
-          <div className='m-card'>
+          <Surface className='m-card'>
             <Empty text={t('没有检测到可接管的客户端')} />
-          </div>
+          </Surface>
         </div>
       ) : null}
 
       {(clients || []).map(client => (
         <div key={client.id} className='m-section' style={{ marginTop: 10 }}>
-          <div className='m-card m-card-pad'>
+          <Surface className='m-card m-card-pad'>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <GlyphLogo name='agent' />
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -119,7 +121,7 @@ export function AgentPage() {
             >
               <span>{client.configMode === 'multi' ? t('多配置文件') : t('单配置文件')}</span>
               {client.hasBackup ? (
-                <button
+                <MobileButton
                   type='button'
                   className='m-btn m-sm m-ghost'
                   style={{ marginLeft: 'auto', height: 28, fontSize: 11.5, padding: '0 10px' }}
@@ -128,17 +130,17 @@ export function AgentPage() {
                 >
                   <Icon name='refresh' style={{ width: 12, height: 12 }} />
                   {busy === client.id ? t('还原中…') : t('还原')}
-                </button>
+                </MobileButton>
               ) : null}
             </div>
-          </div>
+          </Surface>
         </div>
       ))}
 
       <div className='m-section' style={{ paddingBottom: 8 }}>
-        <div className='m-card m-card-pad' style={{ fontSize: 11.5, color: 'var(--m-text-3)', lineHeight: 1.7 }}>
+        <Surface className='m-card m-card-pad' style={{ fontSize: 11.5, color: 'var(--m-text-3)', lineHeight: 1.7 }}>
           {t('接管会把客户端的 base_url 指向本网关，并在写入前自动备份原文件。')}
-        </div>
+        </Surface>
       </div>
     </div>
   )

@@ -1,3 +1,4 @@
+import { MobileButton, Surface } from '../components/primitives'
 import { useState } from 'react'
 import { PageHead, SectionHead, Empty, ErrorNote, StatCard, SkeletonList } from '../components/ui'
 import { ProviderLogo } from '../components/ProviderLogo'
@@ -82,7 +83,7 @@ export function ReportPage() {
 
       <div className='m-chips' style={{ paddingBottom: 12 }}>
         {RANGES.map(item => (
-          <button
+          <MobileButton
             key={item.value}
             type='button'
             className='m-chip'
@@ -90,7 +91,7 @@ export function ReportPage() {
             onClick={() => setRange(item.value)}
           >
             {item.label}
-          </button>
+          </MobileButton>
         ))}
       </div>
 
@@ -115,7 +116,7 @@ export function ReportPage() {
           </div>
 
           <div className='m-section'>
-            <div className='m-card' style={{ padding: '14px 15px 10px' }}>
+            <Surface className='m-card' style={{ padding: '14px 15px 10px' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
                 <b style={{ fontSize: 13 }}>{t('按天 Token 用量')}</b>
                 <span style={{ fontSize: 11.5, color: 'var(--m-text-3)' }}>
@@ -123,12 +124,12 @@ export function ReportPage() {
                 </span>
               </div>
               <TrendBars trend={trend} />
-            </div>
+            </Surface>
           </div>
 
           <div className='m-section'>
             <SectionHead title={t('模型用量')} />
-            <div className='m-card' style={{ padding: '4px 15px 8px' }}>
+            <Surface className='m-card' style={{ padding: '4px 15px 8px' }}>
               {topModels.length ? (
                 topModels.map((item, index) => {
                   const value = Number(item.totalTokens) || 0
@@ -158,12 +159,12 @@ export function ReportPage() {
               ) : (
                 <Empty text={t('所选范围内还没有模型用量')} />
               )}
-            </div>
+            </Surface>
           </div>
 
           <div className='m-section'>
             <SectionHead title={t('提供商用量')} />
-            <div className='m-card'>
+            <Surface className='m-card'>
               {topProviders.length ? (
                 topProviders.map(item => (
                   <div key={item.id || 'unknown'} className='m-row'>
@@ -178,12 +179,12 @@ export function ReportPage() {
               ) : (
                 <Empty text={t('所选范围内还没有提供商用量')} />
               )}
-            </div>
+            </Surface>
           </div>
 
           <div className='m-section'>
             <SectionHead title={t('账号用量')} />
-            <div className='m-card'>
+            <Surface className='m-card'>
               {topAccounts.length ? (
                 topAccounts.map(item => (
                   <div key={item.id || 'unknown'} className='m-row'>
@@ -199,24 +200,24 @@ export function ReportPage() {
               ) : (
                 <Empty text={t('所选范围内还没有账号用量')} />
               )}
-            </div>
+            </Surface>
           </div>
 
           <div className='m-section'>
             <SectionHead title={t('活跃')} />
-            <div className='m-card m-card-pad' style={{ display: 'flex', gap: 8 }}>
+            <Surface className='m-card m-card-pad' style={{ display: 'flex', gap: 8 }}>
               <MiniStat label={t('活跃天数')} value={formatInt(Number(overview?.activeDays) || 0)} />
               <MiniStat label={t('连续天数')} value={formatInt(Number(overview?.streak) || 0)} />
               <MiniStat label={t('Top 模型')} value={overview?.topModel?.model || '—'} mono />
-            </div>
+            </Surface>
           </div>
 
           {session?.lastRequestModel ? (
             <div className='m-section'>
-              <div className='m-card m-card-pad' style={{ fontSize: 12, color: 'var(--m-text-3)' }}>
+              <Surface className='m-card m-card-pad' style={{ fontSize: 12, color: 'var(--m-text-3)' }}>
                 {t('最近一次请求使用的模型')}：
                 <span className='m-mono' style={{ color: 'var(--m-text-2)' }}> {session.lastRequestModel}</span>
-              </div>
+              </Surface>
             </div>
           ) : null}
         </>
@@ -235,7 +236,7 @@ function pickCacheRate(data: StatsSummary | null): number | null {
 }
 
 function barColor(index: number): string {
-  const colors = ['var(--m-primary)', '#4f9bff', '#79b4ff', '#a3ccff', '#c6ddff']
+  const colors = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)']
   return colors[index] || colors[colors.length - 1]
 }
 

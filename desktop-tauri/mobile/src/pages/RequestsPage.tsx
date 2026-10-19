@@ -1,7 +1,8 @@
+import { MobileButton, Surface } from '../components/primitives'
 import { useState } from 'react'
 import { PageIntro, IconButton, Empty, ErrorNote, SkeletonList } from '../components/ui'
 import { ProviderLogo } from '../components/ProviderLogo'
-import { Icon } from '../components/Icon'
+
 import { Sheet, SheetContent, SheetHeader, SheetBody, SheetTitle, SheetFooter } from '@ui'
 import { store } from '../state/store'
 import { fetchRequests, type RequestPage, type RequestRow } from '../api/gateway'
@@ -97,7 +98,7 @@ export function RequestsPage() {
               { value: 'running', label: running ? t('在途 {n}', { n: running }) : t('在途') },
             ] as Array<{ value: Filter; label: string }>
           ).map(item => (
-            <button
+            <MobileButton
               key={item.value}
               type='button'
               onClick={() => setFilter(item.value)}
@@ -114,7 +115,7 @@ export function RequestsPage() {
               }}
             >
               {item.label}
-            </button>
+            </MobileButton>
           ))}
         </div>
       </div>
@@ -124,9 +125,9 @@ export function RequestsPage() {
 
       {page && !filtered.length ? (
         <div className='m-section'>
-          <div className='m-card'>
+          <Surface className='m-card'>
             <Empty text={filter === 'all' ? t('暂无请求日志') : t('当前筛选下没有记录')} />
-          </div>
+          </Surface>
         </div>
       ) : null}
 
@@ -138,9 +139,9 @@ export function RequestsPage() {
 
       {page && rows.length < matched ? (
         <div className='m-section'>
-          <button type='button' className='m-btn m-ghost' disabled={loadingMore} onClick={() => void loadMore()}>
+          <MobileButton type='button' className='m-btn m-ghost' disabled={loadingMore} onClick={() => void loadMore()}>
             {loadingMore ? t('加载中…') : t('加载更早的请求')}
-          </button>
+          </MobileButton>
         </div>
       ) : null}
 
@@ -154,7 +155,7 @@ function RequestCard({ row, onClick }: { row: RequestRow; onClick: () => void })
   const tone = !status ? 'warn' : status >= 200 && status < 400 ? 'ok' : 'bad'
   const note = buildNote(row)
   return (
-    <button
+    <MobileButton
       type='button'
       onClick={onClick}
       style={{
@@ -242,7 +243,7 @@ function RequestCard({ row, onClick }: { row: RequestRow; onClick: () => void })
           {note.text}
         </div>
       ) : null}
-    </button>
+    </MobileButton>
   )
 }
 
@@ -276,7 +277,7 @@ function RequestSheet({ row, onClose }: { row: RequestRow | null; onClose: () =>
   const details = Array.isArray(row?.attemptDetails) ? row?.attemptDetails || [] : []
   return (
     <Sheet open={Boolean(row)} onOpenChange={next => { if (!next) onClose() }}>
-      <SheetContent>
+      <SheetContent side='bottom' className='max-h-[85dvh]'>
         <SheetHeader>
           <SheetTitle>{t('请求详情')}</SheetTitle>
         </SheetHeader>
@@ -284,7 +285,7 @@ function RequestSheet({ row, onClose }: { row: RequestRow | null; onClose: () =>
           {row ? (
             <>
               <div className='m-kv'>
-                <div className='m-kv-cell'>
+                <Surface className='m-kv-cell'>
                   <div className='k'>{t('状态')}</div>
                   <div
                     className='v'
@@ -299,22 +300,22 @@ function RequestSheet({ row, onClose }: { row: RequestRow | null; onClose: () =>
                   >
                     {row.status || t('在途')}
                   </div>
-                </div>
-                <div className='m-kv-cell'>
+                </Surface>
+                <Surface className='m-kv-cell'>
                   <div className='k'>{t('用时')}</div>
                   <div className='v'>{formatDuration(row.durationMs)}</div>
-                </div>
-                <div className='m-kv-cell'>
+                </Surface>
+                <Surface className='m-kv-cell'>
                   <div className='k'>{t('输入 Token')}</div>
                   <div className='v'>{formatInt(Number(row.promptTokens) || 0)}</div>
-                </div>
-                <div className='m-kv-cell'>
+                </Surface>
+                <Surface className='m-kv-cell'>
                   <div className='k'>{t('输出 Token')}</div>
                   <div className='v'>{formatInt(Number(row.completionTokens) || 0)}</div>
-                </div>
+                </Surface>
               </div>
 
-              <div className='m-rows'>
+              <Surface className='m-rows'>
                 <div className='m-row'>
                   <span className='m-k'>{t('模型')}</span>
                   <span className='m-v m-mono' style={{ fontSize: 11 }}>
@@ -359,12 +360,12 @@ function RequestSheet({ row, onClose }: { row: RequestRow | null; onClose: () =>
                     {row.ts ? new Date(row.ts).toLocaleString('zh-CN', { hour12: false }) : '—'}
                   </span>
                 </div>
-              </div>
+              </Surface>
 
               {details.length ? (
                 <>
                   <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--m-text-2)' }}>{t('尝试链')}</div>
-                  <div className='m-rows'>
+                  <Surface className='m-rows'>
                     {details.map((item, index) => (
                       <div key={index} className='m-row'>
                         <span className='m-k'>#{index + 1}</span>
@@ -378,7 +379,7 @@ function RequestSheet({ row, onClose }: { row: RequestRow | null; onClose: () =>
                         </span>
                       </div>
                     ))}
-                  </div>
+                  </Surface>
                 </>
               ) : null}
 
@@ -387,9 +388,9 @@ function RequestSheet({ row, onClose }: { row: RequestRow | null; onClose: () =>
           ) : null}
         </SheetBody>
         <SheetFooter>
-          <button type='button' className='m-btn m-ghost' onClick={onClose}>
+          <MobileButton type='button' className='m-btn m-ghost' onClick={onClose}>
             {t('关闭')}
-          </button>
+          </MobileButton>
         </SheetFooter>
       </SheetContent>
     </Sheet>

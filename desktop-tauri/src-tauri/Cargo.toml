@@ -22,7 +22,7 @@ homepage = "https://github.com/Agent2API/agent2api"
 # （tokio / reqwest / rusqlite…）只编译一次。[profile.release] 由
 # workspace root（本文件）统一提供。
 [workspace]
-members = ["server"]
+members = ["server", "android-gateway"]
 
 [lib]
 name = "workbuddy_proxy_desktop_lib"

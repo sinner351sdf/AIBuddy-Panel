@@ -3,6 +3,7 @@ import { App } from './App'
 import { setAuthLostHandler } from './api/client'
 import { store } from './state/store'
 import { initPwa } from './lib/pwa'
+import { isPackaged } from './lib/servers'
 import './styles/mobile.css'
 
 /**
@@ -25,7 +26,7 @@ setAuthLostHandler(mode => {
  * 等 React 挂载完再挂监听，有可能已经错过（首屏快的时候）。
  * 这里的返回值是清理函数，单页应用整个生命周期不卸载，忽略即可。
  */
-initPwa()
+if (!isPackaged()) initPwa()
 
 const host = document.getElementById('root')
 if (host) {

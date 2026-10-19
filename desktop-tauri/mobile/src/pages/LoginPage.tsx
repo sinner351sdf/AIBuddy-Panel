@@ -1,5 +1,21 @@
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogBody,
+  DialogTitle,
+  DialogDescription,
+  Field,
+  FieldLabel,
+  FieldGroup,
+  Input,
+  Button,
+  Alert,
+  AlertDescription,
+} from '@ui'
+
 import { useEffect, useState } from 'react'
-import { Icon } from '../components/Icon'
+
 import { store, useStore } from '../state/store'
 import { authenticate, fetchPanelStatus, solveCaptcha } from '../api/auth'
 import { storeApiKey } from '../api/client'
@@ -25,7 +41,13 @@ import { t } from '../i18n'
  * 求解（用户在输密码，题目在后台算完），提交时直接带上；提交失败后 payload
  * 已作废，要重新求解。
  */
-export function LoginPage({ mode, onDone }: { mode: 'login' | 'key'; onDone?: () => void }) {
+export function LoginPage({
+  mode,
+  onDone,
+}: {
+  mode: 'login' | 'key'
+  onDone?: () => void
+}) {
   const { server } = useStore()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -36,7 +58,9 @@ export function LoginPage({ mode, onDone }: { mode: 'login' | 'key'; onDone?: ()
   const [setup, setSetup] = useState(false)
   const [statusKnown, setStatusKnown] = useState(false)
   /** 人机验证：idle 求解中 / ready 已就绪 / off 网关没开 */
-  const [captchaState, setCaptchaState] = useState<'idle' | 'solving' | 'ready' | 'off'>('idle')
+  const [captchaState, setCaptchaState] = useState<
+    'idle' | 'solving' | 'ready' | 'off'
+  >('idle')
   const [captcha, setCaptcha] = useState<string | null>(null)
 
   // 进页面就探测：有没有管理员、要不要人机验证
@@ -104,7 +128,7 @@ export function LoginPage({ mode, onDone }: { mode: 'login' | 'key'; onDone?: ()
       setCaptcha(null)
       setCaptchaState('solving')
       void solveCaptcha()
-        .then(payload => {
+        .then((payload) => {
           if (payload) {
             setCaptcha(payload)
             setCaptchaState('ready')
@@ -121,163 +145,109 @@ export function LoginPage({ mode, onDone }: { mode: 'login' | 'key'; onDone?: ()
   }
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 80,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 20,
-        paddingTop: 'calc(var(--m-safe-t) + 20px)',
-        paddingBottom: 'calc(var(--m-safe-b) + 20px)',
-        background: 'color-mix(in srgb, black 46%, transparent)',
-        backdropFilter: 'blur(4px)',
-        overflowY: 'auto',
-      }}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: 360,
-          padding: 20,
-          borderRadius: 18,
-          background: 'var(--m-surface)',
-          border: '1px solid var(--m-line)',
-          boxShadow: 'var(--m-shadow-2)',
-        }}
+    <Dialog open onOpenChange={() => {}}>
+      <DialogContent
+        layer="lock-screen"
+        showCloseButton={false}
+        className="max-w-sm"
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span
-            className='m-logo'
-            style={{ background: 'var(--m-primary-soft)', borderColor: 'transparent', color: 'var(--m-primary)' }}
-          >
-            <Icon name='shield' />
-          </span>
-          <div style={{ minWidth: 0 }}>
-            <h2 style={{ margin: 0, fontSize: 17 }}>
-              {mode === 'key'
-                ? t('需要网关 API Key')
-                : setup
-                  ? t('创建管理员账号')
-                  : t('登录面板')}
-            </h2>
-            <div className='m-t2 m-mono' style={{ fontSize: 11.5, marginTop: 2 }}>
-              {server ? baseLabel(server.base) : t('未选择服务器')}
-            </div>
-          </div>
-        </div>
-
-        <p style={{ margin: '10px 0 0', fontSize: 12.5, lineHeight: 1.65, color: 'var(--m-text-2)' }}>
-          {mode === 'key'
-            ? t('这台网关没有管理员，用一把已启用的 API Key 访问（在桌面端「网关 Key」页创建）。')
-            : setup
-              ? t('这台网关还没有管理员。设置一个账号密码，之后用它登录。')
+        <DialogHeader>
+          <DialogTitle>
+            {mode === 'key'
+              ? t('需要网关 API Key')
+              : setup
+                ? t('创建管理员账号')
+                : t('登录面板')}
+          </DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <DialogDescription>
+            {server ? baseLabel(server.base) : t('未选择服务器')} ·{' '}
+            {mode === 'key'
+              ? t('用一把已启用的 API Key 访问')
               : t('输入这台网关的管理员账号与密码。')}
-        </p>
-
-        {mode === 'key' ? (
-          <input
-            type='password'
-            value={apiKey}
-            onChange={event => setApiKey(event.target.value)}
-            placeholder='sk-…'
-            autoComplete='off'
-            style={{
-              width: '100%',
-              boxSizing: 'border-box',
-              marginTop: 14,
-              height: 44,
-              padding: '0 12px',
-              borderRadius: 11,
-              border: '1px solid var(--m-line-strong)',
-              background: 'var(--m-surface-2)',
-              color: 'var(--m-text)',
-              fontFamily: 'var(--m-mono)',
-              fontSize: 16,
-            }}
-          />
-        ) : (
-          <>
-            <input
-              value={username}
-              onChange={event => setUsername(event.target.value)}
-              placeholder={t('账号')}
-              autoComplete='username'
-              autoCapitalize='off'
-              autoCorrect='off'
-              spellCheck={false}
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                marginTop: 14,
-                height: 44,
-                padding: '0 12px',
-                borderRadius: 11,
-                border: '1px solid var(--m-line-strong)',
-                background: 'var(--m-surface-2)',
-                color: 'var(--m-text)',
-                fontSize: 16,
-              }}
-            />
-            <input
-              type='password'
-              value={password}
-              onChange={event => setPassword(event.target.value)}
-              placeholder={setup ? t('设置密码（至少 8 位）') : t('密码')}
-              autoComplete={setup ? 'new-password' : 'current-password'}
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                marginTop: 8,
-                height: 44,
-                padding: '0 12px',
-                borderRadius: 11,
-                border: '1px solid var(--m-line-strong)',
-                background: 'var(--m-surface-2)',
-                color: 'var(--m-text)',
-                fontSize: 16,
-              }}
-            />
-            {/* 人机验证状态：求解很快，通常一闪而过 */}
-            {captchaState === 'solving' ? (
-              <div style={{ marginTop: 10, fontSize: 11.5, color: 'var(--m-text-3)' }}>
-                {t('正在完成人机验证…')}
-              </div>
-            ) : null}
-          </>
-        )}
-
-        {error ? (
-          <div
-            style={{
-              marginTop: 12,
-              padding: '9px 11px',
-              borderRadius: 10,
-              background: 'var(--m-danger-soft)',
-              color: 'var(--m-danger)',
-              fontSize: 12.5,
-              lineHeight: 1.55,
-            }}
-          >
-            {error}
-          </div>
-        ) : null}
-
-        <button
-          type='button'
-          className='m-btn'
-          style={{ marginTop: 16 }}
-          disabled={
-            busy ||
-            (mode === 'key' ? !apiKey.trim() : !statusKnown || !username.trim() || !password)
-          }
-          onClick={() => void submit()}
+          </DialogDescription>
+        </DialogBody>
+        <form
+          className="px-5 pb-5"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void submit()
+          }}
         >
-          {busy ? t('验证中…') : mode === 'key' ? t('保存并继续') : setup ? t('创建并进入') : t('登录')}
-        </button>
-      </div>
-    </div>
+          <FieldGroup>
+            {mode === 'key' ? (
+              <Field>
+                <FieldLabel htmlFor="apk-key">API Key</FieldLabel>
+                <Input
+                  id="apk-key"
+                  type="password"
+                  value={apiKey}
+                  onChange={(event) => setApiKey(event.target.value)}
+                  autoComplete="off"
+                  placeholder="sk-…"
+                  className="min-h-10 text-base"
+                />
+              </Field>
+            ) : (
+              <>
+                <Field>
+                  <FieldLabel htmlFor="apk-username">{t('账号')}</FieldLabel>
+                  <Input
+                    id="apk-username"
+                    value={username}
+                    onChange={(event) => setUsername(event.target.value)}
+                    autoComplete="username"
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    className="min-h-10 text-base"
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="apk-password">{t('密码')}</FieldLabel>
+                  <Input
+                    id="apk-password"
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    autoComplete={setup ? 'new-password' : 'current-password'}
+                    className="min-h-10 text-base"
+                  />
+                </Field>
+              </>
+            )}
+            {captchaState === 'solving' ? (
+              <p className="text-xs text-muted-foreground">
+                {t('正在完成人机验证…')}
+              </p>
+            ) : null}
+            {error ? (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            ) : null}
+            <Button
+              type="submit"
+              className="min-h-10 w-full"
+              disabled={
+                busy ||
+                (mode === 'key'
+                  ? !apiKey.trim()
+                  : !statusKnown || !username.trim() || !password)
+              }
+            >
+              {busy
+                ? t('验证中…')
+                : mode === 'key'
+                  ? t('保存并继续')
+                  : setup
+                    ? t('创建并进入')
+                    : t('登录')}
+            </Button>
+          </FieldGroup>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }

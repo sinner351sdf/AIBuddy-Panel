@@ -4,6 +4,12 @@ on:
     branches: [beta]
     paths:
       - 'desktop-tauri/mobile/**'
+      - 'desktop-tauri/src-tauri/android-gateway/**'
+      - 'desktop-tauri/src-tauri/server/**'
+      - 'desktop-tauri/src-tauri/Cargo.toml'
+      - 'desktop-tauri/src-tauri/Cargo.lock'
+      - 'desktop-tauri/ui-islands/**'
+      - 'scripts/package-android-gateway-ui.mjs'
       - 'assets/brand/**'
       - 'build/make-icon.mjs'
       - 'desktop-tauri/ui-kit/**'
@@ -18,7 +24,7 @@ concurrency:
 jobs:
   apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -27,6 +33,7 @@ jobs:
           cache: npm
           cache-dependency-path: |
             desktop-tauri/mobile/package-lock.json
+            desktop-tauri/ui-islands/package-lock.json
             desktop-tauri/ui-kit/package-lock.json
             assets/brand/generator/package-lock.json
       - uses: actions/setup-java@v6
@@ -39,10 +46,15 @@ jobs:
           npm --prefix assets/brand/generator ci
           npm --prefix desktop-tauri/ui-kit ci
           npm --prefix desktop-tauri/mobile ci
+          npm --prefix desktop-tauri/ui-islands ci
       - name: Build packaged mobile frontend
         run: |
           node assets/brand/generator/render.js --check-mobile
+          npm --prefix desktop-tauri/ui-islands run build
+          npm --prefix desktop-tauri/mobile run build
+          node scripts/test-mobile-entry.mjs
           npm --prefix desktop-tauri/mobile run build:apk
+          node scripts/package-android-gateway-ui.mjs
       - name: Install Android command-line tools
         uses: android-actions/setup-android@v3
         with:
@@ -50,29 +62,69 @@ jobs:
           log-accepted-android-sdk-licenses: false
       - name: Prepare Android SDK
         run: |
-          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358'
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > desktop-tauri/mobile/android/local.properties
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop-tauri/src-tauri
+          key: android-native-gateway
+      - name: Build the embedded Rust gateway for device and emulator
+        env:
+          RUSTFLAGS: '-C link-arg=-Wl,-z,max-page-size=16384'
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
+          cargo install cargo-ndk --locked
+          cd desktop-tauri/src-tauri
+          cargo ndk -t arm64-v8a -t x86_64 -p 24 -o ../mobile/android/app/src/main/jniLibs build --locked --release -p aibuddy-android-gateway
       - name: Compile debug and unsigned release APKs
         working-directory: desktop-tauri/mobile/android
         env:
           AIBUDDY_UNSIGNED_APK: '1'
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace assembleDebug assembleRelease
+          ./gradlew --no-daemon --stacktrace assembleDebug assembleRelease assembleDebugAndroidTest
       - name: Verify APK identity and checksums
         run: |
           mkdir -p dist/android
           cp desktop-tauri/mobile/android/app/build/outputs/apk/debug/app-debug.apk dist/android/AIBuddy-Panel-debug.apk
-          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -f -p 4 desktop-tauri/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk dist/android/AIBuddy-Panel-release-unsigned.apk
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -P 16 -f 4 desktop-tauri/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk dist/android/AIBuddy-Panel-release-unsigned.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify dist/android/AIBuddy-Panel-debug.apk
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/android/AIBuddy-Panel-release-unsigned.apk > dist/android/apk-identity.txt
           grep -F "name='com.aibuddy.panel.mobile'" dist/android/apk-identity.txt
           grep -F "application-label:'AIBuddy Panel'" dist/android/apk-identity.txt
           (cd dist/android && sha256sum *.apk > SHA256SUMS.txt)
           echo 'Debug uses a separate .debug package id. Release APK is unsigned; production private keys never enter CI.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Device smoke test of JNI, foreground service, HTTP and complete panel
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: true
+          script: |
+            cd desktop-tauri/mobile/android
+            ./gradlew --no-daemon connectedDebugAndroidTest
       - uses: actions/upload-artifact@v7
+        if: always()
         with:
           name: android-apks
           path: dist/android/*
           if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: android-device-tests
+          path: |
+            desktop-tauri/mobile/android/app/build/reports/androidTests/
+            desktop-tauri/mobile/android/app/build/outputs/androidTest-results/
+          if-no-files-found: warn
           retention-days: 7

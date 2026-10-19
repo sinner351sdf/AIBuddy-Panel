@@ -1,8 +1,22 @@
+import type { ReactNode } from 'react'
+import {
+  Button,
+  Badge as KitBadge,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  Empty as KitEmpty,
+  EmptyDescription,
+  Alert,
+  AlertDescription,
+  Skeleton,
+} from '@ui'
 import { Icon, type IconName } from './Icon'
 import { t } from '../i18n'
 import { store } from '../state/store'
 
-/** 通用页头（一级页）：大标题 + 副标题 + 右侧动作 */
 export function PageHead({
   title,
   subtitle,
@@ -10,51 +24,32 @@ export function PageHead({
 }: {
   title: string
   subtitle?: string
-  actions?: React.ReactNode
+  actions?: ReactNode
 }) {
   return (
-    <div className='m-head'>
-      <div style={{ minWidth: 0 }}>
+    <header className="m-head">
+      <div className="min-w-0">
         <h1>{title}</h1>
-        {subtitle ? <p className='m-sub'>{subtitle}</p> : null}
+        {subtitle ? <p className="m-sub">{subtitle}</p> : null}
       </div>
-      {actions ? <div className='m-head-actions'>{actions}</div> : null}
-    </div>
+      {actions ? <div className="m-head-actions">{actions}</div> : null}
+    </header>
   )
 }
-
-/**
- * 二级页的页内说明条。
- *
- * 二级页的标题已经由顶部返回栏（NavBar）承载，页内再写一遍大标题就是重复。
- * 但副标题（统计读数 / 时间范围）有信息量，保留成一行小字。右侧动作放这里，
- * 因为它属于页面内容而不是导航。
- */
 export function PageIntro({
   subtitle,
   actions,
 }: {
   subtitle?: string
-  actions?: React.ReactNode
+  actions?: ReactNode
 }) {
-  if (!subtitle && !actions) return null
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 10,
-        padding: '2px 18px 12px',
-      }}
-    >
-      <span style={{ fontSize: 12.5, color: 'var(--m-text-3)', minWidth: 0 }}>{subtitle}</span>
-      {actions ? <div style={{ display: 'flex', gap: 8, flex: 'none' }}>{actions}</div> : null}
+  return !subtitle && !actions ? null : (
+    <div className="flex items-center justify-between gap-3 px-4 pb-3">
+      <span className="text-sm text-muted-foreground">{subtitle}</span>
+      {actions ? <div className="flex gap-2">{actions}</div> : null}
     </div>
   )
 }
-
-/** 圆形图标按钮（页头 / 返回栏右侧都用它） */
 export function IconButton({
   name,
   label,
@@ -67,19 +62,19 @@ export function IconButton({
   primary?: boolean
 }) {
   return (
-    <button
-      type='button'
-      className={primary ? 'm-icon-btn m-primary' : 'm-icon-btn'}
+    <Button
+      type="button"
+      variant={primary ? 'default' : 'outline'}
+      size="icon-lg"
+      className="min-h-10 min-w-10"
       aria-label={label}
       title={label}
       onClick={onClick}
     >
-      <Icon name={name} />
-    </button>
+      <Icon name={name} data-icon="inline-start" />
+    </Button>
   )
 }
-
-/** 区块标题：左侧标题 + 右侧可选动作 */
 export function SectionHead({
   title,
   action,
@@ -88,18 +83,21 @@ export function SectionHead({
   action?: { label: string; onClick: () => void }
 }) {
   return (
-    <div className='m-section-head'>
+    <div className="m-section-head">
       <h2>{title}</h2>
       {action ? (
-        <button type='button' className='m-link' onClick={action.onClick}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="min-h-9"
+          onClick={action.onClick}
+        >
           {action.label}
-        </button>
+        </Button>
       ) : null}
     </div>
   )
 }
-
-/** 徽章：语义色与桌面端一致（绿=正常、黄=告警、红=失效、灰=中性、蓝=待办） */
 export function Badge({
   tone,
   dot,
@@ -107,42 +105,54 @@ export function Badge({
 }: {
   tone: 'ok' | 'warn' | 'bad' | 'mute' | 'brand'
   dot?: boolean
-  children: React.ReactNode
+  children: ReactNode
 }) {
+  const variants = {
+    ok: 'success',
+    warn: 'warning',
+    bad: 'destructive',
+    mute: 'secondary',
+    brand: 'outline',
+  } as const
   return (
-    <span className={`m-badge m-badge-${tone}`}>
-      {dot ? <i /> : null}
+    <KitBadge variant={variants[tone]}>
+      {dot ? <span className="size-1.5 rounded-full bg-current" /> : null}
       {children}
-    </span>
+    </KitBadge>
   )
 }
-
-/** 空态 */
 export function Empty({ text }: { text: string }) {
-  return <div className='m-empty'>{text}</div>
-}
-
-/** 错误条（页内，不弹窗） */
-export function ErrorNote({ text }: { text: string }) {
-  return <div className='m-error'>{text}</div>
-}
-
-/** 加载骨架：给列表页首屏用，避免「空白 → 突然出现内容」的跳动 */
-export function SkeletonList({ rows = 4, height = 64 }: { rows?: number; height?: number }) {
   return (
-    <div className='m-section'>
-      {Array.from({ length: rows }).map((_, index) => (
-        <div
-          key={index}
-          className='m-skeleton'
-          style={{ height, marginTop: index ? 8 : 0 }}
-        />
+    <KitEmpty className="border-0 py-8">
+      <EmptyDescription>{text}</EmptyDescription>
+    </KitEmpty>
+  )
+}
+export function ErrorNote({ text }: { text: string }) {
+  return (
+    <div className="mx-4">
+      <Alert variant="destructive">
+        <Icon name="alert" />
+        <AlertDescription>{text}</AlertDescription>
+      </Alert>
+    </div>
+  )
+}
+export function SkeletonList({
+  rows = 4,
+  height = 64,
+}: {
+  rows?: number
+  height?: number
+}) {
+  return (
+    <div className="m-section flex flex-col gap-2">
+      {Array.from({ length: rows }, (_, index) => (
+        <Skeleton key={index} className="w-full" style={{ height }} />
       ))}
     </div>
   )
 }
-
-/** 复制到剪贴板（失败时退回 execCommand，老 WebView 也能用） */
 export async function copyText(text: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(text)
@@ -163,12 +173,14 @@ export async function copyText(text: string): Promise<void> {
 }
 
 /** 复制 + 提示的常用组合 */
-export async function copyWithToast(text: string, label?: string): Promise<void> {
+export async function copyWithToast(
+  text: string,
+  label?: string,
+): Promise<void> {
   await copyText(text)
   store.toast(t('已复制{label}', { label: label ? `：${label}` : '' }))
 }
 
-/** 数值卡片（报表 / 首页共用） */
 export function StatCard({
   label,
   value,
@@ -181,30 +193,22 @@ export function StatCard({
   tone?: 'up' | 'ok'
 }) {
   return (
-    <div className='m-card m-card-pad' style={{ padding: '12px 13px' }}>
-      <div style={{ fontSize: 11.5, color: 'var(--m-text-3)' }}>{label}</div>
-      <div
-        style={{
-          fontSize: 21,
-          fontWeight: 650,
-          letterSpacing: '-0.03em',
-          marginTop: 3,
-          fontVariantNumeric: 'tabular-nums',
-        }}
-      >
-        {value}
-      </div>
+    <Card className="gap-2 py-4 shadow-none">
+      <CardHeader className="px-4">
+        <CardDescription>{label}</CardDescription>
+        <CardTitle className="text-2xl tabular-nums">{value}</CardTitle>
+      </CardHeader>
       {sub ? (
-        <div
-          style={{
-            fontSize: 11,
-            marginTop: 2,
-            color: tone === 'up' ? 'var(--m-ok)' : tone === 'ok' ? 'var(--m-ok)' : 'var(--m-text-3)',
-          }}
+        <CardContent
+          className={
+            tone
+              ? 'px-4 text-xs text-success'
+              : 'px-4 text-xs text-muted-foreground'
+          }
         >
           {sub}
-        </div>
+        </CardContent>
       ) : null}
-    </div>
+    </Card>
   )
 }

@@ -1,3 +1,4 @@
+import { Surface, MobileButton } from '../components/primitives'
 import { PageIntro, SectionHead, copyWithToast } from '../components/ui'
 import { Icon } from '../components/Icon'
 import { apiBase } from '../lib/servers'
@@ -27,7 +28,7 @@ export function DocsPage() {
 
       <div className='m-section' style={{ marginTop: 0 }}>
         <SectionHead title={t('接口地址')} />
-        <div className='m-card'>
+        <Surface className='m-card'>
           {endpoints.map(item => (
             <div
               key={item.name}
@@ -56,22 +57,22 @@ export function DocsPage() {
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--m-text-3)', marginTop: 2 }}>{item.note}</div>
               </div>
-              <button
+              <MobileButton
                 type='button'
                 onClick={() => void copyWithToast(item.value, item.name)}
                 aria-label={t('复制')}
                 style={{ display: 'flex', border: 0, background: 'none', color: 'var(--m-primary)', padding: 4, flex: 'none' }}
               >
                 <Icon name='copy' style={{ width: 16, height: 16 }} />
-              </button>
+              </MobileButton>
             </div>
           ))}
-        </div>
+        </Surface>
       </div>
 
       <div className='m-section'>
         <SectionHead title={t('鉴权')} />
-        <div className='m-card m-card-pad'>
+        <Surface className='m-card m-card-pad'>
           <div style={{ fontSize: 12.5, lineHeight: 1.7, color: 'var(--m-text-2)' }}>
             {t('请求带 ')}
             <span className='m-mono' style={{ color: 'var(--m-text)' }}>
@@ -83,12 +84,12 @@ export function DocsPage() {
             </span>
             {t('。用「网关 Key」页里任一启用的 Key；一把都没有时不鉴权。')}
           </div>
-        </div>
+        </Surface>
       </div>
 
       <div className='m-section'>
         <SectionHead title={t('快速验证')} />
-        <div className='m-card m-card-pad'>
+        <Surface className='m-card m-card-pad'>
           <div
             className='m-mono'
             style={{
@@ -101,7 +102,7 @@ export function DocsPage() {
           >
             {`curl ${origin}/v1/models \\\n  -H "Authorization: Bearer sk-local"`}
           </div>
-          <button
+          <MobileButton
             type='button'
             className='m-btn m-ghost'
             style={{ marginTop: 12 }}
@@ -114,14 +115,14 @@ export function DocsPage() {
           >
             <Icon name='copy' />
             {t('复制命令')}
-          </button>
-        </div>
+          </MobileButton>
+        </Surface>
       </div>
 
       <div className='m-section' style={{ paddingBottom: 8 }}>
-        <div className='m-card m-card-pad' style={{ fontSize: 11.5, color: 'var(--m-text-3)', lineHeight: 1.7 }}>
+        <Surface className='m-card m-card-pad' style={{ fontSize: 11.5, color: 'var(--m-text-3)', lineHeight: 1.7 }}>
           {t('手机端只读文档。完整的使用说明与部署指引在仓库的 docs/ 目录。')}
-        </div>
+        </Surface>
       </div>
     </div>
   )

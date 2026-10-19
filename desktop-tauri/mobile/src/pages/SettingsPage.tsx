@@ -1,3 +1,5 @@
+import { Badge as SharedBadge } from '@ui'
+import { Surface, MobileButton, MobileSelect } from '../components/primitives'
 import { useState } from 'react'
 import { PageIntro, SectionHead, IconButton } from '../components/ui'
 import { Icon } from '../components/Icon'
@@ -57,8 +59,8 @@ export function SettingsPage() {
       {packaged ? (
         <div className='m-section' style={{ marginTop: 0 }}>
           <SectionHead title={t('服务器')} />
-          <div className='m-card'>
-            <button type='button' className='m-row' onClick={() => store.push('servers')}>
+          <Surface className='m-card'>
+            <MobileButton type='button' className='m-row' onClick={() => store.push('servers')}>
               <span className='m-logo' style={{ background: 'var(--m-primary-soft)', borderColor: 'transparent', color: 'var(--m-primary)' }}>
                 <Icon name='server' />
               </span>
@@ -71,14 +73,14 @@ export function SettingsPage() {
               <span className='m-chev'>
                 <Icon name='chev' />
               </span>
-            </button>
-          </div>
+            </MobileButton>
+          </Surface>
         </div>
       ) : null}
 
       {/* 网关状态 */}
       <div className='m-section' style={packaged ? undefined : { marginTop: 0 }}>
-        <div className='m-card'>
+        <Surface className='m-card'>
           <div className='m-row'>
             <span
               className='m-logo'
@@ -92,17 +94,17 @@ export function SettingsPage() {
                 {baseLabel(apiBase())}
               </div>
             </div>
-            <span className={`m-badge ${session?.health?.upstreamConfigured ? 'm-badge-ok' : 'm-badge-warn'}`}>
+            <SharedBadge variant={session?.health?.upstreamConfigured ? 'success' : 'warning'}>
               <i />
               {session?.health?.upstreamConfigured ? t('正常') : t('待配置')}
-            </span>
+            </SharedBadge>
           </div>
-        </div>
+        </Surface>
       </div>
 
       <div className='m-section'>
         <SectionHead title={t('外观')} />
-        <div className='m-card'>
+        <Surface className='m-card'>
           <div className='m-row'>
             <span className='m-logo'>
               <Icon name='moon' />
@@ -121,7 +123,7 @@ export function SettingsPage() {
               <div className='m-t1'>{t('界面语言')}</div>
               <div className='m-t2'>{options.find(item => item.code === currentLocale)?.label || currentLocale}</div>
             </div>
-            <select
+            <MobileSelect
               value={currentLocale}
               onChange={event => setLocale(event.target.value)}
               aria-label={t('界面语言')}
@@ -142,15 +144,15 @@ export function SettingsPage() {
                   {item.label}
                 </option>
               ))}
-            </select>
+            </MobileSelect>
           </div>
-        </div>
+        </Surface>
       </div>
 
       <div className='m-section'>
         <SectionHead title={t('接入')} />
-        <div className='m-card'>
-          <button type='button' className='m-row' onClick={() => store.push('docs')}>
+        <Surface className='m-card'>
+          <MobileButton type='button' className='m-row' onClick={() => store.push('docs')}>
             <span className='m-logo'>
               <Icon name='doc' />
             </span>
@@ -163,8 +165,8 @@ export function SettingsPage() {
             <span className='m-chev'>
               <Icon name='chev' />
             </span>
-          </button>
-          <button type='button' className='m-row' onClick={() => store.push('keys')}>
+          </MobileButton>
+          <MobileButton type='button' className='m-row' onClick={() => store.push('keys')}>
             <span className='m-logo'>
               <Icon name='key' />
             </span>
@@ -175,16 +177,16 @@ export function SettingsPage() {
             <span className='m-chev'>
               <Icon name='chev' />
             </span>
-          </button>
-        </div>
+          </MobileButton>
+        </Surface>
       </div>
 
       <div className='m-section'>
         <SectionHead title={t('账号')} />
-        <div className='m-card'>
+        <Surface className='m-card'>
           {/* APK 有真正的登录态，给「退出登录」；浏览器端只有 API Key 可清 */}
           {packaged ? (
-            <button type='button' className='m-row' onClick={() => void signOut()}>
+            <MobileButton type='button' className='m-row' onClick={() => void signOut()}>
               <span className='m-logo'>
                 <Icon name='logout' />
               </span>
@@ -195,9 +197,9 @@ export function SettingsPage() {
               <span className='m-chev'>
                 <Icon name='chev' />
               </span>
-            </button>
+            </MobileButton>
           ) : (
-            <button
+            <MobileButton
               type='button'
               className='m-row'
               onClick={() => {
@@ -217,16 +219,16 @@ export function SettingsPage() {
               <span className='m-chev'>
                 <Icon name='chev' />
               </span>
-            </button>
+            </MobileButton>
           )}
-        </div>
+        </Surface>
       </div>
 
       {/* APK 不需要装到桌面（本身就是 App），这一段只给浏览器形态 */}
       {packaged ? null : (
       <div className='m-section'>
         <SectionHead title={t('安装到桌面')} />
-        <div className='m-card'>
+        <Surface className='m-card'>
           <div className='m-row'>
             <span className='m-logo'>
               <Icon name='install' />
@@ -237,21 +239,21 @@ export function SettingsPage() {
                 {pwa.standalone ? t('已作为独立应用运行') : t('浏览器标签页')}
               </div>
             </div>
-            <span className={`m-badge ${pwa.standalone ? 'm-badge-ok' : 'm-badge-mute'}`}>
+            <SharedBadge variant={session?.health?.upstreamConfigured ? 'success' : 'warning'}>
               {pwa.standalone ? t('已安装') : t('未安装')}
-            </span>
+            </SharedBadge>
           </div>
 
           {pwa.standalone ? (
-            <div className='m-card-pad' style={{ borderTop: '1px solid var(--m-line)', fontSize: 12.5, lineHeight: 1.7, color: 'var(--m-text-2)' }}>
+            <Surface className='m-card-pad' style={{ borderTop: '1px solid var(--m-line)', fontSize: 12.5, lineHeight: 1.7, color: 'var(--m-text-2)' }}>
               {t('从桌面图标启动，全屏、无地址栏。想卸载：长按图标删除，或清除浏览器站点数据。')}
-            </div>
+            </Surface>
           ) : pwa.canInstall ? (
             <div style={{ borderTop: '1px solid var(--m-line)', padding: '12px 15px 14px' }}>
               <div style={{ fontSize: 12.5, lineHeight: 1.7, color: 'var(--m-text-2)' }}>
                 {t('装成 App 后从桌面图标直接进入：全屏打开、没有地址栏。')}
               </div>
-              <button
+              <MobileButton
                 type='button'
                 className='m-btn'
                 style={{ marginTop: 10, height: 40 }}
@@ -260,7 +262,7 @@ export function SettingsPage() {
               >
                 <Icon name='download' />
                 {installing ? t('正在安装…') : t('安装到主屏幕')}
-              </button>
+              </MobileButton>
             </div>
           ) : (
             <div style={{ borderTop: '1px solid var(--m-line)', padding: '12px 15px 14px' }}>
@@ -289,7 +291,7 @@ export function SettingsPage() {
               ) : null}
             </div>
           )}
-        </div>
+        </Surface>
       </div>
       )}
 
@@ -297,7 +299,7 @@ export function SettingsPage() {
       {pwa.updateReady || pwa.swState === 'unsupported' ? (
         <div className='m-section'>
           <SectionHead title={t('应用状态')} />
-          <div className='m-card'>
+          <Surface className='m-card'>
             {pwa.updateReady ? (
               <div className='m-row'>
                 <span className='m-logo' style={{ background: 'var(--m-primary-soft)', borderColor: 'transparent', color: 'var(--m-primary)' }}>
@@ -307,9 +309,9 @@ export function SettingsPage() {
                   <div className='m-t1'>{t('有新版本')}</div>
                   <div className='m-t2'>{t('重启后生效，不影响当前操作')}</div>
                 </div>
-                <button type='button' className='m-btn m-sm' onClick={() => void applyUpdate()}>
+                <MobileButton type='button' className='m-btn m-sm' onClick={() => void applyUpdate()}>
                   {t('重启更新')}
-                </button>
+                </MobileButton>
               </div>
             ) : null}
             {pwa.swState === 'unsupported' ? (
@@ -323,12 +325,12 @@ export function SettingsPage() {
                 </div>
               </div>
             ) : null}
-          </div>
+          </Surface>
         </div>
       ) : null}
 
       <div className='m-section' style={{ paddingBottom: 8 }}>
-        <div className='m-card'>
+        <Surface className='m-card'>
           <div className='m-row'>
             <span className='m-logo'>
               <Icon name='info' />
@@ -350,7 +352,7 @@ export function SettingsPage() {
               <Icon name='chev' />
             </span>
           </div>
-        </div>
+        </Surface>
       </div>
     </div>
   )

@@ -15,16 +15,17 @@ globalThis.getComputedStyle=dom.window.getComputedStyle.bind(dom.window);globalT
 let reactRoot
 try {
  const output=path.join(tmp,'fixture.cjs')
- buildSync({stdin:{contents:"export {AgentPage} from './desktop-tauri/mobile/src/pages/AgentPage'; export {HomePage} from './desktop-tauri/mobile/src/pages/HomePage'; export {store as mobileStore} from './desktop-tauri/mobile/src/state/store'; export * as travel from './desktop-tauri/ui-islands/src/islands/checkin-state'; export {act,createElement} from 'react'; export {createRoot} from 'react-dom/client';",resolveDir:root,loader:'tsx'},bundle:true,platform:'node',format:'cjs',outfile:output,jsx:'automatic',alias:{'@ui/navigation-icons':root+'/desktop-tauri/ui-kit/src/navigation-icons.ts','@ui':root+'/desktop-tauri/ui-kit/src/index.ts','@agent2api/ui':root+'/desktop-tauri/ui-kit/src/index.ts',react:path.dirname(require.resolve('react/package.json')),'react-dom':path.dirname(require.resolve('react-dom/package.json'))},nodePaths:[islands+'/node_modules',root+'/desktop-tauri/mobile/node_modules',root+'/desktop-tauri/ui-kit/node_modules'],logLevel:'silent'})
+ buildSync({stdin:{contents:"export {ConfirmHost} from './desktop-tauri/mobile/src/components/confirm'; export {Fragment} from 'react'; export {AgentPage} from './desktop-tauri/mobile/src/pages/AgentPage'; export {HomePage} from './desktop-tauri/mobile/src/pages/HomePage'; export {store as mobileStore} from './desktop-tauri/mobile/src/state/store'; export * as travel from './desktop-tauri/ui-islands/src/islands/checkin-state'; export {act,createElement} from 'react'; export {createRoot} from 'react-dom/client';",resolveDir:root,loader:'tsx'},bundle:true,platform:'node',format:'cjs',outfile:output,jsx:'automatic',alias:{'@ui/navigation-icons':root+'/desktop-tauri/ui-kit/src/navigation-icons.ts','@ui':root+'/desktop-tauri/ui-kit/src','@agent2api/ui':root+'/desktop-tauri/ui-kit/src',react:path.dirname(require.resolve('react/package.json')),'react-dom':path.dirname(require.resolve('react-dom/package.json'))},nodePaths:[islands+'/node_modules',root+'/desktop-tauri/mobile/node_modules',root+'/desktop-tauri/ui-kit/node_modules'],logLevel:'silent'})
  const f=require(output),calls=[]
  const client={id:'codex',name:'ChatGPT',configPath:'~/.codex/config.toml',resolvedPath:'/fixture/.codex/config.toml',configMode:'single',installed:true,viaGateway:true,hasBackup:true}
  globalThis.fetch=async(url,init={})=>{calls.push({url,body:init.body?JSON.parse(init.body):null});return {status:200,ok:true,text:async()=>JSON.stringify({success:true,data:{clients:[client]}})}}
  reactRoot=f.createRoot(document.getElementById('root'))
- await f.act(async()=>{reactRoot.render(f.createElement(f.AgentPage));await new Promise(r=>setTimeout(r,0))})
+ await f.act(async()=>{reactRoot.render(f.createElement(f.Fragment,null,f.createElement(f.AgentPage),f.createElement(f.ConfirmHost)));await new Promise(r=>setTimeout(r,0))})
  assert.ok(document.body.textContent.includes('~/.codex/config.toml'),'mobile shows the actual backend path')
  assert.ok(document.body.textContent.includes('已接管'),'mobile recognizes the backend viaGateway state')
  const restore=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='还原');assert.ok(restore,'backup restoration remains available')
  await f.act(async()=>{restore.dispatchEvent(new MouseEvent('click',{bubbles:true}));await new Promise(r=>setTimeout(r,0))})
+ const confirm=[...document.querySelectorAll('[role=alertdialog] button')].find(b=>b.textContent.trim()==='确认');assert.ok(confirm);await f.act(async()=>{confirm.dispatchEvent(new MouseEvent('click',{bubbles:true}));await new Promise(r=>setTimeout(r,0))})
  assert.deepEqual(calls.find(c=>c.url==='/api/agents/restore').body,{clientId:'codex'})
  await f.act(async()=>reactRoot.unmount());reactRoot=null
  // A successful login refreshes the session; homepage requests must rerun immediately.

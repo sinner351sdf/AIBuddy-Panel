@@ -130,9 +130,6 @@ function LoginPage() {
       </form>
       </CardContent>
 
-      <div className='mt-[22px] text-center text-[12px] text-muted-foreground'>
-        {t('登录后可在「网关 Key」页为 API 客户端创建密钥')}
-      </div>
     </Card>
   )
 }

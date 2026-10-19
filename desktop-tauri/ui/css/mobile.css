@@ -1158,3 +1158,13 @@
   }
   .proxy-panel-head.panel-head > .panel-sub { white-space: normal; }
 }
+
+/* One panel for desktop, mobile browser and Android's embedded gateway. */
+@media (max-width: 767px) {
+  .app, .main, .content, .content-inner { min-width: 0; }
+  .topbar { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+  .content { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+  input:not([type='checkbox']):not([type='radio']), textarea, [data-slot='input'], [data-slot='input-group-input'] { font-size: 16px !important; }
+  [data-slot='dialog-content'], [data-slot='alert-dialog-content'], [data-slot='sheet-content'] { max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  [data-slot='dialog-body'], [data-slot='sheet-body'] { min-width: 0; overscroll-behavior: contain; }
+}
