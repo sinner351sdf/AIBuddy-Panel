@@ -66,13 +66,14 @@ public class GatewayServiceTest {
             Intents.intending(hasAction(Intent.ACTION_CREATE_DOCUMENT)).respondWith(new android.app.Instrumentation.ActivityResult(Activity.RESULT_OK,chosen));
             Intent open=new Intent(context,DashboardActivity.class).putExtra("url","http://127.0.0.1:3065").putExtra("name","Local test");
             try(ActivityScenario<DashboardActivity> dashboard=ActivityScenario.launch(open)){
-                boolean ready=false;
+                boolean ready=false;AtomicBoolean mobileShellSeen=new AtomicBoolean();
                 for(int i=0;i<100&&!ready;i++){
                     CountDownLatch latch=new CountDownLatch(1);AtomicBoolean loaded=new AtomicBoolean();
-                    dashboard.onActivity(activity->{WebView web=webView(activity.findViewById(android.R.id.content));web.evaluateJavascript("document.readyState==='complete' && document.body!==null && navigator.userAgent.includes(' AIBuddyPanelNative/') && typeof window.Capacitor==='undefined' && location.pathname==='/login' && new URLSearchParams(location.search).get('next')==='/m'",value->{loaded.set("true".equals(value));latch.countDown();});});
+                    dashboard.onActivity(activity->{WebView web=webView(activity.findViewById(android.R.id.content));web.evaluateJavascript("(function(){if(location.pathname==='/m' && document.querySelector('.m-app')){var b=document.querySelector('[data-slot=dialog-footer] button');if(b){b.click();return 'mobile-login-required'}}return document.readyState==='complete' && document.body!==null && navigator.userAgent.includes(' AIBuddyPanelNative/') && typeof window.Capacitor==='undefined' && location.pathname==='/login' && new URLSearchParams(location.search).get('next')==='/m'})()",value->{loaded.set("true".equals(value));if("\"mobile-login-required\"".equals(value))mobileShellSeen.set(true);latch.countDown();});});
                     latch.await(2,TimeUnit.SECONDS);ready=loaded.get();if(!ready)Thread.sleep(100);
                 }
-                assertTrue("dedicated mobile entry reached login with a return to /m",ready);
+                assertTrue("fresh install rendered the dedicated mobile shell and its login prompt",mobileShellSeen.get());
+                assertTrue("mobile login prompt opens login with a return to /m",ready);
                 CountDownLatch fixtureReady=new CountDownLatch(1);
                 dashboard.onActivity(activity->{WebView web=webView(activity.findViewById(android.R.id.content));web.evaluateJavascript("(function(){var f=document.createElement('iframe');f.style.cssText='position:fixed;inset:0;width:100%;height:100%;border:0;z-index:2147483647;background:white';document.body.appendChild(f);var d=f.contentDocument;var b=d.createElement('button');b.textContent='Export fixture';b.style.cssText='position:fixed;inset:0;background:white';b.onclick=function(){var a=d.createElement('a');a.href=f.contentWindow.URL.createObjectURL(new f.contentWindow.Blob(['native-export-fixture'],{type:'application/json'}));a.download='fixture.json';d.body.appendChild(a);a.click();a.remove()};d.body.appendChild(b)})()",ignored->fixtureReady.countDown());});
                 assertTrue(fixtureReady.await(5,TimeUnit.SECONDS));
