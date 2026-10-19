@@ -73,7 +73,7 @@ function MobileApp() {
   usePolling(() => { if (!state.packaged || state.server) return store.refresh() }, 20_000, [state.server?.id])
   const def = SCREENS[state.route.screen] || SCREENS.home
   const Page = def.component
-  const isPrimary = Boolean(def.primary)
+  const isPrimary = Boolean(def.primary) && state.stack.length === 0
   // 助手页要撑满：它自己内部滚动（对话区），外层不能滚
   const fillHeight = ['assistant', 'management', 'credits'].includes(state.route.screen)
   /**

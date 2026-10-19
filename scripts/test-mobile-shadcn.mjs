@@ -344,7 +344,9 @@ try {
   await click(findButton('查看'))
   assert.ok(document.body.textContent.includes('CatPaw zero'))
   assert.ok(!document.body.textContent.includes('WorkBuddy expired'), 'homepage notice opens the limited filter')
-  await f.act(async () => { f.store.back(); await wait() })
+  assert.ok(document.querySelector('.m-navbar button'), 'filtered account drilldown has a visible Back control')
+  await click(document.querySelector('.m-navbar button'))
+  assert.equal(f.store.get().route.screen, 'home', 'Back returns from the homepage restriction notice')
   await click(
     [...document.querySelectorAll('nav [role=tab]')].find(
       (b) => b.textContent === '账号',
