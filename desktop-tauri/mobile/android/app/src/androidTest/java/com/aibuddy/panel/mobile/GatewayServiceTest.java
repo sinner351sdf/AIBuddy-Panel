@@ -78,11 +78,15 @@ public class GatewayServiceTest {
             File data=new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getFilesDir(),"gateway-data/agent2api.db");
             // Exact database filename can evolve; private data directory must contain persisted state.
             assertTrue(data.getParentFile().isDirectory());assertTrue(data.getParentFile().list().length>0);
-            exportWithTheSystemPicker();
             scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED);
             assertEquals("gateway survives UI backgrounding",200,request("GET", "/health"));
             scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED);
-            assertFalse(command(scenario,GatewayService.STOP).getBoolean("running"));
+            exportWithTheSystemPicker();
+            // Launching another ActivityScenario replaces the old task. Reopen the
+            // launcher instead of trying to resume its already-destroyed Activity.
+            try(ActivityScenario<MainActivity> controls=ActivityScenario.launch(MainActivity.class)){
+                assertFalse(command(controls,GatewayService.STOP).getBoolean("running"));
+            }
             long until=System.currentTimeMillis()+5000;boolean stopped=false;
             while(System.currentTimeMillis()<until){try{request("GET", "/health");Thread.sleep(100);}catch(IOException expected){stopped=true;break;}}
             assertTrue("stop releases the loopback listener",stopped);
