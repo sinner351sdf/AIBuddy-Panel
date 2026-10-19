@@ -75,7 +75,7 @@ function ShellNotifications({ bridge }: { bridge: NotificationsBridge }) {
   const label = snapshot.unread > 0 ? `通知中心（${snapshot.unread} 条未读告警）` : '通知中心'
   return (
     <Popover open={snapshot.open} onOpenChange={bridge.setOpen}>
-      <PopoverTrigger render={<Button id="nc-btn-bell" variant="ghost" size="icon-sm" className="relative" aria-label={label} title={label} />}>
+      <PopoverTrigger render={<Button id="nc-btn-bell" variant="ghost" size="icon-sm" className="relative max-md:size-11" aria-label={label} title={label} />}>
         <BellIcon />
         {snapshot.unread > 0 && (
           <Badge variant="destructive" shape="tag" className="pointer-events-none absolute -right-1 -top-1" aria-hidden="true">

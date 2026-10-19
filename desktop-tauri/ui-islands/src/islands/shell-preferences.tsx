@@ -294,7 +294,7 @@ function TopbarActions({ api, state }: { api: API; state: PreferencesSnapshot })
     { id: 'pref-btn-prefs', title: t('偏好设置'), Icon: SettingsIcon, run: api.open },
   ]
   return <>{actions.map(({ id, title, Icon, run }) => <Tooltip key={id}>
-    <TooltipTrigger render={<Button id={id} variant='ghost' size='icon' aria-label={title} disabled={state.locked} onClick={() => run()} />}><Icon /></TooltipTrigger>
+    <TooltipTrigger render={<Button id={id} variant='ghost' size='icon' className='max-md:size-11' aria-label={title} disabled={state.locked} onClick={() => run()} />}><Icon /></TooltipTrigger>
     <TooltipContent side='bottom'>{title}</TooltipContent>
   </Tooltip>)}</>
 }

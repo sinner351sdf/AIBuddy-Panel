@@ -5,7 +5,7 @@
  * Waiting updates require an explicit SKIP_WAITING message to preserve in-progress forms.
  */
 
-const CACHE = 'agent2api-mobile-8ecd8e86697b'
+const CACHE = 'agent2api-mobile-e72f51aedf93'
 
 /** 预缓存的外壳文件（相对 SW 所在目录，即 `ui/` 根） */
 const SHELL = [

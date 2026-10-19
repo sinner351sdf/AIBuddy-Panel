@@ -108,11 +108,11 @@ function Navigation() {
   React.useEffect(() => { sidebar.setOpenMobile(false) }, [sidebar.isMobile])
   const triggerLabel = t(sidebar.isMobile ? (sidebar.openMobile ? '关闭导航' : '打开导航') : (state.open ? '收起侧边栏' : '展开侧边栏'))
   return <>
-    {triggerHost && createPortal(<><SidebarTrigger id='shell-sidebar-trigger' aria-controls='shell-sidebar' aria-expanded={sidebar.isMobile ? sidebar.openMobile : state.open} aria-label={triggerLabel} title={triggerLabel} aria-keyshortcuts='Control+b Meta+b' /><Separator orientation='vertical' className='h-4' /></>, triggerHost)}
+    {triggerHost && createPortal(<><SidebarTrigger className='max-md:size-11' id='shell-sidebar-trigger' aria-controls='shell-sidebar' aria-expanded={sidebar.isMobile ? sidebar.openMobile : state.open} aria-label={triggerLabel} title={triggerLabel} aria-keyshortcuts='Control+b Meta+b' /><Separator orientation='vertical' className='h-4' /></>, triggerHost)}
     <Sidebar id='shell-sidebar' collapsible='icon'>
       <SidebarHeader className='relative gap-0'>
         <RetainedHost id='shell-brand' />
-        {sidebar.isMobile && <Button id='shell-sidebar-close' variant='ghost' size='icon-sm' className='absolute right-3 top-4' aria-label={t('关闭导航')} onClick={() => sidebar.setOpenMobile(false)}><X /></Button>}
+        {sidebar.isMobile && <Button id='shell-sidebar-close' variant='ghost' size='icon-sm' className='absolute right-2 top-2 size-11' aria-label={t('关闭导航')} onClick={() => sidebar.setOpenMobile(false)}><X /></Button>}
       </SidebarHeader>
       <SidebarContent className='group-data-[collapsible=icon]:overflow-y-auto'>
         <nav id='nav' aria-label={t('页面导航')}>
