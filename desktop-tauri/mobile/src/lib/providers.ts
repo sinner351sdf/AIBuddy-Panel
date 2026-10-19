@@ -73,7 +73,8 @@ const LABELS: Record<string, string> = {
 
 /** 图标地址；认不出的 id 返回空串（调用方画首字徽章） */
 export function providerIcon(id: string | undefined): string {
-  return (id && ICONS[id]) || ''
+  const path = id && ICONS[id]
+  return path ? '/' + path : ''
 }
 
 /** 展示名：优先用后端给的 label，其次本地映射，最后原样回显 id */

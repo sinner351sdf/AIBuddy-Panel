@@ -69,10 +69,10 @@ public class GatewayServiceTest {
                 boolean ready=false;
                 for(int i=0;i<100&&!ready;i++){
                     CountDownLatch latch=new CountDownLatch(1);AtomicBoolean loaded=new AtomicBoolean();
-                    dashboard.onActivity(activity->{WebView web=webView(activity.findViewById(android.R.id.content));web.evaluateJavascript("document.readyState==='complete' && document.body!==null && location.pathname==='/login'",value->{loaded.set("true".equals(value));latch.countDown();});});
+                    dashboard.onActivity(activity->{WebView web=webView(activity.findViewById(android.R.id.content));web.evaluateJavascript("document.readyState==='complete' && document.body!==null && navigator.userAgent.includes(' AIBuddyPanelNative/') && typeof window.Capacitor==='undefined' && location.pathname==='/login' && new URLSearchParams(location.search).get('next')==='/m'",value->{loaded.set("true".equals(value));latch.countDown();});});
                     latch.await(2,TimeUnit.SECONDS);ready=loaded.get();if(!ready)Thread.sleep(100);
                 }
-                assertTrue("embedded full panel reached its login page",ready);
+                assertTrue("dedicated mobile entry reached login with a return to /m",ready);
                 CountDownLatch fixtureReady=new CountDownLatch(1);
                 dashboard.onActivity(activity->{WebView web=webView(activity.findViewById(android.R.id.content));web.evaluateJavascript("(function(){var b=document.createElement('button');b.textContent='Export fixture';b.style.cssText='position:fixed;inset:0;z-index:2147483647;background:white';b.onclick=function(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['native-export-fixture'],{type:'application/json'}));a.download='fixture.json';document.body.appendChild(a);a.click();a.remove()};document.body.appendChild(b)})()",ignored->fixtureReady.countDown());});
                 assertTrue(fixtureReady.await(5,TimeUnit.SECONDS));
@@ -94,6 +94,7 @@ public class GatewayServiceTest {
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
             JSONObject state=command(scenario,GatewayService.START);assertTrue(state.getBoolean("running"));assertEquals("http://127.0.0.1:3065",state.getString("base"));
             assertEquals(200,request("GET", "/health"));assertEquals(200,request("GET", "/login"));assertEquals(200,request("GET", "/islands/ui.js"));
+            assertEquals(200,request("GET", "/m/mobile.js"));assertEquals(200,request("GET", "/m/mobile.css"));
             assertEquals("inference fails closed until an API key is configured",503,request("POST", "/v1/chat/completions"));assertEquals("new panel requires setup/login",401,request("GET", "/api/accounts"));
             File data=new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getFilesDir(),"gateway-data/agent2api.db");
             // Exact database filename can evolve; private data directory must contain persisted state.

@@ -1,3 +1,4 @@
+import { openManagement } from './ManagementPage'
 import { Surface } from '../components/primitives'
 import { accountLimitState, activeRateLimits, type BalanceSnapshot } from '../lib/accountLimits'
 import { confirmAction } from '../components/confirm'
@@ -14,13 +15,7 @@ import { expiryOf, hasExpiry } from '../lib/providerFacts'
 import { providerLabel } from '../lib/providers'
 import { t } from '../i18n'
 
-/**
- * 账号详情抽屉。
- *
- * 手机上不做「编辑表单」：账号的凭证、代理、限流规则都是多字段表单，窄屏填
- * 起来痛苦且容易出错。这一层只给**查看 + 三个高频动作**（启停、刷新凭证、
- * 删除），编辑仍回桌面端。
- */
+/** Compact mobile view; complete editors open within the mobile navigation shell. */
 export function AccountSheet({
   account,
   onClose,
@@ -151,7 +146,13 @@ export function AccountSheet({
             </>
           ) : null}
         </SheetBody>
-        <SheetFooter style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+        <SheetFooter className="flex-wrap">
+          <MobileButton className="m-btn m-ghost" disabled={!account || Boolean(busy)} onClick={() => {
+            if (!account) return
+            const id = account.id
+            onClose()
+            openManagement('accounts', t('编辑账号'), 'edit', id)
+          }}><Icon name="edit" />{t('编辑账号')}</MobileButton>
           <MobileButton
             type='button'
             className='m-btn'

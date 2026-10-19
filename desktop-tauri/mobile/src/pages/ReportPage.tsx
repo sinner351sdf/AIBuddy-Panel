@@ -1,3 +1,4 @@
+import { ManagementButton } from './ManagementPage'
 import { MobileButton, Surface } from '../components/primitives'
 import { useState } from 'react'
 import { PageHead, SectionHead, Empty, ErrorNote, StatCard, SkeletonList } from '../components/ui'
@@ -72,6 +73,7 @@ export function ReportPage() {
 
   return (
     <div className='m-page'>
+      <div className="m-section"><ManagementButton page="overview">{t('完整报表与趋势')}</ManagementButton></div>
       <PageHead
         title={t('报表')}
         subtitle={

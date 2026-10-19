@@ -34,6 +34,11 @@ export function isPackaged(): boolean {
   return Boolean(cap?.isNativePlatform?.())
 }
 
+/** Presentation-only marker; it never enables the Capacitor bridge or token transport. */
+export function isNativeDashboard(): boolean {
+  return typeof navigator !== 'undefined' && navigator.userAgent.includes(' AIBuddyPanelNative/')
+}
+
 /**
  * 归一化用户输入的地址。
  *

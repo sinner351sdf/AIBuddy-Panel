@@ -1,15 +1,15 @@
 /*
- * Shared panel Service Worker. Source copied to ui/sw.js by the Web build.
- * The complete panel and old /m aliases share one entry. API traffic is never cached.
+ * Mobile panel Service Worker. Source copied to ui/sw.js by the Web build.
+ * The dedicated mobile shell handles /m aliases. API traffic is never cached.
  * A deterministic content hash versions the cache; activation removes only our caches.
  * Waiting updates require an explicit SKIP_WAITING message to preserve in-progress forms.
  */
 
-const CACHE = 'agent2api-mobile-e72f51aedf93'
+const CACHE = 'agent2api-mobile-84e9c2eb8d37'
 
 /** 预缓存的外壳文件（相对 SW 所在目录，即 `ui/` 根） */
 const SHELL = [
-  './index.html', './m.html', './web-mobile-entry.js',
+  './index.html', './m.html', './m/mobile.js', './m/mobile.css',
   './islands/ui.js', './islands/ui.css', './css/mobile.css',
   './m/manifest.webmanifest', './assets/app-icon-192.png', './assets/app-icon-512.png',
 ]

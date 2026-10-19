@@ -44,6 +44,7 @@ export function MorePage() {
           icon: 'users',
           badge: limited ? String(limited) : undefined,
         },
+        { id: 'credits', label: t('积分构成'), icon: 'chart' },
         { id: 'requests', label: t('请求日志'), icon: 'request' },
         { id: 'logs', label: t('运行日志'), icon: 'log' },
         { id: 'tasks', label: t('定时任务'), icon: 'task' },
@@ -132,7 +133,7 @@ export function MorePage() {
       <section className="m-section">
         <p className="text-xs leading-relaxed text-muted-foreground">
           {t(
-            '手机端只做查看与高频操作；添加账号、编辑凭证、改写客户端配置仍需桌面端。',
+            '在手机上查看与管理网关；配置修改作用于当前连接的服务。',
           )}
         </p>
       </section>

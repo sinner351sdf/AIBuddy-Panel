@@ -1,3 +1,4 @@
+import { ManagementButton } from './ManagementPage'
 import { Switch } from '@ui'
 import { Surface, MobileButton } from '../components/primitives'
 import { useState } from 'react'
@@ -130,7 +131,7 @@ export function ProxiesPage() {
       {data && !items.length ? (
         <div className='m-section'>
           <Surface className='m-card'>
-            <Empty text={t('还没有出口。在桌面端「网络代理」页新增，或点上面同步 Clash。')} />
+            <Empty text={t('还没有出口，点击下方新增，或同步 Clash。')} />
           </Surface>
         </div>
       ) : null}
@@ -223,7 +224,7 @@ export function ProxiesPage() {
 
       <div className='m-section' style={{ paddingBottom: 8 }}>
         <Surface className='m-card m-card-pad' style={{ fontSize: 11.5, color: 'var(--m-text-3)', lineHeight: 1.7 }}>
-          {t('新增出口、编辑地址与订阅管理在桌面端完成；手机端做启停与连通性测试。')}
+          <ManagementButton page="proxies">{t('新增出口 / 编辑与订阅')}</ManagementButton>
         </Surface>
       </div>
     </div>

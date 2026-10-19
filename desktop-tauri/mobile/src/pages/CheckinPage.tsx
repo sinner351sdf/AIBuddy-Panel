@@ -1,3 +1,4 @@
+import { ManagementButton } from './ManagementPage'
 import { Progress } from '@ui'
 import { Surface, MobileButton } from '../components/primitives'
 import { useState } from 'react'
@@ -59,6 +60,7 @@ export function CheckinPage() {
 
   return (
     <div className='m-page'>
+      <div className="m-section"><ManagementButton page="checkin">{t('自动签到 / 福利与套餐')}</ManagementButton></div>
       <PageIntro subtitle={t('今天 · 北京时间自然日')}
         actions={
           <IconButton
@@ -104,7 +106,7 @@ export function CheckinPage() {
                   {data.auto?.enabled ? data.auto?.time || t('已开启') : t('未开启')}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--m-text-3)', marginTop: 2 }}>
-                  {data.auto?.enabled ? t('每天自动执行') : t('在桌面端设置')}
+                  {data.auto?.enabled ? t('每天自动执行') : t('尚未开启自动签到')}
                 </div>
               </div>
               <div style={{ width: 1, background: 'var(--m-line)' }} />
@@ -283,7 +285,7 @@ export function CheckinPage() {
                 ))}
               </Surface>
               <div style={{ marginTop: 8, fontSize: 11.5, color: 'var(--m-text-3)', padding: '0 2px' }}>
-                {t('福利与套餐的逐项领取在桌面端签到中心完成')}
+                {t('更多福利与套餐可在管理中查看')}
               </div>
             </div>
           ) : null}

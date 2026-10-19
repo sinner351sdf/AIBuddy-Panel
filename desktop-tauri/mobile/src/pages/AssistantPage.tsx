@@ -16,26 +16,13 @@ import {
 import { PageHead, IconButton } from '../components/ui'
 import { accountLimitState } from '../lib/accountLimits'
 
+import { openManagement } from './ManagementPage'
 import { useState } from 'react'
 import { Icon } from '../components/Icon'
 import { useStore, store } from '../state/store'
 import { t } from '../i18n'
 
-/**
- * AI 助手。
- *
- * ── 手机端最值得保留的一级入口 ────────────────────────────────
- * 「查一下余额」「把重复的模型加上前缀」这类操作用手机最方便，不必回电脑。
- *
- * ── 为什么先做「本地问答」而不是直连 SSE ──────────────────────
- * 后端 `/api/assistant/chat` 是 SSE 流（OpenAI delta + tool_calls），完整
- * 实现要处理工具循环、确认卡、多轮上限。手机端这一版先把**不需要模型的
- * 快捷查询**做实：它直接打管理 API 拿真实数据，零 Token、零等待 —— 覆盖
- * 「看看余额」「哪些模型重复」「今天多少请求」这类最高频的用法。
- * 自由对话入口保留（引导去桌面端），等这一版验证过再补流式。
- *
- * 这是有意的分阶段：先让手机上真的能办事，而不是先搬一个半成品对话框。
- */
+/** Compact mobile view; complete editors open within the mobile navigation shell. */
 
 type Message =
   | { role: 'user'; text: string }
@@ -113,7 +100,7 @@ export function AssistantPage() {
                       '我可以直接查网关里的真实数据：余额、模型重复、今日用量、限流账号。',
                     )}
                     <br />
-                    {t('要改配置的话，桌面端的助手支持完整对话与工具调用。')}
+                    {t('点下方开始对话，可使用模型、历史记录和工具调用。')}
                   </BubbleContent>
                 </Bubble>
               </MessageContent>
@@ -191,9 +178,9 @@ export function AssistantPage() {
         <Button
           variant="secondary"
           className="min-h-11"
-          onClick={() => store.toast(t('完整对话在桌面端「AI 助手」页'))}
+          onClick={() => openManagement('assistant', t('AI 助手'))}
         >
-          {t('自由对话请用桌面端…')}
+          {t('开始对话')}
           <Icon name="up" data-icon="inline-end" />
         </Button>
         <p className="m-0 text-center text-xs text-muted-foreground">
@@ -291,7 +278,7 @@ async function answer(
         role: 'tool',
         title: t('读取模型清单'),
         state: 'done',
-        text: t('共 {n} 个模型条目。映射与改名请在桌面端「模型管理」里做。', {
+        text: t('共 {n} 个模型条目。映射与改名可在「模型管理」里编辑。', {
           n: models.length,
         }),
       },

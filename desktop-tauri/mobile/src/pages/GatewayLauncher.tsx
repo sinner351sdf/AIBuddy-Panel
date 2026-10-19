@@ -8,7 +8,7 @@ import { Icon } from '../components/Icon'
 import { confirmAction } from '../components/confirm'
 import { t } from '../i18n'
 
-/** Native launcher owns service selection only. Every dashboard is the full web panel. */
+/** Native launcher owns service selection only. Each selected gateway opens the dedicated mobile panel. */
 export function GatewayLauncher({bridge=nativeGateway}:{bridge?:GatewayBridge}) {
   const [local,setLocal]=useState<LocalGatewayStatus>({running:false})
   const [servers,setServers]=useState<ServerEntry[]>(listServers)

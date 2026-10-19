@@ -1,3 +1,5 @@
+import { MobileButton } from './components/primitives'
+import { ManagementPage, openManagement, MANAGEMENT_PAGES, type ManagementPageId } from './pages/ManagementPage'
 import { GatewayLauncher } from './pages/GatewayLauncher'
 import { isPackaged } from './lib/servers'
 import { Toaster } from '@ui'
@@ -41,6 +43,8 @@ type ScreenDef = {
 }
 
 const SCREENS: Record<string, ScreenDef> = {
+  credits: { title: t('积分构成'), component: ManagementPage },
+  management: { title: t('管理'), component: ManagementPage },
   home: { title: t('首页'), component: HomePage, primary: true },
   report: { title: t('报表'), component: ReportPage, primary: true },
   accounts: { title: t('账号'), component: AccountsPage, primary: true },
@@ -71,7 +75,7 @@ function MobileApp() {
   const Page = def.component
   const isPrimary = Boolean(def.primary)
   // 助手页要撑满：它自己内部滚动（对话区），外层不能滚
-  const fillHeight = state.route.screen === 'assistant'
+  const fillHeight = ['assistant', 'management', 'credits'].includes(state.route.screen)
   /**
    * APK 首次启动、一台服务器都没配：**没有地址就什么都拉不到**，所以直接
    * 顶掉整个界面（不显示标签栏 —— 切到别的标签也是空的）。配好一台之后
@@ -95,8 +99,8 @@ function MobileApp() {
 
   useEffect(() => {
     // 页面标题跟着当前页走（PWA 里影响任务切换器的显示）
-    document.title = needsServer ? `${t('服务器')} · AIBuddy Panel` : `${def.title} · AIBuddy Panel`
-  }, [def.title, needsServer])
+    document.title = needsServer ? `${t('服务器')} · AIBuddy Panel` : `${state.route.params?.title || def.title} · AIBuddy Panel`
+  }, [def.title, needsServer, state.route.params?.title])
 
   if (needsServer) {
     return (
@@ -114,7 +118,10 @@ function MobileApp() {
     <div className='m-app' data-offline={pwa.offline ? 'true' : undefined}>
       <ThemeSync />
       <PwaNotice />
-      {isPrimary ? null : <NavBar title={def.title} onBack={() => store.back()} />}
+      {isPrimary ? null : <NavBar title={state.route.params?.title || def.title} onBack={() => store.back()}
+        actions={state.route.screen !== 'management' && state.route.screen !== 'credits' && MANAGEMENT_PAGES.includes(state.route.screen as ManagementPageId)
+          ? <MobileButton type="button" className="m-icon-btn" aria-label={t('管理')} onClick={() => openManagement(state.route.screen as ManagementPageId, def.title)}><span aria-hidden="true">···</span></MobileButton>
+          : undefined} />}
       <div
         ref={scrollRef}
         className='m-scroll'

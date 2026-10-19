@@ -3,7 +3,7 @@
   "name": "AIBuddy Panel",
   "short_name": "AIBuddy Panel",
   "description": "多提供商 AI 网关管理面板",
-  "start_url": "/",
+  "start_url": "/m",
   "scope": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],

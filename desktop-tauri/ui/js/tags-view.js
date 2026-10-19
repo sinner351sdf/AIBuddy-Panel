@@ -3,6 +3,7 @@
 
 (function () {
   'use strict';
+  if (window.wbMobileEmbed) return;
 
   // bundle 或经典脚本重复装载时保留已有订阅、DOM 与 showPage 包装。
   if (window.wbTagsView && window.wbTagsView.__shellTabsBridge) return;

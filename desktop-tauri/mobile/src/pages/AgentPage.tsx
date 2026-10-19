@@ -1,3 +1,4 @@
+import { ManagementButton } from './ManagementPage'
 import { confirmAction } from '../components/confirm'
 import { Surface, MobileButton } from '../components/primitives'
 import { useState } from 'react'
@@ -9,19 +10,7 @@ import { fetchAgents, restoreAgentClient, type AgentClient } from '../api/gatewa
 import { usePolling } from '../lib/usePolling'
 import { t } from '../i18n'
 
-/**
- * Agent 接管。
- *
- * ── 手机上只读，这是有意的 ────────────────────────────────────
- * 这一页的作用是改写**本机 AI 客户端的配置文件**（`~/.claude/settings.json`
- * 之类）。手机读不到那台机器的文件系统 —— 它连的是网关，而网关跑在另一台
- * 机器上。所以手机上：
- *   · 看得到有哪些客户端、各自的配置路径、是否已接管；
- *   · 可以「还原」（走网关的 `/api/agents/restore`，那是网关在替我们写）；
- *   · **不能**改配置内容（那需要浏览本机文件、选 profile）。
- *
- * 页内明说这一点，免得用户以为功能坏了。
- */
+/** Compact mobile view; complete editors open within the mobile navigation shell. */
 export function AgentPage() {
   const [clients, setClients] = useState<AgentClient[] | null>(null)
   const [error, setError] = useState('')
@@ -66,9 +55,8 @@ export function AgentPage() {
           style={{ background: 'var(--m-warn-soft)', borderColor: 'color-mix(in srgb, var(--m-warn) 24%, transparent)' }}
         >
           <div style={{ fontSize: 12.3, lineHeight: 1.6, color: 'var(--m-text-2)' }}>
-            {t('手机上只能查看与还原接管。改写配置内容请回桌面端')}
-            <b style={{ color: 'var(--m-text)' }}>{t('（手机读不到本机文件）')}</b>
-            {t('。这里的开关与还原作用在网关所在的机器上。')}
+            {t('配置会写入当前连接的网关所在机器。保存配置后，先预览，再手动确认应用。')}
+            <ManagementButton page="agent">{t('配置与应用接管')}</ManagementButton>
           </div>
         </Surface>
       </div>

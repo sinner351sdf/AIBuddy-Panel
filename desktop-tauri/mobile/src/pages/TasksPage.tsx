@@ -33,14 +33,7 @@ import { formatRelative, formatStamp } from '../lib/format'
 import { usePolling } from '../lib/usePolling'
 import { t } from '../i18n'
 
-/**
- * 定时任务。
- *
- * 手机上以「只读 + 开关」为主：改间隔要填数字，窄屏上既费事又容易点错，
- * 收进抽屉且给了上下限提示。后端任务额外给「立即执行」。
- *
- * 与桌面端一致：签到是每天定点型，不在这张表里（它有自己的页）。
- */
+/** Compact mobile view; complete editors open within the mobile navigation shell. */
 export function TasksPage() {
   const [tasks, setTasks] = useState<ScheduledTask[] | null>(null)
   const [error, setError] = useState('')

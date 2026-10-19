@@ -1,3 +1,4 @@
+import { ManagementButton } from './ManagementPage'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@ui'
 import { Badge as SharedBadge } from '@ui'
 import { Switch } from '@ui'
@@ -11,18 +12,7 @@ import { fetchManage, refreshModels, setModelEnabled, type ManageModel } from '.
 import { usePolling } from '../lib/usePolling'
 import { t } from '../i18n'
 
-/**
- * 模型管理。
- *
- * ── 折叠分组代替左栏 + 宽表 ──────────────────────────────────
- * 桌面端是「左侧提供商栏 + 右侧宽表」，手机上改成按提供商折叠的卡片：
- * 一行一个模型，只留扫读需要的四个事实 —— 模型 ID、上下文窗口、来源、
- * 是否展示。映射与能力位编辑进抽屉（在桌面端做）。
- *
- * ── 两个开关要分开 ────────────────────────────────────────────
- * 「启用」决定这个模型对客户端是否可用；「可见性」是上游官方客户端是否
- * 展示它 —— 两者在桌面端是两列，手机上用小标签表达，不合并成一个开关。
- */
+/** Compact mobile view; complete editors open within the mobile navigation shell. */
 
 type Filter = 'all' | 'enabled' | 'hidden'
 
@@ -226,7 +216,7 @@ export function ModelsPage() {
 
       <div className='m-section' style={{ paddingBottom: 8 }}>
         <Surface className='m-card m-card-pad' style={{ fontSize: 11.5, color: 'var(--m-text-3)', lineHeight: 1.7 }}>
-          {t('映射、思考等级、上下文窗口与工具调用能力在桌面端「模型管理」里改；手机端只做启停。')}
+          <ManagementButton page="gateway">{t('编辑模型 / 映射与能力')}</ManagementButton>
         </Surface>
       </div>
     </div>

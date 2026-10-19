@@ -174,9 +174,9 @@ class Store {
     const { route } = this.state
     const id = route.params?.id ? `${route.screen}/${route.params.id}` : route.screen
     try {
-      // The entry uses <base href='/'> for assets: a bare hash would resolve to /.
+      // Keep the active /m alias when changing tabs; resource paths are absolute.
       const url = new URL(location.href)
-      url.hash = id
+      url.hash = route.screen === 'management' ? 'management?' + new URLSearchParams(route.params || {}) : id
       history.replaceState(null, '', url.href)
     } catch {
       /* 极端情况下忽略 */
@@ -188,6 +188,11 @@ class Store {
     const raw = location.hash.replace(/^#/, '').trim()
     if (!raw) {
       if (this.state.route.screen !== 'home') this.patch({ route: { screen: 'home' }, stack: [] })
+      return
+    }
+    if (raw.startsWith('management?')) {
+      const params = Object.fromEntries(new URLSearchParams(raw.slice('management?'.length)))
+      if (this.state.route.screen !== 'management' || JSON.stringify(this.state.route.params) !== JSON.stringify(params)) this.patch({route: {screen: 'management', params}, stack: []})
       return
     }
     const [screen, id] = raw.split('/')

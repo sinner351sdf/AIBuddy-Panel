@@ -94,3 +94,7 @@ h1,h2,h3,p { margin-top:0; }
 .m-rows .m-v { margin-left:auto; min-width:0; overflow-wrap:anywhere; color:var(--text-2); font-size:12px; text-align:right; }
 .m-app button { -webkit-user-select:none; user-select:none; }
 @media (prefers-reduced-motion:reduce) { *,::before,::after { animation-duration:.01ms !important; transition-duration:.01ms !important; } }
+
+/* Secondary management screens preserve the mobile shell and original Back bar. */
+.m-management {display:flex;flex-direction:column;height:100%;min-height:0;background:var(--background)}
+.m-management-frame {display:block;width:100%;flex:1;min-height:0;border:0;background:var(--background)}

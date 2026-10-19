@@ -1,3 +1,4 @@
+import { ManagementButton } from './ManagementPage'
 import { Badge as SharedBadge } from '@ui'
 import { Surface, MobileButton, MobileSelect } from '../components/primitives'
 import { useState } from 'react'
@@ -9,21 +10,10 @@ import { locale, localeOptions, setLocale } from '../i18n'
 import { storeApiKey } from '../api/client'
 import { usePwa } from '../lib/usePwa'
 import { applyUpdate, promptInstall } from '../lib/pwa'
-import { apiBase, baseLabel } from '../lib/servers'
+import { isNativeDashboard, apiBase, baseLabel } from '../lib/servers'
 import { t } from '../i18n'
 
-/**
- * 设置。
- *
- * ── 手机上只放「改了就生效、且不需要复杂表单」的项 ────────────
- * 桌面端设置页有 11 个分类、几十个字段。手机上保留：
- *   · 外观与语言（纯前端偏好）
- *   · 账号凭证（兼容模式的 API Key、退出登录）
- *   · 网关地址（复制给客户端）
- *   · 关于与安装（PWA 安装引导、版本）
- * 端口、路由、重试、超时、数据保留这些需要看文档才能填对的，一律留在桌面端
- * —— 摆出来只会让人误改。
- */
+/** Compact mobile view; complete editors open within the mobile navigation shell. */
 export function SettingsPage() {
   const { session, packaged, server, servers } = useStore()
   const pwa = usePwa()
@@ -51,6 +41,7 @@ export function SettingsPage() {
 
   return (
     <div className='m-page'>
+      <div className="m-section"><ManagementButton page="settings">{t('网关设置 / 路由与数据管理')}</ManagementButton></div>
       <PageIntro subtitle={t('外观 · 接入 · 关于')}
         actions={<IconButton name='refresh' label={t('刷新')} onClick={() => void store.refresh(true)} />}
       />
@@ -225,7 +216,7 @@ export function SettingsPage() {
       </div>
 
       {/* APK 不需要装到桌面（本身就是 App），这一段只给浏览器形态 */}
-      {packaged ? null : (
+      {packaged || isNativeDashboard() ? null : (
       <div className='m-section'>
         <SectionHead title={t('安装到桌面')} />
         <Surface className='m-card'>
@@ -337,7 +328,7 @@ export function SettingsPage() {
             </span>
             <div className='m-grow'>
               <div className='m-t1'>{t('AIBuddy Panel 手机端')}</div>
-              <div className='m-t2'>{t('与网关同源的面板；完整管理功能在桌面端')}</div>
+              <div className='m-t2'>{t('当前连接网关的手机管理面板')}</div>
             </div>
           </div>
           <div className='m-row' style={{ borderTop: '1px solid var(--m-line)' }}>

@@ -490,6 +490,45 @@ try {
     calls.every((call) => call.method === 'GET'),
     'navigation and usage reads do not trigger live/provider mutations',
   )
+  // Every formerly reduced feature opens a working editor inside the original
+  // mobile navigation shell, never a top-level redirect or a placeholder toast.
+  for (const [route, label, panel, action] of [
+    ['accounts', '添加账号', 'accounts', 'add'],
+    ['accounts', '管理账号', 'accounts', ''],
+    ['keys', '新建 Key / 编辑范围与额度', 'keys', ''],
+    ['models', '编辑模型 / 映射与能力', 'gateway', ''],
+    ['agent', '配置与应用接管', 'agent', ''],
+    ['proxies', '新增出口 / 编辑与订阅', 'proxies', ''],
+    ['checkin', '自动签到 / 福利与套餐', 'checkin', ''],
+    ['settings', '网关设置 / 路由与数据管理', 'settings', ''],
+    ['assistant', '开始对话', 'assistant', ''],
+    ['report', '完整报表与趋势', 'overview', ''],
+  ]) {
+    await f.act(async () => {f.store.go(route); await wait()})
+    const control = [...document.querySelectorAll('button')].find(button =>
+      button.textContent.includes(label) || button.getAttribute('aria-label') === label)
+    assert.ok(control, 'working mobile action: ' + label)
+    await click(control)
+    const frame = document.querySelector('iframe')
+    assert.ok(frame, 'editor stays inside mobile shell: ' + label)
+    const editor = new URL(frame.src)
+    assert.equal(editor.origin, location.origin)
+    assert.equal(editor.searchParams.get('mobile-panel'), panel)
+    assert.equal(editor.searchParams.get('mobile-action') || '', action)
+    assert.equal(location.pathname, '/m')
+    assert.ok(!document.querySelector('nav.m-tabbar'), 'secondary screen has a Back bar')
+    assert.ok(location.hash.includes('management?'), 'editor survives a bookmarked/reloaded route')
+    await click(document.querySelector('.m-navbar button'))
+    assert.equal(f.store.get().route.screen, route, 'Back restores the mobile page')
+    assert.ok(!document.querySelector('iframe'))
+  }
+  assert.ok(calls.every(call => call.method === 'GET'), 'opening editors never applies changes automatically')
+  await f.act(async () => {f.store.go('accounts'); await wait()})
+  await click([...document.querySelectorAll('button')].find(button => button.textContent.includes('WorkBuddy expired')))
+  await click(findButton('编辑账号'))
+  assert.equal(new URL(document.querySelector('iframe').src).searchParams.get('account'), f.store.get().session.accounts.accounts.find(account => account.name === 'WorkBuddy expired').id)
+  assert.equal(new URL(document.querySelector('iframe').src).searchParams.get('mobile-action'), 'edit')
+  await click(document.querySelector('.m-navbar button'))
   // Destructive dialogs cancel without requests; confirmation still sends the original payload.
   await f.act(async () => {
     f.store.go('keys')
@@ -584,7 +623,7 @@ try {
     'mobile consumes shared theme instead of independent colors',
   )
   console.log(
-    `PASS: ${cases.length} desktop/mobile limiter cases; homepage, filter, details and bottom badge; ${routes.length} real routes; shared controls; confirmation cancel/submit; read-only snapshot refresh; native local start/stop/open and multiple remote services`,
+    `PASS: ${cases.length} desktop/mobile limiter cases; homepage, filter, details and bottom badge; ${routes.length} real routes, 10 management flows with Back navigation; shared controls; confirmation cancel/submit; read-only snapshot refresh; native local start/stop/open and multiple remote services`,
   )
 } finally {
   if (reactRoot) {

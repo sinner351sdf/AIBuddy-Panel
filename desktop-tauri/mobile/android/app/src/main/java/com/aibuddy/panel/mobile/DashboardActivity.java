@@ -11,22 +11,23 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.*;
 
-/** A first-party WebView for the complete panel. Remote pages receive NO native/Capacitor bridge. */
+/** A first-party WebView for the mobile panel. Remote pages receive NO native/Capacitor bridge. */
 public final class DashboardActivity extends AppCompatActivity {
     private WebView web;
     private DashboardDownloads downloads;
     private android.webkit.ValueCallback<Uri[]> files;
     private String entry;
+    private String origin;
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
-        try{entry=LocalGatewayPlugin.dashboardUrl(getIntent().getStringExtra("url"));}catch(Exception invalid){finish();return;}
+        try{origin=LocalGatewayPlugin.dashboardUrl(getIntent().getStringExtra("url"));entry=origin+"m";}catch(Exception invalid){finish();return;}
         setTitle(getIntent().getStringExtra("name"));
         android.widget.FrameLayout root=new android.widget.FrameLayout(this);
         ViewCompat.setOnApplyWindowInsetsListener(root,(view,insets)->{Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());view.setPadding(bars.left,bars.top,bars.right,bars.bottom);return insets;});
         web=new WebView(this);root.addView(web,new android.widget.FrameLayout.LayoutParams(-1,-1));setContentView(root);
-        WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setSupportMultipleWindows(true);settings.setJavaScriptCanOpenWindowsAutomatically(false);settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        WebSettings settings=web.getSettings();settings.setUserAgentString(settings.getUserAgentString()+" AIBuddyPanelNative/1");settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setSupportMultipleWindows(true);settings.setJavaScriptCanOpenWindowsAutomatically(false);settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         CookieManager.getInstance().setAcceptCookie(true);CookieManager.getInstance().setAcceptThirdPartyCookies(web,false);
-        downloads=new DashboardDownloads(this,web,entry);
+        downloads=new DashboardDownloads(this,web,origin);
         web.setWebViewClient(new WebViewClient(){
             @Override public void onPageFinished(WebView view,String url){downloads.observeClicks();}
             @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
@@ -51,8 +52,10 @@ public final class DashboardActivity extends AppCompatActivity {
                 ((WebView.WebViewTransport)message.obj).setWebView(popup);message.sendToTarget();return true;
             }
         });
-        // Android's back gesture returns to local/remote service selection; dashboard page navigation stays inside its own shell.
-        getOnBackPressedDispatcher().addCallback(this,new OnBackPressedCallback(true){@Override public void handleOnBackPressed(){finish();}});
+        // Secondary screens return to the mobile tab; a primary screen returns to service selection.
+        getOnBackPressedDispatcher().addCallback(this,new OnBackPressedCallback(true){@Override public void handleOnBackPressed(){
+            web.evaluateJavascript("(function(){var b=document.querySelector('.m-navbar button');if(b){b.click();return true}return false})()",handled->{if(!"true".equals(handled))finish();});
+        }});
         if(state==null)web.loadUrl(entry);else web.restoreState(state);
     }
     private void openExternal(Uri uri){try{startActivity(new Intent(Intent.ACTION_VIEW,uri));}catch(ActivityNotFoundException ignored){}}

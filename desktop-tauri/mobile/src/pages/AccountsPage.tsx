@@ -21,6 +21,7 @@ import {
 } from '../components/ui'
 import { ProviderLogo } from '../components/ProviderLogo'
 import { Icon } from '../components/Icon'
+import { openManagement } from './ManagementPage'
 import { AccountSheet } from './AccountSheet'
 import { useStore, store } from '../state/store'
 import { setAccountEnabled, type Account } from '../api/gateway'
@@ -149,14 +150,14 @@ export function AccountsPage() {
           l: limitedCount,
         })}
         actions={
-          <IconButton
+          <><IconButton name="edit" label={t('管理账号')} onClick={() => openManagement('accounts', t('管理账号'))} /><IconButton
             name="refresh"
             label={t('刷新')}
             onClick={() => {
               void store.refresh(true)
               store.toast(t('已刷新'))
             }}
-          />
+          /></>
         }
       />
 
@@ -224,7 +225,7 @@ export function AccountsPage() {
               text={
                 query
                   ? t('没有匹配「{kw}」的账号', { kw: query })
-                  : t('还没有账号，去桌面端添加')
+                  : t('还没有账号，点击下方添加')
               }
             />
           </Surface>
@@ -295,7 +296,7 @@ export function AccountsPage() {
           <MobileButton
             type="button"
             className="m-row"
-            onClick={() => store.toast(t('添加账号请用桌面端或网页版面板'))}
+            onClick={() => openManagement('accounts', t('添加账号'), 'add')}
           >
             <span className="m-logo">
               <Icon name="plus" />
@@ -303,7 +304,7 @@ export function AccountsPage() {
             <div className="m-grow">
               <div className="m-t1">{t('添加账号')}</div>
               <div className="m-t2">
-                {t('扫码 / 粘贴令牌 / 导入登录态需在桌面端完成')}
+                {t('扫码登录 / 粘贴令牌 / 导入账号')}
               </div>
             </div>
             <span className="m-chev">

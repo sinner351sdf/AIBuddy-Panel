@@ -1,3 +1,4 @@
+import { ManagementButton } from './ManagementPage'
 import { Switch } from '@ui'
 import { confirmAction } from '../components/confirm'
 import { Surface, MobileButton } from '../components/primitives'
@@ -11,15 +12,7 @@ import { providerLabel } from '../lib/providers'
 import { usePolling } from '../lib/usePolling'
 import { t } from '../i18n'
 
-/**
- * 网关 Key。
- *
- * Key 卡直接展示脱敏后的值与复制按钮 —— 这是这一页最高频的动作（复制给
- * 某个客户端）。明文只在展开后才取，默认只显示掩码，避免肩窥。
- *
- * 可用范围用一行摘要，完整编辑器在桌面端：白名单是多选，窄屏上做多选
- * 既费事又容易点错。
- */
+/** Compact mobile view; complete editors open within the mobile navigation shell. */
 export function KeysPage() {
   const [data, setData] = useState<KeysPayload | null>(null)
   const [error, setError] = useState('')
@@ -92,7 +85,7 @@ export function KeysPage() {
             <span className='m-mono' style={{ fontSize: 11.5, color: 'var(--m-primary)' }}>
               Authorization: Bearer &lt;Key&gt;
             </span>
-            {data?.authRequired ? t('；当前必须带 Key。') : t('；一把启用的 Key 都没有时不鉴权。')}
+            {t('；请妥善保存 Key，可随时禁用或更换。')}
           </div>
         </Surface>
       </div>
@@ -103,7 +96,7 @@ export function KeysPage() {
       {data && !keys.length ? (
         <div className='m-section'>
           <Surface className='m-card'>
-            <Empty text={t('还没有 Key。去桌面端「网关 Key」页新建一把。')} />
+            <Empty text={t('还没有 Key，点击下方新建。')} />
           </Surface>
         </div>
       ) : null}
@@ -199,7 +192,7 @@ export function KeysPage() {
 
       <div className='m-section' style={{ paddingBottom: 8 }}>
         <Surface className='m-card m-card-pad' style={{ fontSize: 11.5, color: 'var(--m-text-3)', lineHeight: 1.7 }}>
-          {t('新建 Key 与设置可用范围（提供商 / 模型白名单）在桌面端完成。')}
+          <ManagementButton page="keys">{t('新建 Key / 编辑范围与额度')}</ManagementButton>
         </Surface>
       </div>
     </div>
