@@ -57,7 +57,11 @@ public class GatewayServiceTest {
                     latch.await(2,TimeUnit.SECONDS);ready=loaded.get();if(!ready)Thread.sleep(100);
                 }
                 assertTrue("embedded full panel reached its login page",ready);
-                dashboard.onActivity(activity->{WebView web=webView(activity.findViewById(android.R.id.content));web.evaluateJavascript("(function(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['native-export-fixture'],{type:'application/json'}));a.download='fixture.json';document.body.appendChild(a);a.click();a.remove()})()",null);});
+                CountDownLatch fixtureReady=new CountDownLatch(1);
+                dashboard.onActivity(activity->{WebView web=webView(activity.findViewById(android.R.id.content));web.evaluateJavascript("(function(){var b=document.createElement('button');b.textContent='Export fixture';b.style.cssText='position:fixed;inset:0;z-index:2147483647;background:white';b.onclick=function(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['native-export-fixture'],{type:'application/json'}));a.download='fixture.json';document.body.appendChild(a);a.click();a.remove()};document.body.appendChild(b)})()",ignored->fixtureReady.countDown());});
+                assertTrue(fixtureReady.await(5,TimeUnit.SECONDS));
+                // A real touch supplies WebView user activation, as in the actual export button flow.
+                androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom(WebView.class)).perform(androidx.test.espresso.action.ViewActions.click());
                 long until=System.currentTimeMillis()+30000;
                 while(output.length()==0&&System.currentTimeMillis()<until)Thread.sleep(100);
                 assertTrue("blob export was written through the chosen content URI",output.length()>0);
