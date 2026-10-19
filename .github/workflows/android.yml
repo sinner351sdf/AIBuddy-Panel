@@ -87,7 +87,7 @@ jobs:
           AIBUDDY_UNSIGNED_APK: '1'
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace assembleDebug assembleRelease assembleDebugAndroidTest
+          ./gradlew --no-daemon --stacktrace :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest
       - name: Verify APK identity and checksums
         run: |
           mkdir -p dist/android
@@ -113,7 +113,7 @@ jobs:
           disable-animations: true
           script: |
             cd desktop-tauri/mobile/android
-            ./gradlew --no-daemon connectedDebugAndroidTest
+            ./gradlew --no-daemon :app:connectedDebugAndroidTest
       - uses: actions/upload-artifact@v7
         if: always()
         with:
