@@ -71,14 +71,16 @@ jobs:
         with:
           workspaces: desktop-tauri/src-tauri
           key: android-native-gateway
+          cache-on-failure: true
       - name: Build the embedded Rust gateway for device and emulator
         env:
           RUSTFLAGS: '-C link-arg=-Wl,-z,max-page-size=16384'
         run: |
           export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
-          cargo install cargo-ndk --locked
+          export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
+          cargo install cargo-ndk --version 4.1.2 --locked
           cd desktop-tauri/src-tauri
-          cargo ndk -t arm64-v8a -t x86_64 -p 24 -o ../mobile/android/app/src/main/jniLibs build --locked --release -p aibuddy-android-gateway
+          cargo ndk -t arm64-v8a -t x86_64 --platform 24 -o ../mobile/android/app/src/main/jniLibs build --locked --release --package aibuddy-android-gateway
       - name: Compile debug and unsigned release APKs
         working-directory: desktop-tauri/mobile/android
         env:
