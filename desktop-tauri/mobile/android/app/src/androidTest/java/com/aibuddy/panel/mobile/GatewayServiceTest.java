@@ -23,11 +23,27 @@ import static org.junit.Assert.*;
 /** Device-side proof: bundled Rust JNI -> foreground service -> real HTTP and full-panel assets. */
 @RunWith(AndroidJUnit4.class)
 public class GatewayServiceTest {
+    private JSONObject evaluate(ActivityScenario<MainActivity> scenario,String script) throws Exception {
+        CountDownLatch latch=new CountDownLatch(1);AtomicReference<JSONObject> result=new AtomicReference<>();
+        scenario.onActivity(activity->activity.getBridge().getWebView().evaluateJavascript(script,value->{
+            try{Object decoded=new org.json.JSONTokener(value).nextValue();if(decoded instanceof String&&!"null".equals(decoded))result.set(new JSONObject((String)decoded));}catch(Exception invalid){}finally{latch.countDown();}
+        }));
+        assertTrue("WebView responded",latch.await(5,TimeUnit.SECONDS));return result.get();
+    }
     private JSONObject command(ActivityScenario<MainActivity> scenario,String action) throws Exception {
-        CountDownLatch latch=new CountDownLatch(1);AtomicReference<JSONObject> result=new AtomicReference<>();AtomicInteger code=new AtomicInteger(-1);
-        ResultReceiver receiver=new ResultReceiver(new Handler(Looper.getMainLooper())){@Override protected void onReceiveResult(int value,Bundle data){code.set(value);try{result.set(new JSONObject(data.getString("json","{}")));}catch(Exception invalid){}latch.countDown();}};
-        scenario.onActivity(activity->{Intent intent=new Intent(activity,GatewayService.class).setAction(action).putExtra("port",3065).putExtra("reply",GatewayService.remoteReceiver(receiver));if(GatewayService.START.equals(action))activity.startForegroundService(intent);else activity.startService(intent);});
-        assertTrue("native service replied",latch.await(90,TimeUnit.SECONDS));assertEquals(String.valueOf(result.get()),0,code.get());return result.get();
+        JSONObject ready=null;
+        for(int i=0;i<100&&ready==null;i++){
+            ready=evaluate(scenario,"typeof window.Capacitor?.nativePromise==='function' && document.getElementById('local-gateway-port')?JSON.stringify({ready:true}):null");
+            if(ready==null)Thread.sleep(100);
+        }
+        assertNotNull("packaged Capacitor bridge initialized",ready);
+        String method=JSONObject.quote(action);
+        // This is exactly the dispatch used by registerPlugin's promise methods.
+        evaluate(scenario,"(function(){window.__gatewayDeviceReply=null;Capacitor.nativePromise('LocalGateway',"+method+",{port:3065}).then(function(state){window.__gatewayDeviceReply={ok:true,state:state}}).catch(function(error){window.__gatewayDeviceReply={ok:false,error:String(error)}});return null})()");
+        long until=System.currentTimeMillis()+90000;JSONObject reply=null;
+        while(reply==null&&System.currentTimeMillis()<until){reply=evaluate(scenario,"JSON.stringify(window.__gatewayDeviceReply||null)");if(reply==null)Thread.sleep(100);}
+        assertNotNull("native plugin replied through the real WebView bridge",reply);
+        assertTrue(reply.toString(),reply.getBoolean("ok"));return reply.getJSONObject("state");
     }
     private int request(String method, String path) throws Exception {
         HttpURLConnection connection=(HttpURLConnection)new URL("http://127.0.0.1:3065"+path).openConnection(Proxy.NO_PROXY);
@@ -71,6 +87,10 @@ public class GatewayServiceTest {
         }finally{Intents.release();output.delete();}
     }
     @Test public void gatewayRunsWithoutARemoteServer() throws Exception {
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        // The test uses an API 35 emulator; grant the notification permission a user
+        // normally chooses before pressing Start, so automation need not dismiss OS UI.
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().grantRuntimePermission(context.getPackageName(),android.Manifest.permission.POST_NOTIFICATIONS);
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
             JSONObject state=command(scenario,GatewayService.START);assertTrue(state.getBoolean("running"));assertEquals("http://127.0.0.1:3065",state.getString("base"));
             assertEquals(200,request("GET", "/health"));assertEquals(200,request("GET", "/login"));assertEquals(200,request("GET", "/islands/ui.js"));
