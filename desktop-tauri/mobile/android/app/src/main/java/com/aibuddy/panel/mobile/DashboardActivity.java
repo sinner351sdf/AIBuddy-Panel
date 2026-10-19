@@ -14,6 +14,7 @@ import androidx.core.view.*;
 /** A first-party WebView for the complete panel. Remote pages receive NO native/Capacitor bridge. */
 public final class DashboardActivity extends AppCompatActivity {
     private WebView web;
+    private DashboardDownloads downloads;
     private android.webkit.ValueCallback<Uri[]> files;
     private String entry;
     @Override public void onCreate(Bundle state){
@@ -25,7 +26,9 @@ public final class DashboardActivity extends AppCompatActivity {
         web=new WebView(this);root.addView(web,new android.widget.FrameLayout.LayoutParams(-1,-1));setContentView(root);
         WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setSupportMultipleWindows(true);settings.setJavaScriptCanOpenWindowsAutomatically(false);settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         CookieManager.getInstance().setAcceptCookie(true);CookieManager.getInstance().setAcceptThirdPartyCookies(web,false);
+        downloads=new DashboardDownloads(this,web,entry);
         web.setWebViewClient(new WebViewClient(){
+            @Override public void onPageFinished(WebView view,String url){downloads.observeClicks();}
             @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
                 Uri url=request.getUrl();String scheme=url.getScheme();
                 if(!("http".equals(scheme)||"https".equals(scheme)))return true;
@@ -53,8 +56,8 @@ public final class DashboardActivity extends AppCompatActivity {
         if(state==null)web.loadUrl(entry);else web.restoreState(state);
     }
     private void openExternal(Uri uri){try{startActivity(new Intent(Intent.ACTION_VIEW,uri));}catch(ActivityNotFoundException ignored){}}
-    @Override protected void onActivityResult(int code,int result,Intent data){super.onActivityResult(code,result,data);if(code==401&&files!=null){files.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result,data));files=null;}}
+    @Override protected void onActivityResult(int code,int result,Intent data){super.onActivityResult(code,result,data);if(downloads!=null&&downloads.onResult(code,result,data))return;if(code==401&&files!=null){files.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result,data));files=null;}}
     @Override protected void onSaveInstanceState(Bundle state){if(web!=null)web.saveState(state);super.onSaveInstanceState(state);}
     @Override protected void onPause(){CookieManager.getInstance().flush();super.onPause();}
-    @Override protected void onDestroy(){if(files!=null)files.onReceiveValue(null);if(web!=null){web.stopLoading();web.destroy();}super.onDestroy();}
+    @Override protected void onDestroy(){if(files!=null)files.onReceiveValue(null);if(downloads!=null)downloads.close();if(web!=null){web.stopLoading();web.destroy();}super.onDestroy();}
 }

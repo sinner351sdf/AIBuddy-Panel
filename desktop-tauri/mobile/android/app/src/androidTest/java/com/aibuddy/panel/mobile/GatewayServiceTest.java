@@ -2,6 +2,12 @@ package com.aibuddy.panel.mobile;
 
 import android.content.*;
 import android.os.*;
+import android.app.Activity;
+import android.view.*;
+import android.webkit.WebView;
+import androidx.core.content.FileProvider;
+import androidx.test.espresso.intent.Intents;
+import static androidx.test.espresso.intent.matcher.IntentMatchers.hasAction;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -30,6 +36,36 @@ public class GatewayServiceTest {
         connection.setConnectTimeout(3000);connection.setReadTimeout(3000);connection.setInstanceFollowRedirects(false);
         try{return connection.getResponseCode();}finally{connection.disconnect();}
     }
+    private WebView webView(View root){
+        if(root instanceof WebView)return (WebView)root;
+        if(root instanceof ViewGroup)for(int i=0;i<((ViewGroup)root).getChildCount();i++){WebView found=webView(((ViewGroup)root).getChildAt(i));if(found!=null)return found;}
+        return null;
+    }
+    private void exportWithTheSystemPicker() throws Exception {
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        File output=File.createTempFile("gateway-export-",".json",context.getCacheDir());
+        Intent chosen=new Intent().setData(FileProvider.getUriForFile(context,context.getPackageName()+".fileprovider",output));
+        Intents.init();
+        try {
+            Intents.intending(hasAction(Intent.ACTION_CREATE_DOCUMENT)).respondWith(new android.app.Instrumentation.ActivityResult(Activity.RESULT_OK,chosen));
+            Intent open=new Intent(context,DashboardActivity.class).putExtra("url","http://127.0.0.1:3065").putExtra("name","Local test");
+            try(ActivityScenario<DashboardActivity> dashboard=ActivityScenario.launch(open)){
+                boolean ready=false;
+                for(int i=0;i<100&&!ready;i++){
+                    CountDownLatch latch=new CountDownLatch(1);AtomicBoolean loaded=new AtomicBoolean();
+                    dashboard.onActivity(activity->{WebView web=webView(activity.findViewById(android.R.id.content));web.evaluateJavascript("document.readyState==='complete' && document.body!==null && location.pathname==='/login'",value->{loaded.set("true".equals(value));latch.countDown();});});
+                    latch.await(2,TimeUnit.SECONDS);ready=loaded.get();if(!ready)Thread.sleep(100);
+                }
+                assertTrue("embedded full panel reached its login page",ready);
+                dashboard.onActivity(activity->{WebView web=webView(activity.findViewById(android.R.id.content));web.evaluateJavascript("(function(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['native-export-fixture'],{type:'application/json'}));a.download='fixture.json';document.body.appendChild(a);a.click();a.remove()})()",null);});
+                long until=System.currentTimeMillis()+30000;
+                while(output.length()==0&&System.currentTimeMillis()<until)Thread.sleep(100);
+                assertTrue("blob export was written through the chosen content URI",output.length()>0);
+                try(FileInputStream input=new FileInputStream(output)){byte[] bytes=new byte[(int)output.length()];assertEquals(bytes.length,input.read(bytes));assertEquals("native-export-fixture",new String(bytes,java.nio.charset.StandardCharsets.UTF_8));}
+                Intents.intended(hasAction(Intent.ACTION_CREATE_DOCUMENT));
+            }
+        }finally{Intents.release();output.delete();}
+    }
     @Test public void gatewayRunsWithoutARemoteServer() throws Exception {
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
             JSONObject state=command(scenario,GatewayService.START);assertTrue(state.getBoolean("running"));assertEquals("http://127.0.0.1:3065",state.getString("base"));
@@ -38,6 +74,7 @@ public class GatewayServiceTest {
             File data=new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getFilesDir(),"gateway-data/agent2api.db");
             // Exact database filename can evolve; private data directory must contain persisted state.
             assertTrue(data.getParentFile().isDirectory());assertTrue(data.getParentFile().list().length>0);
+            exportWithTheSystemPicker();
             scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED);
             assertEquals("gateway survives UI backgrounding",200,request("GET", "/health"));
             scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED);

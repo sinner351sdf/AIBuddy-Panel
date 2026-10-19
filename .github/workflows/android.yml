@@ -112,9 +112,8 @@ jobs:
           arch: x86_64
           profile: pixel_7
           disable-animations: true
-          script: |
-            cd desktop-tauri/mobile/android
-            ./gradlew --no-daemon :app:connectedDebugAndroidTest
+          working-directory: desktop-tauri/mobile/android
+          script: ./gradlew --no-daemon :app:connectedDebugAndroidTest
       - uses: actions/upload-artifact@v7
         if: always()
         with:
