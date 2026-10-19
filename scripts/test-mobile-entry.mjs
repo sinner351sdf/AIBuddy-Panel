@@ -1,3 +1,4 @@
+import './test-mobile-native-download.mjs'
 // Dedicated mobile entry, with complete editors confined to secondary mobile screens.
 import assert from 'node:assert/strict'
 import fs from 'node:fs'

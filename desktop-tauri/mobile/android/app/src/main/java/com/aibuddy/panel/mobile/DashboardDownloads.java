@@ -26,8 +26,9 @@ final class DashboardDownloads {
         web.setDownloadListener((url,userAgent,disposition,mime,length)->begin(url,mime));
     }
     void observeClicks(){
-        // The app's export code clicks a temporary blob anchor; retain its file name before it is removed.
-        web.evaluateJavascript("(function(){if(window.__aibuddyDownloadClick)return;window.__aibuddyDownloadClick=true;document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[download]');if(a)window.__aibuddyDownloadMeta={url:a.href,name:a.download};},true)})()",null);
+        // Editors live in same-origin child documents. Capture download metadata
+        // there as well, without exposing a JavaScript/native interface.
+        web.evaluateJavascript("(function(){if(window.__aibuddyDownloadClick)return;window.__aibuddyDownloadClick=true;function hook(doc){if(!doc||doc.__aibuddyDownloadHook)return;doc.__aibuddyDownloadHook=true;doc.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[download]');if(a)window.__aibuddyDownloadMeta={url:a.href,name:a.download};},true);function frames(){doc.querySelectorAll('iframe').forEach(function(f){if(!f.__aibuddyLoadHook){f.__aibuddyLoadHook=true;f.addEventListener('load',function(){try{hook(f.contentDocument)}catch(_){}})}try{hook(f.contentDocument)}catch(_){}})}new MutationObserver(frames).observe(doc.documentElement,{childList:true,subtree:true});frames()}hook(document)})()",null);
     }
     private void begin(String url,String mime){
         if(closed||busy)return;

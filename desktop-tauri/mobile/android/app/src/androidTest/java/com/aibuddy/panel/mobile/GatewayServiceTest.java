@@ -74,7 +74,7 @@ public class GatewayServiceTest {
                 }
                 assertTrue("dedicated mobile entry reached login with a return to /m",ready);
                 CountDownLatch fixtureReady=new CountDownLatch(1);
-                dashboard.onActivity(activity->{WebView web=webView(activity.findViewById(android.R.id.content));web.evaluateJavascript("(function(){var b=document.createElement('button');b.textContent='Export fixture';b.style.cssText='position:fixed;inset:0;z-index:2147483647;background:white';b.onclick=function(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['native-export-fixture'],{type:'application/json'}));a.download='fixture.json';document.body.appendChild(a);a.click();a.remove()};document.body.appendChild(b)})()",ignored->fixtureReady.countDown());});
+                dashboard.onActivity(activity->{WebView web=webView(activity.findViewById(android.R.id.content));web.evaluateJavascript("(function(){var f=document.createElement('iframe');f.style.cssText='position:fixed;inset:0;width:100%;height:100%;border:0;z-index:2147483647;background:white';document.body.appendChild(f);var d=f.contentDocument;var b=d.createElement('button');b.textContent='Export fixture';b.style.cssText='position:fixed;inset:0;background:white';b.onclick=function(){var a=d.createElement('a');a.href=f.contentWindow.URL.createObjectURL(new f.contentWindow.Blob(['native-export-fixture'],{type:'application/json'}));a.download='fixture.json';d.body.appendChild(a);a.click();a.remove()};d.body.appendChild(b)})()",ignored->fixtureReady.countDown());});
                 assertTrue(fixtureReady.await(5,TimeUnit.SECONDS));
                 // A real touch supplies WebView user activation, as in the actual export button flow.
                 androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom(WebView.class)).perform(androidx.test.espresso.action.ViewActions.click());
@@ -82,7 +82,7 @@ public class GatewayServiceTest {
                 while(output.length()==0&&System.currentTimeMillis()<until)Thread.sleep(100);
                 assertTrue("blob export was written through the chosen content URI",output.length()>0);
                 try(FileInputStream input=new FileInputStream(output)){byte[] bytes=new byte[(int)output.length()];assertEquals(bytes.length,input.read(bytes));assertEquals("native-export-fixture",new String(bytes,java.nio.charset.StandardCharsets.UTF_8));}
-                Intents.intended(hasAction(Intent.ACTION_CREATE_DOCUMENT));
+                Intents.intended(org.hamcrest.Matchers.allOf(hasAction(Intent.ACTION_CREATE_DOCUMENT),androidx.test.espresso.intent.matcher.IntentMatchers.hasExtra(Intent.EXTRA_TITLE,"fixture.json")));
             }
         }finally{Intents.release();output.delete();}
     }
