@@ -73,7 +73,16 @@ jobs:
           cache-workspace-crates: true
           key: android-native-gateway
           cache-on-failure: true
+      - name: Identify native compiler
+        id: native-rust
+        run: printf 'hash=%s\n' "$(rustc -Vv | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v5
+        id: native-libs
+        with:
+          path: desktop-tauri/mobile/android/app/src/main/jniLibs
+          key: android-jni-v1-${{ steps.native-rust.outputs.hash }}-${{ hashFiles('desktop-tauri/src-tauri/server/**', 'desktop-tauri/src-tauri/android-gateway/**', 'desktop-tauri/src-tauri/Cargo.toml', 'desktop-tauri/src-tauri/Cargo.lock', 'desktop-tauri/src-tauri/.cargo/config.toml', 'desktop-tauri/mobile/android/app/src/main/java/com/aibuddy/panel/mobile/GatewayNative.java', '.github/workflows/android.yml') }}
       - name: Build the embedded Rust gateway for device and emulator
+        if: steps.native-libs.outputs.cache-hit != 'true'
         env:
           RUSTFLAGS: '-C link-arg=-Wl,-z,max-page-size=16384'
         run: |
@@ -82,6 +91,13 @@ jobs:
           cargo install cargo-ndk --version 4.1.2 --locked
           cd desktop-tauri/src-tauri
           cargo ndk -t arm64-v8a -t x86_64 --platform 24 -o ../mobile/android/app/src/main/jniLibs build --locked --release --package aibuddy-android-gateway
+      # Save right after native compilation: a Java/device-test failure must not
+      # discard unchanged Rust binaries on the next UI-only iteration.
+      - uses: actions/cache/save@v5
+        if: steps.native-libs.outputs.cache-hit != 'true'
+        with:
+          path: desktop-tauri/mobile/android/app/src/main/jniLibs
+          key: ${{ steps.native-libs.outputs.cache-primary-key }}
       - name: Compile debug and unsigned release APKs
         working-directory: desktop-tauri/mobile/android
         env:
