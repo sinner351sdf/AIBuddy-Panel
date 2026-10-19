@@ -60,7 +60,7 @@ public final class LocalGatewayPlugin extends Plugin {
         getBridge().execute(()->{
             try {
                 if(GatewayService.START.equals(action)&&!serviceExists()&&gatewayProcessExists())awaitProcessExit();
-                Intent intent=new Intent(getContext(),GatewayService.class).setAction(action).putExtra("port",call.getInt("port",3065)).putExtra("reply",receiver);
+                Intent intent=new Intent(getContext(),GatewayService.class).setAction(action).putExtra("port",call.getInt("port",3065)).putExtra("reply",GatewayService.remoteReceiver(receiver));
                 if(GatewayService.START.equals(action)&&Build.VERSION.SDK_INT>=26)getContext().startForegroundService(intent);else getContext().startService(intent);
             }catch(Exception failure){main.removeCallbacks(timeout);if(settled.compareAndSet(false,true))call.reject(failure.getMessage());}
         });

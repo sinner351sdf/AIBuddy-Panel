@@ -18,6 +18,13 @@ public final class GatewayService extends Service {
     private int port=3065;
     private String error="";
     private static final String CHANNEL="local_gateway";
+    // Marshal only the framework ResultReceiver class across processes. In particular,
+    // instrumentation subclasses do not exist in the isolated gateway process.
+    static ResultReceiver remoteReceiver(ResultReceiver receiver){
+        Parcel parcel=Parcel.obtain();
+        try{receiver.writeToParcel(parcel,0);parcel.setDataPosition(0);return ResultReceiver.CREATOR.createFromParcel(parcel);}
+        finally{parcel.recycle();}
+    }
     @Override public IBinder onBind(Intent intent){return null;}
     @Override public int onStartCommand(Intent intent,int flags,int startId){
         if(intent==null){stopSelf();return START_NOT_STICKY;}

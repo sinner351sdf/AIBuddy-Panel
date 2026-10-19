@@ -26,7 +26,7 @@ public class GatewayServiceTest {
     private JSONObject command(ActivityScenario<MainActivity> scenario,String action) throws Exception {
         CountDownLatch latch=new CountDownLatch(1);AtomicReference<JSONObject> result=new AtomicReference<>();AtomicInteger code=new AtomicInteger(-1);
         ResultReceiver receiver=new ResultReceiver(new Handler(Looper.getMainLooper())){@Override protected void onReceiveResult(int value,Bundle data){code.set(value);try{result.set(new JSONObject(data.getString("json","{}")));}catch(Exception invalid){}latch.countDown();}};
-        scenario.onActivity(activity->{Intent intent=new Intent(activity,GatewayService.class).setAction(action).putExtra("port",3065).putExtra("reply",receiver);if(GatewayService.START.equals(action))activity.startForegroundService(intent);else activity.startService(intent);});
+        scenario.onActivity(activity->{Intent intent=new Intent(activity,GatewayService.class).setAction(action).putExtra("port",3065).putExtra("reply",GatewayService.remoteReceiver(receiver));if(GatewayService.START.equals(action))activity.startForegroundService(intent);else activity.startService(intent);});
         assertTrue("native service replied",latch.await(90,TimeUnit.SECONDS));assertEquals(String.valueOf(result.get()),0,code.get());return result.get();
     }
     private int request(String method, String path) throws Exception {
