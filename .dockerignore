@@ -24,5 +24,8 @@ desktop-tauri/src-tauri/*
 !desktop-tauri/src-tauri/Cargo.toml
 !desktop-tauri/src-tauri/Cargo.lock
 !desktop-tauri/src-tauri/server
+!desktop-tauri/src-tauri/android-gateway
+desktop-tauri/src-tauri/android-gateway/*
+!desktop-tauri/src-tauri/android-gateway/Cargo.toml
 desktop-tauri/package.json
 desktop-tauri/package-lock.json

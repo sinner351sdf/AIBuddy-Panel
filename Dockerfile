@@ -69,9 +69,11 @@ RUN { echo '#!/bin/sh -e'; \
 
 COPY desktop-tauri/src-tauri/Cargo.toml desktop-tauri/src-tauri/Cargo.lock src-tauri/
 COPY desktop-tauri/src-tauri/server/Cargo.toml src-tauri/server/
-RUN mkdir -p src-tauri/server/src/bin src-tauri/src \
+COPY desktop-tauri/src-tauri/android-gateway/Cargo.toml src-tauri/android-gateway/
+RUN mkdir -p src-tauri/server/src/bin src-tauri/android-gateway/src src-tauri/src \
     && echo "" > src-tauri/server/src/lib.rs \
     && echo "fn main() {}" > src-tauri/server/src/bin/agent2api-server.rs \
+    && echo "" > src-tauri/android-gateway/src/lib.rs \
     && echo "" > src-tauri/src/lib.rs \
     && echo "fn main() {}" > src-tauri/src/main.rs
 # 桩依赖层：整棵依赖树编一遍，命中后成为之后每次构建的缓存底座
