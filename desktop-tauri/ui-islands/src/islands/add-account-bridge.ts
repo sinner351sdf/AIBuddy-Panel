@@ -235,8 +235,16 @@ export function addedLabelOf(account?: AccountRecord | null): string {
  * （add-account-modal.tsx 的 closeModal），这里只是把它统一叫出来 ——
  * 脚本 / 模块顺序被改坏时退回直接摘 window 引用。
  */
+let pageClose: (() => void) | undefined
+
+export function registerAddPageClose(close: () => void): () => void {
+  pageClose = close
+  return () => { if (pageClose === close) pageClose = undefined }
+}
+
 export function closeAddModals(): void {
-  shared().wbAddAccountModal?.close?.()
+  if (pageClose) pageClose()
+  else shared().wbAddAccountModal?.close?.()
 }
 
 /** 添加成功后统一收尾：关窗、刷新列表、提示 */

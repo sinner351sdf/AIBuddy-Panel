@@ -1,3 +1,5 @@
+import { SectionSkeleton } from '../components/section-skeleton'
+import { InfoTip } from '../components/info-tip'
 import * as React from 'react'
 import { Alert, AlertDescription, Badge, Button, Dialog, DialogBody, DialogContent, DialogDescription,
   DialogFooter, DialogHeader, DialogTitle, Spinner } from '@ui'
@@ -29,13 +31,22 @@ const CSS = `
 @media(max-width: 640px) { .growth-task-count { width: 100%; } }
 `
 
-function Status({ task }: { task: AccountGrowthTask }) {
+function Status({ task, disabled, pending, executionStatus, onAccept, onClaim, onRun }: {
+  task: AccountGrowthTask; disabled: boolean; pending: boolean; executionStatus?: string; onAccept(): void; onClaim(): void; onRun(): void
+}) {
   switch (taskState(task)) {
     case 'claimed': return <Badge variant='success'>{t('已领取')}</Badge>
     case 'locked': return <Badge variant='outline'>{t('未解锁')}</Badge>
-    case 'claimable': return <Badge variant='brand'>{t('可领取')}</Badge>
-    case 'accepted': return <Badge variant='outline'>{t('进行中')}</Badge>
-    default: return <Badge variant='warning'>{t('待接受')}</Badge>
+    case 'claimable': return <Button variant='outline' size='xs' disabled={disabled} onClick={onClaim}>
+      {pending ? <Spinner data-icon='inline-start' aria-hidden='true' /> : null}{t('领取奖励')}
+    </Button>
+    case 'accepted': return canAutomateTask(task) ? <Button variant='outline' size='xs' disabled={disabled} onClick={onRun}>
+      {['pending', 'running'].includes(executionStatus || '') ? <Spinner data-icon='inline-start' aria-hidden='true' /> : null}
+      {executionStatus === 'pending' ? t('排队中…') : executionStatus === 'running' ? t('执行中…') : t('执行任务')}
+    </Button> : <Badge variant='outline'>{t('进行中')}</Badge>
+    default: return <Button variant='outline' size='xs' disabled={disabled} onClick={onAccept}>
+      {pending ? <Spinner data-icon='inline-start' aria-hidden='true' /> : null}{t('领取任务')}
+    </Button>
   }
 }
 
@@ -50,6 +61,8 @@ export function WorkBuddyTasksDialog({ account, onClose }: { account: AccountRec
   const [compensationRefresh, setCompensationRefresh] = React.useState(0)
   const hasCompensation = account.provider === 'workbuddy' && account.edition !== 'intl'
   const alive = React.useRef(true)
+  const actionInFlight = React.useRef(false)
+  const confirmedClaims = React.useRef(new Set<string>())
   React.useEffect(() => () => { alive.current = false }, [])
   const tasks = details?.tasks || []
   const ownItems = (queue?.items || []).filter(item => item.accountId === account.id)
@@ -64,7 +77,8 @@ export function WorkBuddyTasksDialog({ account, onClose }: { account: AccountRec
     try {
       const next = await api.list(account.id)
       if (next.accountId !== account.id || !Array.isArray(next.tasks)) throw new Error(t('任务列表响应异常'))
-      if (alive.current) setDetails(next)
+      if (alive.current) setDetails({ ...next, tasks: next.tasks.map(task => confirmedClaims.current.has(account.id + ':' + task.code)
+        ? { ...task, claimed: true, claimable: false } : task) })
     } catch (err) {
       if (alive.current) setError(errorMessage(err))
     } finally {
@@ -102,26 +116,33 @@ export function WorkBuddyTasksDialog({ account, onClose }: { account: AccountRec
   }, [running, poll, load])
 
   async function act(action: 'accept' | 'claim' | 'run', code?: string) {
-    if (blocked) return
+    if (blocked || actionInFlight.current) return
+    actionInFlight.current = true
     setBusy(action + (code || '')); setError('')
     try {
       if (action === 'accept') {
         const result = await api.accept(account.id, code)
         toast(t('已接受 {n} 项任务', { n: result.accepted }))
       } else if (action === 'claim' && code) {
-        await api.claim(account.id, code)
+        const result = await api.claim(account.id, code)
+        if (result.claimed !== true && result.already !== true) throw new Error(result.message || t('任务奖励领取未确认成功'))
+        confirmedClaims.current.add(account.id + ':' + code)
+        if (alive.current) setDetails(current => current && ({ ...current, tasks: current.tasks?.map(task => task.code === code
+          ? { ...task, claimed: true, claimable: false } : task) }))
         toast(t('任务奖励已领取'))
         void shared().wbApp?.refresh?.()
       } else if (action === 'run') {
-        const result = await api.run(account.id)
-        toast(result.total ? t('已启动当前账号的 {n} 项任务', { n: result.total }) : t('当前账号没有可自动执行的待办'))
+        const result = code ? await api.runTask(account.id, code) : await api.run(account.id)
+        toast(code ? (result.total ? t('已启动当前任务') : t('当前任务暂无可执行的待办，请查看最新状态'))
+          : (result.total ? t('已启动当前账号的 {n} 项任务', { n: result.total }) : t('当前账号没有可自动执行的待办')))
       }
       if (!alive.current) return
-      await poll()
-      if (action !== 'run') await load()
+      const next = await poll()
+      if (action !== 'run' || !next?.running) await load()
     } catch (err) {
       if (alive.current) setError(errorMessage(err))
     } finally {
+      actionInFlight.current = false
       if (alive.current) setBusy('')
     }
   }
@@ -135,7 +156,7 @@ export function WorkBuddyTasksDialog({ account, onClose }: { account: AccountRec
             {t('积分任务')}<span className='growth-task-account'>{displayNameOf(account) || account.id}</span>
           </DialogTitle>
           <DialogDescription className='growth-task-description'>
-            {t('查询当前账号的任务进度；接受用于报名，领取在进度达标后可用。含真实对话的自动任务会消耗账号额度。')}
+            {t('领取任务后开始计进度，达标后可领取奖励。含真实对话的自动任务会消耗账号额度。')}
           </DialogDescription>
         </div>
       </DialogHeader>
@@ -147,15 +168,20 @@ export function WorkBuddyTasksDialog({ account, onClose }: { account: AccountRec
           {ownItems.length ? t('当前账号任务执行中：{done} / {total}，关闭弹窗后仍会继续。', { done: completed, total: ownItems.length })
             : t('其他成长任务正在执行，请等本轮结束后再操作。')}
         </AlertDescription></Alert> : null}
-        {loading && !details ? <Empty variant='compact' className='growth-task-empty flex items-center justify-center gap-2'><EmptyHeader><EmptyDescription><Spinner className='size-3' />{t('正在查询任务…')}</EmptyDescription></EmptyHeader></Empty> : null}
+        {loading && !details ? <SectionSkeleton/> : null}
         {!loading && details && tasks.length === 0 && !hasCompensation ? <Empty variant='compact' className='growth-task-empty'><EmptyHeader><EmptyDescription>{t('该账号暂无成长任务')}</EmptyDescription></EmptyHeader></Empty> : null}
         {tasks.length || hasCompensation ? <table className='growth-task-table'>
-          <thead><tr><th>{t('任务')}</th><th>{t('进度')}</th><th>{t('奖励')}</th><th>{t('状态')}</th><th aria-label={t('操作')} /></tr></thead>
+          <thead><tr><th>{t('任务')}</th><th>{t('进度')}</th><th>{t('奖励')}</th><th>{t('状态')}</th></tr></thead>
           <tbody>
             {hasCompensation ? <WorkBuddyCompensation key={account.id} accounts={[account]} layout='task-row'
               refreshKey={compensationRefresh} onStatusChange={setCompensation} disabled={busy !== '' || running} /> : null}
             {tasks.map(task => <tr key={task.code}>
-            <td><div className='growth-task-name' title={task.description}>{task.title || task.label || task.code}</div>
+            <td><div className='flex items-center gap-1'>
+                <div className='growth-task-name' title={task.description}>{task.title || task.label || task.code}</div>
+                {task.code === 'Sequential_Tasks_3' ? <InfoTip label={t('完成 5 次对话说明')}>
+                  {t('仅补足剩余次数，每次间隔约 45–55 秒；5 次约需 4–5 分钟，以上游回读进度为准。')}
+                </InfoTip> : null}
+              </div>
               <div className='growth-task-code'>{task.code}{task.tag ? ' · ' + task.tag : ''}</div></td>
             <td className='growth-task-number'>{Number(task.current) || 0} / {Number(task.target) || 0}</td>
             <td><div className='growth-task-reward growth-task-number'>
@@ -163,17 +189,15 @@ export function WorkBuddyTasksDialog({ account, onClose }: { account: AccountRec
               {task.rewardEnergy ? <span>{t('+{n} 能量', { n: task.rewardEnergy })}</span> : null}
               {!task.rewardCredit && !task.rewardEnergy ? '—' : null}
             </div></td>
-            <td><Status task={task} /></td>
-            <td>{taskState(task) === 'claimable' ? <Button variant='outline' size='xs' disabled={blocked}
-              onClick={() => void act('claim', task.code)}>{t('领取')}</Button>
-              : canAcceptTask(task) ? <Button variant='outline' size='xs' disabled={blocked}
-                onClick={() => void act('accept', task.code)}>{t('接受')}</Button> : <span className='muted'>—</span>}</td>
+            <td><Status task={task} disabled={blocked} pending={busy === 'accept' + task.code || busy === 'claim' + task.code}
+              executionStatus={busy === 'run' + task.code ? 'running' : running ? ownItems.find(item => item.taskCode === task.code)?.status : undefined}
+              onAccept={() => void act('accept', task.code)} onClaim={() => void act('claim', task.code)} onRun={() => void act('run', task.code)} /></td>
           </tr>)}</tbody>
         </table> : null}
       </DialogBody>
       <DialogFooter className='growth-task-footer'>
         <span className='growth-task-count'>{details ? t('共 {n} 项 · 已领取 {done} 项', { n: tasks.length + Number(hasCompensation), done: tasks.filter(task => task.claimed).length + Number(compensation?.claimed === true) }) : ''}</span>
-        <Button variant='outline' disabled={blocked || !acceptCount} onClick={() => void act('accept')}>{t('全部接受')}</Button>
+        <Button variant='outline' disabled={blocked || !acceptCount} onClick={() => void act('accept')}>{t('全部领取任务')}</Button>
         <Button disabled={blocked || !autoCount} onClick={() => void act('run')}>{t('执行普通成长任务（不含夜猫）')}</Button>
         <Button variant='outline' disabled={loading || busy !== ''} onClick={() => { void load(); void poll(); setCompensationRefresh(value => value + 1) }}>{t('重新查询')}</Button>
         <Button variant='outline' onClick={onClose}>{t('关闭')}</Button>

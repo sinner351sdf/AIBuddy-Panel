@@ -250,6 +250,12 @@ function checkHtml(source, file, requiredHosts, target = issues) {
   for (const { tag, attributes, at } of tags) {
     const id = attributes.get('id'), classes = (attributes.get('class') || '').split(/\s+/)
     const hiddenInput = tag === 'input' && (attributes.get('type') === 'hidden' || attributes.has('hidden'))
+    // This inert template is generated from the shared shadcn Button at build time.
+    const loadingTemplateStart = source.indexOf('<template id="page-loading-error">')
+    const loadingTemplateEnd = source.indexOf('</template>', loadingTemplateStart)
+    const generatedLoadingRetry = tag === 'button' && attributes.get('data-slot') === 'button' && attributes.has('data-loading-retry') && loadingTemplateStart >= 0 && at > loadingTemplateStart && at < loadingTemplateEnd
+    if (generatedLoadingRetry) continue
+
     if ((['button', 'input', 'select', 'textarea', 'option', 'nav', 'dialog', 'form'].includes(tag) && !hiddenInput) || id === 'nav' || id === 'login-theme-toggle' || classes.includes('nav-item') || ['button', 'menu', 'menuitem', 'tablist', 'combobox', 'dialog'].includes(attributes.get('role'))) {
       target.push({ file, line: source.slice(0, at).split('\n').length, code: 'static-control', rule: 'Static shell HTML must retain island hosts instead of restoring native navigation, theme or form controls' })
     }

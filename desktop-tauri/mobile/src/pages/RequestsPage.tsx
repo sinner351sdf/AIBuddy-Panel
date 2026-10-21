@@ -1,14 +1,13 @@
 import { MobileButton, Surface } from '../components/primitives'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PageIntro, IconButton, Empty, ErrorNote, SkeletonList } from '../components/ui'
 import { ProviderLogo } from '../components/ProviderLogo'
 
-import { Sheet, SheetContent, SheetHeader, SheetBody, SheetTitle, SheetFooter } from '@ui'
+import { Alert, AlertDescription, Badge as SharedBadge, Button, SegmentedControl, Sheet, SheetContent, SheetHeader, SheetBody, SheetTitle, SheetFooter } from '@ui'
 import { store } from '../state/store'
 import { fetchRequests, type RequestPage, type RequestRow } from '../api/gateway'
 import { ellipsisMiddle, formatClock, formatDuration, formatInt } from '../lib/format'
 import { providerLabel } from '../lib/providers'
-import { usePolling } from '../lib/usePolling'
 import { t } from '../i18n'
 
 /**
@@ -36,21 +35,32 @@ export function RequestsPage() {
   const [detail, setDetail] = useState<RequestRow | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
 
-  const load = async () => {
-    try {
-      const next = await fetchRequests({
-        limit: PAGE_SIZE,
-        status: filter === 'error' ? 'error' : undefined,
-      })
-      setPage(next)
-      setExtra([])
-      setError('')
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : String(failure))
+  const [refreshKey, setRefreshKey] = useState(0)
+  const lastFilter = useRef(filter)
+  const sequence = useRef(0), currentFilter = useRef(filter), moreRequest = useRef<AbortController | null>(null)
+  currentFilter.current = filter
+  const load = () => setRefreshKey(value => value + 1)
+  useEffect(() => {
+    const version = ++sequence.current
+    let disposed = false, busy = false, request: AbortController | undefined
+    if (lastFilter.current !== filter) { setPage(null); setExtra([]); lastFilter.current = filter }
+    setLoadingMore(false); setError('')
+    async function refresh() {
+      if (busy) return
+      busy = true; request = new AbortController()
+      try {
+        const next = await fetchRequests({limit: PAGE_SIZE, status: filter === 'error' ? 'error' : undefined}, request.signal)
+        if (!disposed && version === sequence.current) { setPage(next); setExtra([]); setError('') }
+      } catch (failure) {
+        if (!disposed && version === sequence.current) setError(failure instanceof Error ? failure.message : String(failure))
+      } finally { busy = false }
     }
-  }
-
-  usePolling(load, 30_000, [filter])
+    void refresh()
+    const timer = window.setInterval(() => { if (!document.hidden) void refresh() }, 30_000)
+    const visible = () => { if (!document.hidden) void refresh() }
+    document.addEventListener('visibilitychange', visible)
+    return () => { disposed = true; request?.abort(); moreRequest.current?.abort(); window.clearInterval(timer); document.removeEventListener('visibilitychange', visible) }
+  }, [filter, refreshKey])
 
   const rows = [...(page?.entries || []), ...extra]
   const filtered = rows.filter(row => {
@@ -60,14 +70,17 @@ export function RequestsPage() {
   })
 
   const loadMore = async () => {
+    if (loadingMore) return
+    const version = sequence.current, requestedFilter = filter
+    const request = new AbortController(); moreRequest.current = request
     setLoadingMore(true)
     try {
-      const next = await fetchRequests({ offset: rows.length, limit: PAGE_SIZE })
-      setExtra(prev => [...prev, ...(next.entries || [])])
+      const next = await fetchRequests({ offset: rows.length, limit: PAGE_SIZE, status: filter === 'error' ? 'error' : undefined }, request.signal)
+      if (version === sequence.current && currentFilter.current === requestedFilter && !request.signal.aborted) setExtra(prev => [...prev, ...(next.entries || [])])
     } catch (failure) {
-      store.toast(failure instanceof Error ? failure.message : String(failure), 'err')
+      if (!request.signal.aborted && version === sequence.current) store.toast(failure instanceof Error ? failure.message : String(failure), 'err')
     } finally {
-      setLoadingMore(false)
+      if (version === sequence.current) setLoadingMore(false)
     }
   }
 
@@ -81,47 +94,15 @@ export function RequestsPage() {
       />
 
       <div className='m-section' style={{ marginTop: 0 }}>
-        <div
-          style={{
-            display: 'flex',
-            gap: 2,
-            padding: 3,
-            borderRadius: 11,
-            background: 'var(--m-surface-3)',
-          }}
-        >
-          {(
-            [
-              { value: 'all', label: t('全部') },
-              { value: 'error', label: t('失败') },
-              { value: 'retry', label: t('有重试') },
-              { value: 'running', label: running ? t('在途 {n}', { n: running }) : t('在途') },
-            ] as Array<{ value: Filter; label: string }>
-          ).map(item => (
-            <MobileButton
-              key={item.value}
-              type='button'
-              onClick={() => setFilter(item.value)}
-              style={{
-                flex: 1,
-                height: 30,
-                borderRadius: 8,
-                border: 0,
-                fontSize: 12.5,
-                background: filter === item.value ? 'var(--m-surface)' : 'transparent',
-                color: filter === item.value ? 'var(--m-text)' : 'var(--m-text-2)',
-                fontWeight: filter === item.value ? 600 : 400,
-                boxShadow: filter === item.value ? 'var(--m-shadow-1)' : 'none',
-              }}
-            >
-              {item.label}
-            </MobileButton>
-          ))}
-        </div>
+        <SegmentedControl aria-label={t('请求筛选')} value={filter} onValueChange={setFilter} className='grid w-full grid-cols-4 gap-1 p-1' options={[
+          { value: 'all', label: t('全部') }, { value: 'error', label: t('失败') },
+          { value: 'retry', label: t('有重试') }, { value: 'running', label: running ? t('在途 {n}', {n:running}) : t('在途') },
+        ]}/>
+
       </div>
 
       {error ? <ErrorNote text={error} /> : null}
-      {!page ? <SkeletonList rows={4} height={104} /> : null}
+      {!page && !error ? <SkeletonList rows={4} height={104} /> : null}
 
       {page && !filtered.length ? (
         <div className='m-section'>
@@ -155,95 +136,22 @@ function RequestCard({ row, onClick }: { row: RequestRow; onClick: () => void })
   const tone = !status ? 'warn' : status >= 200 && status < 400 ? 'ok' : 'bad'
   const note = buildNote(row)
   return (
-    <MobileButton
-      type='button'
-      onClick={onClick}
-      style={{
-        display: 'block',
-        width: '100%',
-        textAlign: 'left',
-        padding: '11px 13px',
-        marginBottom: 9,
-        borderRadius: 'var(--m-r-md)',
-        background: 'var(--m-surface)',
-        border: '1px solid var(--m-line)',
-        boxShadow: 'var(--m-shadow-1)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span
-          className='m-mono'
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            padding: '2px 6px',
-            borderRadius: 5,
-            flex: 'none',
-            background:
-              tone === 'ok' ? 'var(--m-ok-soft)' : tone === 'warn' ? 'var(--m-warn-soft)' : 'var(--m-danger-soft)',
-            color: tone === 'ok' ? 'var(--m-ok)' : tone === 'warn' ? 'var(--m-warn)' : 'var(--m-danger)',
-          }}
-        >
-          {status || t('在途')}
-        </span>
-        <span
-          className='m-mono'
-          style={{ flex: 1, minWidth: 0, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-        >
-          {ellipsisMiddle(row.upstreamModel || row.model || '—', 30)}
-        </span>
-        <span style={{ fontSize: 11, color: 'var(--m-text-3)', flex: 'none', fontVariantNumeric: 'tabular-nums' }}>
-          {formatClock(row.ts)}
-        </span>
+    <Button type='button' variant='outline' onClick={onClick} className='m-request-card mb-3 block h-auto w-full whitespace-normal rounded-xl p-4 text-left'>
+      <div className='flex min-w-0 items-center gap-2'>
+        <SharedBadge variant={tone === 'ok' ? 'success' : tone === 'warn' ? 'warning' : 'destructive'} className='shrink-0'>{status || t('在途')}</SharedBadge>
+        <span className='m-mono min-w-0 flex-1 truncate text-xs' title={row.upstreamModel || row.model}>{ellipsisMiddle(row.upstreamModel || row.model || '—',30)}</span>
+        <time className='shrink-0 text-[11px] tabular-nums text-muted-foreground'>{formatClock(row.ts)}</time>
       </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 11.5, color: 'var(--m-text-3)', minWidth: 0 }}>
-        <ProviderLogo id={row.provider} />
-        <span style={{ flex: 'none' }}>{providerLabel(row.provider, row.providerLabel)}</span>
-        {row.accountName ? (
-          <>
-            <span style={{ opacity: 0.45 }}>·</span>
-            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {row.accountName}
-            </span>
-          </>
-        ) : null}
+      <div className='mt-3 flex min-w-0 items-center gap-2 text-xs text-muted-foreground'>
+        <ProviderLogo id={row.provider}/>
+        <div className='min-w-0 flex-1'><p className='m-0 truncate'>{providerLabel(row.provider,row.providerLabel)}</p>{row.accountName ? <p className='m-0 mt-1 truncate text-[11px]' title={row.accountName}>{row.accountName}</p> : null}</div>
       </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 11, color: 'var(--m-text-3)', fontVariantNumeric: 'tabular-nums' }}>
-        <span>{formatDuration(row.durationMs)}</span>
-        <span style={{ opacity: 0.45 }}>·</span>
-        <span>{formatInt(Number(row.totalTokens) || 0)} tokens</span>
-        {(row.attempts || 1) > 1 ? (
-          <>
-            <span style={{ opacity: 0.45 }}>·</span>
-            <span>{t('重试 {n}', { n: (row.attempts || 1) - 1 })}</span>
-          </>
-        ) : null}
+      <div className='mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] tabular-nums text-muted-foreground'>
+        <span>{formatDuration(row.durationMs)}</span><span>{formatInt(Number(row.totalTokens) || 0)} tokens</span>
+        {(row.attempts || 1) > 1 ? <span>{t('重试 {n}',{n:(row.attempts || 1)-1})}</span> : null}
       </div>
-
-      {note ? (
-        <div
-          style={{
-            marginTop: 8,
-            padding: '7px 9px',
-            borderRadius: 8,
-            fontSize: 11.3,
-            lineHeight: 1.5,
-            background:
-              note.tone === 'bad' ? 'var(--m-danger-soft)' : note.tone === 'warn' ? 'var(--m-warn-soft)' : 'var(--m-surface-2)',
-            color:
-              note.tone === 'bad'
-                ? 'color-mix(in srgb, var(--m-danger) 72%, var(--m-text))'
-                : note.tone === 'warn'
-                  ? 'color-mix(in srgb, var(--m-warn) 72%, var(--m-text))'
-                  : 'var(--m-text-2)',
-          }}
-        >
-          {note.text}
-        </div>
-      ) : null}
-    </MobileButton>
+      {note ? <Alert role='note' variant={note.tone === 'bad' ? 'destructive' : 'default'} className='mt-3'><AlertDescription className='break-words text-xs'>{note.text}</AlertDescription></Alert> : null}
+    </Button>
   )
 }
 

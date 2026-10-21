@@ -797,7 +797,7 @@ function ProviderSection({
   )
 }
 
-export function AccountSettingsDialog({ id, onClose }: { id: string; onClose: () => void }) {
+export function AccountSettingsDialog({ id, onClose, mobile = document.documentElement.dataset.mobileUi === 'true' }: { id: string; onClose: () => void; mobile?: boolean }) {
   const account = findAccount(id)
   const [enabled, setEnabled] = React.useState(account?.enabled !== false)
   const [name, setName] = React.useState(account?.name || '')
@@ -1103,7 +1103,7 @@ export function AccountSettingsDialog({ id, onClose }: { id: string; onClose: ()
       if (next || busy) return
       onClose()
     }}>
-      <DialogContent className='w-[min(900px,calc(100vw-48px))]'>
+      <DialogContent layout={mobile ? 'fullscreen' : 'center'} className={cn(mobile ? 'mobile-feature-dialog mobile-account-editor' : 'w-[min(900px,calc(100vw-48px))]')}>
         <DialogHeader><DialogTitle>{t('账号设置 · {name}', { name: labelOf(account) })}</DialogTitle></DialogHeader>
         <DialogBody className='p-0'>
           <div className='acct-dlg'>
@@ -1142,7 +1142,7 @@ export function AccountSettingsDialog({ id, onClose }: { id: string; onClose: ()
                   <div className='field-row'>
                     <label>{t('转发顺序')}</label>
                     <span className='detail'>
-                      {t('在列表里拖：拖分组带调整整组顺位，拖行首把手调整组内先后（顺序由拖拽表达，不再填数字）')}
+                      {mobile ? t('在账号管理中使用「上移」「下移」调整转发顺序。') : t('在列表里拖：拖分组带调整整组顺位，拖行首把手调整组内先后（顺序由拖拽表达，不再填数字）')}
                     </span>
                   </div>
                   <Field orientation='horizontal' className='field-row flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>

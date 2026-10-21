@@ -176,14 +176,18 @@ export function setActiveServer(id: string): void {
 
 /* ── 按服务器隔离的凭证 ───────────────────────────────────── */
 
-const KEY_STORAGE = (id: string) => `agent2api.webKey.${id}`
-const PANEL_AUTH = (id: string) => `agent2api.panelAuth.${id}`
+const KEY_STORAGE = (id: string) => id === 'origin' ? 'agent2api.webKey' : `agent2api.webKey.${id}`
+const PANEL_AUTH = (id: string) => id === 'origin' ? 'agent2api.panelAuth' : `agent2api.panelAuth.${id}`
 
 export type PanelAuth = { access?: string; refresh?: string }
 
 export function readServerKey(id: string): string {
   try {
-    return localStorage.getItem(KEY_STORAGE(id)) || ''
+    const current = localStorage.getItem(KEY_STORAGE(id))
+    if (current !== null || id !== 'origin') return current || ''
+    const legacy = localStorage.getItem('agent2api.webKey.origin') || ''
+    if (legacy) { localStorage.setItem(KEY_STORAGE(id), legacy); localStorage.removeItem('agent2api.webKey.origin') }
+    return legacy
   } catch {
     return ''
   }
@@ -191,6 +195,7 @@ export function readServerKey(id: string): string {
 
 export function storeServerKey(id: string, value: string): void {
   try {
+    if (id === 'origin') localStorage.removeItem('agent2api.webKey.origin')
     if (value) localStorage.setItem(KEY_STORAGE(id), value)
     else localStorage.removeItem(KEY_STORAGE(id))
   } catch {
@@ -200,7 +205,11 @@ export function storeServerKey(id: string, value: string): void {
 
 export function readServerAuth(id: string): PanelAuth | null {
   try {
-    const raw = localStorage.getItem(PANEL_AUTH(id))
+    let raw = localStorage.getItem(PANEL_AUTH(id))
+    if (raw === null && id === 'origin') {
+      raw = localStorage.getItem('agent2api.panelAuth.origin')
+      if (raw) { localStorage.setItem(PANEL_AUTH(id), raw); localStorage.removeItem('agent2api.panelAuth.origin') }
+    }
     return raw ? (JSON.parse(raw) as PanelAuth) : null
   } catch {
     return null
@@ -218,6 +227,7 @@ export function storeServerAuth(id: string, access: string, refresh: string): vo
 export function clearServerAuth(id: string): void {
   try {
     localStorage.removeItem(PANEL_AUTH(id))
+    if (id === 'origin') localStorage.removeItem('agent2api.panelAuth.origin')
   } catch {
     /* 无害 */
   }

@@ -1,3 +1,5 @@
+import { SectionSkeleton } from '../components/section-skeleton'
+import { usePageReady } from '../components/use-page-ready'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ui'
 import * as React from 'react'
 import { createPortal } from 'react-dom'
@@ -1007,7 +1009,7 @@ function AuditView(props: {
 
       {/* 容器直接复用 .log-list（边框 / 圆角 / 滚动 / 空态那套），审计行另起 .audit-row */}
       <div className='log-list' ref={listRef}>
-        {data.entries.length ? data.entries.map((entry, index) => auditRow(entry, index))
+        {!data.loaded ? <SectionSkeleton/> : data.entries.length ? data.entries.map((entry, index) => auditRow(entry, index))
           : <Empty variant='compact' className='log-empty'><EmptyHeader><EmptyDescription>{auditEmptyText()}</EmptyDescription></EmptyHeader></Empty>}
       </div>
 
@@ -1016,8 +1018,10 @@ function AuditView(props: {
   )
 }
 
-function LogsPanel() {
+export function LogsPanel() {
   const [data, setData] = React.useState<PanelData>(EMPTY_DATA)
+  const [loadError, setLoadError] = React.useState('')
+  usePageReady('logs', data.loaded || Boolean(loadError))
   /** 三个筛选（初值 = 上次会话的存盘；读不到时留待 restoreSavedFilters 补读） */
   const [filters, setFilters] = React.useState<Filters>(readSavedFilters)
   const [range, setRange] = React.useState<string>(readRange)
@@ -1104,6 +1108,7 @@ function LogsPanel() {
       applyData(withLevelCounts(next, nextStats))
       applyPage(clampPage(pageRef.current, entriesOf(result), sizeRef.current))
       pendingScrollRef.current = pageRef.current === pageBefore ? keepTop : 0
+      setLoadError('')
       applyStats(nextStats)
       // 存过的分类可能已经不在后端字典里（字典随版本变过）：旧实现那种情况下对原生 select 赋值
       // 无效、自然落回「全部分类」。这里显式做同一件事并重拉一次，免得界面停在「筛不出东西」。
@@ -1118,7 +1123,8 @@ function LogsPanel() {
       if (!silent) {
         console.warn('读取运行日志失败:', errorMessage(error))
         // 非静默失败按旧实现清成空态；silent 的轮询失败保留上一次的数据（别闪空）
-        applyData(fromResult(null, dataRef.current))
+        setLoadError(t('读取运行日志失败，详见控制台'))
+        applyData(dataRef.current.loaded ? dataRef.current : fromResult(null, dataRef.current))
         applyPage(clampPage(pageRef.current, [], sizeRef.current))
       }
     }
@@ -1545,7 +1551,7 @@ function LogsPanel() {
 
           <div className='log-list' id='log-list' ref={listRef}>
             {rows.length ? rows.map((entry, index) => logRow(entry, index))
-              : <Empty variant='compact' className='log-empty'><EmptyHeader><EmptyDescription>{emptyText(data)}</EmptyDescription></EmptyHeader></Empty>}
+              : <Empty variant='compact' className='log-empty'><EmptyHeader><EmptyDescription>{loadError || emptyText(data)}</EmptyDescription></EmptyHeader></Empty>}
           </div>
         </TabsContent>
 

@@ -15,6 +15,7 @@ import {
 import { Surface, MobileButton } from '../components/primitives'
 import {
   PageHead,
+  SkeletonList,
   IconButton,
   SectionHead,
   Empty,
@@ -75,6 +76,8 @@ export function HomePage() {
   useEffect(() => {
     if (!session) void store.refresh()
   }, [session])
+
+  if (!session && state.loading) return <div className='m-page'><SkeletonList rows={4} height={80}/></div>
 
   const gateway = session?.health?.upstreamConfigured,
     daily = checkin?.daily,

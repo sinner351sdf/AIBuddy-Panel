@@ -1,3 +1,7 @@
+import { SectionSkeleton } from '../components/section-skeleton'
+import { usePageReady } from '../components/use-page-ready'
+import { SettingsMobileMenu } from './settings-mobile-menu'
+import { UpdatePanel } from './update-panel'
 import { AssistantSettingsPane } from './assistant-settings-pane'
 import { Alert, AlertDescription } from '@ui'
 import { NavItem } from '@ui'
@@ -22,6 +26,9 @@ import {
   FieldGroup,
   FieldLabel,
   Input,
+  InputGroup,
+  InputGroupInput,
+  InputGroupAddon,
   Label,
   SegmentedControl,
   Select,
@@ -237,6 +244,8 @@ import { CardHeader, CardTitle, Card, CardContent } from '@ui'
  *     带 !important，会压掉 tokens.css 里未分层的 `[hidden]{display:none!important}`。
  */
 
+const MobileSettingsContext = React.createContext(false)
+
 /* ─── 小组件 ───────────────────────────────── */
 
 /**
@@ -327,6 +336,9 @@ type NumberRowProps = {
  * 失败回滚 + 保存后按后端值规范化」的等价物，只是状态只存在于这一处。
  */
 function NumberRow({ field, value, disabled, onCommit }: NumberRowProps) {
+  const mobile = React.useContext(MobileSettingsContext)
+  const NumericInput = mobile ? InputGroupInput : Input
+  const NumericGroup = mobile ? InputGroup : 'span'
   const [draft, setDraft] = React.useState<string | null>(null)
   const text = draft !== null ? draft : value === null ? '' : String(value)
 
@@ -337,20 +349,20 @@ function NumberRow({ field, value, disabled, onCommit }: NumberRowProps) {
   }
 
   return (
-    <Field orientation='horizontal' className='retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]' data-disabled={disabled || value === null || undefined}>
+    <Field orientation={mobile ? 'vertical' : 'horizontal'} className={cn('retention-row', mobile ? 'flex flex-col items-stretch gap-2' : 'grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]')} data-disabled={disabled || value === null || undefined}>
       <div className='settings-help-label flex min-w-0 items-center gap-1'>
         <FieldLabel htmlFor={field.id}>{field.label}</FieldLabel>
         <InfoTip label={t('{name}说明', { name: field.label })}>{field.hint}</InfoTip>
       </div>
-      <span className='retention-input'>
-        <Input
+      <NumericGroup className='retention-input'>
+        <NumericInput
           id={field.id}
           type='number'
           min={field.min}
           max={field.max}
           step={1}
           inputMode='numeric'
-          className='w-[92px] max-w-[92px] text-center tabular-nums'
+          className={cn('tabular-nums', !mobile && 'w-[92px] max-w-[92px] text-center')}
           value={text}
           disabled={disabled || value === null}
           onChange={event => setDraft(event.target.value)}
@@ -360,8 +372,8 @@ function NumberRow({ field, value, disabled, onCommit }: NumberRowProps) {
           // 这里主动 blur 一次把它统一成「值已提交」这一条路径
           onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }}
         />
-        <span className='unit'>{field.unit}</span>
-      </span>
+        {mobile ? <InputGroupAddon align='inline-end'>{field.unit}</InputGroupAddon> : <span className='unit'>{field.unit}</span>}
+      </NumericGroup>
     </Field>
   )
 }
@@ -1429,9 +1441,11 @@ function RoutingPane({ snap }: { snap: SettingsSnapshot }) {
           {/* 两行的说明都收进行内问号（[data-tip]，tooltip.js 统一服务），并且**跟随当前档位**
               换内容 —— 每档干的事不一样，一段固定文案说不清 */}
           <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
-            <label>{t('路由策略')}</label>
-            <div className='routing-row'>
+            <div className='settings-help-label flex min-w-0 items-center gap-1'>
+              <FieldLabel>{t('路由策略')}</FieldLabel>
               <InfoTip label={t('路由策略说明')}>{ROUTE_STRATEGIES.find(item => item.value === strategy)?.tip}</InfoTip>
+            </div>
+            <div className='routing-row'>
               <SegmentedControl
                 options={ROUTE_STRATEGIES.map(item => ({ value: item.value, label: item.label }))}
                 value={strategy}
@@ -1441,9 +1455,11 @@ function RoutingPane({ snap }: { snap: SettingsSnapshot }) {
             </div>
           </Field>
           <Field orientation='horizontal' className="retention-row grid grid-cols-[118px_auto] items-center gap-x-2.5 gap-y-[5px] max-[900px]:grid-cols-[max-content_1fr]">
-            <label>{t('会话粘性')}</label>
-            <div className='routing-row'>
+            <div className='settings-help-label flex min-w-0 items-center gap-1'>
+              <FieldLabel>{t('会话粘性')}</FieldLabel>
               <InfoTip label={t('会话粘性说明')}>{ROUTE_STICKY_OPTIONS.find(item => item.value === sticky)?.tip}</InfoTip>
+            </div>
+            <div className='routing-row'>
               <SegmentedControl
                 options={ROUTE_STICKY_OPTIONS.map(item => ({ value: item.value, label: item.label }))}
                 value={sticky}
@@ -3402,13 +3418,16 @@ function MaintenancePanel() {
 
 function SessionsPanel() {
   const [data, setData] = React.useState<SessionsData | null>(null)
+  const [loadError, setLoadError] = React.useState('')
   /** 正在吊销的那条会话 id（只禁用这一行的按钮，刷新不锁全表） */
   const [revoking, setRevoking] = React.useState<string | null>(null)
 
   const refresh = React.useCallback(async () => {
     try {
       setData(await opsApi<SessionsData>('/api/sessions/list'))
+      setLoadError('')
     } catch (error) {
+      setLoadError(`读取在线会话失败：${dataError(error)}`)
       toast(`读取在线会话失败：${dataError(error)}`, 'err')
     }
   }, [])
@@ -3449,7 +3468,7 @@ function SessionsPanel() {
       />
       <CardContent variant='panel' className='panel-body'>
         {data === null ? (
-          <div className='hint'>正在读取在线会话…</div>
+          loadError ? <Alert variant='destructive'><AlertDescription>{loadError}</AlertDescription></Alert> : <SectionSkeleton/>
         ) : sessions.length === 0 ? (
           <div className='hint'>当前没有活跃会话（桌面端无需登录时这里通常是空的）。</div>
         ) : (
@@ -3976,6 +3995,8 @@ function PrefsPane() {
   }
 
   function openDrawer(): void {
+    const controller = (window as unknown as {wbPrefs?: {open():void}}).wbPrefs
+    if (document.documentElement.dataset.mobileUi === 'true' && controller) { controller.open(); return }
     // 抽屉没有独立的外部出口，顶栏齿轮按钮（#pref-btn-prefs）就是入口本身：
     // click 它与用户点齿轮完全等价（prefs.js 还挂了 MutationObserver 自愈，按钮常在）
     const button = document.getElementById('pref-btn-prefs')
@@ -4321,6 +4342,7 @@ function readContentMax(): boolean {
  * （与页签栏自己的持久化同键，刷新 / 动作后重读）。
  */
 function ShellPane() {
+  const mobile = React.useContext(MobileSettingsContext)
   const [tags, setTags] = React.useState<string[]>(readTags)
   const [contentMax, setContentMax] = React.useState<boolean>(readContentMax)
 
@@ -4359,6 +4381,8 @@ function ShellPane() {
   }
 
   const tagText = tags.map(id => SHELL_TAG_LABELS[id] || id).join('、')
+
+  if (mobile) return <><Alert><AlertDescription>{t('手机端通过底部导航切换页面，通过顶部返回回到上一层。')}</AlertDescription></Alert><NotificationSettingsCard mobile /></>
 
   return (
     <>
@@ -4955,8 +4979,36 @@ function NotifyPane({ snap }: { snap: SettingsSnapshot }) {
 
 /* ─── 页面 ─────────────────────────────────── */
 
-function SettingsPage() {
+export function SettingsPage({ mobile = false, initialCategory, onDevicePreferences }: { mobile?: boolean; initialCategory?: string; onDevicePreferences?: () => void } = {}) {
+  const [mobileCategory, setMobileCategory] = React.useState<string | null>(null)
+  const [visited, setVisited] = React.useState<Set<string>>(() => new Set())
+  const layoutRef = React.useRef<HTMLDivElement>(null)
+  const menuScroll = React.useRef(0)
+  const lastCategory = React.useRef<string | null>(null)
+  React.useLayoutEffect(() => {
+    if (!mobile) return
+    const scroll = layoutRef.current?.closest('.m-scroll')
+    if (scroll) {
+      if (mobileCategory) { menuScroll.current = scroll.scrollTop; scroll.scrollTop = 0 }
+      else scroll.scrollTop = menuScroll.current
+    }
+    if (!mobileCategory && lastCategory.current) layoutRef.current?.querySelector<HTMLButtonElement>(`#settings-nav [data-cat="${lastCategory.current}"]`)?.focus({preventScroll:true})
+    lastCategory.current = mobileCategory
+  }, [mobile, mobileCategory])
+  React.useEffect(() => {
+    if (!mobile) return
+    document.dispatchEvent(new window.CustomEvent('aibuddy:mobile-title', {detail:{page:'settings',title:mobileCategory ? t(NAV_CATEGORIES.find(item => item.id === mobileCategory)?.label || '设置') : t('设置')}}))
+  }, [mobile, mobileCategory])
+  React.useEffect(() => { if (mobile) void load() }, [mobile])
+  React.useEffect(() => { if (mobile && initialCategory && NAV_CATEGORIES.some(item => item.id === initialCategory)) openCategory(initialCategory) }, [mobile, initialCategory])
+  React.useEffect(() => {
+    if (!mobile || !mobileCategory) return
+    const back = (event: Event) => { event.preventDefault(); setMobileCategory(null) }
+    document.addEventListener('aibuddy:mobile-back', back)
+    return () => document.removeEventListener('aibuddy:mobile-back', back)
+  }, [mobile, mobileCategory])
   const snap = useSettings()
+  usePageReady('settings', !Object.values(snap).some(value => value && typeof value === 'object' && 'status' in value && value.status === 'loading') && snap.notify.channelsStatus !== 'loading' && snap.notify.alertsStatus !== 'loading')
   const panesRef = React.useRef<HTMLDivElement | null>(null)
 
   // 「备份与运维」分区的选中态（本组件自持，不进 store —— 白名单在那两份文件里，
@@ -4986,10 +5038,11 @@ function SettingsPage() {
   }, [snap.scrollReset, opsActive])
 
   const paneClass = (cat: string): string =>
-    !opsActive && snap.category === cat ? 'settings-pane active' : 'settings-pane'
+    (mobile ? mobileCategory === cat : !opsActive && snap.category === cat) ? 'settings-pane active' : 'settings-pane'
 
   /** 左栏点击的统一入口：备份分区走本组件的状态（偏好照写同一把键），其余照旧走 store */
   function openCategory(cat: string): void {
+    if (mobile) { setVisited(previous => new Set([...previous, cat])); setMobileCategory(cat) }
     if (cat === OPS_CATEGORY.id) {
       setOpsActive(true)
       try { localStorage.setItem(SETTINGS_CAT_KEY, cat) } catch { /* 存储不可用只影响下次启动 */ }
@@ -4999,9 +5052,11 @@ function SettingsPage() {
     }
   }
 
+  const shouldMount = (category: string) => !mobile || visited.has(category)
   return (
-    <div className='settings-layout'>
-      <nav className='settings-nav' id='settings-nav'>
+    <MobileSettingsContext.Provider value={mobile}>
+    <div ref={layoutRef} className={cn(mobile ? 'settings-layout mobile-settings-layout' : 'settings-layout')} data-mobile-detail={mobileCategory || undefined}>
+      {mobile ? <SettingsMobileMenu categories={NAV_CATEGORIES} open={openCategory} onDevicePreferences={onDevicePreferences} /> : <nav className='settings-nav' id='settings-nav'>
         {NAV_CATEGORIES.map(item => (
           <NavItem key={item.id} data-cat={item.id} className='max-[900px]:w-auto max-[900px]:shrink-0'
             active={item.id === OPS_CATEGORY.id ? opsActive : !opsActive && snap.category === item.id}
@@ -5009,53 +5064,53 @@ function SettingsPage() {
             icon={<span className='ico' dangerouslySetInnerHTML={{ __html: iconHtml(item.icon, 17) }} />}
           >{item.label}</NavItem>
         ))}
-      </nav>
+      </nav>}
 
       <div className='settings-panes' ref={panesRef}>
-        <div className={paneClass('assistant')} data-cat='assistant'><AssistantSettingsPane /></div>
+        <div className={paneClass('assistant')} data-cat='assistant'>{shouldMount('assistant') ? <AssistantSettingsPane /> : null}</div>
         <div className={paneClass('general')} data-cat='general'>
-          <GeneralPane snap={snap} />
+          {shouldMount('general') ? <GeneralPane snap={snap} /> : null}
         </div>
         <div className={paneClass('display')} data-cat='display'>
-          <DisplayPane />
+          {shouldMount('display') ? <DisplayPane /> : null}
         </div>
         <div className={paneClass('brand')} data-cat='brand'>
-          <BrandPane snap={snap} />
+          {shouldMount('brand') ? <BrandPane snap={snap} /> : null}
         </div>
         <div className={paneClass('gateway')} data-cat='gateway'>
-          <GatewayPane snap={snap} />
+          {shouldMount('gateway') ? <GatewayPane snap={snap} /> : null}
         </div>
-        <div className={paneClass('routing')} data-cat='routing'><RoutingPane snap={snap} /></div>
+        <div className={paneClass('routing')} data-cat='routing'>{shouldMount('routing') ? <RoutingPane snap={snap} /> : null}</div>
         <div className={paneClass('retry')} data-cat='retry'>
-          <RetryPane snap={snap} />
+          {shouldMount('retry') ? <RetryPane snap={snap} /> : null}
         </div>
         <div className={paneClass('timeout')} data-cat='timeout'>
-          <TimeoutPane snap={snap} />
+          {shouldMount('timeout') ? <TimeoutPane snap={snap} /> : null}
         </div>
         <div className={paneClass('security')} data-cat='security'>
-          <SecurityPane snap={snap} />
+          {shouldMount('security') ? <SecurityPane snap={snap} /> : null}
         </div>
         <div className={paneClass('data')} data-cat='data'>
-          <DataPane snap={snap} />
+          {shouldMount('data') ? <DataPane snap={snap} /> : null}
         </div>
         <div className={paneClass('notify')} data-cat='notify'>
-          <NotifyPane snap={snap} />
+          {shouldMount('notify') ? <NotifyPane snap={snap} /> : null}
         </div>
         <div className={paneClass('prefs')} data-cat='prefs'>
-          <PrefsPane />
+          {shouldMount('prefs') ? <PrefsPane /> : null}
         </div>
         <div className={paneClass('shell')} data-cat='shell'>
-          <ShellPane />
+          {shouldMount('shell') ? <ShellPane /> : null}
         </div>
         <div className={paneClass('deploy')} data-cat='deploy'>
-          <DeployPane snap={snap} />
+          {shouldMount('deploy') ? <DeployPane snap={snap} /> : null}
         </div>
         {/* 备份与运维：选中态在 SettingsPage 的 opsActive（不经 store，见上面说明） */}
         <div className={cn(opsActive ? 'settings-pane active' : 'settings-pane')} data-cat='backup'>
-          <BackupOpsPane />
+          {shouldMount('backup') ? <BackupOpsPane /> : null}
         </div>
         <div className={paneClass('feedback')} data-cat='feedback'>
-          <FeedbackPane />
+          {shouldMount('feedback') ? <FeedbackPane /> : null}
         </div>
         {/*
           「更新」的面板（原「关于」，id 仍是 about）由另一个岛（update-panel.tsx）接管：
@@ -5064,13 +5119,14 @@ function SettingsPage() {
           React 对没有 children 的宿主元素不会去动它的 DOM 子树，那个岛的渲染结果才留得住。
           显隐照旧：className 上的 active 由本文件按当前分类切。
         */}
-        <div className={paneClass('about')} data-cat='about' />
+        <div className={paneClass('about')} data-cat='about'>{mobile && mobileCategory === 'about' ? <UpdatePanel/> : null}</div>
       </div>
 
       <RetentionConfirmDialog confirm={snap.retentionConfirm} />
       <DbBackupConfirmDialog confirm={snap.dbBackupConfirm} />
       <LanDialog confirm={snap.lanConfirm} register={snap.lanRegister} />
     </div>
+    </MobileSettingsContext.Provider>
   )
 }
 

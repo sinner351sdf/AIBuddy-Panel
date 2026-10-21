@@ -1,3 +1,4 @@
+import { ShellNotifications } from './shell-notifications'
 import {
   Badge, Button, Card, CardContent, CardHeader, CardTitle,
   Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle, Spinner,
@@ -9,9 +10,10 @@ import { NOTES, TIPS, toast } from './settings-model'
 import { notificationCenter, useNotificationsSnapshot } from './notifications-store'
 
 /** 配置页与顶栏铃铛订阅同一个外部 store，打开、刷新、已读都由控制器发布。 */
-export function NotificationSettingsCard() {
+export function NotificationSettingsCard({mobile = false}: {mobile?:boolean} = {}) {
   const snapshot = useNotificationsSnapshot()
   const unread = snapshot?.unread ?? 0
+  const center = notificationCenter()
   const message = !snapshot ? t('正在连接通知中心…')
     : snapshot.loading ? t('正在刷新最近事件…')
     : snapshot.open ? t('通知面板已打开，当前事件已标为已读')
@@ -57,9 +59,9 @@ export function NotificationSettingsCard() {
           </Item>
         </ItemGroup>
         <div className='flex flex-wrap gap-2.5'>
-          <Button id='btn-shell-notify-open' disabled={!snapshot} onClick={() => notificationCenter()?.open()}>
+          {mobile && center ? <ShellNotifications bridge={center} trigger={<Button id='btn-shell-notify-open' disabled={!snapshot}>{t('打开通知中心')}</Button>} /> : <Button id='btn-shell-notify-open' disabled={!snapshot} onClick={() => notificationCenter()?.open()}>
             {snapshot?.open ? t('通知中心已打开') : t('打开通知中心')}
-          </Button>
+          </Button>}
           <Button id='btn-shell-notify-reset' variant='outline' disabled={!snapshot || unread === 0} onClick={markAllRead}>
             {t('全部标为已读')}
           </Button>

@@ -998,7 +998,7 @@ function changelogCard(snap: Snapshot): React.ReactNode {
 
 /** 面板本体。root 建在 `.settings-pane[data-cat="about"]` 上，渲染出来的根元素就是原来
  *  那个 `.panel` —— 类名与骨架一一对应，只是控件换成了组件库 */
-function UpdatePanel() {
+export function UpdatePanel() {
   const snap = React.useSyncExternalStore(subscribe, getSnapshot)
   const button = downloadButton(snap)
   // 「更新设置」弹窗的开关：弹窗是本组件条件渲染的（Dialog 自带 Portal 挂 body），

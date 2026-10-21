@@ -1,3 +1,4 @@
+import { SectionSkeleton } from '../components/section-skeleton'
 import { Alert, AlertDescription } from '@ui'
 import * as React from 'react'
 import { flushSync } from 'react-dom'
@@ -481,6 +482,7 @@ function RecordsTab({ active = true }: { active?: boolean }): React.ReactElement
         </Alert>
       ) : null}
 
+      {rows.length === 0 && loading ? <SectionSkeleton/> : null}
       {rows.length === 0 && !loading ? (
         <Empty variant='compact' className='ck-empty'><EmptyHeader><EmptyDescription>{filtered
           ? t('没有符合筛选条件的签到记录')

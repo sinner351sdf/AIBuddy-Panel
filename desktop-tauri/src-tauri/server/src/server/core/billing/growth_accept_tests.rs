@@ -157,7 +157,7 @@ async fn uncertain_reads_never_allow_actions_or_another_write() {
 
 #[tokio::test]
 async fn terminal_snapshot_is_authoritative_without_accepting_again() {
-    for state in ["accepted", "completed", "claimed"] {
+    for state in ["accepted", "in_progress", "completed", "claimed"] {
         let service = BillingService::mock(move |url, _| {
             assert!(url.ends_with("/tasks"), "already registered: no write");
             Ok(snapshot("chat_5", state, 0, 0))
@@ -334,4 +334,44 @@ async fn rejected_or_uncertain_write_is_not_retried_without_confirmation() {
         assert_eq!(error.status_code, status);
         assert_eq!(writes.load(Ordering::Relaxed), 1);
     }
+}
+
+#[tokio::test]
+async fn accepting_may_settle_directly_into_in_progress() {
+    let writes = Arc::new(AtomicUsize::new(0));
+    let n = writes.clone();
+    let service = BillingService::mock(move |url, _| {
+        if url.ends_with("/accept") {
+            n.fetch_add(1, Ordering::Relaxed);
+            Ok(json!({}))
+        } else {
+            Ok(snapshot("Sequential_Tasks_3", if n.load(Ordering::Relaxed) == 0 { "not_accepted" } else { "in_progress" }, 1, 5))
+        }
+    });
+    let task = accept_verified_task(&service, &json!({}), "Sequential_Tasks_3").await.unwrap();
+    assert!(task.is_registered());
+    assert_eq!(task.current, 1);
+    assert!(!task.claimable);
+    assert_eq!(writes.load(Ordering::Relaxed), 1);
+}
+
+#[tokio::test]
+async fn canonical_executor_continues_in_progress_without_accepting_again() {
+    let reports = Arc::new(AtomicUsize::new(0));
+    let count = reports.clone();
+    let service = BillingService::mock(move |url, _| {
+        if url.ends_with("/v2/report") {
+            count.fetch_add(1, Ordering::Relaxed);
+            return Ok(json!({}));
+        }
+        assert!(url.ends_with("/tasks"), "must not re-register or send another reward/model request");
+        Ok(if count.load(Ordering::Relaxed) == 0 {
+            snapshot("chat_5", "in_progress", 4, 5)
+        } else {
+            snapshot("chat_5", "claimed", 5, 5)
+        })
+    });
+    let result = crate::server::core::task_execution::execute(&service, &json!({}), "chat_5", "full").await;
+    assert_eq!(result.outcome, "already");
+    assert_eq!(reports.load(Ordering::Relaxed), 1);
 }

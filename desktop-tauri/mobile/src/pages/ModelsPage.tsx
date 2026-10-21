@@ -107,7 +107,7 @@ export function ModelsPage() {
       </div>
 
       {error ? <ErrorNote text={error} /> : null}
-      {!models ? <SkeletonList rows={4} height={70} /> : null}
+      {!models && !error ? <SkeletonList rows={4} height={70} /> : null}
 
       {models && !groups.length ? (
         <div className='m-section'>

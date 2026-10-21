@@ -74,6 +74,17 @@ pub async fn scan(State(state): State<ServerState>) -> Response {
     ok_json(data)
 }
 
+/// An invalid single-task scope must fail rather than fall back to an account/global run.
+fn task_scope(payload: &Value, account_id: Option<&str>, kind: &str) -> Result<Option<String>, &'static str> {
+    let Some(value) = payload.get("taskCode") else { return Ok(None); };
+    let code = value.as_str().filter(|code| !code.trim().is_empty()).ok_or("taskCode 必须是非空字符串")?;
+    if account_id.is_none() { return Err("执行单项任务必须指定 accountId"); }
+    if !growth::is_actionable(code) { return Err("该任务不支持自动执行"); }
+    let expected = if code == "black_cat" { "night" } else { "growth" };
+    if kind != expected { return Err("单项任务与 taskKind 不匹配"); }
+    Ok(Some(code.to_string()))
+}
+
 /// POST /api/growth-tasks/run —— 全账号队列或指定 accountId 的单账号队列。
 pub async fn run(State(state): State<ServerState>, body: Bytes) -> Response {
     let payload = match parse_object(&body) {
@@ -104,7 +115,7 @@ pub async fn run(State(state): State<ServerState>, body: Bytes) -> Response {
     let kind = payload
         .get("taskKind")
         .and_then(Value::as_str)
-        .unwrap_or("growth");
+        .unwrap_or(if payload.get("taskCode").and_then(Value::as_str) == Some("black_cat") { "night" } else { "growth" });
     let mode = payload
         .get("mode")
         .and_then(Value::as_str)
@@ -112,6 +123,10 @@ pub async fn run(State(state): State<ServerState>, body: Bytes) -> Response {
     if !crate::server::core::task_execution::kind_valid(kind) || !matches!(mode, "full" | "claim") {
         return errors::management_error(400, "任务类型或执行模式不合法");
     }
+    let task_code = match task_scope(&payload, selected.as_deref(), kind) {
+        Ok(code) => code,
+        Err(message) => return errors::management_error(400, message),
+    };
     if let Some(id) = selected.as_deref() {
         if kind == "activity" {
             if !is_workbuddy_account(&state, id) {
@@ -129,6 +144,7 @@ pub async fn run(State(state): State<ServerState>, body: Bytes) -> Response {
             growth_queue::RunOptions {
                 kind: kind.into(),
                 mode: mode.into(),
+                task_code: task_code.clone(),
                 ..Default::default()
             },
         )
@@ -143,8 +159,8 @@ pub async fn run(State(state): State<ServerState>, body: Bytes) -> Response {
             audit(
                 "growth.run",
                 &format!(
-                    "成长任务队列启动（{total} 项待办，范围 {}）",
-                    selected.as_deref().unwrap_or("全部账号")
+                    "成长任务队列启动（{total} 项待办，范围 {}，任务 {}）",
+                    selected.as_deref().unwrap_or("全部账号"), task_code.as_deref().unwrap_or("全部任务")
                 ),
             );
             ok_json(json!({ "started": true, "total": total }))
@@ -198,10 +214,7 @@ fn detail_json(task: &growth::Task) -> Value {
     value["title"] = json!(task.title);
     value["description"] = json!(task.task_desc);
     value["tag"] = json!(task.tag);
-    value["accepted"] = json!(matches!(
-        task.accept_status.as_str(),
-        "accepted" | "completed" | "claimed"
-    ));
+    value["accepted"] = json!(task.is_registered());
     value["automatable"] = json!(growth::is_actionable(&task.task_code));
     value
 }
@@ -265,7 +278,7 @@ pub async fn accept_account_tasks(
         .filter(|task| {
             !task.claimed
                 && !task.locked
-                && !matches!(task.accept_status.as_str(), "accepted" | "completed")
+                && !task.is_registered()
                 && code.is_none_or(|code| task.task_code == code)
         })
         .collect();
@@ -282,21 +295,16 @@ pub async fn accept_account_tasks(
         Ok(Some(run)) => run,
         _ => return errors::management_error(503, "无法登记任务，未执行接受动作"),
     };
-    for mp in [false, true] {
-        let codes = pending
-            .iter()
-            .filter(|task| growth::is_mp_task_code(&task.task_code) == mp)
-            .map(|task| task.task_code.clone())
-            .collect::<Vec<_>>();
-        if let Err(error) =
-            growth::accept_tasks_batched(state.billing(), &session, &codes, mp).await
-        {
-            let result =
-                crate::server::core::task_records::ResultRow::new("failed", &error.message);
-            let _ = crate::server::core::task_records::step(run, "accept", &result);
-            let _ = crate::server::core::task_records::finish(run, "failed", &error.message);
-            return errors::management_error(error.status_code, error.message);
+    let mut accepted = 0;
+    for task in &pending {
+        if let Err(error) = growth::accept_verified_task(state.billing(), &session, &task.task_code).await {
+            let message = format!("已确认报名 {accepted} 项；任务 {} 报名未确认：{}", task.task_code, error.message);
+            let result = crate::server::core::task_records::ResultRow::new("failed", &message);
+            let _ = crate::server::core::task_records::step(run, &task.task_code, &result);
+            let _ = crate::server::core::task_records::finish(run, "failed", &message);
+            return errors::management_error(error.status_code, message);
         }
+        accepted += 1;
     }
     let result = crate::server::core::task_records::ResultRow::new(
         if pending.is_empty() {
@@ -304,7 +312,7 @@ pub async fn accept_account_tasks(
         } else {
             "success"
         },
-        format!("接受{}项任务", pending.len()),
+        format!("确认报名 {accepted} 项任务"),
     );
     let saved = crate::server::core::task_records::step(run, "accept", &result).and_then(|_| {
         crate::server::core::task_records::finish(run, result.outcome, &result.message)
@@ -314,9 +322,9 @@ pub async fn accept_account_tasks(
     }
     audit(
         "growth.accept",
-        &format!("账号 {id} 接受任务 {} 项", pending.len()),
+        &format!("账号 {id} 确认报名 {accepted} 项任务"),
     );
-    ok_json(json!({"accepted":pending.len()}))
+    ok_json(json!({"accepted":accepted}))
 }
 
 pub async fn claim_account_task(
@@ -543,6 +551,19 @@ mod account_task_tests {
     use super::*;
 
     #[test]
+    fn single_task_scope_requires_account_and_supported_matching_kind() {
+        assert_eq!(task_scope(&json!({}), None, "growth").unwrap(), None);
+        assert_eq!(task_scope(&json!({"taskCode":"WorkBuddy_Valorant"}), Some("selected"), "growth").unwrap(), Some("WorkBuddy_Valorant".into()));
+        assert_eq!(task_scope(&json!({"taskCode":"black_cat"}), Some("selected"), "night").unwrap(), Some("black_cat".into()));
+        for payload in [json!({"taskCode":null}), json!({"taskCode":5}), json!({"taskCode":""}), json!({"taskCode":"manual_only"})] {
+            assert!(task_scope(&payload, Some("selected"), "growth").is_err());
+        }
+        assert!(task_scope(&json!({"taskCode":"WorkBuddy_Valorant"}), None, "growth").is_err());
+        assert!(task_scope(&json!({"taskCode":"WorkBuddy_Valorant"}), Some("selected"), "rewards").is_err());
+        assert!(task_scope(&json!({"taskCode":"black_cat"}), Some("selected"), "growth").is_err());
+    }
+
+    #[test]
     fn account_tasks_never_use_other_providers_or_international_accounts() {
         assert!(is_cn_workbuddy(
             &json!({"provider":"workbuddy","edition":"cn"})
@@ -575,6 +596,16 @@ mod account_task_tests {
         assert_eq!(detail["rewardCredit"], 100);
         assert_eq!(detail["accepted"], true);
         assert_eq!(detail["automatable"], true);
+        for code in ["Sequential_Tasks_3", "WorkBuddy_Valorant"] {
+            task.task_code = code.into();
+            assert_eq!(detail_json(&task)["automatable"], true, "{code}");
+        }
+        task.accept_status = "in_progress".into();
+        let progressing = detail_json(&task);
+        assert_eq!(progressing["accepted"], true);
+        assert_eq!(progressing["claimed"], false);
+        assert_eq!(progressing["claimable"], false);
+        assert_eq!(progressing["current"], 3);
         task.accept_status = "pending".into();
         task.task_code = "unknown_manual_task".into();
         let detail = detail_json(&task);

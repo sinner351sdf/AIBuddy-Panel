@@ -38,11 +38,17 @@ function swBuildStamp(): Plugin {
       const target = path.resolve(__dirname, '../ui/sw.js')
       if (!fs.existsSync(built)) return
 
+      const ui = path.resolve(__dirname, '../ui')
+      const versions = Object.fromEntries(['js','css'].map(extension => [extension, createHash('sha256').update(fs.readFileSync(path.join(ui, 'm/mobile.'+extension))).digest('hex').slice(0,12)]))
+      const entry = path.join(ui, 'm.html')
+      const markup = fs.readFileSync(entry,'utf8').replace(/(src|href)="(\/m\/mobile\.(js|css))(?:\?[^"]*)?"/g, (_match, attribute, asset, extension) => `${attribute}="${asset}?v=${versions[extension]}"`)
+      fs.writeFileSync(entry, markup)
+
       const hash = createHash('sha256')
       // sw.js 自身也算：只改缓存策略、不改 JS/CSS 时，版本号同样要变，
       // 否则浏览器不重装 SW，新策略永远不生效。
       hash.update(fs.readFileSync(path.resolve(__dirname, 'public', 'sw.js')))
-      for (const file of ['m.html', 'index.html', 'web-mobile-entry.js', 'css/mobile.css', 'islands/ui.js', 'islands/ui.css']) hash.update(fs.readFileSync(path.resolve(__dirname, '../ui', file)))
+      for (const file of ['m.html', 'index.html', 'web-mobile-entry.js', 'css/mobile.css', 'islands/ui.js', 'islands/ui.css', 'm-features.css', 'm-feature-bridge.js', 'js/prefs.js', 'js/notify-center.js', 'js/desktop-startup.js', 'js/page-loading.js', 'js/tags-view.js', 'css/layout.css', 'css/tags-view.css']) hash.update(fs.readFileSync(path.resolve(__dirname, '../ui', file)))
       for (const name of ['mobile.js', 'mobile.css']) {
         const file = path.resolve(__dirname, '../ui/m', name)
         if (fs.existsSync(file)) hash.update(fs.readFileSync(file))
@@ -50,7 +56,7 @@ function swBuildStamp(): Plugin {
       // 12 位十六进制足够区分版本，也不会把缓存名拉得太长
       const stamp = hash.digest('hex').slice(0, 12)
 
-      const text = fs.readFileSync(built, 'utf8').replace(/__BUILD__/g, stamp)
+      const text = fs.readFileSync(built, 'utf8').replace(/__BUILD__/g, stamp).replace(/__MOBILE_JS__/g, versions.js).replace(/__MOBILE_CSS__/g, versions.css)
       fs.writeFileSync(target, text)
       // 产物目录里不留副本：它在那儿会被当成「可注册的 SW」，而 scope 不对
       fs.rmSync(built)
@@ -146,6 +152,7 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       'process.env.NODE_ENV': JSON.stringify('production'),
+      '__AIBUDDY_FEATURE_VERSION__': JSON.stringify(createHash('sha256').update(['islands/ui.js','islands/ui.css','m-feature-bridge.js','m-features.css','js/prefs.js','js/notify-center.js'].map(file => fs.readFileSync(path.resolve(__dirname,'../ui',file))).reduce((all,bytes)=>Buffer.concat([all,bytes]),Buffer.alloc(0))).digest('hex').slice(0,12)),
     },
     build: {
       outDir: apk ? 'android-www' : '../ui/m',

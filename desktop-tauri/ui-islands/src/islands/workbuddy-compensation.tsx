@@ -99,13 +99,11 @@ export function WorkBuddyCompensation({ accounts, disabled = false, layout = 'pa
       </td>
       <td className='growth-task-number'>{status?.claimed ? '1 / 1' : status?.claimable ? '0 / 1' : '—'}</td>
       <td className='growth-task-number'>{status?.creditNum != null ? t('+{n} 积分', { n: status.creditNum }) : '—'}</td>
-      <td><Badge variant={row?.error ? 'destructive' : status?.claimed ? 'success' : status?.claimable ? 'brand' : 'outline'}>
-        {row?.error ? t('查询或领取失败') : status?.claimed ? t('已领取') : status?.claimable ? t('可领取') : status ? t('暂无补偿活动') : t('查询中…')}
-      </Badge></td>
-      <td>{row?.error ? <Button size='xs' variant='outline' disabled={blocked} onClick={() => void query()}>{t('重新查询')}</Button>
-        : status?.claimable ? <Button size='xs' variant='outline' disabled={blocked} onClick={() => void claim([row!])}>
-          {claiming ? <Spinner data-icon='inline-start' aria-hidden='true' /> : null}{claiming ? t('领取中…') : t('领取')}</Button>
-        : <span className='muted'>—</span>}</td>
+      <td>{status?.claimable && !row?.error ? <Button size='xs' variant='outline' disabled={blocked} onClick={() => void claim([row!])}>
+          {claiming ? <Spinner data-icon='inline-start' aria-hidden='true' /> : null}{t('领取奖励')}</Button>
+        : <Badge variant={row?.error ? 'destructive' : status?.claimed ? 'success' : 'outline'}>
+          {row?.error ? t('查询或领取失败') : status?.claimed ? t('已领取') : status ? t('暂无补偿活动') : t('查询中…')}
+        </Badge>}</td>
     </tr>
   }
   return <section aria-label={t('补偿积分')} aria-busy={querying || claiming !== ''} className='my-4 rounded-lg border border-border'>

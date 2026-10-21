@@ -91,7 +91,7 @@ export function KeysPage() {
       </div>
 
       {error ? <ErrorNote text={error} /> : null}
-      {!data ? <SkeletonList rows={3} height={120} /> : null}
+      {!data && !error ? <SkeletonList rows={3} height={120} /> : null}
 
       {data && !keys.length ? (
         <div className='m-section'>

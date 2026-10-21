@@ -1,3 +1,4 @@
+import { usePageReady } from '../components/use-page-ready'
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@ui'
 import { Badge } from '@ui'
 /**
@@ -614,9 +615,10 @@ function AccountDetail({
   )
 }
 
-function CreditsPage(): React.ReactElement {
+export function CreditsPage(): React.ReactElement {
   const [snapshot, setSnapshot] = React.useState<Snapshot | null>(null)
   const [ready, setReady] = React.useState(false)
+  usePageReady('credits', ready)
   const [querying, setQuerying] = React.useState(false)
   /** 明细默认展示条数（页面可调，localStorage 持久化） */
   const [detailLimit, setDetailLimit] = React.useState<number>(() => readDetailLimit())

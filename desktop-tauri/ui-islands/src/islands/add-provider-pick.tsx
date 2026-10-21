@@ -1,3 +1,5 @@
+import { cn } from '@ui'
+import { ChevronRightIcon, SearchIcon } from 'lucide-react'
 import { Item, ItemMedia, ItemContent, ItemTitle, ItemDescription, ItemGroup } from '@ui'
 /**
  * Agent2API · 「添加账号」弹窗第 1 步：选提供商（账号类型分段 + 搜索 + 卡片网格）。
@@ -60,51 +62,51 @@ export function typeValueOf(value: string): AccountType {
  * （models-page）与签到中心的提供商行（checkin-page）用同一份映射，别处不要照抄。
  */
 export const PROVIDER_ICONS: Record<string, string> = {
-  workbuddy: 'assets/providers/workbuddy.png',
-  'workbuddy-intl': 'assets/providers/workbuddy.png',
-  raccoon: 'assets/providers/raccoon.png',
-  catpaw: 'assets/providers/catpaw.png',
-  autoclaw: 'assets/providers/autoclaw.png',
-  'autoclaw-intl': 'assets/providers/autoclaw.png',
-  qoder: 'assets/providers/qoder.png',
-  'qoder-intl': 'assets/providers/qoder.png',
-  'cline-free': 'assets/providers/cline.png',
-  'cline-pass': 'assets/providers/cline.png',
-  accio: 'assets/providers/accio.png',
-  'accio-cn': 'assets/providers/accio.png',
-  zcode: 'assets/providers/zcode.png',
-  'zcode-intl': 'assets/providers/zcode.png',
-  codearts: 'assets/providers/codearts.png',
-  trae: 'assets/providers/trae.png',
+  workbuddy: '/assets/providers/workbuddy.png',
+  'workbuddy-intl': '/assets/providers/workbuddy.png',
+  raccoon: '/assets/providers/raccoon.png',
+  catpaw: '/assets/providers/catpaw.png',
+  autoclaw: '/assets/providers/autoclaw.png',
+  'autoclaw-intl': '/assets/providers/autoclaw.png',
+  qoder: '/assets/providers/qoder.png',
+  'qoder-intl': '/assets/providers/qoder.png',
+  'cline-free': '/assets/providers/cline.png',
+  'cline-pass': '/assets/providers/cline.png',
+  accio: '/assets/providers/accio.png',
+  'accio-cn': '/assets/providers/accio.png',
+  zcode: '/assets/providers/zcode.png',
+  'zcode-intl': '/assets/providers/zcode.png',
+  codearts: '/assets/providers/codearts.png',
+  trae: '/assets/providers/trae.png',
   // Loomy：取自安装包 `resources/app.asar` 的 Windows 图标集
   // （`build/icons/favicon-228.png`，与系统里显示的应用图标为同一张；
   // 绿色圆底上的品牌形象）
-  loomy: 'assets/providers/loomy.png',
+  loomy: '/assets/providers/loomy.png',
   // KukuAI：取自客户端 `GenFlowPro.exe` 的 RT_ICON 资源（256×256 那张，
   // 与系统里显示的应用图标为同一张）
-  kuku: 'assets/providers/kuku.png',
+  kuku: '/assets/providers/kuku.png',
   // MonkeyCode：取自客户端 asar 内嵌的应用图标（`electron/icon.png`，与系统里
   // 显示的应用图标为同一张；国内 / 国际版共用这一张，同 AutoClaw 的形态）
-  monkeycode: 'assets/providers/monkeycode.png',
-  'monkeycode-intl': 'assets/providers/monkeycode.png',
+  monkeycode: '/assets/providers/monkeycode.png',
+  'monkeycode-intl': '/assets/providers/monkeycode.png',
   // Command Code / Antigravity：这两家没有可解的本地安装包，图取自官方资产 ——
   // Command Code 用官网 `apple-touch-icon.png`（黑底 + 白结的应用图标形态；官方
   // brand 页那种「白描边框 + 满幅黑底」的变体在 13px 徽章里会糊），Antigravity
   // 用官方 press 页的「Icon - Full Color」（antigravity.google/press）
-  commandcode: 'assets/providers/commandcode.png',
-  antigravity: 'assets/providers/antigravity.png',
+  commandcode: '/assets/providers/commandcode.png',
+  antigravity: '/assets/providers/antigravity.png',
   // OfficeAce（华为云果办）：取自官网产品页的产品图标
   // （`res-static.hc-cdn.cn/.../OfficeAce/新图标.png`，176×176 RGBA，
   // 归一成 256×256 入库 —— 与系统里显示的应用图标为同一形象）
-  officeace: 'assets/providers/officeace.png',
+  officeace: '/assets/providers/officeace.png',
   // OrcaTerm（腾讯云遨驰终端桌面客户端）：取自官方 PWA 图标
   // （`cloudcache.tencent-cloud.com/qcloud/orcaterm/pwa/icon/orcaterm_192x192.png`，
   // 与客户端 / 官网显示的应用图标为同一形象）
-  orcaterm: 'assets/providers/orcaterm.png',
+  orcaterm: '/assets/providers/orcaterm.png',
   // 智谱清言：取自客户端安装包 `resources/app.asar` 内的应用图标
   // （`assets/icon.png`，512×512，与系统里显示的应用图标为同一形象；
   // 归一成 256×256 入库 —— 与 officeace 同一处置）
-  chatglm: 'assets/providers/chatglm.png',
+  chatglm: '/assets/providers/chatglm.png',
 }
 
 /**
@@ -252,7 +254,7 @@ function cardMeta(item: CardItem): string {
   return item.count ? t('{n} 个账号', { n: item.count }) : t('还没有账号')
 }
 
-function ProviderCard({ item, onPick }: { item: CardItem; onPick: (id: string) => void }): React.ReactElement {
+function ProviderCard({ item, onPick, mobile }: { item: CardItem; onPick: (id: string) => void; mobile?: boolean }): React.ReactElement {
   return <Item variant='outline' size='sm' render={<button type='button' />}
     className='h-auto min-h-16 cursor-pointer justify-start bg-transparent text-left whitespace-normal shadow-none hover:bg-muted' data-provider={item.id}
     aria-label={t('选择 {name}', { name: item.label })} onClick={() => onPick(item.id)}>
@@ -261,10 +263,11 @@ function ProviderCard({ item, onPick }: { item: CardItem; onPick: (id: string) =
       <ItemTitle>{item.label}</ItemTitle>
       <ItemDescription>{cardMeta(item)}</ItemDescription>
     </ItemContent>
+    {mobile ? <ChevronRightIcon className='size-4 shrink-0 text-muted-foreground' aria-hidden='true' /> : null}
   </Item>
 }
 
-function NewProviderCard({ onPick }: { onPick: (id: string) => void }): React.ReactElement {
+function NewProviderCard({ onPick, mobile }: { onPick: (id: string) => void; mobile?: boolean }): React.ReactElement {
   return <Item variant='outline' size='sm' render={<button type='button' />}
     className='h-auto min-h-16 cursor-pointer justify-start bg-transparent text-left whitespace-normal shadow-none hover:bg-muted' data-provider={NEW_PROVIDER_CARD_ID}
     aria-label={t('新建自定义提供商')} onClick={() => onPick(NEW_PROVIDER_CARD_ID)}>
@@ -273,10 +276,12 @@ function NewProviderCard({ onPick }: { onPick: (id: string) => void }): React.Re
       <ItemTitle>{t('新建自定义提供商')}</ItemTitle>
       <ItemDescription>{t('接入一个兼容上游')}</ItemDescription>
     </ItemContent>
+    {mobile ? <ChevronRightIcon className='size-4 shrink-0 text-muted-foreground' aria-hidden='true' /> : null}
   </Item>
 }
 
 export type PickStepProps = {
+  mobile?: boolean
   accountType: AccountType
   onAccountTypeChange: (value: AccountType) => void
   search: string
@@ -291,6 +296,7 @@ export type PickStepProps = {
 }
 
 export function PickStep({
+  mobile = false,
   accountType,
   onAccountTypeChange,
   search,
@@ -306,16 +312,18 @@ export function PickStep({
   // 有关键词时「新建」那张卡收起来 —— 用户在找的是一家
   const newCard = accountType === TYPE_CUSTOM && !keyword
 
+  const Section = mobile ? 'section' : DialogSection
+
   return (
     // 分段与列表同一块：两者是同一个问题的两面（「给什么形态的上游加账号」→
     // 「给哪一家加」），分两块带边框会让人以为是两个独立步骤
-    <DialogSection>
+    <Section className={cn(mobile && 'mobile-provider-picker')}>
       <h3>{t('选择提供商')}</h3>
       {/* 分段与搜索同一行：左边选形态，右边是这一屏的过滤器 */}
       <div className='add-pick-row' style={importing ? { display: 'none' } : undefined}>
         <SegmentedControl
           aria-label={t('账号类型')}
-          className={ADD_SEG_CLASS}
+          className={cn(ADD_SEG_CLASS, mobile && 'mobile-provider-types')}
           options={[
             { value: TYPE_PROXY, label: 'Agent' },
             { value: TYPE_PRESET, label: t('预置 API') },
@@ -326,9 +334,9 @@ export function PickStep({
           value={accountType}
           onValueChange={value => onAccountTypeChange(typeValueOf(value))}
         />
-        <span id='add-search-wrap' className='add-provider-search ml-auto max-w-[340px] min-w-0 flex-[1_1_200px]'>
+        <span id='add-search-wrap' className={cn('add-provider-search min-w-0', mobile ? 'w-full' : 'ml-auto max-w-[340px] flex-[1_1_200px]')}>
           <InputGroup>
-            <InputGroupAddon>⌕</InputGroupAddon>
+            <InputGroupAddon><SearchIcon aria-hidden='true' /></InputGroupAddon>
             <InputGroupInput
               id='add-provider-search'
               type='search'
@@ -345,18 +353,18 @@ export function PickStep({
           两屏内容同一块区域，滚动位置也就跟着换，不会串 */}
       {importPanel}
       <ItemGroup
-        className='grid grid-cols-[repeat(auto-fill,minmax(min(100%,210px),1fr))] gap-2'
+        className={cn('gap-2', mobile ? 'mobile-provider-list flex flex-col' : 'grid grid-cols-[repeat(auto-fill,minmax(min(100%,210px),1fr))]')}
         id='add-provider-grid'
         role='group'
         aria-label={t('选择要添加账号的提供商')}
         style={importing ? { display: 'none' } : undefined}
       >
-        {newCard ? <NewProviderCard onPick={onPick} /> : null}
-        {hit.map(item => <ProviderCard key={item.id} item={item} onPick={onPick} />)}
+        {newCard ? <NewProviderCard mobile={mobile} onPick={onPick} /> : null}
+        {hit.map(item => <ProviderCard mobile={mobile} key={item.id} item={item} onPick={onPick} />)}
         {!hit.length && keyword ? (
           <Empty variant='compact' className='add-provider-empty'><EmptyHeader><EmptyDescription>{t('没有匹配「{keyword}」的提供商', { keyword: search.trim() })}</EmptyDescription></EmptyHeader></Empty>
         ) : null}
       </ItemGroup>
-    </DialogSection>
+    </Section>
   )
 }

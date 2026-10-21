@@ -1,3 +1,4 @@
+import { usePageReady } from '../components/use-page-ready'
 import * as React from 'react'
 import { Badge, Button, InputGroup, InputGroupAddon, InputGroupInput, SegmentedControl, Switch, cn } from '@ui'
 import { t } from '../i18n'
@@ -104,6 +105,7 @@ export function protocolLabel(protocol: string): string {
 
 export function AgentPage() {
   const store = React.useSyncExternalStore(subscribeAgentStore, getAgentStore, getAgentStore)
+  usePageReady('agent', !store.loading || store.clients.length > 0 || Boolean(store.error))
   const client = selectedClient()
   const list = visibleClients(store)
   const stats = counts(store)

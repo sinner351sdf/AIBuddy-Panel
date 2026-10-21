@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { execFileSync } from 'node:child_process'
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath } from 'node:url'
 
@@ -19,7 +20,7 @@ import { fileURLToPath } from 'node:url'
  * 收敛到本工程这一份 —— 两份 React 会让两套调度器互不认识。
  */
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), {name: 'mobile-http-bridge', buildStart() { execFileSync(process.execPath, ['../../scripts/build-mobile-web-bridge.mjs']) }}],
   resolve: {
     alias: {
       '@agent2api/ui': fileURLToPath(new URL('../ui-kit/src', import.meta.url)),

@@ -1,3 +1,4 @@
+import { usePageReady } from '../components/use-page-ready'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator } from '@ui'
 import { Badge } from '@ui'
 /**
@@ -337,8 +338,9 @@ function matches(model: ManageModel, keyword: string, provider: string, stateFil
   return hay.includes(keyword)
 }
 
-function ModelsPage() {
+export function ModelsPage() {
   const state = React.useSyncExternalStore(subscribe, getSnapshot)
+  usePageReady('gateway', state.data !== null || Boolean(state.loadError))
   const provider = resolveProvider(state)
   /** 当前视图是不是自定义侧（单家或「自定义 · 全部」聚合都算 —— 列隐藏 / 页脚说明同一口径） */
   const custom = customSource.isCustom(provider) || provider === 'custom-all'
@@ -874,7 +876,7 @@ function ModelsPage() {
             : customMissing
               ? t('该提供商已不存在（可能已被删除），请刷新列表')
               : t('这家还没有模型：点「添加模型」登记，或「获取上游模型」从上游拉取'))
-        : (state.data ? t('暂无模型（请先添加账号）') : t('加载中…'))
+        : (state.loadError || (state.data ? t('暂无模型（请先添加账号）') : t('加载中…')))
       return <tr><td colSpan={columnCount} className='empty'><Empty variant='compact'><EmptyHeader><EmptyDescription>{empty}</EmptyDescription></EmptyHeader></Empty></td></tr>
     }
     if (!shown.length) {

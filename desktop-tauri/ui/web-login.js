@@ -8,9 +8,8 @@
    （applyLoginState 的注释解释了这点），两份实现迟早会在某一次改动后分叉，
    而分叉的表现是「关掉弹窗后按钮永远卡在禁用态」这种很难复现的故障。
 
-   依赖 app.js 的顶层全局（经典 script 的顶层声明在全局可见）：$ / toast / busy /
-   releaseBusy / refresh。脚本顺序见 index.html：必须排在 add-account.js 之前 ——
-   后者在加载期就要 create() 出 WorkBuddy 那一份（它的 DOM 在 index.html 里）。
+   依赖 window.wbApp.toast 和 workbuddyDesktop 桥。桌面端可复用 app.js 的
+   busy / releaseBusy 锁；手机端没有桌面全局，使用本模块的发起锁。
 
    与主进程的契约：同一时刻只允许一个登录流程（壳侧 start_login 会拒绝第二个），
    因此这里维护一份**全局**的 loginActive / loginProvider，而不是每个控制器各存一份；
@@ -22,6 +21,8 @@
 
   /** 所有已登记的控制器（按 create 顺序） */
   const controllers = [];
+  // Covers the pending /start request too, before the bridge emits active state.
+  let startBusy = false;
   /** 是否有登录流程在等待（主进程的真实状态，见 applyShellState） */
   let loginActive = false;
   /** 等待中的那家 provider；主进程状态里没带 provider 时按 workbuddy 兜底 */
@@ -115,8 +116,10 @@
       applyState,
       /** 发起登录；与 takeBusy 同一把锁（弹窗里的按钮互斥） */
       async start() {
-        if (busy || loginActive) return;
-        busy = true;
+        const useHostLock = typeof busy !== 'undefined' && typeof releaseBusy === 'function';
+        if (startBusy || loginActive || (useHostLock && busy)) return;
+        startBusy = true;
+        if (useHostLock) busy = true;
         const button_ = button();
         if (button_) {
           button_.disabled = true;
@@ -134,7 +137,9 @@
           toast(wbI18n.t('登录失败：{message}', { message: error.message }), 'err');
         } finally {
           flowSettling = false;
-          releaseBusy(); // 释放锁并补跑排队中的刷新（见 releaseBusy 注释）
+          startBusy = false;
+          // Desktop still releases its queued refresh; mobile owns no app.js lock.
+          if (useHostLock) releaseBusy();
           // 以主进程状态为准复位按钮，避免这里与真实状态不一致
           await syncShellState();
         }

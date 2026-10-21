@@ -236,7 +236,7 @@ pub async fn run_action(
         // Expert_team_use_3：使用 3 个专家团（refs autotask.go:1061-1064）
         "Expert_team_use_3" => run_expert_batch(service, session, "team", 3).await,
         // Expert_lighthouse：轻量云专家（refs autotask.go:945-984）
-        "Expert_lighthouse" => run_lighthouse(service, session).await,
+        "Expert_lighthouse" | "WorkBuddy_Valorant" => run_named_expert(service, session, code).await,
         // skill_1：真实对话 + skill_info（refs autotask.go:910-938）
         "skill_1" => run_skill_fresh(service, session).await,
         // black_cat：夜猫子（refs autotask.go:886-902 + blackcat.go:19-69）
@@ -321,42 +321,35 @@ async fn run_expert_batch(
     Ok(Done)
 }
 
-/// Expert_lighthouse：轻量云专家（refs autotask.go:945-984 runExpertLighthouse）。
+/// 指定专家任务：复用轻量云专家流程；Valorant 元数据来自 issue #228，领奖以回读为准。
 /// 与 expert_5 同构，差异：chat 链的 agent_task_created 带 has_expert:true、
 /// expert_actual_use 为 LOCAL 且 type 空 / cost 0（对齐真实样本 row 868）。
-async fn run_lighthouse(
-    service: &BillingService,
-    session: &Value,
-) -> Result<ActionOutcome, BillingError> {
-    let mut lighthouse = MarketExpert {
-        expert_id: LIGHTHOUSE_ID.to_string(),
-        expert_type: "agent".to_string(),
-        display_name_zh: "腾讯轻量云专家".to_string(),
-        profession_zh: "腾讯轻量云专家".to_string(),
-        version: "1.0.2".to_string(),
-        categories: Vec::new(),
+
+// Source: linguo2625469/workbuddy2api-panel issue #228. Prefer current market metadata.
+fn named_expert_profile(code: &str) -> Option<MarketExpert> {
+    let (id, name, version) = match code {
+        "Expert_lighthouse" => (LIGHTHOUSE_ID, "腾讯轻量云专家", "1.0.2"),
+        "WorkBuddy_Valorant" => ("ex_xQHHD1u5Jkua", "无畏契约拼豆专家", "1.2.1"),
+        _ => return None,
     };
-    // 市场列表若命中真实条目则用其信息（version 等以服务端为准，refs:952-959）
-    if let Ok(experts) = market_expert_list(service, session, "agent").await {
-        if let Some(found) = experts.iter().find(|expert| expert.expert_id == LIGHTHOUSE_ID) {
-            lighthouse = found.clone();
-        }
-    }
-    // 召唤链
-    report::report_desktop_events(session, report::desktop_expert_summon_sequence(&lighthouse)).await?;
-    // 真实对话（带 X-Expert-Id）→ 服务端 requestId
-    let (conversation_id, request_id) = growth_chat_request_id(
-        session,
-        "fast-model",
-        "1+1等于几？直接回答。",
-        LIGHTHOUSE_ID,
-    )
-    .await
-    .map_err(gateway_into_billing)?;
+    Some(MarketExpert {
+        expert_id: id.into(),
+        expert_type: "agent".into(),
+        display_name_zh: name.into(),
+        profession_zh: name.into(),
+        version: version.into(),
+        categories: Vec::new(),
+    })
+}
+fn named_expert_events(
+    expert: &MarketExpert,
+    conversation_id: &str,
+    request_id: &str,
+) -> Vec<Value> {
     let mut events = report::desktop_chat_sequence(
-        &conversation_id,
-        &request_id,
-        &format!("msg-{}", tail8(&request_id)),
+        conversation_id,
+        request_id,
+        &format!("msg-{}", tail8(request_id)),
         "fast-model",
         "fast-model",
     );
@@ -365,25 +358,63 @@ async fn run_lighthouse(
         if event.get("eventCode").and_then(Value::as_str) == Some("agent_task_created") {
             if let Some(object) = event.as_object_mut() {
                 object.insert("has_expert".to_string(), json!(true));
-                object.insert("expert_id".to_string(), json!(lighthouse.expert_id));
-                object.insert("expert_name".to_string(), json!(lighthouse.display_name_zh));
+                object.insert("expert_id".to_string(), json!(expert.expert_id));
+                object.insert("expert_name".to_string(), json!(expert.display_name_zh));
                 object.insert("expert_industry_id".to_string(), json!(""));
             }
         }
     }
     events.push(report::desktop_expert_actual_use_local(
-        &lighthouse,
-        &conversation_id,
-        &request_id,
+        expert,
+        conversation_id,
+        request_id,
     ));
-    // 对齐真实样本：轻量云专家 actual_use 的 type 为空、cost=0（refs:977-979）
+    // 对齐真实样本：指定专家 actual_use 的 type 为空、cost=0（refs:977-979）
     if let Some(last) = events.last_mut() {
         if let Some(object) = last.as_object_mut() {
             object.insert("type".to_string(), json!(""));
             object.insert("cost".to_string(), json!(0));
         }
     }
-    report::report_desktop_events(session, events).await.map(|_| Done)
+    events
+}
+async fn run_named_expert(
+    service: &BillingService,
+    session: &Value,
+    code: &str,
+) -> Result<ActionOutcome, BillingError> {
+    let mut expert =
+        named_expert_profile(code).ok_or_else(|| BillingError::new("未知的指定专家任务", 400))?;
+    let expert_id = expert.expert_id.clone();
+    if super::task_execution::should_stop() {
+        return Ok(Skipped("任务已停止".into()));
+    }
+    // 市场列表若命中真实条目则用其信息（version 等以服务端为准，refs:952-959）
+    if let Ok(experts) = market_expert_list(service, session, "agent").await {
+        if let Some(found) = experts.iter().find(|expert| expert.expert_id == expert_id) {
+            expert = found.clone();
+        }
+    }
+    if super::task_execution::should_stop() {
+        return Ok(Skipped("任务已停止".into()));
+    }
+    // 召唤链
+    report::report_desktop_events(session, report::desktop_expert_summon_sequence(&expert)).await?;
+    if super::task_execution::should_stop() {
+        return Ok(Skipped("任务已停止，未启动真实对话".into()));
+    }
+    // 真实对话（带 X-Expert-Id）→ 服务端 requestId
+    let (conversation_id, request_id) =
+        growth_chat_request_id(session, "fast-model", "1+1等于几？直接回答。", &expert_id)
+            .await
+            .map_err(gateway_into_billing)?;
+    if super::task_execution::should_stop() {
+        return Ok(Skipped("真实对话已完成，后续动作已停止".into()));
+    }
+    let events = named_expert_events(&expert, &conversation_id, &request_id);
+    report::report_desktop_events(session, events)
+        .await
+        .map(|_| Done)
 }
 
 /// skill_1：真实对话 + skill_info 技能加载事件（refs autotask.go:910-938）。
@@ -502,7 +533,10 @@ async fn run_mp_mini_chat(
     if task.claimed {
         return Ok(Skipped("已领取".to_string()));
     }
-    if task.accept_status != "accepted" {
+    if task.locked {
+        return Ok(Skipped("任务未解锁，未执行动作".into()));
+    }
+    if !task.is_registered() {
         task = growth::accept_verified_task(service, session, code).await?;
     }
     if task.claimed || task.claimable {
@@ -511,29 +545,79 @@ async fn run_mp_mini_chat(
     if task.locked {
         return Ok(Skipped("任务未解锁，未执行动作".into()));
     }
-    let target = if task.target > 0 { task.target } else { 1 };
-    // 已达标（含 completed 未领）：直接交给队列回读领奖
+    run_mp_chat_steps(
+        &task, code, with_activity_id,
+        || growth::task_by_code(service, session, code),
+        |event| async move { report::report_mp_events(session, vec![event]).await },
+        wait_task_gap,
+    ).await
+}
+
+/// The production loop with injectable reads, reporting and waits for isolated state-machine tests.
+async fn run_mp_chat_steps<R, RF, S, SF, W, WF>(
+    task: &growth::Task, code: &str, with_activity_id: bool,
+    mut read: R, mut submit: S, mut wait: W,
+) -> Result<ActionOutcome, BillingError>
+where
+    R: FnMut() -> RF,
+    RF: std::future::Future<Output = Result<Option<growth::Task>, BillingError>>,
+    S: FnMut(Value) -> SF,
+    SF: std::future::Future<Output = Result<(), BillingError>>,
+    W: FnMut(Duration) -> WF,
+    WF: std::future::Future<Output = bool>,
+{
+    let target = mp_chat_target(code, task.target);
     if task.current >= target || task.accept_status == "completed" {
         return Ok(Done);
     }
-    // 判据上报：按差额补 mini chat 事件。每条前 sleep 45s+抖动 —— 首条也等
-    // （refs autotask.go:369-370：上一轮残留进度被回滚后立即重报同样无效）
-    let need = (target - task.current).max(0);
+    let need = target.saturating_sub(task.current.max(0));
     for index in 0..need {
-        if super::task_execution::should_stop() {
-            return Ok(Skipped("收到停止请求，未启动后续步骤".into()));
-        }
-        tokio::time::sleep(Duration::from_millis(
+        if !wait(Duration::from_millis(
             MP_CHAT_EVENT_GAP_MS + chat_jitter_ms(),
         ))
-        .await;
+        .await
+        {
+            return Ok(Skipped("收到停止请求，未启动后续步骤".into()));
+        }
+        // Read back before each action: another client may have advanced, claimed or locked it.
+        let fresh = match read().await? {
+            Some(task) => task,
+            None => return Ok(Skipped("上游已撤回该任务，未继续提交".into())),
+        };
+        if fresh.claimed || fresh.claimable || fresh.current >= mp_chat_target(code, fresh.target) {
+            return Ok(Done);
+        }
+        if fresh.locked || !fresh.is_registered() {
+            return Ok(Skipped(format!("上游任务状态不允许继续（报名状态={}，锁定={}，进度={}/{}），未继续提交", fresh.accept_status, fresh.locked, fresh.current, fresh.target)));
+        }
+        if super::task_execution::should_stop() {
+            return Ok(Skipped("任务已停止".into()));
+        }
+        logging::log(
+            "[Growth]",
+            &format!(
+                "{code} 小程序任务：上游进度 {}/{target}，本轮提交 {}/{need}",
+                fresh.current,
+                index + 1
+            ),
+        );
         let conversation_id = format!("wb2api-mp-{}-{}", logging::now_ms(), index);
         let event = if with_activity_id {
             report::school_season_chat_event(&conversation_id)
         } else {
             report::mini_chat_event(&conversation_id)
         };
-        report::report_mp_events(session, vec![event]).await?;
+        submit(event)
+            .await
+            .map_err(|error| {
+                BillingError::new(
+                    format!(
+                        "小程序任务已提交 {index}/{need} 次后中断：{}",
+                        error.message
+                    ),
+                    error.status_code,
+                )
+            })?;
     }
     // 回读交给队列（task_by_code 对 mp 码自动回落 mp 列表，4×3s 预算比
     // refs 的紧凑版 2×3s 更宽）
@@ -578,7 +662,7 @@ async fn run_mp_mini_expert(
     } else {
         &first.display_name_zh
     };
-    if task.accept_status != "accepted" {
+    if !task.is_registered() {
         task = growth::accept_verified_task(service, session, code).await?;
     }
     if task.claimed || task.claimable {
@@ -618,7 +702,7 @@ async fn run_sequential_event(
     if task.current >= target || task.accept_status == "completed" {
         return Ok(Done);
     }
-    if task.accept_status != "accepted" {
+    if !task.is_registered() {
         task = growth::accept_verified_task(service, session, code).await?;
     }
     if task.claimed || task.claimable {
@@ -732,4 +816,171 @@ fn tail8(text: &str) -> String {
     text.get(text.len().saturating_sub(8)..)
         .unwrap_or(text)
         .to_string()
+}
+
+fn mp_chat_target(code: &str, reported: i64) -> i64 {
+    if reported > 0 {
+        return reported;
+    }
+    match code {
+        "Sequential_Tasks_3" => 5,
+        "Sequential_Tasks_6" => 10,
+        _ => 1,
+    }
+}
+async fn wait_task_gap(duration: Duration) -> bool {
+    let until = tokio::time::Instant::now() + duration;
+    loop {
+        if super::task_execution::should_stop() {
+            return false;
+        }
+        let now = tokio::time::Instant::now();
+        if now >= until {
+            return true;
+        }
+        tokio::time::sleep((until - now).min(Duration::from_millis(500))).await;
+    }
+}
+
+#[cfg(test)]
+mod targeted_task_tests {
+    use super::*;
+
+    #[test]
+    fn mini_chat_uses_upstream_target_or_known_fallback() {
+        assert_eq!(mp_chat_target("Sequential_Tasks_3", 0), 5);
+        assert_eq!(mp_chat_target("Sequential_Tasks_3", 7), 7);
+        assert_eq!(mp_chat_target("Sequential_Tasks_6", -1), 10);
+        assert_eq!(mp_chat_target("Sequential_Tasks_1", 0), 1);
+        assert_eq!(mp_chat_target("Sequential_Tasks_3", 0).saturating_sub(3), 2);
+    }
+
+    #[tokio::test]
+    async fn mini_chat_transitions_to_in_progress_and_resumes_only_remaining_steps() {
+        use std::sync::{Arc, Mutex, atomic::{AtomicUsize, Ordering}};
+        for (current, status) in [(0, "accepted"), (1, "in_progress")] {
+            let initial = growth::Task { task_code:"Sequential_Tasks_3".into(), current, target:5,
+                accept_status:status.into(), ..Default::default() };
+            let state = Arc::new(Mutex::new(initial.clone()));
+            let observed = state.clone();
+            let updated = state.clone();
+            let reports = Arc::new(AtomicUsize::new(0));
+            let count = reports.clone();
+            let waits = Arc::new(Mutex::new(Vec::new()));
+            let delays = waits.clone();
+            let result = run_mp_chat_steps(&initial, "Sequential_Tasks_3", false,
+                move || std::future::ready(Ok(Some(observed.lock().unwrap().clone()))),
+                move |event| {
+                    assert_eq!(event["eventCode"], "chat_request_send");
+                    assert_eq!(event["agentName"], "mp");
+                    let mut task = updated.lock().unwrap();
+                    task.current += 1;
+                    task.accept_status = "in_progress".into();
+                    task.claimable = task.current >= task.target;
+                    count.fetch_add(1, Ordering::Relaxed);
+                    std::future::ready(Ok(()))
+                },
+                move |duration| { delays.lock().unwrap().push(duration); std::future::ready(true) },
+            ).await.unwrap();
+            assert!(matches!(result, Done));
+            assert_eq!(reports.load(Ordering::Relaxed), (5-current) as usize);
+            let task = state.lock().unwrap().clone();
+            assert_eq!(task.current, 5);
+            assert!(task.claimable);
+            assert_eq!(waits.lock().unwrap().len(), (5-current) as usize);
+            assert!(waits.lock().unwrap().iter().all(|d| *d >= Duration::from_secs(45) && *d < Duration::from_secs(55)));
+            // A subsequent run at target must not send another event or wait.
+            let again = run_mp_chat_steps(&task, "Sequential_Tasks_3", false,
+                || std::future::ready(Err(BillingError::new("unexpected read",500))),
+                |_| std::future::ready(Err(BillingError::new("unexpected report",500))),
+                |_| std::future::ready(false),
+            ).await.unwrap();
+            assert!(matches!(again, Done));
+        }
+    }
+
+    #[tokio::test]
+    async fn mini_chat_rejects_unknown_registration_and_lock_without_reporting() {
+        for (status, locked) in [("unknown",false),("",false),("not_accepted",false),("in_progress",true)] {
+            let initial = growth::Task { task_code:"Sequential_Tasks_3".into(), current:1, target:5,
+                accept_status:"in_progress".into(), ..Default::default() };
+            let fresh = growth::Task { accept_status:status.into(), locked, ..initial.clone() };
+            let result = run_mp_chat_steps(&initial,"Sequential_Tasks_3",false,
+                || std::future::ready(Ok(Some(fresh.clone()))),
+                |_| { panic!("must not report an unregistered or locked task"); #[allow(unreachable_code)] std::future::ready(Ok(())) },
+                |_| std::future::ready(true),
+            ).await.unwrap();
+            assert!(matches!(result, Skipped(_)));
+        }
+    }
+
+    #[test]
+    fn named_expert_tasks_keep_distinct_ids_and_real_request_linkage() {
+        for (code, id, version) in [
+            ("Expert_lighthouse", LIGHTHOUSE_ID, "1.0.2"),
+            ("WorkBuddy_Valorant", "ex_xQHHD1u5Jkua", "1.2.1"),
+        ] {
+            assert!(growth::is_actionable(code));
+            let mut expert = named_expert_profile(code).unwrap();
+            assert_eq!(expert.expert_id, id);
+            assert_eq!(expert.version, version);
+            // Refreshed market metadata must survive event construction.
+            expert.version = "market-current".into();
+            let summon = report::desktop_expert_summon_sequence(&expert);
+            assert!(summon
+                .iter()
+                .any(|e| e["id"] == id && e["version"] == "market-current"));
+            let events =
+                named_expert_events(&expert, "server-conversation", "server-request-12345678");
+            let created = events
+                .iter()
+                .find(|e| e["eventCode"] == "agent_task_created")
+                .unwrap();
+            assert_eq!(created["has_expert"], true);
+            assert_eq!(created["expert_id"], id);
+            assert_eq!(created["conversationId"], "server-conversation");
+            let used = events
+                .iter()
+                .find(|e| e["eventCode"] == "expert_actual_use")
+                .unwrap();
+            assert_eq!(used["id"], id);
+            assert_eq!(used["version"], "market-current");
+            assert_eq!(used["requestId"], "server-request-12345678");
+            assert_eq!(used["conversationId"], "server-conversation");
+            assert_eq!(used["mode"], "LOCAL");
+            assert_eq!(used["type"], "");
+            assert_eq!(used["cost"], 0);
+        }
+        assert!(named_expert_profile("unknown").is_none());
+    }
+
+    #[tokio::test]
+    async fn mini_chat_gap_responds_to_stop_without_waiting_45_seconds() {
+        use std::sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        };
+        let stop = Arc::new(AtomicBool::new(false));
+        let signal = stop.clone();
+        let trigger = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            signal.store(true, Ordering::Relaxed);
+        });
+        let control = super::super::task_execution::Control {
+            stop,
+            kind: "growth".into(),
+            automatic: false,
+            run_id: 0,
+        };
+        let result = tokio::time::timeout(
+            Duration::from_secs(2),
+            super::super::task_execution::CONTROL
+                .scope(control, wait_task_gap(Duration::from_secs(45))),
+        )
+        .await
+        .expect("cancellation must interrupt the long gap");
+        assert!(!result);
+        trigger.await.unwrap();
+        assert!(wait_task_gap(Duration::ZERO).await);
+    }
 }

@@ -95,6 +95,85 @@ h1,h2,h3,p { margin-top:0; }
 .m-app button { -webkit-user-select:none; user-select:none; }
 @media (prefers-reduced-motion:reduce) { *,::before,::after { animation-duration:.01ms !important; transition-duration:.01ms !important; } }
 
-/* Secondary management screens preserve the mobile shell and original Back bar. */
-.m-management {display:flex;flex-direction:column;height:100%;min-height:0;background:var(--background)}
-.m-management-frame {display:block;width:100%;flex:1;min-height:0;border:0;background:var(--background)}
+/* Reports: a compact overview followed by touch-friendly, progressively disclosed detail. */
+.report-body { display:flex; flex-direction:column; gap:16px; padding:0 16px; }
+.m-report .m-head { padding-top:calc(var(--m-safe-t) + 22px); padding-bottom:20px; }
+.report-refresh { min-width:44px; min-height:44px; color:var(--muted-foreground); }
+.report-ranges[data-slot='segmented-control'] { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); width:100%; padding:4px; gap:2px; border-radius:12px; }
+.report-ranges [data-slot='segmented-item'] { min-width:0; min-height:44px; padding-inline:2px; font-size:13px; border-radius:8px; }
+.report-summary { gap:20px; padding-top:24px; }
+.report-summary > [data-slot='card-header'], .report-summary > [data-slot='card-content'] { padding-inline:20px; }
+.report-total { display:flex; align-items:baseline; gap:10px; font-size:40px; font-weight:600; letter-spacing:-.04em; font-variant-numeric:tabular-nums; line-height:1.25; margin-top:4px; }
+.report-total > span { font-size:13px; font-weight:400; letter-spacing:0; color:var(--muted-foreground); }
+.report-summary-caption { margin:4px 0 0; font-size:12px; color:var(--muted-foreground); }
+.report-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:0; }
+.report-metrics > div + div { border-left:1px solid var(--border); padding-left:12px; }
+.report-metrics dt { font-size:12px; color:var(--muted-foreground); }
+.report-metrics dd { margin:7px 0 4px; font-size:22px; font-weight:600; letter-spacing:-.025em; font-variant-numeric:tabular-nums; line-height:1.25; }
+.report-metrics p { margin:0; font-size:11px; color:var(--muted-foreground); }
+.report-activity { justify-content:space-between; padding:12px 20px; font-size:12px; color:var(--muted-foreground); }
+.report-activity > span:first-child { display:flex; align-items:center; gap:7px; }
+.report-activity svg { width:15px; height:15px; }
+.report-detail-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:16px; align-items:start; }
+.report-detail-grid > [data-slot='card'] { min-width:0; padding-top:20px; }
+.report-card-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.report-card-heading [data-slot='card-description'] { margin-top:5px; font-size:12px; }
+.report-metric-switch [data-slot='segmented-item'] { min-width:48px; min-height:40px; font-size:12px; }
+.report-empty[data-slot='empty'] { min-height:176px; padding:24px 8px; }
+.report-empty [data-slot='empty-description'] { font-size:12px; }
+.report-empty [data-slot='empty-icon'] { color:var(--muted-foreground); margin-bottom:4px; }
+.report-ranking [data-slot='card-description'] { font-size:12px; }
+.report-rank-tablist[data-slot='tabs-list'] { width:100%; height:44px; }
+.report-rank-tablist > button { min-height:38px; font-size:13px; }
+.report-ranking-list { list-style:none; margin:0; padding:0; }
+.report-ranking-list li { padding:16px 0; border-bottom:1px solid var(--border); }
+.report-ranking-list li:last-child { border-bottom:0; padding-bottom:4px; }
+.report-rank-line { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.report-rank-index { font-size:12px; color:var(--muted-foreground); width:12px; flex:none; font-variant-numeric:tabular-nums; }
+.report-rank-line .m-logo { width:28px; height:28px; }
+.report-rank-name { flex:1; min-width:0; }
+.report-rank-name strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:500; }
+.report-rank-name > span, .report-rank-value > span { display:block; font-size:11px; color:var(--muted-foreground); margin-top:3px; }
+.report-rank-value { text-align:right; flex:none; font-variant-numeric:tabular-nums; }
+.report-rank-value strong { font-size:13px; font-weight:600; }
+.report-ranking-list [data-slot='progress-track'] { height:4px; }
+.report-context { padding:0 4px 4px; }
+.report-context p { display:flex; align-items:baseline; gap:16px; justify-content:space-between; margin:0; padding:8px 0; color:var(--muted-foreground); font-size:12px; }
+.report-context p > span { flex:none; }
+.report-context strong { min-width:0; overflow-wrap:anywhere; text-align:right; font-weight:400; color:var(--text-2); }
+.report-loading { display:flex; flex-direction:column; gap:16px; }
+@media (min-width:768px) {
+  .report-detail-grid { grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); }
+  .report-summary { gap:16px; }
+  .report-summary > [data-slot='card-content'] { max-width:560px; }
+}
+@media (max-width:374px) {
+  .report-metrics { gap:8px; }
+  .report-metrics > div + div { padding-left:8px; }
+  .report-metrics dd { font-size:20px; }
+}
+
+/* More uses the same shadcn items for compact tools and descriptive phone menus. */
+.more-body { display:flex; flex-direction:column; gap:24px; padding:0 16px; }
+.m-more .m-head { padding-top:calc(var(--m-safe-t) + 22px); padding-bottom:20px; }
+.more-section-title { margin:0 0 10px 2px; color:var(--muted-foreground); font-size:12px; line-height:1.5; font-weight:500; }
+.more-footnote { margin:0; padding:0 4px; color:var(--muted-foreground); font-size:12px; line-height:1.6; text-align:center; }
+
+/* Shared phone rhythm and touch targets, including secondary navigation. */
+.m-navbar { min-height:60px; }
+.m-navbar-slot { width:44px; }
+.m-head-actions > button, .m-navbar button { min-width:44px; min-height:44px; }
+.m-row .m-grow, .m-t2 { overflow-wrap:anywhere; }
+.m-scroll[data-screen='settings'] .mobile-feature-host { padding-top:20px; padding-bottom:32px; }
+.device-settings-body { display:flex; flex-direction:column; gap:24px; padding:20px 16px 8px; }
+.device-settings-body p { margin:0; }
+.device-settings-intro { color:var(--muted-foreground); font-size:13px; line-height:1.7; }
+.device-settings-section > h2 { margin:0 2px 10px; color:var(--muted-foreground); font-size:12px; line-height:1.5; font-weight:500; }
+.device-settings-body [data-slot='item-description'] { overflow-wrap:anywhere; }
+@layer utilities {
+ .m-app :is([data-slot='button'],[data-slot='segmented-item'],[data-slot='tabs-trigger']) { min-height:44px!important; }
+ .m-app [data-slot='tabs-list']:not([data-variant='mobile']) { height:auto!important; }
+ .m-app [data-size^='icon'] { min-width:44px!important; min-height:44px!important; }
+ html[data-mobile-ui] .mobile-assistant :is([data-slot='popover-trigger'],[data-slot='message-scroller-button']) { min-height:44px!important; }
+ html[data-mobile-ui] [data-slot='sheet-content'] [data-size^='icon'] { min-width:44px!important; min-height:44px!important; }
+}

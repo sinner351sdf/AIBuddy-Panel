@@ -28,12 +28,12 @@ window.matchMedia=()=>({matches:false,addEventListener(){},removeEventListener()
 window.Element.prototype.getAnimations=()=>[]
 window.wbI18n={t:(text,vars={})=>text.replace(/\{(\w+)\}/g,(_,key)=>String(vars[key]??`{${key}}`))}
 window.wbApp={toast(){}}
-const calls=[]
-window.workbuddyDesktop={getScheduledTasks:async()=>({}), getStatsSummary:async(range,custom)=>{calls.push({range,custom});return {range,overview:{requests:0,successful:0,tokens:0},days:[],hours:[],accounts:[],providers:[],models:[],cache:{}}}}
+const calls=[];let fail=false
+window.workbuddyDesktop={getScheduledTasks:async()=>({}), getStatsSummary:async(range,custom)=>{calls.push({range,custom});if(fail)throw new Error('fixture offline');return {range,overview:{requests:0,successful:0,tokens:0},days:[],hours:[],accounts:[],providers:[],models:[],cache:{}}}}
 let mounted, React
 try{
  const file=path.join(tmp,'fixture.cjs')
- buildSync({stdin:{contents:fs.readFileSync(path.join(islands,'src/islands/report-page.tsx'),'utf8')+'\nexport {React,createRoot,ReportPage};',loader:'tsx',resolveDir:path.join(islands,'src/islands')},bundle:true,platform:'node',format:'cjs',outfile:file,jsx:'automatic',alias:{'@ui':path.join(root,'desktop-tauri/ui-kit/src/index.ts'),react:path.dirname(require.resolve('react/package.json')),'react-dom':path.dirname(require.resolve('react-dom/package.json'))},nodePaths:[path.join(islands,'node_modules'),path.join(root,'desktop-tauri/ui-kit/node_modules')],logLevel:'silent'})
+ buildSync({stdin:{contents:fs.readFileSync(path.join(islands,'src/islands/report-page.tsx'),'utf8')+'\nexport {React,createRoot};',loader:'tsx',resolveDir:path.join(islands,'src/islands')},bundle:true,platform:'node',format:'cjs',outfile:file,jsx:'automatic',alias:{'@ui':path.join(root,'desktop-tauri/ui-kit/src/index.ts'),react:path.dirname(require.resolve('react/package.json')),'react-dom':path.dirname(require.resolve('react-dom/package.json'))},nodePaths:[path.join(islands,'node_modules'),path.join(root,'desktop-tauri/ui-kit/node_modules')],logLevel:'silent'})
  const fixture=require(file); React=fixture.React; mounted=fixture.createRoot(document.getElementById('fixture'));
  await React.act(async()=>mounted.render(React.createElement(fixture.ReportPage)))
  const click=async(text)=>React.act(async()=>{const b=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===text);assert.ok(b,text+' missing');b.dispatchEvent(new MouseEvent('click',{bubbles:true}))})
@@ -47,5 +47,12 @@ try{
  assert.equal(document.getElementById('report-custom-start').value,'2026-10-01')
  await set('report-custom-start','2026-10-03')
  assert.equal([...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='应用').disabled,true)
- console.log('PASS: real report dates update, apply bridge args, persistence and invalid-range guard')
+ const previousSummary=window.wbReport.lastSummary()
+ fail=true
+ await React.act(async()=>{await window.wbReport.load({silent:true})})
+ assert.equal(window.wbReport.lastSummary(),previousSummary,'same-range refresh failures preserve settled data')
+ assert(document.querySelector('[role=alert]')?.textContent.includes('fixture offline'),'retained data carries a visible refresh error')
+ await set('report-custom-end','2026-10-04');await click('应用')
+ assert.equal(window.wbReport.lastSummary(),null,'a different failed date range must never display data from the preceding range')
+ console.log('PASS: real report dates update, bridge args, persistence, invalid-range guard, same-range refresh retention and failed-range data isolation')
 }finally{if(mounted)await React.act(async()=>mounted.unmount());dom.window.close();for(const channel of channels){channel.port1.close();channel.port2.close()}globalThis.MessageChannel=originalMessageChannel;require('esbuild').stop();fs.rmSync(tmp,{recursive:true,force:true})}

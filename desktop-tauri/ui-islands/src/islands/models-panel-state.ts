@@ -304,6 +304,7 @@ export type PanelState = {
   sort: string
   /** 内置家的 manage 视图（null = 还没拉到） */
   data: ManageView | null
+  loadError: string
   /** 已展开全部行的提供商集合 */
   expanded: ReadonlySet<string>
   /** 行内操作在途标记（防同一行连点） */
@@ -351,6 +352,7 @@ let snapshot: PanelState = {
   search: initialFilters.search,
   sort: initialFilters.sort,
   data: null,
+  loadError: '',
   expanded: new Set<string>(),
   pending: new Set<string>(),
   mapping: null,
@@ -701,10 +703,11 @@ export async function load({ force = false }: { force?: boolean } = {}): Promise
     const next = await shared().workbuddyDesktop?.getModelManage()
     // 期间若有更新的一次加载发起，本次结果作废
     if (seq !== loadSeq) return
-    patch({ data: next && Array.isArray(next.models) ? next : null })
+    if (!next || !Array.isArray(next.models)) throw new Error(t('后端未返回模型清单'))
+    patch({ data: next, loadError: '' })
   } catch (error) {
     if (seq !== loadSeq) return
-    render()
+    patch({ loadError: errorMessage(error) })
     toast(t('读取模型清单失败：{message}', { message: errorMessage(error) }), 'err')
   } finally {
     if (seq === loadSeq) loading = false

@@ -1,350 +1,101 @@
-import { ManagementButton } from './ManagementPage'
-import { Badge as SharedBadge } from '@ui'
-import { Surface, MobileButton, MobileSelect } from '../components/primitives'
+import type { ReactNode } from 'react'
 import { useState } from 'react'
-import { PageIntro, SectionHead, IconButton } from '../components/ui'
-import { Icon } from '../components/Icon'
+import { Badge, Button, Card, CardContent, Field, FieldLabel, FieldDescription, FieldGroup, Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemSeparator, ItemTitle } from '@ui'
+import { FeatureSurface, openManagement } from './ManagementPage'
+import { MobileSelect } from '../components/primitives'
+import { Icon, type IconName } from '../components/Icon'
 import { ThemeSwitch } from './MorePage'
 import { store, useStore } from '../state/store'
-import { locale, localeOptions, setLocale } from '../i18n'
+import { locale, localeOptions, setLocale, t } from '../i18n'
 import { storeApiKey } from '../api/client'
 import { usePwa } from '../lib/usePwa'
 import { applyUpdate, promptInstall } from '../lib/pwa'
 import { isNativeDashboard, apiBase, baseLabel } from '../lib/servers'
-import { t } from '../i18n'
 
-/** Compact mobile view; complete editors open within the mobile navigation shell. */
 export function SettingsPage() {
-  const { session, packaged, server, servers } = useStore()
+  return <div className='m-page'><FeatureSurface page='settings'/></div>
+}
+
+function PreferenceSection({ title, children }: { title: string; children: ReactNode }) {
+  return <section className='device-settings-section'><h2>{title}</h2><Card className='gap-0 py-0'><CardContent className='p-0'>{children}</CardContent></Card></section>
+}
+function PreferenceLink({ label, description, icon, onClick }: { label: string; description: string; icon: IconName; onClick: () => void }) {
+  return <Item render={<Button variant='ghost' onClick={onClick} aria-label={label}/>} className='min-h-18 flex-nowrap justify-start gap-3 rounded-none border-0 px-4 py-3 text-left'>
+    <ItemMedia variant='icon' className='size-8 rounded-lg bg-muted text-muted-foreground group-has-data-[slot=item-description]/item:self-center group-has-data-[slot=item-description]/item:translate-y-0'><Icon name={icon}/></ItemMedia>
+    <ItemContent className='min-w-0'><ItemTitle>{label}</ItemTitle><ItemDescription className='text-xs'>{description}</ItemDescription></ItemContent>
+    <ItemActions><Icon name='chev' className='size-4 text-muted-foreground'/></ItemActions>
+  </Item>
+}
+
+export function DeviceSettingsPage() {
+  const { session, sessionError, packaged, server, servers } = useStore()
   const pwa = usePwa()
   const [installing, setInstalling] = useState(false)
-  const currentLocale = locale()
-  const options = localeOptions()
-
+  const currentLocale = locale(), options = localeOptions()
   const install = async () => {
     setInstalling(true)
-    const outcome = await promptInstall()
-    setInstalling(false)
-    if (outcome === 'accepted') store.toast(t('正在安装…'))
-    else if (outcome === 'dismissed') store.toast(t('已取消安装'))
-    // 'unavailable'：没有可用事件（iOS 或已安装），界面本来就展示手动指引
+    try {
+      const outcome = await promptInstall()
+      if (outcome === 'accepted') store.toast(t('正在安装…'))
+      else if (outcome === 'dismissed') store.toast(t('已取消安装'))
+    } finally { setInstalling(false) }
   }
-
   const signOut = async () => {
     const { logout } = await import('../api/auth')
     const { clearPanelAuth } = await import('../api/client')
-    await logout()
-    clearPanelAuth()
-    store.setAuthLost('login')
-    store.toast(t('已退出登录'))
+    await logout(); clearPanelAuth(); store.setAuthLost('login'); store.toast(t('已退出登录'))
   }
-
-  return (
-    <div className='m-page'>
-      <div className="m-section"><ManagementButton page="settings">{t('网关设置 / 路由与数据管理')}</ManagementButton></div>
-      <PageIntro subtitle={t('外观 · 接入 · 关于')}
-        actions={<IconButton name='refresh' label={t('刷新')} onClick={() => void store.refresh(true)} />}
-      />
-
-      {/* 服务器：APK 才有（浏览器里地址就是当前 origin，没什么可配的） */}
-      {packaged ? (
-        <div className='m-section' style={{ marginTop: 0 }}>
-          <SectionHead title={t('服务器')} />
-          <Surface className='m-card'>
-            <MobileButton type='button' className='m-row' onClick={() => store.push('servers')}>
-              <span className='m-logo' style={{ background: 'var(--m-primary-soft)', borderColor: 'transparent', color: 'var(--m-primary)' }}>
-                <Icon name='server' />
-              </span>
-              <div className='m-grow'>
-                <div className='m-t1'>{server?.name || baseLabel(server?.base || '')}</div>
-                <div className='m-t2 m-mono' style={{ fontSize: 11.5 }}>
-                  {servers.length > 1 ? t('{n} 台可选 · 点此切换', { n: servers.length }) : baseLabel(server?.base || '')}
-                </div>
-              </div>
-              <span className='m-chev'>
-                <Icon name='chev' />
-              </span>
-            </MobileButton>
-          </Surface>
+  const gatewayLabel = sessionError ? t('连接异常') : session?.health?.upstreamConfigured ? t('网关运行中') : session ? t('上游未配置') : t('正在连接网关')
+  return <div className='m-page m-device-settings'>
+    <div className='device-settings-body'>
+      <p className='device-settings-intro'>{t('这些偏好保存在这台设备上。')}</p>
+      <Card className='gap-0 py-0'><CardContent className='p-4'>
+        <div className='flex min-w-0 items-center gap-3'>
+          <Icon name='server' className='size-5 text-muted-foreground'/>
+          <div className='min-w-0 flex-1'><p className='text-sm font-medium'>{gatewayLabel}</p><p className='m-mono truncate text-xs text-muted-foreground' title={baseLabel(apiBase())}>{baseLabel(apiBase())}</p></div>
+          <Button variant='ghost' size='icon-lg' className='min-h-11 min-w-11' aria-label={t('刷新')} onClick={() => void store.refresh(true)}><Icon name='refresh' data-icon='inline-start'/></Button>
         </div>
-      ) : null}
+      </CardContent></Card>
+      {packaged ? <PreferenceSection title={t('服务器')}><ItemGroup role='group'><PreferenceLink label={server?.name || t('当前服务器')} description={servers.length > 1 ? t('{n} 台可选 · 点此切换', { n: servers.length }) : baseLabel(server?.base || '')} icon='server' onClick={() => store.push('servers')}/></ItemGroup></PreferenceSection> : null}
 
-      {/* 网关状态 */}
-      <div className='m-section' style={packaged ? undefined : { marginTop: 0 }}>
-        <Surface className='m-card'>
-          <div className='m-row'>
-            <span
-              className='m-logo'
-              style={{ background: 'var(--m-ok-soft)', borderColor: 'transparent', color: 'var(--m-ok)' }}
-            >
-              <Icon name='bolt' />
-            </span>
-            <div className='m-grow'>
-              <div className='m-t1'>{session?.health?.upstreamConfigured ? t('网关运行中') : t('上游未配置')}</div>
-              <div className='m-t2 m-mono' style={{ fontSize: 11.5 }}>
-                {baseLabel(apiBase())}
-              </div>
-            </div>
-            <SharedBadge variant={session?.health?.upstreamConfigured ? 'success' : 'warning'}>
-              <i />
-              {session?.health?.upstreamConfigured ? t('正常') : t('待配置')}
-            </SharedBadge>
-          </div>
-        </Surface>
-      </div>
-
-      <div className='m-section'>
-        <SectionHead title={t('外观')} />
-        <Surface className='m-card'>
-          <div className='m-row'>
-            <span className='m-logo'>
-              <Icon name='moon' />
-            </span>
-            <div className='m-grow'>
-              <div className='m-t1'>{t('主题')}</div>
-              <div className='m-t2'>{t('跟随系统 · 浅色 · 深色')}</div>
-            </div>
-            <ThemeSwitch />
-          </div>
-          <div className='m-row'>
-            <span className='m-logo'>
-              <Icon name='globe' />
-            </span>
-            <div className='m-grow'>
-              <div className='m-t1'>{t('界面语言')}</div>
-              <div className='m-t2'>{options.find(item => item.code === currentLocale)?.label || currentLocale}</div>
-            </div>
-            <MobileSelect
-              value={currentLocale}
-              onChange={event => setLocale(event.target.value)}
-              aria-label={t('界面语言')}
-              style={{
-                height: 34,
-                padding: '0 8px',
-                borderRadius: 9,
-                border: '1px solid var(--m-line)',
-                background: 'var(--m-surface-2)',
-                color: 'var(--m-text)',
-                // 16px 是 iOS 的阈值：小于它聚焦时 Safari 会自动放大整页
-                fontSize: 16,
-                flex: 'none',
-              }}
-            >
-              {options.map(item => (
-                <option key={item.code} value={item.code}>
-                  {item.label}
-                </option>
-              ))}
+      <PreferenceSection title={t('外观')}>
+        <FieldGroup className='gap-5 p-4'>
+          <Field className='gap-3'><FieldLabel>{t('主题')}</FieldLabel><ThemeSwitch fullWidth/></Field>
+          <Field className='gap-2'><FieldLabel>{t('界面语言')}</FieldLabel>
+            <MobileSelect className='min-h-11 w-full' value={currentLocale} onChange={event => setLocale(event.target.value)} aria-label={t('界面语言')}>
+              {options.map(item => <option key={item.code} value={item.code}>{item.label}</option>)}
             </MobileSelect>
-          </div>
-        </Surface>
-      </div>
+            <FieldDescription className='text-xs'>{t('切换后会刷新当前界面。')}</FieldDescription>
+          </Field>
+        </FieldGroup>
+      </PreferenceSection>
+      <PreferenceSection title={t('接入')}><ItemGroup role='group' className='gap-0'>
+        <PreferenceLink label={t('接口地址')} description={`${apiBase()}/v1`} icon='doc' onClick={() => store.push('docs')}/>
+        <ItemSeparator className='mx-4 my-0 w-auto'/>
+        <PreferenceLink label={t('网关 Key')} description={t('查看密钥与客户端接入范围')} icon='key' onClick={() => store.push('keys')}/>
+      </ItemGroup></PreferenceSection>
+      <PreferenceSection title={t('登录与凭证')}><ItemGroup role='group'>
+        {packaged ? <PreferenceLink label={t('退出登录')} description={t('退出这台服务器，不影响其他连接')} icon='logout' onClick={() => void signOut()}/>
+          : <PreferenceLink label={t('清除本机凭证')} description={t('清除浏览器保存的 API Key，不影响网关')} icon='logout' onClick={() => { storeApiKey(''); store.setAuthLost(null); store.toast(t('已清除本机保存的 API Key')); window.location.reload() }}/ >}
+      </ItemGroup></PreferenceSection>
 
-      <div className='m-section'>
-        <SectionHead title={t('接入')} />
-        <Surface className='m-card'>
-          <MobileButton type='button' className='m-row' onClick={() => store.push('docs')}>
-            <span className='m-logo'>
-              <Icon name='doc' />
-            </span>
-            <div className='m-grow'>
-              <div className='m-t1'>{t('接口地址')}</div>
-              <div className='m-t2 m-mono' style={{ fontSize: 11.5 }}>
-                {apiBase()}/v1
-              </div>
-            </div>
-            <span className='m-chev'>
-              <Icon name='chev' />
-            </span>
-          </MobileButton>
-          <MobileButton type='button' className='m-row' onClick={() => store.push('keys')}>
-            <span className='m-logo'>
-              <Icon name='key' />
-            </span>
-            <div className='m-grow'>
-              <div className='m-t1'>{t('网关 Key')}</div>
-              <div className='m-t2'>{t('复制给客户端')}</div>
-            </div>
-            <span className='m-chev'>
-              <Icon name='chev' />
-            </span>
-          </MobileButton>
-        </Surface>
-      </div>
-
-      <div className='m-section'>
-        <SectionHead title={t('账号')} />
-        <Surface className='m-card'>
-          {/* APK 有真正的登录态，给「退出登录」；浏览器端只有 API Key 可清 */}
-          {packaged ? (
-            <MobileButton type='button' className='m-row' onClick={() => void signOut()}>
-              <span className='m-logo'>
-                <Icon name='logout' />
-              </span>
-              <div className='m-grow'>
-                <div className='m-t1'>{t('退出登录')}</div>
-                <div className='m-t2'>{t('退出这台服务器的登录，不影响其他服务器')}</div>
-              </div>
-              <span className='m-chev'>
-                <Icon name='chev' />
-              </span>
-            </MobileButton>
-          ) : (
-            <MobileButton
-              type='button'
-              className='m-row'
-              onClick={() => {
-                storeApiKey('')
-                store.setAuthLost(null)
-                store.toast(t('已清除本机保存的 API Key'))
-                void store.refresh(true)
-              }}
-            >
-              <span className='m-logo'>
-                <Icon name='logout' />
-              </span>
-              <div className='m-grow'>
-                <div className='m-t1'>{t('清除本机凭证')}</div>
-                <div className='m-t2'>{t('只清掉这个浏览器存的 Key，不影响网关')}</div>
-              </div>
-              <span className='m-chev'>
-                <Icon name='chev' />
-              </span>
-            </MobileButton>
-          )}
-        </Surface>
-      </div>
-
-      {/* APK 不需要装到桌面（本身就是 App），这一段只给浏览器形态 */}
-      {packaged || isNativeDashboard() ? null : (
-      <div className='m-section'>
-        <SectionHead title={t('安装到桌面')} />
-        <Surface className='m-card'>
-          <div className='m-row'>
-            <span className='m-logo'>
-              <Icon name='install' />
-            </span>
-            <div className='m-grow'>
-              <div className='m-t1'>{t('当前形态')}</div>
-              <div className='m-t2'>
-                {pwa.standalone ? t('已作为独立应用运行') : t('浏览器标签页')}
-              </div>
-            </div>
-            <SharedBadge variant={session?.health?.upstreamConfigured ? 'success' : 'warning'}>
-              {pwa.standalone ? t('已安装') : t('未安装')}
-            </SharedBadge>
-          </div>
-
-          {pwa.standalone ? (
-            <Surface className='m-card-pad' style={{ borderTop: '1px solid var(--m-line)', fontSize: 12.5, lineHeight: 1.7, color: 'var(--m-text-2)' }}>
-              {t('从桌面图标启动，全屏、无地址栏。想卸载：长按图标删除，或清除浏览器站点数据。')}
-            </Surface>
-          ) : pwa.canInstall ? (
-            <div style={{ borderTop: '1px solid var(--m-line)', padding: '12px 15px 14px' }}>
-              <div style={{ fontSize: 12.5, lineHeight: 1.7, color: 'var(--m-text-2)' }}>
-                {t('装成 App 后从桌面图标直接进入：全屏打开、没有地址栏。')}
-              </div>
-              <MobileButton
-                type='button'
-                className='m-btn'
-                style={{ marginTop: 10, height: 40 }}
-                disabled={installing}
-                onClick={() => void install()}
-              >
-                <Icon name='download' />
-                {installing ? t('正在安装…') : t('安装到主屏幕')}
-              </MobileButton>
-            </div>
-          ) : (
-            <div style={{ borderTop: '1px solid var(--m-line)', padding: '12px 15px 14px' }}>
-              <div style={{ fontSize: 12.5, lineHeight: 1.75, color: 'var(--m-text-2)' }}>
-                {pwa.showIosHint
-                  ? t('Safari 没有安装按钮：点底部的「分享」，选「添加到主屏幕」，再点「添加」。')
-                  : t('用浏览器菜单里的「添加到主屏幕」把这一页装成 App：全屏打开、没有地址栏，和原生应用一样。')}
-              </div>
-              {pwa.showIosHint ? (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    marginTop: 10,
-                    padding: '9px 11px',
-                    borderRadius: 11,
-                    background: 'var(--m-surface-2)',
-                    fontSize: 12,
-                    color: 'var(--m-text-3)',
-                  }}
-                >
-                  <Icon name='share' style={{ width: 16, height: 16, flex: 'none' }} />
-                  <span>{t('分享图标在 Safari 底部工具栏中间')}</span>
-                </div>
-              ) : null}
-            </div>
-          )}
-        </Surface>
-      </div>
-      )}
-
-      {/* 只有真有事时才出现：平时不占版面 */}
-      {pwa.updateReady || pwa.swState === 'unsupported' ? (
-        <div className='m-section'>
-          <SectionHead title={t('应用状态')} />
-          <Surface className='m-card'>
-            {pwa.updateReady ? (
-              <div className='m-row'>
-                <span className='m-logo' style={{ background: 'var(--m-primary-soft)', borderColor: 'transparent', color: 'var(--m-primary)' }}>
-                  <Icon name='up' />
-                </span>
-                <div className='m-grow'>
-                  <div className='m-t1'>{t('有新版本')}</div>
-                  <div className='m-t2'>{t('重启后生效，不影响当前操作')}</div>
-                </div>
-                <MobileButton type='button' className='m-btn m-sm' onClick={() => void applyUpdate()}>
-                  {t('重启更新')}
-                </MobileButton>
-              </div>
-            ) : null}
-            {pwa.swState === 'unsupported' ? (
-              <div className='m-row'>
-                <span className='m-logo'>
-                  <Icon name='info' />
-                </span>
-                <div className='m-grow'>
-                  <div className='m-t1'>{t('离线缓存未启用')}</div>
-                  <div className='m-t2'>{t('浏览器只在 https 或 localhost 下提供离线缓存；局域网 http 访问不影响正常使用')}</div>
-                </div>
-              </div>
-            ) : null}
-          </Surface>
+      {packaged || isNativeDashboard() ? null : <PreferenceSection title={t('安装到桌面')}>
+        <div className='flex flex-col gap-3 p-4'>
+          <div className='flex items-center justify-between gap-3'><span className='text-sm font-medium'>{pwa.standalone ? t('独立应用') : t('浏览器标签页')}</span><Badge variant={pwa.standalone ? 'success' : 'secondary'}>{pwa.standalone ? t('已安装') : t('未安装')}</Badge></div>
+          <p className='text-xs leading-relaxed text-muted-foreground'>{pwa.standalone ? t('从主屏幕图标启动，使用独立窗口打开面板。') : pwa.showIosHint ? t('在 Safari 中点“分享”，再选择“添加到主屏幕”。') : t('使用浏览器菜单中的“添加到主屏幕”，下次可直接打开。')}</p>
+          {!pwa.standalone && pwa.canInstall ? <Button className='min-h-11 w-full' disabled={installing} onClick={() => void install()}><Icon name='download' data-icon='inline-start'/>{installing ? t('正在安装…') : t('安装到主屏幕')}</Button> : null}
         </div>
-      ) : null}
-
-      <div className='m-section' style={{ paddingBottom: 8 }}>
-        <Surface className='m-card'>
-          <div className='m-row'>
-            <span className='m-logo'>
-              <Icon name='info' />
-            </span>
-            <div className='m-grow'>
-              <div className='m-t1'>{t('AIBuddy Panel 手机端')}</div>
-              <div className='m-t2'>{t('当前连接网关的手机管理面板')}</div>
-            </div>
-          </div>
-          <div className='m-row' style={{ borderTop: '1px solid var(--m-line)' }}>
-            <span className='m-logo'>
-              <Icon name='heart' />
-            </span>
-            <div className='m-grow'>
-              <div className='m-t1'>{t('社区与支持')}</div>
-              <div className='m-t2'>{t('QQ 群 · Telegram · Discord')}</div>
-            </div>
-            <span className='m-chev'>
-              <Icon name='chev' />
-            </span>
-          </div>
-        </Surface>
-      </div>
+      </PreferenceSection>}
+      {pwa.updateReady || pwa.swState === 'unsupported' ? <PreferenceSection title={t('应用状态')}>
+        <div className='flex flex-col gap-3 p-4'>
+          {pwa.updateReady ? <><p className='text-sm font-medium'>{t('有新版本')}</p><p className='text-xs text-muted-foreground'>{t('重新加载后使用新版界面。')}</p><Button className='min-h-11 w-full' onClick={() => void applyUpdate()}>{t('重启更新')}</Button></> : null}
+          {pwa.swState === 'unsupported' ? <><p className='text-sm font-medium'>{t('离线缓存未启用')}</p><p className='text-xs leading-relaxed text-muted-foreground'>{t('浏览器只在 https 或 localhost 下提供离线缓存；局域网 http 访问不影响正常使用。')}</p></> : null}
+        </div>
+      </PreferenceSection> : null}
+      <PreferenceSection title={t('关于')}><ItemGroup role='group' className='gap-0'>
+        <Item className='flex-nowrap gap-3 border-0 p-4'><ItemMedia variant='icon'><Icon name='info'/></ItemMedia><ItemContent><ItemTitle>{t('AIBuddy Panel 手机端')}</ItemTitle><ItemDescription className='text-xs'>{t('当前连接网关的手机管理面板')}</ItemDescription></ItemContent></Item>
+        <ItemSeparator className='mx-4 my-0 w-auto'/><PreferenceLink label={t('社区与支持')} description={t('反馈与需求')} icon='heart' onClick={() => openManagement('settings', t('社区与支持'), 'feedback')}/>
+      </ItemGroup></PreferenceSection>
     </div>
-  )
+  </div>
 }

@@ -1,3 +1,4 @@
+import { usePageReady } from '../components/use-page-ready'
 /**
  * Agent2API · 网络代理页（代理池：列表 / 新增 / 编辑 / 删除 / 启停 / 连通性测试
  * / 勾选批量测试与批量删除）。Clash 出口同步与订阅导入同在「订阅管理」弹窗里
@@ -159,8 +160,9 @@ import { t } from '../i18n'
 
 /* ─── 页面 ───────────────────────────────────── */
 
-function ProxiesPage() {
+export function ProxiesPage() {
   const snapshot = React.useSyncExternalStore(subscribe, getSnapshot)
+  usePageReady('proxies', snapshot.data !== null || Boolean(snapshot.error))
   // 订阅清单的条数给「订阅管理」按钮带读数。
   const subs = React.useSyncExternalStore(subscribeSubs, getSubSnapshot).data?.items ?? []
   const [modal, setModal] = React.useState<{ item: ProxyPoolItem | null } | null>(null)

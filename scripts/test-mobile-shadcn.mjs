@@ -62,7 +62,7 @@ try {
   buildSync({
     stdin: {
       contents:
-        "export {App} from './desktop-tauri/mobile/src/App'; export {GatewayLauncher} from './desktop-tauri/mobile/src/pages/GatewayLauncher';export {ConfirmHost} from './desktop-tauri/mobile/src/components/confirm';export {Fragment} from 'react';export {store} from './desktop-tauri/mobile/src/state/store';export * as mobile from './desktop-tauri/mobile/src/lib/accountLimits';export * as desktop from './desktop-tauri/ui-islands/src/islands/accounts-domain';export {act,createElement} from 'react';export {createRoot} from 'react-dom/client';",
+        "export {mobileFeatureRequest,mobileAssistantAccess} from './desktop-tauri/mobile/src/lib/features';export * as servers from './desktop-tauri/mobile/src/lib/servers';export {App} from './desktop-tauri/mobile/src/App'; export {GatewayLauncher} from './desktop-tauri/mobile/src/pages/GatewayLauncher';export {ConfirmHost} from './desktop-tauri/mobile/src/components/confirm';export {Fragment} from 'react';export {store} from './desktop-tauri/mobile/src/state/store';export * as mobile from './desktop-tauri/mobile/src/lib/accountLimits';export * as desktop from './desktop-tauri/ui-islands/src/islands/accounts-domain';export {act,createElement} from 'react';export {createRoot} from 'react-dom/client';",
       resolveDir: root,
       loader: 'tsx',
     },
@@ -237,6 +237,7 @@ try {
     },
   ]
   let remaining = 0,
+    failSession = false,
     failSnapshot = false
   const calls = []
   globalThis.fetch = async (url, init = {}) => {
@@ -244,6 +245,7 @@ try {
       method = init.method || 'GET'
     calls.push({ url: route, method, body: init.body })
     let data = {}
+    if (route === '/api/session' && failSession) return {status:503,ok:false,text:async()=>JSON.stringify({success:false,error:'fixture connection interrupted'})}
     if (route === '/api/session')
       data = {
         health: { upstreamConfigured: true },
@@ -307,6 +309,29 @@ try {
       text: async () => JSON.stringify({ success: true, data }),
     }
   }
+  localStorage.setItem('agent2api.panelAuth', JSON.stringify({access:'fresh-fixture'}))
+  localStorage.setItem('agent2api.panelAuth.origin', JSON.stringify({access:'stale-fixture'}))
+  assert.equal(f.servers.readServerAuth('origin').access,'fresh-fixture','mobile and full features use login page tokens')
+  f.servers.clearServerAuth('origin')
+  assert.equal(f.servers.readServerAuth('origin'),null,'clearing auth cannot resurrect legacy tokens')
+  localStorage.setItem('agent2api.webKey.origin','legacy-fixture')
+  assert.equal(f.servers.readServerKey('origin'),'legacy-fixture','legacy mobile web key migrates once')
+  assert.equal(localStorage.getItem('agent2api.webKey'),'legacy-fixture')
+  f.servers.storeServerKey('origin','')
+  assert.equal(f.servers.readServerKey('origin'),'')
+  f.servers.storeServerKey('remote-fixture','remote-only')
+  assert.equal(f.servers.readServerKey('origin'),'','native remote profile keys stay isolated')
+  f.servers.storeServerKey('remote-fixture','')
+  f.servers.storeServerKey('origin','assistant-fixture')
+  f.servers.storeServerAuth('origin','access-fixture','refresh-fixture')
+  const assistantHeaders = await f.mobileAssistantAccess()
+  assert.equal(assistantHeaders['x-api-key'],'assistant-fixture')
+  assert.equal(assistantHeaders['x-panel-token'],'access-fixture')
+  f.servers.storeServerKey('origin','');f.servers.clearServerAuth('origin')
+  const beforeGuard = calls.length
+  await assert.rejects(f.mobileFeatureRequest('GET','https://external.invalid/api/session'), /当前网关/)
+  await assert.rejects(f.mobileFeatureRequest('TRACE','/api/session'), /请求方法/)
+  assert.equal(calls.length,beforeGuard,'invalid bridge paths never transmit auth headers')
   const wait = () => new Promise((r) => setTimeout(r, 30))
   const click = async (element) => {
     assert.ok(element, 'click target exists')
@@ -439,6 +464,51 @@ try {
   )
   failSnapshot = false
   assert.equal(location.pathname, '/m', 'navigation preserves mobile path despite root asset base')
+  // The More hub keeps every destination in the phone shell and labels its live badge.
+  await f.act(async () => { f.store.go('more'); await wait() })
+  assert.equal(document.querySelectorAll('.m-more button[aria-label="设置"]').length, 1, 'one settings entry without duplicate toolbar action')
+  assert(document.querySelector('.more-connection').textContent.includes('已连接'))
+  failSession = true
+  await f.act(async () => { await f.store.refresh(true); await wait() })
+  assert(document.querySelector('.more-connection').textContent.includes('连接异常'), 'a failed refresh cannot present a stale session as currently connected')
+  failSession = false
+  await f.act(async () => { await f.store.refresh(true); await wait() })
+  assert(document.querySelector('.more-connection').textContent.includes('已连接'), 'connection status recovers after a successful read')
+  const menu = [
+    ['签到中心','checkin'], ['模型管理','models'], ['Agent 接管','agent'], ['网络代理','proxies'],
+    ['网关 Key','keys'], ['接口文档','docs'], ['账号','accounts'], ['积分构成','credits'],
+    ['请求日志','requests'], ['运行日志','logs'], ['定时任务','tasks'], ['设置','settings'], ['报表','report'], ['网关状态','settings'],
+  ]
+  for (const [label, target] of menu) {
+    const control = document.querySelector(`.m-more button[aria-label="${label}"]`)
+    assert(control, 'More entry: ' + label)
+    assert.equal(control.dataset.slot, 'item', 'shared shadcn Item owns the action')
+    await click(control)
+    assert.equal(f.store.get().route.screen, target, 'More destination: ' + label)
+    assert.equal(location.pathname, '/m', 'More entry preserves mobile document')
+    assert.equal(document.querySelectorAll('iframe').length, 0)
+    await f.act(async () => { f.store.back(); await wait() })
+    assert.equal(f.store.get().route.screen, 'more', 'More Back: ' + label)
+  }
+  for (const [label, mode] of [['深色','dark'], ['浅色','light'], ['跟随系统','system']]) {
+    const control = [...document.querySelectorAll('.more-theme button')].find(button => button.textContent === label)
+    await click(control)
+    assert.equal(f.store.get().theme, mode)
+    assert.equal(document.documentElement.dataset.theme, mode)
+    assert.equal(localStorage.getItem('workbuddy-desktop-theme'), mode, 'theme preference persists locally')
+    assert.equal(document.querySelectorAll('.more-theme [aria-pressed=true]').length, 1)
+    await click(control)
+    assert.equal(f.store.get().theme, mode, 'selected theme cannot toggle to an empty selection')
+  }
+  remaining = 0
+  await f.act(async () => { await f.store.refresh(true); await wait() })
+  const limitedMenu = document.querySelector('.m-more button[aria-label="账号"]')
+  assert(limitedMenu.textContent.includes('1 个受限'), 'More badge gives count and meaning')
+  assert(limitedMenu.textContent.includes('限流或额度限制'), 'More explains why the account needs attention')
+  assert(limitedMenu.getAttribute('aria-describedby').includes('more-accounts-badge'), 'screen readers can discover the restriction count')
+  remaining = 5
+  await f.act(async () => { await f.store.refresh(true); await wait() })
+  assert(!document.querySelector('.m-more button[aria-label="账号"] [data-slot=badge]'), 'More badge clears after cached balance recovery')
   // Every route mounts with the real shared UI; read-only navigation sends no mutation requests.
   const routes = [
     'home',
@@ -454,6 +524,7 @@ try {
     'requests',
     'logs',
     'settings',
+    'device-settings',
     'docs',
     'agent',
     'servers',
@@ -467,7 +538,7 @@ try {
     })
     if (previous !== route) assert.equal(document.querySelector('.m-scroll').scrollTop, 0, 'navigation resets content scroll: ' + route)
     assert.ok(
-      document.querySelector('.m-page') || route === 'servers',
+      document.querySelector('.m-page,.m-feature-surface') || route === 'servers',
       'route mounts: ' + route,
     )
     for (const icon of document.querySelectorAll('svg[viewBox="0 0 24 24"]')) assert.ok(icon.hasAttribute('width') && icon.hasAttribute('height'), 'icons have intrinsic dimensions: ' + route)
@@ -492,6 +563,12 @@ try {
     calls.every((call) => call.method === 'GET'),
     'navigation and usage reads do not trigger live/provider mutations',
   )
+  await f.act(async () => { f.store.go('settings'); await wait() })
+  await f.act(async () => { document.dispatchEvent(new window.CustomEvent('aibuddy:mobile-title',{detail:{page:'settings',title:'路由'}})); await wait() })
+  assert.equal(document.querySelector('.m-navbar-title').textContent,'路由')
+  assert(document.title.startsWith('路由'),'mobile detail updates the task-switcher title')
+  assert(!document.querySelector('[aria-label="管理"]'),'settings has one navigation path without a duplicate management entry')
+  await f.act(async () => { f.store.go('more'); await wait() })
   // Every formerly reduced feature opens a working editor inside the original
   // mobile navigation shell, never a top-level redirect or a placeholder toast.
   for (const [route, label, panel, action] of [
@@ -502,21 +579,17 @@ try {
     ['agent', '配置与应用接管', 'agent', ''],
     ['proxies', '新增出口 / 编辑与订阅', 'proxies', ''],
     ['checkin', '自动签到 / 福利与套餐', 'checkin', ''],
-    ['settings', '网关设置 / 路由与数据管理', 'settings', ''],
-    ['assistant', '开始对话', 'assistant', ''],
-    ['report', '完整报表与趋势', 'overview', ''],
   ]) {
     await f.act(async () => {f.store.go(route); await wait()})
     const control = [...document.querySelectorAll('button')].find(button =>
       button.textContent.includes(label) || button.getAttribute('aria-label') === label)
     assert.ok(control, 'working mobile action: ' + label)
     await click(control)
-    const frame = document.querySelector('iframe')
-    assert.ok(frame, 'editor stays inside mobile shell: ' + label)
-    const editor = new URL(frame.src)
-    assert.equal(editor.origin, location.origin)
-    assert.equal(editor.searchParams.get('mobile-panel'), panel)
-    assert.equal(editor.searchParams.get('mobile-action') || '', action)
+    assert.equal(document.querySelectorAll('iframe').length, 0, 'mobile features never use the desktop document')
+    const editor = document.querySelector('.mobile-feature-host')
+    assert.ok(editor, 'feature mounts in the phone document: ' + label)
+    assert.equal(editor.dataset.page, panel)
+    assert.equal(f.store.get().route.params.action || '', action)
     assert.equal(location.pathname, '/m')
     assert.ok(!document.querySelector('nav.m-tabbar'), 'secondary screen has a Back bar')
     assert.ok(location.hash.includes('management?'), 'editor survives a bookmarked/reloaded route')
@@ -528,8 +601,8 @@ try {
   await f.act(async () => {f.store.go('accounts'); await wait()})
   await click([...document.querySelectorAll('button')].find(button => button.textContent.includes('WorkBuddy expired')))
   await click(findButton('编辑账号'))
-  assert.equal(new URL(document.querySelector('iframe').src).searchParams.get('account'), f.store.get().session.accounts.accounts.find(account => account.name === 'WorkBuddy expired').id)
-  assert.equal(new URL(document.querySelector('iframe').src).searchParams.get('mobile-action'), 'edit')
+  assert.equal(f.store.get().route.params.id, f.store.get().session.accounts.accounts.find(account => account.name === 'WorkBuddy expired').id)
+  assert.equal(f.store.get().route.params.action, 'edit')
   await click(document.querySelector('.m-navbar button'))
   // Destructive dialogs cancel without requests; confirmation still sends the original payload.
   await f.act(async () => {
@@ -601,13 +674,17 @@ try {
           ts.ScriptKind.TSX,
         )
       function walk(node) {
-        if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node))
+        if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+          // Base UI's documented render prop changes the semantic tag while Item still owns behavior/styles.
+          const expression = node.parent, attribute = expression?.parent, owner = attribute?.parent?.parent
+          const composedItem = node.tagName.getText(ast) === 'button' && ts.isJsxExpression(expression) &&
+            ts.isJsxAttribute(attribute) && attribute.name.getText(ast) === 'render' &&
+            (ts.isJsxOpeningElement(owner) || ts.isJsxSelfClosingElement(owner)) && owner.tagName.getText(ast) === 'Item'
           assert.ok(
-            !['button', 'input', 'select', 'textarea', 'progress'].includes(
-              node.tagName.getText(ast),
-            ),
+            composedItem || !['button', 'input', 'select', 'textarea', 'progress'].includes(node.tagName.getText(ast)),
             name + ' must consume shared controls',
           )
+        }
         ts.forEachChild(node, walk)
       }
       walk(ast)
@@ -625,7 +702,7 @@ try {
     'mobile consumes shared theme instead of independent colors',
   )
   console.log(
-    `PASS: ${cases.length} desktop/mobile limiter cases; homepage, filter, details and bottom badge; ${routes.length} real routes, 10 management flows with Back navigation; shared controls; confirmation cancel/submit; read-only snapshot refresh; native local start/stop/open and multiple remote services`,
+    `PASS: ${cases.length} desktop/mobile limiter cases; homepage, filter, details and bottom badge; ${routes.length} real routes, 7 in-document management flows with Back navigation; shared controls; confirmation cancel/submit; read-only snapshot refresh; native local start/stop/open and multiple remote services`,
   )
 } finally {
   if (reactRoot) {

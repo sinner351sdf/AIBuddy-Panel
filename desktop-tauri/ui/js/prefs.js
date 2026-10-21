@@ -131,8 +131,7 @@
     else apply();
     return getPrefs();
   }
-  function apply() {
-    applying = true;
+  function applyRootAttributes() {
     var root = document.documentElement;
     root.setAttribute('data-theme', prefs.theme);
     root.setAttribute('data-pref-sidebar', prefs.darkSidebar ? 'dark' : 'light');
@@ -148,10 +147,17 @@
     root.setAttribute('data-pref-topbar-grad', prefs.topbarGradient ? 'on' : 'off');
     root.setAttribute('data-pref-navhl', prefs.menuHighlight ? 'on' : 'off');
     root.setAttribute('data-pref-tags', prefs.isTagsview ? 'on' : 'off');
+  }
+  // Layout/theme preferences must be known before CSS paints the desktop shell.
+  if (document.documentElement.dataset.mobileUi !== 'true') applyRootAttributes();
+  function apply() {
+    applying = true;
+    var root = document.documentElement;
+    applyRootAttributes();
     // 与设置页共用主题唯一入口，也同步桌面原生窗口和 color-scheme。
     window.wbApp?.applyTheme?.(prefs.theme);
     window.wbTheme?.applyPrimaryColor(prefs.primary);
-    if (window.__aibuddyTitleBase) {
+    if (window.__aibuddyTitleBase && document.documentElement.dataset.mobileUi !== 'true') {
       document.title = prefs.dynamicTitle
         ? (window.__aibuddyTitleBase.currentPage
           ? window.__aibuddyTitleBase.currentPage + ' · ' + window.__aibuddyTitleBase.brand
@@ -523,6 +529,10 @@
           : window.__aibuddyTitleBase.brand;
       }
     });
+    if (document.documentElement.dataset.mobileUi === 'true') {
+      var mobileTheme = document.documentElement.dataset.theme;
+      if (['system', 'light', 'dark'].indexOf(mobileTheme) >= 0) { prefs.theme = mobileTheme; save(prefs); }
+    }
     apply();
     ensureTopbarButtons();
     watchBanner();

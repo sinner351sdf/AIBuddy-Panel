@@ -4,13 +4,15 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {createRequire} from 'node:module'
+const mobileMode=process.argv.includes('--mobile')
+if(mobileMode){const nativeCrypto=globalThis.crypto;Object.defineProperty(globalThis,'crypto',{configurable:true,value:{getRandomValues:nativeCrypto.getRandomValues.bind(nativeCrypto),subtle:nativeCrypto.subtle}})}
 const root=path.resolve(new URL('..',import.meta.url).pathname)
 const require=createRequire(path.join(root,'desktop-tauri/ui-islands/package.json'))
 const {buildSync}=require('esbuild'); const {JSDOM}=require('jsdom')
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'a2a-assistant-'))
 const out=path.join(dir,'fixture.cjs')
-buildSync({stdin:{contents:"import './src/islands/assistant-page'; export * from './src/islands/assistant-state'; export * from './src/islands/assistant-tools'; export * from './src/islands/assistant-chat'; export * from './src/islands/assistant-files'; export * from './src/islands/assistant-models'; export * from './src/islands/assistant-context'",loader:'tsx',resolveDir:path.join(root,'desktop-tauri/ui-islands')},bundle:true,platform:'node',format:'cjs',outfile:out,jsx:'automatic',alias:{'@ui':path.join(root,'desktop-tauri/ui-kit/src/index.ts'),react:path.dirname(require.resolve('react/package.json')),'react-dom':path.dirname(require.resolve('react-dom/package.json'))},nodePaths:[path.join(root,'desktop-tauri/ui-islands/node_modules'),path.join(root,'desktop-tauri/ui-kit/node_modules')],logLevel:'silent'})
-const dom=new JSDOM('<html><body><section class="page active" data-page="assistant"></section></body></html>',{url:'http://localhost/'})
+buildSync({stdin:{contents:"import './src/islands/assistant-page'; export * from './src/islands/assistant-state'; export * from './src/islands/assistant-tools'; export * from './src/islands/assistant-chat'; export * from './src/islands/assistant-files'; export * from './src/islands/assistant-models'; export * from './src/islands/assistant-context';export {AssistantPage} from './src/islands/assistant-page';export {createRoot} from 'react-dom/client';export {createElement} from 'react'",loader:'tsx',resolveDir:path.join(root,'desktop-tauri/ui-islands')},bundle:true,platform:'node',format:'cjs',outfile:out,jsx:'automatic',alias:{'@ui':path.join(root,'desktop-tauri/ui-kit/src/index.ts'),react:path.dirname(require.resolve('react/package.json')),'react-dom':path.dirname(require.resolve('react-dom/package.json'))},nodePaths:[path.join(root,'desktop-tauri/ui-islands/node_modules'),path.join(root,'desktop-tauri/ui-kit/node_modules')],logLevel:'silent'})
+const dom=new JSDOM(mobileMode?'<html><body><section data-page="assistant"></section></body></html>':'<html><body><section class="page active" data-page="assistant"></section></body></html>',{url:'http://localhost/'})
 for(const k of ['window','document','HTMLElement','Element','Node','Event','MouseEvent','KeyboardEvent','MutationObserver','HTMLButtonElement','HTMLInputElement','HTMLTextAreaElement','SVGElement','ShadowRoot','NodeFilter','DocumentFragment'])globalThis[k]=dom.window[k]
 Object.defineProperty(globalThis,'navigator',{configurable:true,value:dom.window.navigator})
 // JSDOM 26 lacks PointerEvent, which Base UI dispatches for switch clicks.
@@ -63,6 +65,7 @@ globalThis.fetch=async(url,init={})=>{
  return sse([...start,{type:'tool-input-start',toolCallId:'tool'+chatCalls,toolName:name,dynamic:true},{type:'tool-input-available',toolCallId:'tool'+chatCalls,toolName:name,input,dynamic:true},{type:'finish-step'},{type:'finish',finishReason:'tool-calls'},'[DONE]'])
 }
 const api=require(out)
+if(mobileMode)api.createRoot(document.querySelector('section')).render(api.createElement(api.AssistantPage,{mobile:true}))
 async function until(pred){for(let i=0;i<400;i++){if(pred())return;await new Promise(r=>setTimeout(r,5))}throw new Error('timeout: '+document.body.textContent)}
 const button=text=>[...document.querySelectorAll('button')].find(el=>el.textContent.trim()===text)
 const menuItem=text=>[...document.querySelectorAll('[role=menuitem]')].find(el=>el.textContent.trim()===text)

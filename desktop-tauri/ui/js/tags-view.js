@@ -3,7 +3,6 @@
 
 (function () {
   'use strict';
-  if (window.wbMobileEmbed) return;
 
   // bundle 或经典脚本重复装载时保留已有订阅、DOM 与 showPage 包装。
   if (window.wbTagsView && window.wbTagsView.__shellTabsBridge) return;
@@ -104,9 +103,13 @@
     var main = document.querySelector('.main');
     var content = main && main.querySelector('.content');
     if (!main || !content) return false;
-    root = document.createElement('div');
-    root.className = 'tags-view';
-    main.insertBefore(root, content);
+    root = document.getElementById('shell-tags-host');
+    if (!root) {
+      root = document.createElement('div');
+      root.id = 'shell-tags-host';
+      root.className = 'tags-view';
+      main.insertBefore(root, content);
+    }
     root.addEventListener('pointerdown', onRootPointerdown);
     root.addEventListener('dragstart', function (event) {
       if (event.target.closest && event.target.closest('.tag')) event.preventDefault();

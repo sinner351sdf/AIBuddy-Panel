@@ -5,7 +5,7 @@ import { isPackaged } from './lib/servers'
 import { Toaster } from '@ui'
 import { ConfirmHost } from './components/confirm'
 import { usePolling } from './lib/usePolling'
-import React, { useEffect, useLayoutEffect, useRef } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { store, useStore, bootstrapTheme } from './state/store'
 import { TabBar, Toast, AuthGate, ThemeSync } from './components/Shell'
 import { PwaNotice } from './components/PwaNotice'
@@ -22,7 +22,7 @@ import { ProxiesPage } from './pages/ProxiesPage'
 import { TasksPage } from './pages/TasksPage'
 import { RequestsPage } from './pages/RequestsPage'
 import { LogsPage } from './pages/LogsPage'
-import { SettingsPage } from './pages/SettingsPage'
+import { SettingsPage, DeviceSettingsPage } from './pages/SettingsPage'
 import { DocsPage } from './pages/DocsPage'
 import { AgentPage } from './pages/AgentPage'
 import { ServersPage } from './pages/ServersPage'
@@ -57,6 +57,7 @@ const SCREENS: Record<string, ScreenDef> = {
   tasks: { title: t('定时任务'), component: TasksPage },
   requests: { title: t('请求日志'), component: RequestsPage },
   logs: { title: t('运行日志'), component: LogsPage },
+  'device-settings': { title: t('本机偏好与安装'), component: DeviceSettingsPage },
   settings: { title: t('设置'), component: SettingsPage },
   docs: { title: t('接口文档'), component: DocsPage },
   agent: { title: t('Agent 接管'), component: AgentPage },
@@ -65,6 +66,16 @@ const SCREENS: Record<string, ScreenDef> = {
 
 function MobileApp() {
   const state = useStore()
+  const [featureTitle, setFeatureTitle] = useState<{page:string; title:string} | null>(null)
+  useEffect(() => {
+    const change = (event: Event) => {
+      const detail = (event as CustomEvent).detail
+      if (detail && typeof detail.page === 'string' && typeof detail.title === 'string') setFeatureTitle(detail)
+    }
+    document.addEventListener('aibuddy:mobile-title', change)
+    return () => document.removeEventListener('aibuddy:mobile-title', change)
+  }, [])
+  useEffect(() => setFeatureTitle(null), [state.route.screen, state.route.params?.page])
   const pwa = usePwa()
   const scrollRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
@@ -73,9 +84,10 @@ function MobileApp() {
   usePolling(() => { if (!state.packaged || state.server) return store.refresh() }, 20_000, [state.server?.id])
   const def = SCREENS[state.route.screen] || SCREENS.home
   const Page = def.component
+  const displayTitle = featureTitle?.page === (state.route.params?.page || state.route.screen) ? featureTitle.title : state.route.params?.title || def.title
   const isPrimary = Boolean(def.primary) && state.stack.length === 0
   // 助手页要撑满：它自己内部滚动（对话区），外层不能滚
-  const fillHeight = ['assistant', 'management', 'credits'].includes(state.route.screen)
+  const fillHeight = ['assistant'].includes(state.route.screen)
   /**
    * APK 首次启动、一台服务器都没配：**没有地址就什么都拉不到**，所以直接
    * 顶掉整个界面（不显示标签栏 —— 切到别的标签也是空的）。配好一台之后
@@ -99,8 +111,8 @@ function MobileApp() {
 
   useEffect(() => {
     // 页面标题跟着当前页走（PWA 里影响任务切换器的显示）
-    document.title = needsServer ? `${t('服务器')} · AIBuddy Panel` : `${state.route.params?.title || def.title} · AIBuddy Panel`
-  }, [def.title, needsServer, state.route.params?.title])
+    document.title = needsServer ? `${t('服务器')} · AIBuddy Panel` : `${displayTitle} · AIBuddy Panel`
+  }, [displayTitle, needsServer])
 
   if (needsServer) {
     return (
@@ -118,8 +130,8 @@ function MobileApp() {
     <div className='m-app' data-offline={pwa.offline ? 'true' : undefined}>
       <ThemeSync />
       <PwaNotice />
-      {isPrimary ? null : <NavBar title={state.route.params?.title || def.title} onBack={() => store.back()}
-        actions={state.route.screen !== 'management' && state.route.screen !== 'credits' && MANAGEMENT_PAGES.includes(state.route.screen as ManagementPageId)
+      {isPrimary ? null : <NavBar title={displayTitle} onBack={() => { if (document.dispatchEvent(new Event('aibuddy:mobile-back', {cancelable:true}))) store.back() }}
+        actions={state.route.screen !== 'management' && state.route.screen !== 'credits' && state.route.screen !== 'settings' && MANAGEMENT_PAGES.includes(state.route.screen as ManagementPageId)
           ? <MobileButton type="button" className="m-icon-btn" aria-label={t('管理')} onClick={() => openManagement(state.route.screen as ManagementPageId, def.title)}><span aria-hidden="true">···</span></MobileButton>
           : undefined} />}
       <div

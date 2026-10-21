@@ -58,7 +58,7 @@ export function MobileButton({
       variant={variant}
       size="lg"
       className={cn(
-        'min-h-10 shrink-0 text-sm',
+        'min-h-11 shrink-0 text-sm',
         row && 'h-auto justify-start whitespace-normal text-left',
         style?.padding && 'h-auto',
         style?.width && 'max-w-full',

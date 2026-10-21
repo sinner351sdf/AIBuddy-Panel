@@ -50,3 +50,6 @@ window.wbInput = { mount: mountInput }
 // 自动增强：页面里带 data-island-input 的原生输入框（含后续动态生成的）在这里
 // 就完成升级，业务模块随后加载时拿到的已经是岛渲染的控件。
 observeInputs()
+
+// Standalone mobile surfaces reuse business logic through explicit component mounts.
+import './mobile-features'

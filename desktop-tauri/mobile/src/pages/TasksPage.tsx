@@ -143,7 +143,7 @@ export function TasksPage() {
       />
 
       {error ? <ErrorNote text={error} /> : null}
-      {!tasks ? <SkeletonList rows={4} height={64} /> : null}
+      {!tasks && !error ? <SkeletonList rows={4} height={64} /> : null}
 
       {tasks ? (
         <>

@@ -27,11 +27,18 @@
  */
 
 import * as React from 'react'
+import { ChevronDownIcon, FileUpIcon } from 'lucide-react'
+import { AccountFormChoice, AccountFormSection, isPhoneAccountForm } from './account-form-layout'
 import { WebLoginButtonContent } from './web-login-button'
 import {
   Field,
   FieldContent,
   FieldGroup,
+  FieldSet,
+  FieldLegend,
+  FieldDescription,
+  Card, CardHeader, CardTitle, CardDescription, CardContent,
+  Collapsible, CollapsibleTrigger, CollapsibleContent,
   FieldLabel,
   cn,
   Button,
@@ -192,7 +199,7 @@ function ManualSection({
   }
 
   return (
-    <DialogSection
+    <AccountFormSection title={manualTitleOf(config)} description={<Note {...note} />}
       hidden={!visible}
       // 小浣熊那条「登录态文件」链接：旧实现是 document 上的委托，这里收在段落上
       onClick={event => {
@@ -203,14 +210,12 @@ function ManualSection({
       }}
     >
       <FieldGroup className='gap-2.5'>
-        <h3>{manualTitleOf(config)}</h3>
-        <Note {...note} />
         {config.fields.map(field => {
           const id = fieldIdOf(config, field)
           // 必填只在标签上标出（弹窗不是 <form>，原生 required 不生效），真正的拦截在 submit
           const marker = field.optional ? '' : t('（必填）')
           return (
-            <Field orientation={field.rows ? 'vertical' : 'horizontal'} key={id} className={cn('field-row gap-2.5 [&>[data-slot=field-label]]:flex-none', field.rows ? 'stack gap-1.5' : 'flex-wrap')}>
+            <Field orientation={isPhoneAccountForm() || field.rows ? 'vertical' : 'horizontal'} key={id} className={cn('field-row gap-2.5 [&>[data-slot=field-label]]:flex-none', field.rows ? 'stack gap-1.5' : 'flex-wrap')}>
               <FieldLabel htmlFor={id}>
                 {field.label}
                 {marker}
@@ -237,7 +242,7 @@ function ManualSection({
           <span className='detail' id={`${prefix}-add-hint`}>{hint}</span>
         </div>
       </FieldGroup>
-    </DialogSection>
+    </AccountFormSection>
   )
 }
 
@@ -269,9 +274,7 @@ function DesktopSection({
   }
 
   return (
-    <DialogSection hidden={!visible}>
-      <h3>{t('从本机导入桌面端登录态')}</h3>
-      <p>{config.desktopNote}</p>
+    <AccountFormSection hidden={!visible} title={t('从本机导入桌面端登录态')} description={<p>{config.desktopNote}</p>}>
       <div className='field-row'>
         <Button
           id={`${prefix}-desktop-button`}
@@ -282,7 +285,7 @@ function DesktopSection({
           {busy ? t('导入中…') : t('从本机导入桌面端登录态')}
         </Button>
       </div>
-    </DialogSection>
+    </AccountFormSection>
   )
 }
 
@@ -328,10 +331,8 @@ function GuestSection({
   }
 
   return (
-    <DialogSection hidden={!visible}>
-      <h3>{t('访客模式')}</h3>
-      {guest.noteHtml ? <Note html={guest.noteHtml} /> : null}
-      <Field>
+    <AccountFormSection hidden={!visible} title={t('访客模式')} description={guest.noteHtml ? <Note html={guest.noteHtml} /> : undefined}>
+      <FieldGroup><Field>
         <FieldLabel htmlFor={nameId}>{t('备注名')}</FieldLabel>
         <Input
           id={nameId}
@@ -340,13 +341,13 @@ function GuestSection({
           placeholder={guest.namePlaceholder || t('可选')}
           {...draftProps(nameId)}
         />
-      </Field>
+      </Field></FieldGroup>
       <div className='field-row'>
         <Button id={`${config.provider}-guest-button`} onClick={() => { void submit() }} disabled={busy}>
           {busy ? guest.busyText || t('正在添加…') : guest.button}
         </Button>
       </div>
-    </DialogSection>
+    </AccountFormSection>
   )
 }
 
@@ -434,11 +435,9 @@ function FileImportSection({
   }
 
   return (
-    <DialogSection hidden={!visible}>
-      <h3>{t('导入凭证文件')}</h3>
-      <Note text={spec.note} />
-      <div className='field-row'>
-        <label className='lb-inline' htmlFor={nameId}>{t('备注名')}</label>
+    <AccountFormSection hidden={!visible} title={t('导入凭证文件')} description={<Note text={spec.note} />}>
+      <FieldGroup><Field orientation={isPhoneAccountForm() ? 'vertical' : 'horizontal'} className='field-row'>
+        <FieldLabel htmlFor={nameId}>{t('备注名')}</FieldLabel>
         <Input
           id={nameId}
           type='text'
@@ -446,7 +445,7 @@ function FileImportSection({
           placeholder={t('可选，留空则用文件里的昵称')}
           {...draftProps(nameId)}
         />
-      </div>
+      </Field></FieldGroup>
       <div className='field-row'>
         <input
           ref={fileInput}
@@ -469,7 +468,7 @@ function FileImportSection({
         </Button>
         <span className='detail'>{hint}</span>
       </div>
-    </DialogSection>
+    </AccountFormSection>
   )
 }
 
@@ -538,19 +537,11 @@ function WebLoginSection({
 
   if (!web) return null
   return (
-    <DialogSection hidden={!visible}>
-      <h3>{t('网页登录')}</h3>
-      <Note html={web.noteHtml} />
+    <AccountFormSection hidden={!visible} title={t('网页登录')} description={<Note html={web.noteHtml} />}>
       {web.modes?.length ? (
-        <div className='flex flex-col gap-2.5 border-l-2 border-border pl-[11px]'>
-          <span className='text-[12.5px] text-subtle'>{t('打开方式')}</span>
-          <SegmentedControl
-            aria-label={t('{label} 网页登录的打开方式', { label: config.label })}
-            options={web.modes}
-            value={mode}
-            onValueChange={onModeChange}
-          />
-        </div>
+        <AccountFormChoice inline title={t('打开方式')} label={t('{label} 网页登录的打开方式', { label: config.label })}
+          options={web.modes.map(item => ({...item, label: isPhoneAccountForm() && item.value === 'embedded' ? t('内嵌窗口') : isPhoneAccountForm() && item.value === 'external' ? t('系统浏览器') : item.label}))}
+          value={mode} onValueChange={onModeChange} />
       ) : null}
       <div className='field-row'>
         <Button id={`${prefix}-web-button`} onClick={() => controllerRef.current?.start()}>
@@ -571,7 +562,7 @@ function WebLoginSection({
           {web.hint || web.modes?.[0]?.hint || ''}
         </span>
       </div>
-    </DialogSection>
+    </AccountFormSection>
   )
 }
 
@@ -608,12 +599,10 @@ function SmsSection({
 
   if (!sms) return null
   return (
-    <DialogSection hidden={!visible}>
-      <h3>{t('手机验证码登录')}</h3>
-      <Note
+    <AccountFormSection hidden={!visible} title={t('手机验证码登录')} description={<Note
         html={sms.noteHtml}
         text={t('用 AutoClaw 账号绑定的手机号登录：点击「获取验证码」，收到短信后填入下方并登录。验证码由本机直接提交给官方接口，界面不显示 token。')}
-      />
+      />} >
       <FieldGroup className='sms-form'>
         {/* 第 1 行：手机号与发码合成一格。按钮内嵌在输入框尾部（组件库的
             InputGroup，就是为「输入框带一个动作」准备的），不再自己占一行 */}
@@ -624,7 +613,9 @@ function SmsSection({
           <InputGroup>
             <InputGroupInput
               id={`${prefix}-sms-phone`}
-              type='text'
+              type='tel'
+              inputMode='tel'
+              autoComplete='tel'
               maxLength={11}
               placeholder={t('11 位大陆手机号')}
               {...draftProps(`${prefix}-sms-phone`)}
@@ -651,6 +642,8 @@ function SmsSection({
               id={`${prefix}-sms-code`}
               className='sms-code'
               type='text'
+              inputMode='numeric'
+              autoComplete='one-time-code'
               maxLength={6}
               placeholder={t('6 位数字')}
             />
@@ -671,7 +664,7 @@ function SmsSection({
           <span className='detail sms-hint' id={`${prefix}-sms-hint`} />
         </div>
       </FieldGroup>
-    </DialogSection>
+    </AccountFormSection>
   )
 }
 
@@ -719,19 +712,11 @@ function OauthSection({
 
   if (!oauth) return null
   return (
-    <DialogSection hidden={!visible}>
-      <h3>{oauth.title || t('网页登录')}</h3>
-      <Note html={oauth.noteHtml} />
+    <AccountFormSection hidden={!visible} title={oauth.title || t('网页登录')} description={<Note html={oauth.noteHtml} />}>
       {oauth.modes?.length ? (
-        <div className='flex flex-col gap-2.5 border-l-2 border-border pl-[11px]'>
-          <span className='text-[12.5px] text-subtle'>{t('打开方式')}</span>
-          <SegmentedControl
-            aria-label={t('{label} 网页登录的打开方式', { label: config.label })}
-            options={oauth.modes}
-            value={mode}
-            onValueChange={onModeChange}
-          />
-        </div>
+        <AccountFormChoice inline title={t('打开方式')} label={t('{label} 网页登录的打开方式', { label: config.label })}
+          options={oauth.modes.map(item => ({...item, label: isPhoneAccountForm() && item.value === 'embedded' ? t('内嵌窗口') : isPhoneAccountForm() && item.value === 'external' ? t('系统浏览器') : item.label}))}
+          value={mode} onValueChange={onModeChange} />
       ) : null}
       <div className='field-row'>
         {/* 两个变体各一颗：上游是两个独立端点、两套账号体系，用下拉会让用户猜。
@@ -749,7 +734,7 @@ function OauthSection({
           {oauth.modes?.[0]?.hint || oauth.hint || ''}
         </span>
       </div>
-    </DialogSection>
+    </AccountFormSection>
   )
 }
 
@@ -781,30 +766,14 @@ export function ProviderBlock({
   )
 
   return (
-    <div className='add-provider-block' hidden={!active}>
-      {config.regionOptions?.length ? (
-        <DialogSection>
-          <h3>{t('地区')}</h3>
-          <SegmentedControl
-            aria-label={t('{label} 账号地区', { label: config.label })}
-            className={ADD_SEG_CLASS}
-            options={config.regionOptions}
-            value={region}
-            onValueChange={setRegion}
-          />
-        </DialogSection>
-      ) : null}
-
-      <DialogSection>
-        <h3>{t('添加方式')}</h3>
-        <SegmentedControl
-          aria-label={t('{label} 账号的添加方式', { label: config.label })}
-          className={ADD_SEG_CLASS}
-          options={methodOptions}
-          value={effective}
-          onValueChange={value => setMethod(value as MethodId)}
-        />
-      </DialogSection>
+    <div className={cn('add-provider-block', isPhoneAccountForm() && 'mobile-generic-provider')} data-provider-form={config.provider} hidden={!active}>
+      {config.regionOptions?.length ? <AccountFormChoice title={t('地区')} label={t('{label} 账号地区', { label: config.label })}
+        options={config.regionOptions} value={region} onValueChange={setRegion} /> : null}
+      <AccountFormChoice title={t('添加方式')} label={t('{label} 账号的添加方式', { label: config.label })}
+        options={methodOptions.map(item => ({...item, label: isPhoneAccountForm()
+          ? t(({web:'网页登录',oauth:'授权登录',sms:'短信登录',manual:'填写凭证',file:'导入文件',desktop:'读取本机',guest:'访客模式'} as Record<string,string>)[item.value] || String(item.label))
+          : item.label}))}
+        value={effective} onValueChange={value => setMethod(value as MethodId)} />
 
       <GuestSection config={config} visible={effective === 'guest'} />
       <OauthSection
@@ -1019,11 +988,11 @@ function workbuddyProviderId(edition: Edition): string {
  * 开关，且网页登录的文案随打开方式变。旧实现里这段 DOM 写在 index.html 里、
  * 交互在 add-account.js；迁到岛上后整块在这里，index.html 的那 47 行骨架随之删除。 */
 
-export function WorkBuddyBlock({ active }: { active: boolean }): React.ReactElement {
+export function WorkBuddyBlock({ active, mobile = document.documentElement.dataset.mobileUi === 'true' }: { active: boolean; mobile?: boolean }): React.ReactElement {
   // 三处偏好的初值来自模块级 loginPrefs：旧实现里它们住在静态 DOM 上，
   // 关掉弹窗再打开仍是上次的选择（resetAddStep 只复位提供商与步骤）
   const [edition, setEdition] = React.useState<Edition>(loginPrefs.edition)
-  const [method, setMethod] = React.useState('qr')
+  const [method, setMethod] = React.useState(mobile ? 'web' : 'qr')
   const [loginMode, setLoginMode] = React.useState<LoginMode>(loginPrefs.loginMode)
   const [socialRestore, setSocialRestore] = React.useState(loginPrefs.socialRestore)
   const editionRef = React.useRef(edition)
@@ -1053,7 +1022,7 @@ export function WorkBuddyBlock({ active }: { active: boolean }): React.ReactElem
         const external = modeRef.current === 'external'
         return {
           button: external ? t('在浏览器中打开登录页') : t('打开网页登录'),
-          hint: external
+          hint: mobile ? t('请在新窗口完成授权，再返回这里。') : external
             ? t('系统浏览器打开（复用已登录账号）；完成后自动加入列表')
             : t('内嵌窗口打开；完成后自动加入列表，关窗即取消等待'),
         }
@@ -1109,6 +1078,75 @@ export function WorkBuddyBlock({ active }: { active: boolean }): React.ReactElem
     : !intl
       ? t('国内版登录页没有 Google / GitHub 入口（它用微信 / 手机号 / 邮箱登录）')
       : t('只有「内嵌窗口」能恢复第三方入口：系统浏览器里我们无法改动登录页')
+
+  if (mobile) return (
+    <div className='add-provider-block mobile-workbuddy' hidden={!active}>
+      <FieldGroup className='mobile-login-choices'>
+        <FieldSet className='gap-3'>
+          <FieldLegend variant='label'>{t('账号版本')}</FieldLegend>
+          <SegmentedControl aria-label={t('账号版本')} className='mobile-login-segments'
+            options={[{value:'cn',label:t('国内版')},{value:'intl',label:t('国际版')}]}
+            value={edition} onValueChange={value => pickEdition(value as Edition)} />
+          <FieldDescription>{intl ? t('WorkBuddy AI · 国际版账号') : t('WorkBuddy · 国内版账号')}</FieldDescription>
+        </FieldSet>
+        <FieldSet className='gap-3'>
+          <FieldLegend variant='label'>{t('登录方式')}</FieldLegend>
+          <SegmentedControl aria-label={t('WorkBuddy登录方式')} className='mobile-login-segments'
+            options={[{value:'web',label:t('网页登录')},{value:'qr',label:t('扫码登录')}]}
+            value={method} onValueChange={setMethod} />
+        </FieldSet>
+      </FieldGroup>
+
+      <Card className='mobile-login-card' as='section' hidden={method !== 'web'}>
+        <CardHeader>
+          <CardTitle>{t('网页登录')}</CardTitle>
+          <CardDescription>{t('完成授权后，账号会自动加入列表。')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FieldGroup className='gap-5'>
+            <Field>
+              <FieldLabel>{t('打开方式')}</FieldLabel>
+              <SegmentedControl aria-label={t('网页登录的打开方式')} className='mobile-login-segments'
+                options={[{value:'embedded',label:t('内嵌窗口')},{value:'external',label:t('系统浏览器')}]}
+                value={loginMode} onValueChange={pickLoginMode} />
+              <FieldDescription>{embedded ? t('使用独立登录窗口，不影响已有登录。') : t('可复用浏览器中已登录的账号。')}</FieldDescription>
+            </Field>
+            {socialUsable ? <Field orientation='horizontal' className='mobile-social-option'>
+              <FieldContent>
+                <FieldLabel htmlFor='workbuddy-social-restore'>{t('第三方登录入口')}</FieldLabel>
+                <FieldDescription>Google / GitHub / X</FieldDescription>
+              </FieldContent>
+              <Switch id='workbuddy-social-restore' checked={socialRestore} onCheckedChange={next => {
+                setSocialRestore(next); loginPrefs.socialRestore = next
+              }} />
+            </Field> : null}
+            <div className='mobile-login-submit'>
+              <Button id='web-login-button' size='lg' className='w-full' onClick={() => controllerRef.current?.start()}>
+                <WebLoginButtonContent buttonId='web-login-button'>{t('打开网页登录')}</WebLoginButtonContent>
+              </Button>
+              <Button id='web-login-cancel' variant='outline' className='w-full' hidden onClick={() => controllerRef.current?.cancel()}>{t('取消等待')}</Button>
+              <span id='web-login-hint' className='mobile-login-hint' role='status' />
+            </div>
+          </FieldGroup>
+        </CardContent>
+      </Card>
+      {method === 'qr' ? <Card className='mobile-login-card' as='section'>
+        <CardHeader><CardTitle>{t('扫码登录')}</CardTitle></CardHeader>
+        <CardContent><WorkbuddyQrLogin active={active} edition={edition} /></CardContent>
+      </Card> : null}
+
+      <Collapsible className='mobile-import-disclosure'>
+        <CollapsibleTrigger render={<Button variant='ghost' className='mobile-import-trigger w-full' />}>
+          <FileUpIcon data-icon='inline-start' />
+          <span className='min-w-0 flex-1 text-left'>{t('导入已有凭证')}</span>
+          <ChevronDownIcon className='mobile-import-chevron' data-icon='inline-end' />
+        </CollapsibleTrigger>
+        <CollapsibleContent keepMounted>
+          <WorkBuddyFileImportSection edition={edition} />
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+  )
 
   return (
     <div className='add-provider-block' hidden={!active}>

@@ -9,21 +9,21 @@ const CACHE = 'agent2api-mobile-__BUILD__'
 
 /** 预缓存的外壳文件（相对 SW 所在目录，即 `ui/` 根） */
 const SHELL = [
-  './index.html', './m.html', './m/mobile.js', './m/mobile.css',
-  './islands/ui.js', './islands/ui.css', './css/mobile.css',
+  './m.html', './m/mobile.js?v=__MOBILE_JS__', './m/mobile.css?v=__MOBILE_CSS__',
+  './islands/ui.js', './islands/ui.css', './css/mobile.css', './js/prefs.js', './js/notify-center.js',
   './m/manifest.webmanifest', './assets/app-icon-192.png', './assets/app-icon-512.png',
 ]
 
 /** 这个请求属不属于手机端（决定要不要拦） */
 function isMobileAsset(pathname) {
-  if (['/', '/index.html', '/m', '/m/', '/m.html'].includes(pathname)) return true
-  return /^\/(css|islands|assets|brand|i18n|m)\//.test(pathname) || /^\/[^/]+\.(js|css)$/.test(pathname)
+  if (['/m', '/m/', '/m.html'].includes(pathname)) return true
+  return /^\/(css|islands|assets|brand|i18n|m|js)\//.test(pathname) || /^\/[^/]+\.(js|css)$/.test(pathname)
 }
 
 /** 是不是入口页导航（`/m` 或 `/m.html`，含 query / hash 之外的路径部分） */
 function isEntryNavigation(request, url) {
   if (request.mode !== 'navigate') return false
-  return ['/', '/index.html', '/m', '/m/', '/m.html'].includes(url.pathname)
+  return ['/m', '/m/', '/m.html'].includes(url.pathname)
 }
 
 /**
@@ -120,8 +120,8 @@ self.addEventListener('fetch', event => {
   }
 
   const isShell = SHELL.some(item => url.pathname.endsWith(item.slice(1)))
-  if (isShell) {
-    // 外壳：stale-while-revalidate —— 首屏秒开，后台拉新版留给下次
+  if (isShell && url.pathname.startsWith('/m/')) {
+    // 手机专属外壳：stale-while-revalidate —— 首屏秒开，后台拉新版留给下次
     event.respondWith(
       caches.open(CACHE).then(async cache => {
         const cached = await cache.match(request)
@@ -137,10 +137,17 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  // 手机端其余资源：network-first，离线时回退缓存
+  // Shared islands/controllers must match the online HTML, including desktop clients.
+  // Keep offline fallback without serving an older bundle before revalidation finishes.
   event.respondWith(
-    fetch(request).catch(async () => {
-      const cached = await caches.match(request)
+    fetch(request).then(response => {
+      if (isShell && response.ok && !response.redirected) {
+        void caches.open(CACHE).then(cache => cache.put(request, response.clone())).catch(() => undefined)
+      }
+      return response
+    }).catch(async () => {
+      const cache = await caches.open(CACHE)
+      const cached = await cache.match(request) || await cache.match(url.pathname)
       if (cached) return cached
       throw new Error('offline')
     }),

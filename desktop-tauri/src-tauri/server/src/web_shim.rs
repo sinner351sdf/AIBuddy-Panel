@@ -106,6 +106,8 @@ pub fn shim_js() -> &'static str {
 
   // ── 覆盖层（Key 输入 / 链接兜底）：原生 DOM，界面样式不依赖 ──
   function ensureOverlay(titleText, bodyHtml, confirmText) {
+    // Mobile supplies a shadcn prompt surface; transport and login state stay shared.
+    if (typeof window.wbMobilePrompt === 'function') return window.wbMobilePrompt(titleText, bodyHtml, confirmText);
     return new Promise(function (resolve) {
       var old = document.getElementById('a2a-web-overlay');
       if (old) old.remove();
@@ -328,6 +330,8 @@ pub fn shim_js() -> &'static str {
 
   // ── HTTP 调用：信封解包与桌面 gateway::unwrap_envelope 对齐 ──
   async function httpCall(method, path, body, retried) {
+    // The mobile shell owns session refresh and its authentication sheet.
+    if (typeof window.wbMobileHttp === 'function') return window.wbMobileHttp(method, path, body);
     var headers = { 'Accept': 'application/json' };
     if (apiKey) headers['x-api-key'] = apiKey;
     // 面板会话的头部回退（见 PANEL_AUTH 段）：有存令牌就带上；

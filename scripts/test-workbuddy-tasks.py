@@ -18,7 +18,7 @@ import urllib.request
 import urllib.error
 
 ROOT = Path(__file__).resolve().parents[1]
-BINARY = ROOT / 'target/debug/agent2api-server'
+BINARY = Path(os.environ.get('AGENT2API_TEST_SERVER_BIN', ROOT / 'desktop-tauri/src-tauri/target/debug/agent2api-server'))
 client = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 checks = 0
 def check(condition, message):
@@ -96,6 +96,16 @@ with tempfile.TemporaryDirectory(prefix='workbuddy-tasks-test-') as scratch:
             req('/api/growth-tasks/gift','POST',{'accountId':aid,'kind':'compensation'},token=token,expected=status)
         for bad in ['',None,2,[],{}]:
             req('/api/growth-tasks/run','POST',{'accountId':bad},token=token,expected=400)
+        for body in [
+            {'taskCode':'WorkBuddy_Valorant'},
+            {'accountId':'fixture-wb','taskCode':None},
+            {'accountId':'fixture-wb','taskCode':''},
+            {'accountId':'fixture-wb','taskCode':'manual_only'},
+            {'accountId':'fixture-wb','taskCode':'black_cat','taskKind':'growth'},
+            {'accountId':'fixture-wb','taskCode':'WorkBuddy_Valorant','taskKind':'rewards'},
+        ]:
+            req('/api/growth-tasks/run','POST',body,token=token,expected=400)
+        req('/api/growth-tasks/run','POST',{'accountId':'fixture-wb','taskCode':'WorkBuddy_Valorant'},token=token,expected=404)
         req('/api/growth-tasks/accounts/fixture-wb/accept','POST',{},token=token,expected=400)
         req('/api/growth-tasks/accounts/fixture-wb/claim','POST',{},token=token,expected=400)
         result=req('/api/growth-tasks/run','POST',{},token=token)
@@ -104,6 +114,8 @@ with tempfile.TemporaryDirectory(prefix='workbuddy-tasks-test-') as scratch:
 
         if '--serve' in sys.argv:
             tasks=[
+                {'code':'Sequential_Tasks_3','title':'小程序完成 5 次对话','current':3,'target':5,'accepted':True,'automatable':True},
+                {'code':'WorkBuddy_Valorant','title':'体验无畏契约拼豆专家','current':0,'target':1,'accepted':True,'automatable':True},
                 {'code':'automation_1','title':'Set up an automation','current':1,'target':1,'rewardCredit':100,'rewardEnergy':5,'accepted':True,'claimable':True,'automatable':True},
                 {'code':'chat_5','title':'Chat with AI five times','current':2,'target':5,'rewardCredit':100,'rewardEnergy':5,'accepted':False,'automatable':True},
                 {'code':'first_buddy','title':'Adopt your first Buddy','current':1,'target':1,'rewardCredit':300,'rewardEnergy':8,'claimed':True,'accepted':True,'automatable':True},

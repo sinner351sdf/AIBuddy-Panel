@@ -6,7 +6,7 @@ import {execFileSync} from 'node:child_process'
 const root=path.resolve(new URL('..',import.meta.url).pathname)
 const source=path.join(root,'desktop-tauri/ui'),target=path.join(root,'desktop-tauri/mobile/android/app/src/main/assets/gateway-ui')
 const allowed=new Set(['.html','.js','.css','.svg','.png','.ico','.webmanifest','.json','.woff','.woff2','.ttf','.jpg','.jpeg','.webp','.txt'])
-for(const file of ['index.html','m.html','m/mobile.js','m/mobile.css','login.html','islands/ui.js','islands/ui.css'])if(!fs.existsSync(path.join(source,file)))throw new Error('Missing built panel asset: '+file)
+for(const file of ['index.html','m.html','m/mobile.js','m/mobile.css','m-feature-bridge.js','m-features.css','login.html','islands/ui.js','islands/ui.css'])if(!fs.existsSync(path.join(source,file)))throw new Error('Missing built panel asset: '+file)
 fs.rmSync(target,{recursive:true,force:true});fs.mkdirSync(target,{recursive:true})
 const hashes={}
 function copy(directory){for(const entry of fs.readdirSync(directory,{withFileTypes:true})){

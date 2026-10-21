@@ -35,14 +35,33 @@ let dom
 let fixture
 let retainedRoots = []
 try {
+  // Execute the real parser-time bootstrap before any navigation island exists.
+  const html = fs.readFileSync(path.join(root, 'desktop-tauri/ui/index.html'), 'utf8')
+  const bootstrap = html.match(/<body>\s*<script>([\s\S]*?)<\/script>/)?.[1]
+  assert.ok(bootstrap, 'navigation width is restored before the shell markup is parsed')
+  for (const value of ['1', '0', null, 'corrupt', 'unavailable']) {
+    const early = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://bootstrap.fixture.invalid/', runScripts: 'outside-only' })
+    if (value === 'unavailable') Object.defineProperty(early.window, 'localStorage', {get() { throw new Error('storage disabled') }})
+    else if (value !== null) early.window.localStorage.setItem('aibuddy-sidebar-collapsed', value)
+    assert.doesNotThrow(() => early.window.eval(bootstrap))
+    assert.equal(early.window.document.body.classList.contains('shell-collapsed'), value === '1', 'first paint honors the stored width, with a safe expanded fallback')
+    assert.equal(early.window.document.getElementById('shell-sidebar-root'), null, 'the state is ready before the shell exists')
+    early.window.close()
+  }
   const output = path.join(temp, 'navigation.cjs')
   buildSync({
     stdin: {
       contents: `
         import * as React from 'react';
         import { createRoot } from 'react-dom/client';
+        import { useIsMobile } from '@ui/hooks/use-mobile';
         import './src/islands/shell-navigation';
         export { React, createRoot };
+        export function InitialViewportProbe({onCommit}) {
+          const mobile=useIsMobile();
+          React.useLayoutEffect(()=>{onCommit(mobile)},[mobile]);
+          return null;
+        }
         export function RetainedCounter({kind}) {
           const [count,setCount]=React.useState(0);
           return <><button data-retained-counter={kind} onClick={()=>setCount(value=>value+1)}>{count}</button><input data-retained-input={kind} defaultValue={kind+' draft'}/></>;
@@ -54,6 +73,7 @@ try {
     alias: {
       '@ui/navigation-icons': path.join(root, 'desktop-tauri/ui-kit/src/navigation-icons.ts'),
       '@ui': path.join(root, 'desktop-tauri/ui-kit/src/index.ts'),
+      '@ui/hooks/use-mobile': path.join(root, 'desktop-tauri/ui-kit/src/hooks/use-mobile.ts'),
       react: path.dirname(require.resolve('react/package.json')),
       'react-dom': path.dirname(require.resolve('react-dom/package.json')),
     },
@@ -304,6 +324,16 @@ try {
   await click(statusButton)
   assert.equal(accountButton.textContent, '2', 'the retained account React root remains interactive')
   assert.equal(statusButton.textContent, '2', 'the retained status React root remains interactive')
+  // Observe the first layout commit, before useEffect can correct a wrong breakpoint.
+  for (const width of [360, 1000, 1001, 1400]) {
+    await viewport(width)
+    const probeHost = document.createElement('div'); document.body.append(probeHost)
+    const probeRoot = createRoot(probeHost), commits = []
+    await act(() => probeRoot.render(React.createElement(fixture.InitialViewportProbe, {onCommit: value => commits.push(value)})))
+    assert.equal(commits[0], width <= 1000, 'correct Sidebar variant from its first commit at '+width+'px')
+    await act(() => probeRoot.unmount()); probeHost.remove()
+  }
+  await viewport(1400)
   await act(() => retainedRoots.forEach(root => root.unmount()))
   retainedRoots = []
   console.log('PASS: real shell navigation: 14 routes, collapsed persistence/cookie, keyboard editing and overlay guards, group persistence/active reveal, badge handle retention, theme bridge, 1000px mobile Sheet and retained live account/status roots')

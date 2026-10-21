@@ -4,6 +4,7 @@
 
 /* ─── 应用外框 ─── */
 .shell {
+  position: relative;
   display: grid;
   grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
   /* 行高必须钉死：隐式行默认 min-height:auto，侧栏内容一多（分组 + 菜单项）
@@ -843,3 +844,60 @@ body.has-titlebar .shell {
   .um-btn-topbar { padding: 0; width: 30px; justify-content: center; }
   .um-pop { right: 12px; left: auto !important; }
 }
+
+/* Startup placeholders are pre-rendered from shared shadcn Skeleton/Card components. */
+.content { position: relative; }
+html[data-desktop-startup] :is(#shell-sidebar-root, .topbar, .tags-view, .content-inner) { visibility: hidden; }
+#desktop-startup-skeleton { display:none; }
+html[data-desktop-startup] #desktop-startup-skeleton { display:block; position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+.startup-surface { display:flex; flex-direction:column; height:100%; background:var(--background); }
+.startup-topbar { height:var(--topbar-h); flex:none; display:flex; align-items:center; justify-content:space-between; gap:24px; padding:0 24px; border-bottom:1px solid var(--border); }
+.startup-tabs { height:53px; flex:none; display:flex; align-items:center; gap:8px; overflow:hidden; padding:8px 16px; border-bottom:1px solid var(--border); }
+html[data-pref-tags='off'] .startup-tabs { display:none; }
+.startup-content { flex:1; min-height:0; overflow:hidden; padding:var(--pad) var(--pad) 0; }
+.startup-content-inner { max-width:var(--content-max); margin-inline:auto; }
+.startup-page { display:none; gap:14px; }
+html[data-desktop-startup-layout='report'] [data-startup-layout='report'],html[data-desktop-startup-layout='table'] [data-startup-layout='table'],html[data-desktop-startup-layout='chat'] [data-startup-layout='chat'],html[data-desktop-startup-layout='form'] [data-startup-layout='form'] { display:grid; }
+.startup-metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(178px,1fr)); gap:10px; }
+.startup-columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.startup-settings { grid-template-columns:180px minmax(0,1fr); }
+.startup-card { min-width:0; }
+@media(max-width:1000px) { .startup-topbar { padding-inline:12px; } .startup-topbar > :last-child { gap:8px; } .startup-topbar > :last-child > :nth-child(-n+3) { display:none; } .startup-settings { grid-template-columns:1fr; } .startup-settings > :first-child { display:none; } }
+@media(max-width:640px) { .startup-columns { grid-template-columns:1fr; } .startup-welcome [data-slot='card-header'] { flex-direction:column; align-items:stretch; } .startup-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(prefers-reduced-motion:reduce) { #desktop-startup-skeleton [data-slot='skeleton'] { animation:none!important; } }
+
+/* The sidebar shares the same startup gate as the main Skeleton surface. */
+#desktop-startup-sidebar { display:none; }
+html[data-desktop-startup] #desktop-startup-sidebar { display:flex; position:absolute; inset:0 auto 0 0; width:var(--sidebar-w); flex-direction:column; overflow:hidden; pointer-events:none; background:var(--sidebar); border-right:1px solid var(--sidebar-border,var(--border)); --ui-skeleton-base:var(--sidebar-accent); }
+.startup-sidebar-brand { display:flex; flex:none; align-items:center; gap:8px; height:72px; padding:16px; }
+.startup-sidebar-menu { flex:1; min-height:0; overflow:hidden; padding:8px 16px; }
+.startup-sidebar-group { margin-bottom:12px; }
+.startup-sidebar-row { display:flex; height:36px; align-items:center; gap:12px; padding-inline:8px; }
+.startup-sidebar-group .startup-sidebar-row { padding-left:32px; }
+.startup-sidebar-footer { display:flex; flex:none; flex-direction:column; gap:8px; padding:8px; }
+.startup-sidebar-user { border-top:1px solid var(--sidebar-border,var(--border)); padding:12px 8px 4px; }
+@media(min-width:1001px) {
+  body.shell-collapsed .startup-sidebar-brand { height:56px; justify-content:center; padding:8px; }
+  body.shell-collapsed .startup-sidebar-menu { padding:8px 0; }
+  body.shell-collapsed #desktop-startup-sidebar .startup-sidebar-row { justify-content:center; padding:0; }
+  body.shell-collapsed .startup-sidebar-user { justify-content:center; padding:12px 0 4px; }
+}
+@media(max-width:1000px) { html[data-desktop-startup] #desktop-startup-sidebar { display:none; } }
+@media(prefers-reduced-motion:reduce) { #desktop-startup-sidebar [data-slot='skeleton'] { animation:none!important; } }
+
+html[data-desktop-startup] body.pref-content-max #desktop-startup-sidebar { display:none; }
+
+/* Tailwind utilities are important in this app; override their display in the same layer. */
+@layer utilities {
+  @media(min-width:1001px) {
+    body.shell-collapsed #desktop-startup-sidebar .startup-sidebar-label,body.shell-collapsed #desktop-startup-sidebar .startup-sidebar-group-title { display:none!important; }
+  }
+}
+
+/* Only the active content waits during navigation; the shell stays interactive and stable. */
+html[data-page-loading] .page.active { visibility:hidden; }
+#page-transition-skeleton { position:absolute; inset:0; overflow:hidden; padding:var(--pad) var(--pad) 0; }
+#page-transition-skeleton[hidden],html[data-desktop-startup] #page-transition-skeleton { display:none; }
+#page-transition-skeleton > .startup-page { display:grid; max-width:var(--content-max); margin-inline:auto; }
+#page-transition-skeleton > [data-slot='alert'] { max-width:var(--content-max); margin-inline:auto; }
+@media(prefers-reduced-motion:reduce) { #page-transition-skeleton [data-slot='skeleton'] { animation:none!important; } }

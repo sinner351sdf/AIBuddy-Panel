@@ -1,3 +1,4 @@
+import { cn } from '@ui'
 /**
  * Agent2API · 「登录 / 添加账号」弹窗（React 岛，命令式弹窗形态）。
  *
@@ -17,9 +18,9 @@
  * 两层都用组件库的 Dialog：Esc / 点遮罩 / 焦点陷阱 / 关闭后焦点归位由 Base UI
  * 内建，嵌套弹窗的 Esc 只收最上面那层（旧实现靠 document 上的 keydown +
  * closeFormStep 手工分流）。**一处行为差异**：关掉表单层时旧实现只是把它的 DOM
- * 藏起来（表单内容与登录引擎的闭包都还在），这里会随之卸载 —— 输入框内容由
+ * 藏起来（表单内容与登录引擎的闭包都还在），这里保持挂载 —— 输入框内容也由
  * 模块级草稿（add-account-bridge 的 draftProps）保住，手机验证码那一步的
- * deviceId 会丢（用户回到同一家重填验证码即可，链路上的服务端行为不变）。
+ * deviceId 和发码冷却由常驻的表单节点保留。
  *
  * ── 对外接口（调用点逐个 grep 确认过，见最终报告）────────────
  *   window.wbAddAccountModal  = { open, close }   —— 跨模块打开这张弹窗的唯一入口
@@ -34,7 +35,7 @@ import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogSection, DialogTitle } from '@ui'
 
-import { existingCustomOfPreset, shared, type CustomProviderRecord, type SharedWindow } from './add-account-bridge'
+import { existingCustomOfPreset, registerAddPageClose, shared, type CustomProviderRecord, type SharedWindow } from './add-account-bridge'
 import {
   BUILTIN_CONFIGS,
   CUSTOM_PROVIDER,
@@ -49,6 +50,7 @@ import {
   NEW_PROVIDER_CARD_ID,
   PRESET_CARD_PREFIX,
   PickStep,
+  PROVIDER_ICONS,
   TYPE_IMPORT,
   TYPE_PROXY,
   type AccountType,
@@ -93,14 +95,24 @@ export type IslandHandle = {
 
 const customList = (): CustomProviderRecord[] => shared().wbProviders?.customList?.() || []
 
-function AddAccountModal({
+export function AddAccountModal({
   onClose,
   onReady,
+  mobile = document.documentElement.dataset.mobileUi === 'true',
+  presentation = 'dialog',
 }: {
+  mobile?: boolean
+  presentation?: 'dialog' | 'page'
   onClose: () => void
   onReady: (handle: IslandHandle | null) => void
 }): React.ReactElement {
   const [state, setState] = React.useState<IslandState>(INITIAL)
+  const pageRef = React.useRef<HTMLElement>(null)
+  const pickedId = React.useRef('')
+  React.useEffect(() => presentation === 'page' ? registerAddPageClose(onClose) : undefined, [presentation, onClose])
+  React.useEffect(() => () => {
+    if (mobile) { void shared().wbWebLogin?.cancelIfActive?.(''); shared().wbAutoclawOauth?.cancel?.() }
+  }, [mobile])
   /** 摘要 / 自定义目录异步到位后的重画信号（值本身不参与渲染） */
   const [version, setVersion] = React.useState(0)
   const bump = React.useCallback(() => setVersion(value => value + 1), [])
@@ -114,6 +126,9 @@ function AddAccountModal({
     // 自定义目录同理：切到「自定义」段时已建的家要显示出来
     void providers?.refreshCustom?.().then(bump)
   }, [bump])
+
+  // An inline page has no imperative open() call to initialize the provider directory.
+  React.useEffect(() => { if (presentation === 'page') reset() }, [presentation, reset])
 
   const openNewCustomForm = React.useCallback(() => {
     reset()
@@ -168,6 +183,7 @@ function AddAccountModal({
   /** 第 1 步点一张卡：三种特殊取值分别落到自定义块的哪种模式（见 pickProvider 的旧注释） */
   function pick(id: string): void {
     if (!id) return
+    pickedId.current = id
     const entry = { step: 'form' as Step, showToken: state.showToken + 1 }
     if (id === NEW_PROVIDER_CARD_ID) {
       setState(prev => ({ ...prev, ...entry, provider: CUSTOM_PROVIDER, providerHint: '', presetKey: '' }))
@@ -202,18 +218,24 @@ function AddAccountModal({
   }
   const importing = state.accountType === TYPE_IMPORT
 
-  return (
-    // 第 1 步：选提供商。受控 open（恒为 true）：本岛是「打开时建、关闭即卸」，
-    // 关窗一律由 onClose 收口（Esc / 点遮罩 / ✕ 都由 Base UI 汇到 onOpenChange）。
-    //
-    // 第 2 步（表单层）写在 **DialogContent 的 children 里**（见下面那段 Dialog）。
-    <Dialog open onOpenChange={next => { if (!next) onClose() }}>
-      <DialogContent className='w-[min(1100px,calc(100vw-48px))]'>
-        <DialogHeader>
-          <DialogTitle>{t('添加账号')}</DialogTitle>
-        </DialogHeader>
-        <DialogBody>
-          <PickStep
+  React.useEffect(() => {
+    if (presentation !== 'page' || state.step !== 'form') return
+    const back = (event: Event) => { event.preventDefault(); backToPick() }
+    document.addEventListener('aibuddy:mobile-back', back)
+    return () => document.removeEventListener('aibuddy:mobile-back', back)
+  }, [presentation, state.step, state.provider])
+
+  React.useEffect(() => {
+    if (presentation !== 'page') return
+    const target = state.step === 'form'
+      ? pageRef.current?.querySelector<HTMLElement>('.mobile-add-heading h2')
+      : [...(pageRef.current?.querySelectorAll<HTMLElement>('[data-provider]') || [])].find(item => item.dataset.provider === pickedId.current)
+    target?.focus({ preventScroll: true })
+    target?.scrollIntoView({ block: 'nearest' })
+  }, [presentation, state.step])
+
+  const picker = (<PickStep
+            mobile={mobile}
             accountType={state.accountType}
             onAccountTypeChange={value => setState(prev => ({ ...prev, accountType: value }))}
             search={state.search}
@@ -224,56 +246,20 @@ function AddAccountModal({
             importPanel={
               IMPORT_SEGMENT_ENABLED ? <ImportPanel segmentOn={importing} /> : undefined
             }
-          />
-        </DialogBody>
-        {/* 列表弹窗这条操作条只服务「留在第 1 步完成」的动作（导入段的「导入所选」）；
-            第 2 步的主按钮走下面那条，两条各归各的层级 */}
-        {IMPORT_SEGMENT_ENABLED && importing ? (
-          <DialogFooter>
-            <ImportFootActions />
-          </DialogFooter>
-        ) : null}
-
-        {/* 第 2 步：选方式 + 填凭证。叠在列表弹窗之上的一层，宽度窄一档
-            （表单输入框横跨 800px 只是把字拉散；窄一档顺带强化层叠感）。
-
-            位置是这一层能不能「叠在上面」的关键，两条都要满足：
-              · React 父子关系 —— Base UI 据此认「嵌套弹窗」（见 useDialogRoot 的
-                parentStore），内层开着时外层的 Esc 与遮罩按压才不生效；
-              · 挂在**本 DialogContent 的 children** 里 —— 内层 Dialog 渲染在外层
-                Popup 的子树中，它自己的 Portal 才会落进外层 Portal 节点、排在 Popup
-                之后（Base UI 的嵌套弹窗就是靠这个先后来分层的）。写成与 DialogContent
-                平级时内层 Portal 会挂到 body 上，两层同为 z-30，谁在 DOM 里靠后谁在
-                上面 —— 于是表单层被压在提供商列表下面。
-
-            keepMounted：这一层收起时**不卸载** —— 里面的登录引擎把状态放在自己的闭包里
-            （短信那一步的 deviceId、发码冷却），节点一卸就等于把「刚发出去的验证码绑在
-            哪个 deviceId 上」丢掉，用户「发码 → 退回列表 → 再进来填码」会拿到作废的 id。
-            隐藏时 Base UI 会把内容标记为 inert，键盘与读屏不会跑进去。
-
-            overlayForceRender：这一层要有自己的遮罩（压暗下面的列表层 + 点空白处
-            退回列表，与旧实现 #add-form-modal 那层遮罩同义）。Base UI 对嵌套弹窗默认
-            不画子层遮罩，遮罩同时是「点空白处」的落点（useDialogRoot 的 outsidePress
-            认遮罩本身），所以这一档不能省。 */}
-        <Dialog open={state.step === 'form'} onOpenChange={next => { if (!next) backToPick() }}>
-          <DialogContent keepMounted overlayForceRender className='w-[min(620px,calc(100vw-48px))]'>
-            <DialogHeader>
-              <DialogTitle>{heading}</DialogTitle>
-            </DialogHeader>
-            <DialogBody>
-              {/* 各家的块整块常驻、只切显隐：块内的登录引擎把状态放在自己的闭包里，
-                  节点被卸载就等于把「刚发出去的验证码绑在哪个 deviceId 上」丢掉 */}
-              <WorkBuddyBlock active={state.step === 'form' && state.provider === WORKBUDDY_PROVIDER} />
+          />)
+  // Both steps stay mounted: SMS device IDs, cooldowns and credential drafts belong to the engines.
+  const forms = (<>
+    <WorkBuddyBlock mobile={mobile} active={state.step === 'form' && state.provider === WORKBUDDY_PROVIDER} />
               {BUILTIN_CONFIGS.map(item => (
                 <ProviderBlock
                   key={item.provider}
                   config={item}
-                  active={state.provider === item.provider}
+                  active={state.step === 'form' && state.provider === item.provider}
                 />
               ))}
               <div
                 className='add-provider-block'
-                style={isCustom ? undefined : { display: 'none' }}
+                hidden={!isCustom}
               >
                 <CustomProviderBlock
                   mode={customMode}
@@ -291,14 +277,44 @@ function AddAccountModal({
                   </DialogSection>
                 </div>
               )}
-            </DialogBody>
-            {/* 表单弹窗这条操作条归自定义块（它把自己的主按钮搬进来）；内置家的主按钮
-                仍在各自段落里，因此只有自定义块在场时才渲染这条 */}
-            {isCustom ? (
-              <DialogFooter>
-                <CustomFootActions mode={customMode} presetKey={state.presetKey} />
-              </DialogFooter>
-            ) : null}
+  </>)
+  const identityLabel = isCustom ? customLabel || t('自定义提供商') : providerLabel
+  const identityIcon = state.presetKey ? shared().wbPresetProviders?.iconOf?.(state.presetKey) : PROVIDER_ICONS[state.provider]
+  const formActions = isCustom ? <CustomFootActions mode={customMode} presetKey={state.presetKey} /> : null
+
+  if (presentation === 'page') return (
+    <section ref={pageRef} className='mobile-add-flow' data-step={state.step} aria-label={t('添加账号')}>
+      <div className='mobile-add-picker' hidden={state.step !== 'pick'} inert={state.step !== 'pick'}>
+        {picker}
+        {IMPORT_SEGMENT_ENABLED && importing ? <div className='mobile-add-actions'><ImportFootActions /></div> : null}
+      </div>
+      <div className='mobile-add-form' hidden={state.step !== 'form'} inert={state.step !== 'form'}>
+        <div className='mobile-add-heading'>
+          <div className='mobile-provider-identity'>
+            {identityIcon ? <img src={identityIcon} alt='' width={44} height={44} /> : <span className='mobile-provider-fallback' aria-hidden='true'>{identityLabel.slice(0,1)}</span>}
+            <div>
+              <h2 tabIndex={-1}>{identityLabel}</h2>
+              <p>{isCustom ? t('填写连接信息并添加账号') : t('登录或导入一个账号')}</p>
+            </div>
+          </div>
+        </div>
+        <div className='mobile-add-fields'>{forms}</div>
+        {formActions ? <div className='mobile-add-actions'>{formActions}</div> : null}
+      </div>
+    </section>
+  )
+
+  return (
+    <Dialog open onOpenChange={next => { if (!next) onClose() }}>
+      <DialogContent layout={mobile ? 'fullscreen' : 'center'} className={cn(mobile ? 'mobile-feature-dialog mobile-add-picker' : 'w-[min(1100px,calc(100vw-48px))]')}>
+        <DialogHeader><DialogTitle>{t('添加账号')}</DialogTitle></DialogHeader>
+        <DialogBody>{picker}</DialogBody>
+        {IMPORT_SEGMENT_ENABLED && importing ? <DialogFooter><ImportFootActions /></DialogFooter> : null}
+        <Dialog open={state.step === 'form'} onOpenChange={next => { if (!next) backToPick() }}>
+          <DialogContent layout={mobile ? 'fullscreen' : 'center'} keepMounted overlayForceRender className={cn(mobile ? 'mobile-feature-dialog mobile-add-form' : 'w-[min(620px,calc(100vw-48px))]')}>
+            <DialogHeader><DialogTitle>{heading}</DialogTitle></DialogHeader>
+            <DialogBody>{forms}</DialogBody>
+            {formActions ? <DialogFooter>{formActions}</DialogFooter> : null}
           </DialogContent>
         </Dialog>
       </DialogContent>

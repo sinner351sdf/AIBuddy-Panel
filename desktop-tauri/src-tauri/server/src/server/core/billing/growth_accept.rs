@@ -11,7 +11,7 @@ fn stopped() -> Result<(), BillingError> {
 }
 
 fn registered(status: &str) -> bool {
-    matches!(status, "accepted" | "completed" | "claimed")
+    super::growth::is_registered_status(status)
 }
 
 /// Read and write closures must use the same task code and platform. A fresh,

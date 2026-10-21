@@ -79,6 +79,8 @@ const dialogLayers = {
 type DialogContentProps = DialogPrimitive.Popup.Props & {
   /** above-drawer 用于从固定抽屉打开的任务弹窗；保留该入口既有的 1099 / 1100 层级。 */
   layer?: keyof typeof dialogLayers
+  /** Fullscreen surfaces must not inherit the centered popup's individual translate. */
+  layout?: 'center' | 'fullscreen'
   /** Optional backdrop layer override for pages with fixed drawers above the default layer. */
   overlayClassName?: string
   /** 是否自带右上角关闭按钮，默认 true */
@@ -111,6 +113,7 @@ function DialogContent({
   className,
   overlayClassName,
   layer = 'default',
+  layout = 'center',
   children,
   showCloseButton = true,
   keepMounted = false,
@@ -122,11 +125,15 @@ function DialogContent({
       <DialogOverlay className={cn(dialogLayers[layer].overlay, overlayClassName)} forceRender={overlayForceRender} />
       <DialogPrimitive.Popup
         data-slot='dialog-content'
+        data-layout={layout}
         className={cn(
-          'fixed top-1/2 left-1/2 flex max-h-[calc(100vh-48px)] w-[min(620px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 flex-col',
-          'overflow-hidden rounded-lg border border-border bg-surface shadow-3 outline-none',
+          'fixed flex flex-col overflow-hidden bg-surface shadow-3 outline-none',
+          layout === 'fullscreen'
+            ? 'inset-0 h-dvh max-h-dvh w-full max-w-none rounded-none border-0'
+            : 'top-1/2 left-1/2 max-h-[calc(100vh-48px)] w-[min(620px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border',
           'transition-[opacity,transform] duration-200 [transition-timing-function:cubic-bezier(.2,.9,.3,1)]',
-          'data-open:animate-in data-open:fade-in-0 data-open:zoom-in-[.985] data-open:slide-in-from-bottom-2.5',
+          'data-open:animate-in data-open:fade-in-0',
+          layout === 'center' && 'data-open:zoom-in-[.985] data-open:slide-in-from-bottom-2.5',
           'data-closed:animate-out data-closed:fade-out-0 data-closed:fill-mode-forwards',
           dialogLayers[layer].popup,
           className

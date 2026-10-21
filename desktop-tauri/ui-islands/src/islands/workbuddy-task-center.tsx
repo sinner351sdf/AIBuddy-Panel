@@ -1,3 +1,4 @@
+import { SectionSkeleton } from '../components/section-skeleton'
 import * as React from 'react'
 import { InfoTip } from '../components/info-tip'
 import { Alert, AlertDescription, Badge, Button, Empty, EmptyHeader, EmptyDescription, Input, Tabs, TabsList, TabsTrigger, TabsContent, Collapsible, CollapsibleTrigger, CollapsibleContent, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem, Switch } from '@ui'
@@ -248,7 +249,7 @@ export function WorkbuddyTaskCenter({ active = true }: { active?: boolean }) {
         {selected?.provider === 'workbuddy-intl' ? <p className='mt-3 text-xs text-subtle'>{t('国际版不参与成长任务查询；可手动执行活跃上报，结果在执行记录查看。')}</p> : null}
         {scanned ? <TaskQueryResults data={scanned} querying={querying} onDetails={row => setDialog(accounts.find(account => account.id === row.id) || { id: row.id, name: row.name, provider: 'workbuddy' })} /> : null}
         <WorkBuddyCompensation key={accountId || '__all__'} accounts={selected ? [selected] : accountId ? [] : accounts} disabled={busy || queue?.running === true} />
-        {!schedule ? <p className='py-4'>{t('正在读取排程…')}</p> : <div className='divide-y divide-border'>
+        {!schedule ? <SectionSkeleton/> : <div className='divide-y divide-border'>
           {TASKS.map(task => {
             const status = schedule.tasks?.find(row => row.kind === task.kind)
             const enabled = schedule[task.flag] === true

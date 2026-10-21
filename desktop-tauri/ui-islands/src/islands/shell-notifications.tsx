@@ -1,7 +1,9 @@
+import type { ReactElement, ReactNode } from 'react'
 /** 顶栏通知岛：业务与轮询仍由 notify-center.js 持有。 */
 import { createRoot } from 'react-dom/client'
 import {
   Badge,
+  Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetBody, SheetFooter,
   Button,
   Empty,
   EmptyDescription,
@@ -69,19 +71,27 @@ function NotificationRows({ items }: { items: readonly NotificationItem[] }) {
   )
 }
 
-function ShellNotifications({ bridge }: { bridge: NotificationsBridge }) {
+export function ShellNotifications({ bridge, trigger }: { bridge: NotificationsBridge; trigger?: ReactElement<{children?:ReactNode}> }) {
   const snapshot = useNotificationsSnapshot()
   if (!snapshot) return null
   const label = snapshot.unread > 0 ? `通知中心（${snapshot.unread} 条未读告警）` : '通知中心'
+  if (trigger) return <Sheet open={snapshot.open} onOpenChange={bridge.setOpen}>
+    <SheetTrigger render={trigger}>{trigger.props.children}</SheetTrigger>
+    <SheetContent side='bottom' className='mobile-notifications-sheet flex max-h-[85dvh] flex-col gap-0 p-0'>
+      <SheetHeader className='border-b border-border p-4 pr-14'><SheetTitle>最近事件</SheetTitle><SheetDescription>当前网关最近的运行记录</SheetDescription></SheetHeader>
+      <SheetBody className='min-h-0 overflow-y-auto p-0' style={{maxHeight:'55dvh'}}>
+        {snapshot.items.length ? <NotificationRows items={snapshot.items}/> : <Empty variant='compact'><EmptyHeader><EmptyDescription>{snapshot.loading ? '正在读取最近事件…' : '暂无事件'}</EmptyDescription></EmptyHeader></Empty>}
+      </SheetBody>
+      <SheetFooter className='grid grid-cols-2 gap-2 border-t border-border p-4'>
+        <Button variant='outline' disabled={snapshot.loading} onClick={bridge.refresh}>刷新事件</Button><Button onClick={bridge.viewAll}>查看全部</Button>
+      </SheetFooter>
+    </SheetContent>
+  </Sheet>
   return (
     <Popover open={snapshot.open} onOpenChange={bridge.setOpen}>
       <PopoverTrigger render={<Button id="nc-btn-bell" variant="ghost" size="icon-sm" className="relative max-md:size-11" aria-label={label} title={label} />}>
         <BellIcon />
-        {snapshot.unread > 0 && (
-          <Badge variant="destructive" shape="tag" className="pointer-events-none absolute -right-1 -top-1" aria-hidden="true">
-            {snapshot.unread > 99 ? '99+' : snapshot.unread}
-          </Badge>
-        )}
+        {snapshot.unread > 0 && <Badge variant="destructive" shape="tag" className="pointer-events-none absolute -right-1 -top-1" aria-hidden="true">{snapshot.unread > 99 ? '99+' : snapshot.unread}</Badge>}
       </PopoverTrigger>
       <PopoverContent id="nc-pop" align="end" sideOffset={8} className="w-[min(340px,calc(100vw-24px))]" aria-label="通知中心">
         <PopoverHeader>
@@ -116,4 +126,4 @@ window.wbShellNotifications = {
     createRoot(host).render(<ShellNotifications bridge={bridge} />)
   },
 }
-document.dispatchEvent(new Event('wb:shell-notifications-ready'))
+document.dispatchEvent(new window.Event('wb:shell-notifications-ready'))

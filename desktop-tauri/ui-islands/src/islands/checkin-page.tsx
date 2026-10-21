@@ -1,3 +1,5 @@
+import { SectionSkeleton } from '../components/section-skeleton'
+import { usePageReady } from '../components/use-page-ready'
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@ui'
 import { Tabs, TabsList, TabsTrigger, TabsContent, Alert, AlertDescription } from '@ui'
 import { createRoot } from 'react-dom/client'
@@ -793,8 +795,9 @@ function CenterTab({ store }: { store: CheckinStore }) {
 
 /* ─── 页面（Tab 壳）─────────────────────────── */
 
-function CheckinPage() {
+export function CheckinPage() {
   const store = useCheckinStore()
+  usePageReady('checkin', store.loaded)
   const [taskOpened, setTaskOpened] = React.useState(store.tab === 'workbuddy')
   React.useEffect(() => { if (store.tab === 'workbuddy') setTaskOpened(true) }, [store.tab])
 
@@ -824,7 +827,7 @@ function CheckinPage() {
 
         </CardContent>
       </Card>
-      <TabsContent value='center' keepMounted>{store.loaded ? <CenterTab store={store} /> : <div className='ck-loading'><Spinner className='size-5' /><span>{t('正在读取签到数据…')}</span></div>}</TabsContent>
+      <TabsContent value='center' keepMounted>{store.loaded ? <CenterTab store={store} /> : <SectionSkeleton/>}</TabsContent>
       <TabsContent value='workbuddy' keepMounted>{taskOpened || store.tab === 'workbuddy' ? <WorkbuddyTaskCenter active={store.tab === 'workbuddy'} /> : null}</TabsContent>
       <TabsContent value='schedule' keepMounted><ScheduleTab active={store.tab === 'schedule'} /></TabsContent>
       <TabsContent value='records' keepMounted><RecordsTab active={store.tab === 'records'} /></TabsContent>

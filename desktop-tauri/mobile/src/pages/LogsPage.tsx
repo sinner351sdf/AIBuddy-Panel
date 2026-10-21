@@ -72,7 +72,7 @@ export function LogsPage() {
       </div>
 
       {error ? <ErrorNote text={error} /> : null}
-      {!entries ? <SkeletonList rows={5} height={58} /> : null}
+      {!entries && !error ? <SkeletonList rows={5} height={58} /> : null}
 
       {entries && !entries.length ? (
         <div className='m-section'>

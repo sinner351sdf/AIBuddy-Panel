@@ -25,7 +25,6 @@ import {
   SelectGroup,
   Button,
   Checkbox,
-  DialogSection,
   Input,
   Field,
   FieldContent,
@@ -39,6 +38,7 @@ import {
 } from '@ui'
 
 import {
+  closeAddModals,
   clearFields,
   describeError,
   draftProps,
@@ -48,6 +48,7 @@ import {
   toast,
   type CustomProviderRecord,
 } from './add-account-bridge'
+import { AccountFormSection } from './account-form-layout'
 import { balanceSpecOf, type BalanceFieldKey } from './balance-query'
 import { t } from '../i18n'
 
@@ -190,7 +191,7 @@ async function runSubmit(setBusy: (value: boolean) => void, task: () => Promise<
 /** 添加成功后的统一收尾：关弹窗、刷新自定义目录与账号列表、提示 */
 async function afterCustomAdd(message: string): Promise<void> {
   // 两层一起关（表单弹窗 + 下面的列表弹窗）：只摘外层会让表单留在屏幕上
-  shared().wbAddAccountModal?.close?.()
+  closeAddModals()
   // 目录先刷：账号行 / 筛选器显示的提供商名都来自 wbProviders 的缓存
   void shared().wbProviders?.refreshCustom?.()
   await shared().wbApp?.refresh?.()
@@ -214,6 +215,15 @@ function readNoAuthDraft(id: string): boolean {
   return readField(id) === '1'
 }
 
+/** Shared fields retain the desktop grid and use stacked shadcn Fields on phones. */
+function CustomField({ className, ...props }: React.ComponentProps<typeof Field>): React.ReactElement {
+  const mobile = document.documentElement.dataset.mobileUi === 'true'
+  return <Field {...props} orientation={mobile ? 'vertical' : 'horizontal'} className={cn(
+    mobile ? 'mobile-add-field' : 'add-field grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3 gap-y-[5px]',
+    className,
+  )} />
+}
+
 /** 勾选框 + 说明（两处表单共用同一行结构，差异只在说明文案） */
 function NoAuthCheckbox({
   checked, note, onChange,
@@ -224,7 +234,7 @@ function NoAuthCheckbox({
 }): React.ReactElement {
   const checkboxId = React.useId()
   return (
-    <Field orientation='horizontal' className='add-field grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3 gap-y-[5px]'>
+    <CustomField>
       <FieldLabel className='w-full flex-none' htmlFor={checkboxId}>{t('鉴权')}</FieldLabel>
       <div className='col-start-2 row-start-1 flex h-[30px] items-center gap-2.5'>
         <Checkbox id={checkboxId} checked={checked} aria-label={t('该上游无需鉴权')}
@@ -236,7 +246,7 @@ function NoAuthCheckbox({
         </FieldContent>
       </div>
       <span className='hint'>{note}</span>
-    </Field>
+    </CustomField>
   )
 }
 
@@ -340,13 +350,9 @@ export function CustomProviderBlock({
 
   return (
     <>
-      <DialogSection hidden={mode !== 'create'}>
-        <div className='add-panel-head'>
-          <h3>{t('上游信息')}</h3>
-          <span>{t('创建这个提供商，并同时建立它的第一个账号。')}</span>
-        </div>
+      <AccountFormSection hidden={mode !== 'create'} title={t('上游信息')} description={<p>{t('创建这个提供商，并同时建立它的第一个账号。')}</p>}>
         <FieldGroup className='add-form flex flex-col gap-[13px]'>
-          <Field orientation='horizontal' className='add-field grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3 gap-y-[5px]'>
+          <CustomField>
             <FieldLabel className='w-full flex-none' htmlFor={NAME_ID}>
               {t('名称')}
               <i className='req' aria-hidden='true'>*</i>
@@ -360,8 +366,8 @@ export function CustomProviderBlock({
               {...draftProps(NAME_ID)}
             />
             <span className='hint'>{t('1~64 个字符，账号列表里按它分组显示')}</span>
-          </Field>
-          <Field orientation='horizontal' className='add-field grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3 gap-y-[5px]'>
+          </CustomField>
+          <CustomField>
             <FieldLabel className='w-full flex-none' htmlFor={PROTOCOL_ID}>{t('协议')}</FieldLabel>
             {/* 协议换了下方的 Base URL 提示跟着换，因此这里受控 */}
             <Select
@@ -385,8 +391,8 @@ export function CustomProviderBlock({
                 </SelectGroup>
               </SelectContent>
             </Select>
-          </Field>
-          <Field orientation='horizontal' className='add-field grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3 gap-y-[5px]'>
+          </CustomField>
+          <CustomField>
             <FieldLabel className='w-full flex-none' htmlFor={BASEURL_ID}>
               Base URL
               <i className='req' aria-hidden='true'>*</i>
@@ -399,8 +405,8 @@ export function CustomProviderBlock({
               {...draftProps(BASEURL_ID)}
             />
             <span className='hint' id='custom-baseurl-hint'>{baseHint}</span>
-          </Field>
-          <Field orientation='horizontal' className='add-field grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3 gap-y-[5px]' data-disabled={noAuth}>
+          </CustomField>
+          <CustomField data-disabled={noAuth}>
             <FieldLabel className='w-full flex-none' htmlFor={APIKEY_ID}>API Key</FieldLabel>
             <Input
               id={APIKEY_ID}
@@ -417,7 +423,7 @@ export function CustomProviderBlock({
                 ? t('不需要 Key：转发与拉取模型都不发送鉴权头')
                 : t('上游不要鉴权时留空，并勾选下面一项（留空又不勾会被当成未配置凭证）')}
             </span>
-          </Field>
+          </CustomField>
           <NoAuthCheckbox
             checked={noAuth}
             note={noAuth
@@ -427,19 +433,11 @@ export function CustomProviderBlock({
           />
           <BalanceFields scheme={createScheme} prefix={BALANCE_CREATE_PREFIX} />
         </FieldGroup>
-      </DialogSection>
+      </AccountFormSection>
 
-      <DialogSection hidden={mode !== 'existing'}>
-        <div className='add-panel-head'>
-          <h3>{t('账号信息')}</h3>
-          {/* 提供商名是用户数据，留在 JSX 里交给 React 转义（不进 dangerouslySetInnerHTML）；
-              两边的中文碎片各自走 t()，全角空格是原文的一部分 */}
-          <span>
-            {t('添加到 ')}<b>{pickedName}</b>{t('　同一家可以放多把 key，按优先级轮换。')}
-          </span>
-        </div>
+      <AccountFormSection hidden={mode !== 'existing'} title={t('账号信息')} description={<p>{t('添加到 ')}<b>{pickedName}</b>{t('　同一家可以放多把 key，按优先级轮换。')}</p>}>
         <FieldGroup className='add-form flex flex-col gap-[13px]'>
-          <Field orientation='horizontal' className='add-field grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3 gap-y-[5px]'>
+          <CustomField>
             <FieldLabel className='w-full flex-none' htmlFor={EXISTING_SELECT_ID}>{t('提供商')}</FieldLabel>
             <Select
               value={current}
@@ -456,8 +454,8 @@ export function CustomProviderBlock({
                 </SelectGroup>
               </SelectContent>
             </Select>
-          </Field>
-          <Field orientation='horizontal' className='add-field grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3 gap-y-[5px]' data-disabled={existingNoAuth}>
+          </CustomField>
+          <CustomField data-disabled={existingNoAuth}>
             <FieldLabel className='w-full flex-none' htmlFor={EXISTING_APIKEY_ID}>API Key</FieldLabel>
             <Input
               id={EXISTING_APIKEY_ID}
@@ -472,7 +470,7 @@ export function CustomProviderBlock({
                 ? t('不需要 Key：转发与拉取模型都不发送鉴权头')
                 : t('上游不要鉴权时留空，并勾选下面一项（留空又不勾会被当成未配置凭证）')}
             </span>
-          </Field>
+          </CustomField>
           <NoAuthCheckbox
             checked={existingNoAuth}
             note={existingNoAuth
@@ -481,7 +479,7 @@ export function CustomProviderBlock({
             onChange={toggleNoAuth(EXISTING_NOAUTH_ID, setExistingNoAuth)}
           />
           <BalanceFields scheme={existingScheme} prefix={BALANCE_EXISTING_PREFIX} />
-          <Field orientation='horizontal' className='add-field grid grid-cols-[88px_minmax(0,1fr)] items-start gap-x-3 gap-y-[5px]'>
+          <CustomField>
             <FieldLabel className='w-full flex-none' htmlFor={EXISTING_NAME_ID}>{t('备注名')}</FieldLabel>
             <Input
               id={EXISTING_NAME_ID}
@@ -491,9 +489,9 @@ export function CustomProviderBlock({
               {...draftProps(EXISTING_NAME_ID)}
             />
             <span className='hint'>{t('留空则用提供商名称')}</span>
-          </Field>
+          </CustomField>
         </FieldGroup>
-      </DialogSection>
+      </AccountFormSection>
     </>
   )
 }
@@ -625,7 +623,7 @@ async function removeExistingProvider(): Promise<void> {
   if (typeof remover !== 'function') { toast(t('删除功能不可用（脚本未就绪）'), 'err'); return }
   await runSubmit(() => {}, async () => {
     const removed = await remover(providerId)
-    if (removed) shared().wbAddAccountModal?.close?.()
+    if (removed) closeAddModals()
   })
 }
 

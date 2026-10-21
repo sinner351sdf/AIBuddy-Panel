@@ -78,6 +78,17 @@ jobs:
           # 多语言词典产物
           npm --prefix desktop-tauri/i18n run build
 
+      - name: 手机功能与对话回归
+        run: |
+          node scripts/test-desktop-startup.mjs
+          node scripts/test-mobile-entry.mjs
+          node scripts/test-mobile-shadcn.mjs
+          node scripts/test-mobile-report.mjs
+          node scripts/test-mobile-requests.mjs
+          node scripts/test-mobile-features.mjs
+          node scripts/test-assistant.mjs --mobile
+          node scripts/check-shadcn-ui.mjs
+
       - name: 校验产物与源码同源
         run: |
           # status 而不是 diff：它同时覆盖「已入库但被改」「构建新产出但没入库」

@@ -1,3 +1,4 @@
+import { usePageReady } from '../components/use-page-ready'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ui'
 import { EyeIcon, EyeOffIcon, CopyIcon, RocketIcon, EllipsisIcon, ShieldCheckIcon, GaugeIcon, Trash2Icon } from '@ui/navigation-icons'
 import { localApi } from './local-api'
@@ -1401,8 +1402,10 @@ function render(): void {
   handle?.render()
 }
 
-function KeysPage() {
+export function KeysPage() {
   const [data, setData] = React.useState<KeysPayload | null>(null)
+  const [loadError, setLoadError] = React.useState('')
+  usePageReady('keys', data !== null || Boolean(loadError))
   /** 已切到明文显示的 key id */
   const [revealed, setRevealed] = React.useState<ReadonlySet<string>>(() => new Set())
   /** 在途操作的行（按钮与开关禁用）；同步守卫读下面的 ref */
@@ -1446,8 +1449,12 @@ function KeysPage() {
     try {
       const api = shared().workbuddyDesktop
       if (!api) throw new Error(t('后端桥不可用'))
-      applyData((await api.getKeys()) ?? null)
+      const next = await api.getKeys()
+      if (!next) throw new Error(t('后端未返回 Key 列表'))
+      applyData(next)
+      setLoadError('')
     } catch (error) {
+      setLoadError(t('读取 Key 列表失败：{reason}', { reason: errorMessage(error) }))
       toast(t('读取 Key 列表失败：{reason}', { reason: errorMessage(error) }), 'err')
     } finally {
       loadingRef.current = false
@@ -1697,7 +1704,7 @@ function KeysPage() {
               // 两格，把整张表顶出横向滚动
               <TableRow>
                 <TableCell colSpan={columns.length} className='empty'><Empty variant='compact'><EmptyHeader><EmptyDescription>
-                  {data ? t('还没有 Key，当前不鉴权') : t('加载中…')}
+                  {loadError || (data ? t('还没有 Key，当前不鉴权') : t('加载中…'))}
                 </EmptyDescription></EmptyHeader></Empty></TableCell>
               </TableRow>
             )}

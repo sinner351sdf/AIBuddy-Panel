@@ -66,7 +66,7 @@ export function IconButton({
       type="button"
       variant={primary ? 'default' : 'outline'}
       size="icon-lg"
-      className="min-h-10 min-w-10"
+      className="min-h-11 min-w-11"
       aria-label={label}
       title={label}
       onClick={onClick}

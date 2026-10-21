@@ -24,7 +24,7 @@ import { Badge } from '@ui'
 import * as React from 'react'
 import { cn, Button, Checkbox } from '@ui'
 
-import { shared, toast } from './add-account-bridge'
+import { closeAddModals, shared, toast } from './add-account-bridge'
 import { t } from '../i18n'
 import { Empty, EmptyHeader, EmptyDescription } from '@ui'
 
@@ -214,7 +214,7 @@ async function runImport(): Promise<void> {
   }
   const failedCount = selected.length - ok
   if (ok > 0 && !failedCount) {
-    shared().wbAddAccountModal?.close?.()
+    closeAddModals()
     toast(t('✅ 已从 cc-switch 导入 {n} 个供应商', { n: ok }))
   } else if (ok > 0) {
     toast(t('已导入 {ok} 个，失败 {fail} 个（失败项已标注在列表里）', { ok, fail: failedCount }), 'err')

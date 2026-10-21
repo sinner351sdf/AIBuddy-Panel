@@ -247,6 +247,7 @@ async fn tick(store: &AccountStore, billing: &BillingService, startup: bool) {
             mode: "full".into(),
             source: if startup { "startup" } else { "schedule" }.into(),
             slot: Some(slot),
+            task_code: None,
         };
         if queue.run_selected(1, None, opts).await.is_ok() {
             while queue.state().get("running").and_then(Value::as_bool) == Some(true) {

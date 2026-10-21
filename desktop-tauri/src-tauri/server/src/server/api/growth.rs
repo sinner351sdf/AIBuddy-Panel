@@ -123,7 +123,7 @@ fn task_row(task: &Value) -> Value {
         "locked": task.get("locked").and_then(Value::as_bool).unwrap_or(false),
         "unlockAt": task.get("unlock_at").cloned().unwrap_or(Value::Null),
         // 是否在映射表里（未映射任务在执行时会保守跳过 —— 界面如实标注）
-        "supported": spec.is_some(),
+        "supported": spec.is_some() || crate::server::core::billing::growth::is_actionable(code),
         "unforgeable": spec.as_ref().map(|spec| spec.unforgeable).unwrap_or(false),
         "unforgeableReason": spec.as_ref().map(|spec| spec.reason).unwrap_or(""),
         "kind": spec.as_ref().map(|spec| spec.kind).unwrap_or(""),

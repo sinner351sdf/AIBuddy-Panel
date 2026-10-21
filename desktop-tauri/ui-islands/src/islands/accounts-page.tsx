@@ -1,3 +1,4 @@
+import { usePageReady } from '../components/use-page-ready'
 /**
  * Agent2API · 账号页（**按家分组**的一张表 + 批量栏 + 两个弹窗）—— React 岛。
  *
@@ -313,6 +314,7 @@ function AccountsPage() {
   const [, forceTick] = React.useReducer((tick: number) => tick + 1, 0)
 
   const loaded = Boolean(snapshot())
+  usePageReady('accounts', loaded)
   const all = allAccounts()
   // groups = 要渲染的（当前筛选下一条都看不见的组不留空壳）；allGroups = 全部组，
   // 拼队列与「折叠 / 展开全部」都用它

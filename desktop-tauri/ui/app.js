@@ -168,10 +168,11 @@ function showPage(name, { persist = true } = {}) {
   document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.toggle('active', item.dataset.page === page);
   });
+  window.wbPageLoading?.sync?.();
   const crumb = $('crumb-page');
   if (crumb) crumb.textContent = PAGE_LABELS[page] || page;
   window.wbShell?.syncPage?.();
-  if (persist && !window.wbMobileEmbed) localStorage.setItem(PAGE_KEY, page);
+  if (persist) localStorage.setItem(PAGE_KEY, page);
   // 列的设置面板常驻 body（.panel 是 overflow:hidden，留在原处会被裁掉，
   // 见 table-col-settings.js），不随宿主页面的 display:none 一起消失 ——
   // 不收起的话，切页之后它会孤零零地浮在新页面上。它自己不认识「页面」，
@@ -216,7 +217,6 @@ function showPage(name, { persist = true } = {}) {
   // 账号页被加过 / 改过 / 删过（提供商记录与它的模型清单），而这一页的数据是
   // 自持的、不随主状态轮询更新。两件事（自定义目录 + 内置清单）都在面板里，
   // 这里只转发 —— 它自己保证「切页这次刷新一定落地」。
-  if (page === 'agent') { void window.wbAgentPanel?.load?.(); }
   if (page === 'gateway') {
     void window.wbModelsPanel?.refreshAll?.();
   }
@@ -895,7 +895,7 @@ paintIcons();
 // 恢复页是「设置」时，启动设置就永远停在「检测中…」（局域网开关随之显示
 // 默认值，看着像没保存）。DOMContentLoaded 在全部同步脚本执行完才触发，
 // 借它把初始切换对齐到「岛已就绪」之后，与用户手动切页完全同行为。
-const initialPage = window.wbMobileEmbed?.page || localStorage.getItem(PAGE_KEY) || 'overview';
+const initialPage = localStorage.getItem(PAGE_KEY) || 'overview';
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     showPage(initialPage, { persist: false });

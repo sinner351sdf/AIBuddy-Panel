@@ -1,3 +1,4 @@
+import { usePageReady } from '../components/use-page-ready'
 import { RequestPhaseBadge, RequestPhaseElapsed, phaseLabelOf, phaseBadgeHtml, phaseElapsedLineHtml, phaseElapsedText, phaseOf } from './request-phase'
 import * as React from 'react'
 import { flushSync } from 'react-dom'
@@ -907,8 +908,9 @@ function headRow(columns: VisibleColumn[]): React.ReactNode {
 
 /* ─── 面板本体 ─────────────────────────────── */
 
-function RequestsPage() {
+export function RequestsPage() {
   const [data, setData] = React.useState<PanelData>(EMPTY_DATA)
+  usePageReady('requests', data.loaded || Boolean(data.error))
   const [filters, setFilters] = React.useState<Filters>(() => readSavedFilters())
   const [range, setRange] = React.useState<string>(() => current.range)
   const [runningOnly, setRunningOnly] = React.useState(false)

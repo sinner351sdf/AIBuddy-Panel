@@ -105,6 +105,7 @@ pub const ACTION_ORDER: &[&str] = &[
     "Hp_Appearance",
     "skill_1",
     "Expert_lighthouse",
+    "WorkBuddy_Valorant",
     "black_cat",
     "school_season",
     "Sequential_Tasks_1",
@@ -170,6 +171,18 @@ pub struct Task {
     pub claimable: bool,
     /// 已领取（accept_status == "claimed"）
     pub claimed: bool,
+}
+
+/// Upstream transitions accepted -> in_progress after the first counted action.
+/// Only these explicit states confirm registration; progress alone is insufficient.
+pub fn is_registered_status(status: &str) -> bool {
+    matches!(status, "accepted" | "in_progress" | "completed" | "claimed")
+}
+
+impl Task {
+    pub fn is_registered(&self) -> bool {
+        is_registered_status(&self.accept_status)
+    }
 }
 
 /// 解析任务列表 data.tasks[]（对照 refs tasks.go:147-208 `parseGrowthTasks`）。
@@ -247,6 +260,7 @@ pub fn task_label(task: &Task) -> String {
         "Expert_team_use_3" => "使用专家团 ×3",
         "Hp_Appearance" => "更换主题外观",
         "Expert_lighthouse" => "体验轻量云专家",
+        "WorkBuddy_Valorant" => "体验无畏契约拼豆专家",
         "skill_1" => "尝鲜热门技能",
         "black_cat" => "夜猫子任务",
         "Expert_Philanthropy" => "公益捐赠",

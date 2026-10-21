@@ -28,7 +28,7 @@ class Element {
   addEventListener(name,fn){this.events[name]=fn}
   focus(){}
 }
-function fixture({blocked=false}={}){
+function fixture({blocked=false,mobile=false}={}){
   let now=0,id=0,stateId=0,successes=0,nextStart=null,nextWait=null
   const timers=new Map(),requests=[],popups=[],toasts=[]
   const body=new Element('body'),button=new Element('button'),cancel=new Element('button'),hint=new Element('span')
@@ -56,6 +56,7 @@ function fixture({blocked=false}={}){
     busy:false,releaseBusy(){context.busy=false},
     state:{provider:'qoder'},shared:()=>win,setState:action=>{context.state=action(context.state)},
   })
+  if(mobile){delete context.busy;delete context.releaseBusy}
   vm.runInContext(shim,context)
   vm.runInContext(engine,context)
   const bridge=win.workbuddyDesktop
@@ -122,4 +123,16 @@ assert.ok(f.doc.getElementById('a2a-web-overlay'));await f.bridge.cancelLogin()
 const result=await settled(first);assert.equal(result.ok,false);assert.equal(result.canceled,true)
 assert.equal(f.doc.getElementById('a2a-web-overlay'),null);await f.advance(9000)
 assert.equal(f.doc.getElementById('a2a-web-overlay'),null);assert.deepEqual(f.canceledStates(),['manual-state'])
-console.log('PASS: cancel/reopen, popup close, slow start, late poll isolation, success/failure, blocked popup and manual OAuth; real UI busy lock released')
+// The mobile host intentionally has neither app.js busy nor releaseBusy.
+for(const blocked of [false,true]) {
+ const phone=fixture({mobile:true,blocked});let pending=phone.start();await flush()
+ assert(phone.requests.some(r=>r.path.endsWith('/login/start')),'phone starts a real bridge request without desktop globals')
+ assert.equal(phone.button.disabled,true);await settled(phone.start())
+ assert.equal(phone.requests.filter(r=>r.path.endsWith('/login/start')).length,1,'phone duplicate clicks remain locked')
+ await phone.controller.cancel();await settled(pending);assert.equal(phone.button.disabled,false)
+ const failed=deferred();phone.setStart(failed.promise);pending=phone.start();await flush();failed.reject(Error('phone fixture unavailable'));await settled(pending)
+ assert.equal(phone.button.disabled,false);assert(phone.toasts.some(t=>String(t[0]).includes('phone fixture unavailable')),'phone errors are visible and recoverable')
+ phone.setWait(Promise.resolve({done:true,session:{account:'phone-fixture'}}));pending=phone.start();await phone.advance(3000);if(blocked){await phone.controller.cancel()}await settled(pending)
+ assert.equal(typeof phone.context.busy,'undefined');assert.equal(typeof phone.context.releaseBusy,'undefined')
+}
+console.log('PASS: cancel/reopen, popup close, slow start, late poll isolation, success/failure, blocked popup and manual OAuth; desktop busy lock and standalone mobile lock released')

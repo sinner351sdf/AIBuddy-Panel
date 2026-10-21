@@ -1,3 +1,5 @@
+import { usePageReady } from '../components/use-page-ready'
+import { cn } from '@ui'
 /** AI Elements Base UI Chat / Message / Confirmation patterns with the real Rust transport.
  * https://ui.shadcn.com/docs/ai-elements/base/{chat,message,confirmation,tool}.md */
 import * as React from 'react'
@@ -82,17 +84,21 @@ function AssistantTurn({ message, cards, onConfirm }: { message: UIMessage; card
   return <>{sections}</>
 }
 
-function AssistantPage() {
+let mobileDraft = ''
+let mobileDraftFiles: File[] = []
+export function AssistantPage({ mobile = false }: { mobile?: boolean } = {}) {
   const config = useAssistantConfig()
   const chat = useAssistantChat()
   const history = useAssistantHistory(chat)
   const historyReload = React.useRef(history.reload); historyReload.current = history.reload
   const [collapsed, setCollapsed] = React.useState(false)
   const [models, setModels] = React.useState<AssistantModelOption[]>([])
-  const [draft, setDraft] = React.useState('')
-  const [draftFiles, setDraftFiles] = React.useState<File[]>([])
+  const [draft, setDraft] = React.useState(mobile ? mobileDraft : '')
+  const [draftFiles, setDraftFiles] = React.useState<File[]>(mobile ? mobileDraftFiles : [])
+  React.useEffect(() => { if (mobile) { mobileDraft = draft; mobileDraftFiles = draftFiles } }, [mobile, draft, draftFiles])
   const [status, setStatus] = React.useState('')
   const [loadingFailed, setLoadingFailed] = React.useState(false)
+  usePageReady('assistant', Boolean(config) || loadingFailed)
   const [savingModel, setSavingModel] = React.useState(false)
   const [composerKey, setComposerKey] = React.useState(0)
   const activate = React.useCallback(async () => {
@@ -113,7 +119,7 @@ function AssistantPage() {
     void saveAssistantConfig({ model: value }).then(() => setStatus('')).catch(error => setStatus(errorText(error))).finally(() => setSavingModel(false))
   }} />
   const resetComposer = () => { setDraft(''); setDraftFiles([]); setStatus(''); setComposerKey(key => key + 1) }
-  return <TooltipProvider><div className='asst-shell' data-collapsed={collapsed || undefined}>
+  return <TooltipProvider><div className={cn(mobile ? 'asst-shell mobile-assistant' : 'asst-shell')} data-collapsed={collapsed || undefined}>
     {!collapsed && <aside className='asst-history-desktop'><HistoryList history={history} disabled={locked} onSelected={resetComposer} onCollapse={() => setCollapsed(true)} /></aside>}
     <div className='asst-layout' data-empty={!chat.messages.length || undefined}>
     <header className='asst-top'><div className='asst-title-row'><HistoryToggle history={history} disabled={locked} collapsed={collapsed} onToggle={() => setCollapsed(value => !value)} onSelected={resetComposer} /><h2 title={history.current?.title}>{history.current?.title || t('AI 助手')}</h2></div><div className='flex items-center gap-2'><span className='asst-save-status' role='status'>{history.saving ? t('保存中…') : history.current && !history.error ? t('已保存') : ''}</span></div></header>
@@ -130,9 +136,9 @@ function AssistantPage() {
     </MessageScrollerContent></MessageScrollerViewport><MessageScrollerButton /></MessageScroller></MessageScrollerProvider>
     <div className='asst-composer'>
       {!chat.messages.length && <div className='asst-suggestions' aria-label={t('快捷问题')}>
-        {[{ title: t('查找重复模型'), prompt: t('看看哪些模型在多家重复了') }, { title: t('查看账号余额'), prompt: t('查看各账号的剩余额度') }, { title: t('分析文件'), prompt: t('请帮我分析附件中的内容') }, { title: t('检查网关配置'), prompt: t('帮我检查当前网关配置，先给出建议，不要修改。') }].map(({ title, prompt }) => <Button key={title} variant='outline' size='sm' aria-label={prompt} onClick={() => { setDraft(prompt); document.querySelector<HTMLTextAreaElement>('.page[data-page="assistant"] textarea')?.focus() }}>{title}</Button>)}
+        {[{ title: t('查找重复模型'), prompt: t('看看哪些模型在多家重复了') }, { title: t('查看账号余额'), prompt: t('查看各账号的剩余额度') }, { title: t('分析文件'), prompt: t('请帮我分析附件中的内容') }, { title: t('检查网关配置'), prompt: t('帮我检查当前网关配置，先给出建议，不要修改。') }].map(({ title, prompt }) => <Button key={title} variant='outline' size='sm' aria-label={prompt} onClick={() => { setDraft(prompt); document.querySelector<HTMLTextAreaElement>('[data-page="assistant"] textarea')?.focus() }}>{title}</Button>)}
       </div>}
-      <PromptInput key={composerKey} value={draft} onChange={setDraft} onFilesChange={setDraftFiles} disabled={locked} busy={chat.busy} awaiting={chat.awaiting} onStop={chat.stop} model={<div className='flex min-w-0 flex-wrap items-center gap-1'>{modelPicker}<Select value={config?.reasoning || 'default'} disabled={locked} onValueChange={level => {
+      <PromptInput initialFiles={mobile ? draftFiles : undefined} key={composerKey} value={draft} onChange={setDraft} onFilesChange={setDraftFiles} disabled={locked} busy={chat.busy} awaiting={chat.awaiting} onStop={chat.stop} model={<div className='flex min-w-0 flex-wrap items-center gap-1'>{modelPicker}<Select value={config?.reasoning || 'default'} disabled={locked} onValueChange={level => {
         setSavingModel(true); void saveAssistantConfig({ reasoning: level === 'default' ? null : level }).catch(error => setStatus(errorText(error))).finally(() => setSavingModel(false))
       }}><SelectTrigger aria-label={t('思考等级')} className='w-auto'><SelectValue /></SelectTrigger><SelectContent><SelectGroup>
         {['default','none','minimal','low','medium','high','xhigh','max'].map(level => <SelectItem key={level} value={level}>{level === 'default' ? t('默认思考等级') : level}</SelectItem>)}

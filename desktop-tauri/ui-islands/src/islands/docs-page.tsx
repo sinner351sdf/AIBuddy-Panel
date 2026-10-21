@@ -1,3 +1,4 @@
+import { usePageReady } from '../components/use-page-ready'
 import { InfoTip } from '../components/info-tip'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
@@ -463,7 +464,8 @@ function HealthPanel() {
 
 /* ─── 页面 ─────────────────────────────────── */
 
-function DocsPage() {
+export function DocsPage() {
+  usePageReady('docs', true)
   return (
     <div className='flex min-w-0 flex-col gap-4'>
       <Card as='section' variant='panel' size='sm'>

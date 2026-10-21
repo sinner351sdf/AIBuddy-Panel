@@ -22,6 +22,7 @@ pub struct RunOptions {
     pub mode: String,
     pub source: String,
     pub slot: Option<String>,
+    pub task_code: Option<String>,
 }
 impl Default for RunOptions {
     fn default() -> Self {
@@ -30,7 +31,17 @@ impl Default for RunOptions {
             mode: "full".into(),
             source: "manual".into(),
             slot: None,
+            task_code: None,
         }
+    }
+}
+
+impl RunOptions {
+    fn task_in_scope(&self, code: &str) -> bool {
+        self.task_code.as_deref().is_none_or(|selected| selected == code)
+    }
+    fn follow_up_rewards(&self) -> bool {
+        self.task_code.is_none() && matches!(self.kind.as_str(), "growth" | "night" | "activity")
     }
 }
 
@@ -59,6 +70,7 @@ struct QueueItem {
 /// 一个账号的执行计划（同一账号的待办 + 会话）。
 struct AccountPlan {
     account_id: String,
+    allow_disabled: bool,
     run_id: i64,
     options: RunOptions,
     account_name: String,
@@ -149,6 +161,23 @@ impl GrowthQueue {
                 .get("available")
                 .and_then(Value::as_bool)
                 .unwrap_or(true)
+    }
+
+    /// Explicit single-account manual actions do not change API routing enablement.
+    fn execution_eligible(account: &Value, allow_disabled: bool) -> bool {
+        (allow_disabled
+            || account
+                .get("enabled")
+                .and_then(Value::as_bool)
+                .unwrap_or(true))
+            && account
+                .get("available")
+                .and_then(Value::as_bool)
+                .unwrap_or(true)
+    }
+
+    fn manual_account_scope(account_id: Option<&str>, source: &str) -> bool {
+        account_id.is_some() && source == "manual"
     }
 
     /// 收集待扫描账号（id、显示名、会话）。同步段：账号存储的快照与
@@ -269,6 +298,7 @@ impl GrowthQueue {
         account_id: Option<&str>,
         options: &RunOptions,
     ) -> Vec<AccountPlan> {
+        let allow_disabled = Self::manual_account_scope(account_id, &options.source);
         let batch = format!("task-{}", logging::now_ms());
         let accounts = self.store.list_accounts();
         let mut items = Vec::new();
@@ -283,7 +313,9 @@ impl GrowthQueue {
                 .get("provider")
                 .and_then(Value::as_str)
                 .unwrap_or("");
-            if !matches!(provider, "workbuddy" | "workbuddy-intl") || !Self::is_available(account) {
+            if !matches!(provider, "workbuddy" | "workbuddy-intl")
+                || !Self::execution_eligible(account, allow_disabled)
+            {
                 continue;
             }
             if options.kind != "activity" && !Self::growth_eligible(account) {
@@ -336,6 +368,7 @@ impl GrowthQueue {
                                     task.task_code != "black_cat"
                                 }
                             })
+                            .filter(|task| options.task_in_scope(&task.task_code))
                             .filter(|task| {
                                 !task.claimed
                                     && !task.locked
@@ -376,6 +409,7 @@ impl GrowthQueue {
                 .collect();
             plans.push(AccountPlan {
                 account_id: id.into(),
+                allow_disabled,
                 run_id,
                 options: options.clone(),
                 account_name: name.into(),
@@ -597,6 +631,7 @@ impl GrowthQueue {
     async fn run_account_group(self, plan: AccountPlan) {
         let AccountPlan {
             account_id,
+            allow_disabled,
             run_id,
             options,
             account_name,
@@ -616,7 +651,7 @@ impl GrowthQueue {
         let available = current["accounts"].as_array().is_some_and(|accounts| {
             accounts
                 .iter()
-                .any(|a| a["id"] == account_id && Self::is_available(a))
+                .any(|a| a["id"] == account_id && Self::execution_eligible(a, allow_disabled))
         });
         if !available || self.store.get_session_by_id(&account_id).is_none() {
             for (index, code) in items {
@@ -760,7 +795,7 @@ impl GrowthQueue {
                 break;
             }
         }
-        if matches!(options.kind.as_str(), "growth" | "night" | "activity")
+        if options.follow_up_rewards()
             && super::growth_schedule::kind_enabled("rewards")
             && !self.stop_requested()
             && !matches!(final_outcome, "failed" | "cancelled")
@@ -855,6 +890,42 @@ fn combined_outcome(current: &'static str, next: &'static str) -> &'static str {
 }
 #[cfg(test)]
 mod outcome_tests {
+    use super::GrowthQueue;
+    use serde_json::json;
+
+    #[test]
+    fn forwarding_disabled_accounts_require_explicit_manual_scope() {
+        let disabled = json!({"enabled":false,"available":true});
+        for (id, source, allowed) in [
+            (Some("chosen"), "manual", true),
+            (None, "manual", false),
+            (Some("chosen"), "scheduled", false),
+            (None, "scheduled", false),
+        ] {
+            let scope = GrowthQueue::manual_account_scope(id, source);
+            assert_eq!(GrowthQueue::execution_eligible(&disabled, scope), allowed);
+        }
+        assert!(!GrowthQueue::execution_eligible(
+            &json!({"available":false}),
+            true
+        ));
+        assert!(GrowthQueue::execution_eligible(&json!({}), false));
+        assert!(GrowthQueue::execution_eligible(
+            &json!({"enabled":true,"available":true}),
+            false
+        ));
+    }
+    #[test]
+    fn a_selected_task_never_includes_other_codes_or_follow_up_rewards() {
+        let one = super::RunOptions { task_code: Some("WorkBuddy_Valorant".into()), ..Default::default() };
+        assert!(one.task_in_scope("WorkBuddy_Valorant"));
+        assert!(!one.task_in_scope("Sequential_Tasks_3"));
+        assert!(!one.follow_up_rewards());
+        let bulk = super::RunOptions::default();
+        assert!(bulk.task_in_scope("WorkBuddy_Valorant") && bulk.task_in_scope("Sequential_Tasks_3"));
+        assert!(bulk.follow_up_rewards());
+    }
+
     #[test]
     fn neutral_skips_do_not_look_like_success() {
         assert_eq!(super::combined_outcome("skipped", "skipped"), "skipped");

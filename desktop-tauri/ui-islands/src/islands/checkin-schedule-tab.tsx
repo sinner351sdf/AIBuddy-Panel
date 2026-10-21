@@ -1,3 +1,4 @@
+import { SectionSkeleton } from '../components/section-skeleton'
 import { Alert, AlertDescription, Field, FieldContent, FieldLabel } from '@ui'
 import { InfoTip } from '../components/info-tip'
 import * as React from 'react'
@@ -538,10 +539,7 @@ function ScheduleTab({ active = true }: { active?: boolean }): React.ReactElemen
 
   if (!store.loaded) {
     return (
-      <div className='ck-loading'>
-        <Spinner className='size-5' />
-        <span>{t('正在读取定时签到数据…')}</span>
-      </div>
+      <SectionSkeleton/>
     )
   }
 

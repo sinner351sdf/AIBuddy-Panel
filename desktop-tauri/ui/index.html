@@ -2,11 +2,12 @@
 <html lang="zh-CN" data-theme="system">
 <head>
   <meta charset="UTF-8">
+  <script src="js/desktop-startup.js?v=a99e612a6438"></script>
+  <script src="js/page-loading.js?v=3ed79c569a35"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <link rel="icon" href="brand/favicon.ico?v=b-mono-1">
   <link rel="manifest" href="m/manifest.webmanifest">
   <title data-i18n="Agent2API · 多提供商本地网关">Agent2API · 多提供商本地网关</title>
-  <script src="mobile-panel-embed.js"></script>
   <script>
     // 与主题持久化配合：在 CSS 解析前先贴上 data-theme，避免深色模式首屏闪烁
     (() => {
@@ -61,65 +62,73 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/tokens.css?v=f5531f5c8fd6">
   <style>.pref-hamburger{display:none!important}</style>
-  <link rel="stylesheet" href="css/prefs.css">
-  <link rel="stylesheet" href="css/notify-center.css">
-  <link rel="stylesheet" href="css/tags-view.css">
-  <link rel="stylesheet" href="css/layout.css">
-  <link rel="stylesheet" href="css/components.css">
-  <link rel="stylesheet" href="css/page-accounts.css">
-  <link rel="stylesheet" href="css/page-accounts-providers.css">
+  <link rel="stylesheet" href="css/prefs.css?v=75a1073ff4f3">
+  <link rel="stylesheet" href="css/notify-center.css?v=317e6f6b0472">
+  <link rel="stylesheet" href="css/tags-view.css?v=6ebc72dc186d">
+  <link rel="stylesheet" href="css/layout.css?v=63199168fd8d">
+  <link rel="stylesheet" href="css/components.css?v=58f30261237f">
+  <link rel="stylesheet" href="css/page-accounts.css?v=d75966781d8e">
+  <link rel="stylesheet" href="css/page-accounts-providers.css?v=7fd110ca0f44">
   <!-- 账号页表格化（四家混排的一张表）：排在两个账号页样式之后 ——
        它要覆盖 page-accounts.css 里 .acct-scroll 的滚动方向等既有声明 -->
-  <link rel="stylesheet" href="css/page-accounts-table.css">
-  <link rel="stylesheet" href="css/page-gateway.css">
-  <link rel="stylesheet" href="css/page-agent.css">
-  <link rel="stylesheet" href="css/page-logs.css">
-  <link rel="stylesheet" href="css/page-tasks.css">
-  <link rel="stylesheet" href="css/page-checkin.css">
-  <link rel="stylesheet" href="css/page-requests.css">
-  <link rel="stylesheet" href="css/page-settings.css">
+  <link rel="stylesheet" href="css/page-accounts-table.css?v=789102fae7e1">
+  <link rel="stylesheet" href="css/page-gateway.css?v=74f00808cd75">
+  <link rel="stylesheet" href="css/page-agent.css?v=eae426a19f60">
+  <link rel="stylesheet" href="css/page-logs.css?v=d8387261dcd9">
+  <link rel="stylesheet" href="css/page-tasks.css?v=17207bf75c54">
+  <link rel="stylesheet" href="css/page-checkin.css?v=2acd5c8b83d2">
+  <link rel="stylesheet" href="css/page-requests.css?v=04de187a2705">
+  <link rel="stylesheet" href="css/page-settings.css?v=682b1ad6d243">
   <!-- 更新日志（Markdown 正文 / 版本卡片 / 导航更新提示）：排在页面样式之后，
        需要时可覆盖 page-settings.css 里为旧的纯文本说明写的规则 -->
-  <link rel="stylesheet" href="css/update-notes.css">
-  <link rel="stylesheet" href="css/mobile.css">
-  <link rel="stylesheet" href="css/page-report.css">
+  <link rel="stylesheet" href="css/update-notes.css?v=430b8d697330">
+  <link rel="stylesheet" href="css/mobile.css?v=1cc77a8676d6">
+  <link rel="stylesheet" href="css/page-report.css?v=ebdbf19846fc">
   <!-- AI 助手页（智能组）：消息流 / 工具卡 / 确认卡 / 输入区。排在页面样式之后，
        它是一个新页面，没有需要覆盖的既有规则 -->
-  <link rel="stylesheet" href="css/page-assistant.css">
+  <link rel="stylesheet" href="css/page-assistant.css?v=b8d6afb84d54">
   <!-- 小问号提示外观（tooltip.js 增强出来的气泡）：排在页面样式之后，
        需要时可覆盖各页面自己写的尺寸约束 -->
-  <link rel="stylesheet" href="css/tooltip.css">
+  <link rel="stylesheet" href="css/tooltip.css?v=eb375186a5b9">
   <!-- 表格列设置：必须排在所有页面样式之后 ——
        列对齐是**用户配置**，要盖过各表为「这一列靠哪边」写死的默认值
        （.models-table th.r / .acct-table td.cell-pick / .req-head .req-dur …），
        靠级联顺序取胜而不是堆特异性。与 tooltip.css 同一编排。
        （select.css 已随 select.js 一并删除：全站最后一个原生 <select> 换成组件库的
        Select 之后，.select-shell 那一族样式再无任何引用。） -->
-  <link rel="stylesheet" href="css/table-col-settings.css">
+  <link rel="stylesheet" href="css/table-col-settings.css?v=55e7f29aca7e">
   <!-- 移动端适配层：最后加载，断点 768px。不动既有 900px 折叠规则，
        只处理 768px 以下真机小屏：侧边栏抽屉化 + 表格卡片化 + 卡片堆叠 -->
-  <link rel="stylesheet" href="css/mobile.css">
+  <link rel="stylesheet" href="css/mobile.css?v=1cc77a8676d6">
   <!-- 组件库产物（desktop-tauri/ui-kit/，由 ui-islands 构建时一并编译成 ui/islands/ui.css）：
        Tailwind 的 theme + utilities 两层，刻意不含 preflight —— 基础重置仍由 tokens.css
        承担，否则 h1-h6 字号、列表缩进、img 显示方式会被整体重置。
        排在最后：工具类带 !important（原因见 ui-kit/styles/globals.css 顶部），
        顺序其实已不影响结果，但保持「后加载的是更新的体系」这条阅读线索。 -->
-  <link rel="stylesheet" href="islands/ui.css">
-  <link rel="stylesheet" href="css/sidebar-navigation.css">
+  <link rel="stylesheet" href="islands/ui.css?v=3627c6ad8e7c">
+  <link rel="stylesheet" href="css/sidebar-navigation.css?v=838ef2a8bad4">
   <!-- 多语言运行时：查表 t() + 静态文案扫描器（data-i18n 系列）。
        词典已由上面 head 里的引导脚本同步注入（document.write），这里只放运行时逻辑。
        必须排在 units.js / app.js 等业务脚本之前 —— 它们在加载期就可能读 window.wbI18n；
        排在 head 末尾天然满足。 -->
-  <script src="theme.js"></script>
-  <script src="i18n.js"></script>
+  <script src="theme.js?v=efcba4ba01af"></script>
+  <script src="i18n.js?v=efba492aa617"></script>
+  <script src="js/prefs.js?v=93d8092de17a"></script>
   <link rel="apple-touch-icon" sizes="180x180" href="assets/app-icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
 </head>
 <body>
+  <script>
+    // Restore navigation width before the shell can paint; the React island uses the same key.
+    try { document.body.classList.toggle('shell-collapsed', localStorage.getItem('aibuddy-sidebar-collapsed') === '1'); } catch { /* storage unavailable: expanded */ }
+  </script>
   <div class="shell shell-sidebar-07">
+<!-- desktop-startup-sidebar:start -->
+<div id="desktop-startup-sidebar" aria-hidden="true"><div class="startup-sidebar-brand"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-8 shrink-0"></div><div class="startup-sidebar-label flex min-w-0 flex-col gap-2"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-24"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-2 w-12"></div></div></div><div class="startup-sidebar-menu"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label mb-3 h-3 w-12"></div><div class="startup-sidebar-group"><div class="startup-sidebar-group-title flex h-8 items-center gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-4 shrink-0"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-3 w-24"></div></div><div class="startup-sidebar-row"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-4 shrink-0"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-3 w-24"></div></div></div><div class="startup-sidebar-group"><div class="startup-sidebar-group-title flex h-8 items-center gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-4 shrink-0"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-3 w-24"></div></div><div class="startup-sidebar-row"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-4 shrink-0"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-3 w-24"></div></div><div class="startup-sidebar-row"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-4 shrink-0"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-3 w-24"></div></div><div class="startup-sidebar-row"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-4 shrink-0"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-3 w-24"></div></div><div class="startup-sidebar-row"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-4 shrink-0"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-3 w-24"></div></div></div><div class="startup-sidebar-group"><div class="startup-sidebar-group-title flex h-8 items-center gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-4 shrink-0"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-3 w-24"></div></div><div class="startup-sidebar-row"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-4 shrink-0"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-3 w-24"></div></div><div class="startup-sidebar-row"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-4 shrink-0"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-3 w-24"></div></div><div class="startup-sidebar-row"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-4 shrink-0"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-3 w-24"></div></div><div class="startup-sidebar-row"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-4 shrink-0"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-3 w-24"></div></div><div class="startup-sidebar-row"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-4 shrink-0"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-3 w-24"></div></div></div><div class="startup-sidebar-group"><div class="startup-sidebar-group-title flex h-8 items-center gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-4 shrink-0"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-3 w-24"></div></div><div class="startup-sidebar-row"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-4 shrink-0"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-3 w-24"></div></div><div class="startup-sidebar-row"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-4 shrink-0"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-3 w-24"></div></div><div class="startup-sidebar-row"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-4 shrink-0"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-3 w-24"></div></div><div class="startup-sidebar-row"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-4 shrink-0"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-3 w-24"></div></div></div></div><div class="startup-sidebar-footer"><div class="startup-sidebar-row"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-3 shrink-0 rounded-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-2 w-36"></div></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base startup-sidebar-label h-7 w-full"></div><div class="startup-sidebar-user flex items-center gap-3"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-8 shrink-0 rounded-full"></div><div class="startup-sidebar-label flex flex-col gap-2"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-2 w-12"></div></div></div></div></div>
+<!-- desktop-startup-sidebar:end -->
     <!-- Navigation is composed by the shadcn Sidebar island. Retained roots survive desktop/Sheet transitions. -->
     <div id="shell-sidebar-root"></div>
     <div id="shell-sidebar-assets" hidden>
@@ -130,6 +139,9 @@
 
     <!-- ─── 主区域 ─── -->
     <main class="main">
+<!-- desktop-startup-skeleton:start -->
+<div id="desktop-startup-skeleton" role="status" aria-live="polite" aria-label="正在加载面板"><span class="sr-only" data-i18n="正在加载…">正在加载…</span><div aria-hidden="true" class="startup-surface"><div class="startup-topbar"><div class="flex items-center gap-4"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-5"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-24"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-12"></div></div><div class="flex gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-6"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-6"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-6"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-6"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-6"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base size-6"></div></div></div><div class="startup-tabs"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-8 shrink-0" style="width:64px"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-8 shrink-0" style="width:94px"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-8 shrink-0" style="width:116px"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-8 shrink-0" style="width:100px"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-8 shrink-0" style="width:110px"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-8 shrink-0" style="width:100px"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-8 shrink-0" style="width:120px"></div></div><div class="startup-content"><div class="startup-content-inner"><div class="startup-page" data-startup-layout="report"><div data-slot="card" data-size="default" data-variant="panel" class="group/card flex flex-col bg-card text-card-foreground ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[&gt;img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl gap-0 overflow-clip rounded-lg border border-border py-0 text-[13px] shadow-1 ring-0 startup-welcome startup-card"><div data-slot="card-header" class="group/card-header @container/card-header auto-rows-min has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing) flex flex-wrap rounded-none border-0 flex-row items-center justify-between gap-4 p-4"><div class="flex flex-col gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-4 w-36"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-24"></div></div><div class="flex gap-2"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-8 w-24"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-8 w-20"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-8 w-24"></div></div></div></div><div data-slot="card" data-size="default" data-variant="panel" class="group/card flex flex-col bg-card text-card-foreground ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[&gt;img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl gap-0 overflow-clip rounded-lg border border-border py-0 text-[13px] shadow-1 ring-0 startup-card"><div data-slot="card-header" class="group/card-header @container/card-header auto-rows-min has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing) flex flex-wrap items-center gap-2.5 rounded-none border-b border-hairline px-5 py-4 justify-between"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-4 w-24"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-7 w-1/2"></div></div><div data-slot="card-content" class="flex flex-col gap-3 px-5 py-4"><div class="startup-metrics"><div data-slot="card" data-size="default" data-variant="panel" class="group/card flex flex-col bg-card text-card-foreground ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[&gt;img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl overflow-clip rounded-lg border border-border py-0 text-[13px] shadow-1 ring-0 gap-0"><div data-slot="card-header" class="group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing) px-3 pt-3 pb-2"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div></div><div data-slot="card-content" class="flex flex-col gap-2 px-3 pb-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-4 w-16"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-24"></div></div></div><div data-slot="card" data-size="default" data-variant="panel" class="group/card flex flex-col bg-card text-card-foreground ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[&gt;img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl overflow-clip rounded-lg border border-border py-0 text-[13px] shadow-1 ring-0 gap-0"><div data-slot="card-header" class="group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing) px-3 pt-3 pb-2"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div></div><div data-slot="card-content" class="flex flex-col gap-2 px-3 pb-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-4 w-16"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-24"></div></div></div><div data-slot="card" data-size="default" data-variant="panel" class="group/card flex flex-col bg-card text-card-foreground ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[&gt;img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl overflow-clip rounded-lg border border-border py-0 text-[13px] shadow-1 ring-0 gap-0"><div data-slot="card-header" class="group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing) px-3 pt-3 pb-2"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div></div><div data-slot="card-content" class="flex flex-col gap-2 px-3 pb-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-4 w-16"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-24"></div></div></div><div data-slot="card" data-size="default" data-variant="panel" class="group/card flex flex-col bg-card text-card-foreground ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[&gt;img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl overflow-clip rounded-lg border border-border py-0 text-[13px] shadow-1 ring-0 gap-0"><div data-slot="card-header" class="group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing) px-3 pt-3 pb-2"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div></div><div data-slot="card-content" class="flex flex-col gap-2 px-3 pb-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-4 w-16"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-24"></div></div></div><div data-slot="card" data-size="default" data-variant="panel" class="group/card flex flex-col bg-card text-card-foreground ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[&gt;img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl overflow-clip rounded-lg border border-border py-0 text-[13px] shadow-1 ring-0 gap-0"><div data-slot="card-header" class="group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing) px-3 pt-3 pb-2"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div></div><div data-slot="card-content" class="flex flex-col gap-2 px-3 pb-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-4 w-16"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-24"></div></div></div><div data-slot="card" data-size="default" data-variant="panel" class="group/card flex flex-col bg-card text-card-foreground ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[&gt;img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl overflow-clip rounded-lg border border-border py-0 text-[13px] shadow-1 ring-0 gap-0"><div data-slot="card-header" class="group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing) px-3 pt-3 pb-2"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div></div><div data-slot="card-content" class="flex flex-col gap-2 px-3 pb-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-4 w-16"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-24"></div></div></div></div></div></div><div class="startup-columns"><div data-slot="card" data-size="default" data-variant="panel" class="group/card flex flex-col bg-card text-card-foreground ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[&gt;img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl gap-0 overflow-clip rounded-lg border border-border py-0 text-[13px] shadow-1 ring-0 startup-card"><div data-slot="card-header" class="group/card-header @container/card-header auto-rows-min has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing) flex flex-wrap items-center gap-2.5 rounded-none border-b border-hairline px-5 py-4"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-4 w-24"></div></div><div data-slot="card-content" class="flex flex-col gap-3 px-5 py-4 min-h-60"><div class="flex flex-col gap-5"><div class="flex items-center gap-3"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-5 shrink-0 rounded-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-2 w-1/2"></div></div><div class="flex items-center gap-3"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-5 shrink-0 rounded-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-2 w-1/3"></div></div><div class="flex items-center gap-3"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-5 shrink-0 rounded-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-2 w-1/2"></div></div><div class="flex items-center gap-3"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-5 shrink-0 rounded-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-2 w-1/3"></div></div><div class="flex items-center gap-3"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-5 shrink-0 rounded-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-2 w-1/2"></div></div><div class="flex items-center gap-3"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-5 shrink-0 rounded-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-2 w-1/3"></div></div><div class="flex items-center gap-3"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-5 shrink-0 rounded-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-2 w-1/2"></div></div></div></div></div><div data-slot="card" data-size="default" data-variant="panel" class="group/card flex flex-col bg-card text-card-foreground ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[&gt;img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl gap-0 overflow-clip rounded-lg border border-border py-0 text-[13px] shadow-1 ring-0 startup-card"><div data-slot="card-header" class="group/card-header @container/card-header auto-rows-min has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing) flex flex-wrap items-center gap-2.5 rounded-none border-b border-hairline px-5 py-4"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-4 w-24"></div></div><div data-slot="card-content" class="flex flex-col gap-3 px-5 py-4 min-h-60"><div class="flex flex-col gap-5"><div class="flex items-center gap-3"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-5 shrink-0 rounded-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-2 w-1/2"></div></div><div class="flex items-center gap-3"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-5 shrink-0 rounded-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-2 w-1/3"></div></div><div class="flex items-center gap-3"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-5 shrink-0 rounded-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-2 w-1/2"></div></div><div class="flex items-center gap-3"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-5 shrink-0 rounded-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-2 w-1/3"></div></div><div class="flex items-center gap-3"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-5 shrink-0 rounded-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-2 w-1/2"></div></div><div class="flex items-center gap-3"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-5 shrink-0 rounded-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-2 w-1/3"></div></div><div class="flex items-center gap-3"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-5 shrink-0 rounded-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-20"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-2 w-1/2"></div></div></div></div></div></div><div class="startup-columns"><div data-slot="card" data-size="default" data-variant="panel" class="group/card flex flex-col bg-card text-card-foreground ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[&gt;img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl gap-0 overflow-clip rounded-lg border border-border py-0 text-[13px] shadow-1 ring-0 startup-card"><div data-slot="card-header" class="group/card-header @container/card-header auto-rows-min has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing) flex flex-wrap items-center gap-2.5 rounded-none border-b border-hairline px-5 py-4"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-4 w-24"></div></div><div data-slot="card-content" class="flex flex-col gap-3 px-5 py-4 min-h-60"><div class="flex min-h-52 items-center gap-6"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-36 shrink-0 rounded-full"></div><div class="flex min-w-0 flex-1 flex-col gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-2/3"></div></div></div></div></div><div data-slot="card" data-size="default" data-variant="panel" class="group/card flex flex-col bg-card text-card-foreground ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[&gt;img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl gap-0 overflow-clip rounded-lg border border-border py-0 text-[13px] shadow-1 ring-0 startup-card"><div data-slot="card-header" class="group/card-header @container/card-header auto-rows-min has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing) flex flex-wrap items-center gap-2.5 rounded-none border-b border-hairline px-5 py-4"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-4 w-24"></div></div><div data-slot="card-content" class="flex flex-col gap-3 px-5 py-4 min-h-60"><div class="flex min-h-52 items-center gap-6"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-36 shrink-0 rounded-full"></div><div class="flex min-w-0 flex-1 flex-col gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-2/3"></div></div></div></div></div></div></div><div class="startup-page" data-startup-layout="table"><div data-slot="card" data-size="default" data-variant="panel" class="group/card flex flex-col bg-card text-card-foreground ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[&gt;img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl gap-0 overflow-clip rounded-lg border border-border py-0 text-[13px] shadow-1 ring-0 startup-card"><div data-slot="card-header" class="group/card-header @container/card-header auto-rows-min has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing) flex flex-wrap items-center gap-2.5 rounded-none border-b border-hairline px-5 py-4 justify-between"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-5 w-32"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-8 w-24"></div></div><div data-slot="card-content" class="flex flex-col gap-3 px-5 py-4"><div class="flex gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-9 w-72"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-9 w-24"></div></div><div class="mt-3 flex flex-col gap-5"><div class="flex items-center gap-5"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-8 shrink-0 rounded-full"></div><div class="flex min-w-0 flex-1 flex-col gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-2/3"></div></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-16"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-20"></div></div><div class="flex items-center gap-5"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-8 shrink-0 rounded-full"></div><div class="flex min-w-0 flex-1 flex-col gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-2/3"></div></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-16"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-20"></div></div><div class="flex items-center gap-5"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-8 shrink-0 rounded-full"></div><div class="flex min-w-0 flex-1 flex-col gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-2/3"></div></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-16"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-20"></div></div><div class="flex items-center gap-5"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-8 shrink-0 rounded-full"></div><div class="flex min-w-0 flex-1 flex-col gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-2/3"></div></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-16"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-20"></div></div><div class="flex items-center gap-5"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-8 shrink-0 rounded-full"></div><div class="flex min-w-0 flex-1 flex-col gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-2/3"></div></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-16"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-20"></div></div><div class="flex items-center gap-5"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-8 shrink-0 rounded-full"></div><div class="flex min-w-0 flex-1 flex-col gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-2/3"></div></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-16"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-20"></div></div><div class="flex items-center gap-5"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-8 shrink-0 rounded-full"></div><div class="flex min-w-0 flex-1 flex-col gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-2/3"></div></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-16"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-20"></div></div><div class="flex items-center gap-5"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-8 shrink-0 rounded-full"></div><div class="flex min-w-0 flex-1 flex-col gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-2/3"></div></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-16"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-20"></div></div><div class="flex items-center gap-5"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-8 shrink-0 rounded-full"></div><div class="flex min-w-0 flex-1 flex-col gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-2/3"></div></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-16"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-20"></div></div><div class="flex items-center gap-5"><div data-slot="skeleton" class="animate-pulse bg-skeleton-base size-8 shrink-0 rounded-full"></div><div class="flex min-w-0 flex-1 flex-col gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-2/3"></div></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-16"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-6 w-20"></div></div></div></div></div></div><div class="startup-page startup-settings" data-startup-layout="form"><div data-slot="card" data-size="default" data-variant="panel" class="group/card flex flex-col bg-card text-card-foreground ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[&gt;img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl gap-0 overflow-clip rounded-lg border border-border py-0 text-[13px] shadow-1 ring-0 startup-card"><div data-slot="card-content" class="flex flex-col gap-6 p-4"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-5 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-5 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-5 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-5 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-5 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-5 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-5 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-5 w-full"></div></div></div><div class="flex min-w-0 flex-col gap-4"><div data-slot="card" data-size="default" data-variant="panel" class="group/card flex flex-col bg-card text-card-foreground ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[&gt;img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl gap-0 overflow-clip rounded-lg border border-border py-0 text-[13px] shadow-1 ring-0 startup-card"><div data-slot="card-header" class="group/card-header @container/card-header auto-rows-min has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing) flex flex-wrap items-center gap-2.5 rounded-none border-b border-hairline px-5 py-4"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-4 w-28"></div></div><div data-slot="card-content" class="flex flex-col gap-3 px-5 py-4"><div class="flex flex-col gap-3 py-2"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-24"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-9 w-full"></div></div><div class="flex flex-col gap-3 py-2"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-24"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-9 w-full"></div></div><div class="flex flex-col gap-3 py-2"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-24"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-9 w-full"></div></div></div></div><div data-slot="card" data-size="default" data-variant="panel" class="group/card flex flex-col bg-card text-card-foreground ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[&gt;img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl gap-0 overflow-clip rounded-lg border border-border py-0 text-[13px] shadow-1 ring-0 startup-card"><div data-slot="card-header" class="group/card-header @container/card-header auto-rows-min has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing) flex flex-wrap items-center gap-2.5 rounded-none border-b border-hairline px-5 py-4"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-4 w-28"></div></div><div data-slot="card-content" class="flex flex-col gap-3 px-5 py-4"><div class="flex flex-col gap-3 py-2"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-24"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-9 w-full"></div></div><div class="flex flex-col gap-3 py-2"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-24"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-9 w-full"></div></div><div class="flex flex-col gap-3 py-2"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-24"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-9 w-full"></div></div></div></div></div></div><div class="startup-page" data-startup-layout="chat"><div data-slot="card" data-size="default" data-variant="panel" class="group/card flex flex-col bg-card text-card-foreground ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[&gt;img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl gap-0 overflow-clip rounded-lg border border-border py-0 text-[13px] shadow-1 ring-0 startup-card"><div data-slot="card-header" class="group/card-header @container/card-header auto-rows-min has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing) flex flex-wrap items-center gap-2.5 rounded-none border-b border-hairline px-5 py-4"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-5 w-40"></div></div><div data-slot="card-content" class="flex flex-col gap-3 px-5 py-4 min-h-96 justify-between"><div class="flex flex-col gap-8 py-8"><div class="flex min-w-0 flex-1 flex-col gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-2/3"></div></div><div class="flex min-w-0 flex-1 flex-col gap-3"><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-full"></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-3 w-2/3"></div></div></div><div data-slot="skeleton" class="animate-pulse rounded-md bg-skeleton-base h-24 w-full"></div></div></div></div></div></div></div></div>
+<!-- desktop-startup-skeleton:end -->
       <header class="topbar">
         <div class="topbar-navigation">
           <div id="shell-sidebar-trigger-host"></div>
@@ -142,6 +154,7 @@
         <div id="topbar-status" hidden></div>
       </header>
 
+      <div id="shell-tags-host" class="tags-view"></div>
       <div class="content">
         <div class="content-inner">
 
@@ -316,6 +329,7 @@
         </div>
       </div>
     </main>
+<template id="page-loading-error"><div data-slot="alert" role="alert" class="group/alert relative grid w-full gap-0.5 rounded-lg border border-border px-2.5 py-2 text-left text-sm has-data-[slot=alert-action]:relative has-data-[slot=alert-action]:pr-18 has-[&gt;svg]:grid-cols-[auto_1fr] has-[&gt;svg]:gap-x-2 *:[svg]:row-span-2 *:[svg]:translate-y-0.5 *:[svg:not([class*=&#x27;size-&#x27;])]:size-4 bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current"><div data-slot="alert-title" class="font-medium group-has-[&gt;svg]/alert:col-start-2 [&amp;_a]:underline [&amp;_a]:underline-offset-3 [&amp;_a]:hover:text-foreground">页面加载时间过长</div><div data-slot="alert-description" class="text-sm text-balance text-muted-foreground md:text-pretty [&amp;_a]:underline [&amp;_a]:underline-offset-3 [&amp;_a]:hover:text-foreground [&amp;_p:not(:last-child)]:mb-4">请检查本地服务连接后重试。</div><button type="button" tabindex="0" data-slot="button" data-shape="default" data-variant="outline" data-size="default" data-loading-retry="true" class="group/button inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap border font-medium transition-[background-color,border-color,color,transform,box-shadow] duration-150 ease-out outline-none select-none focus-visible:shadow-focus active:translate-y-0 disabled:pointer-events-none disabled:opacity-45 disabled:shadow-none [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_[data-icon]]:size-4 [&amp;_[data-icon]]:shrink-0 border-control-border bg-control text-foreground shadow-1 hover:border-control-border-hover hover:bg-control-hover h-[var(--control-h)] rounded-md px-3 text-[12.5px] mt-3 w-fit">重试</button></div></template>
 
     <!-- 移动端侧边栏遮罩：<768px 下侧边栏滑出时盖住内容区，点遮罩即收起。
          纯 CSS 兄弟选择器驱动（#nav-toggle:checked ~ .nav-scrim），无需 JS。
@@ -394,7 +408,7 @@
        两个多选（可用提供商 / 可用模型）仍走 select.js 的原生 select 增强 ——
        组件库目前没有多选下拉，见该岛文件头的说明。 -->
 
-  <script src="icons.js"></script>
+  <script src="icons.js?v=0fd7c09dd2d3"></script>
   <!-- 表格列设置已迁到组件库：实现见 desktop-tauri/ui-islands/src/islands/table-col-settings.tsx，
        随 islands/ui.js 一起加载，对外仍是 window.wbColSettings = { register, apply, configOf,
        syncStaticHead, close }。四张表在**加载期**就 register，所以 islands/ui.js 必须排在
@@ -406,11 +420,11 @@
   <!-- 小问号提示增强：自动增强型组件，扫描 [data-tip] 即可工作，
        业务模块一行都不用改；页面里的静态问号与各岛渲染出来的动态问号
        都由它的 MutationObserver 接住。 -->
-  <script src="tooltip.js"></script>
+  <script src="tooltip.js?v=b1e6d3c82ba9"></script>
   <!-- Token 计量单位的展示口径（中文亿/万 ⇄ 英文 M/k）：报表页与请求日志页都读它，
        设置页的开关写它，所以排在所有业务脚本之前，它们执行时就能用上。 -->
-  <script src="units.js"></script>
-  <script src="app.js"></script>
+  <script src="units.js?v=385753790f01"></script>
+  <script src="app.js?v=b84a33595165"></script>
   <!-- React 岛（源码 desktop-tauri/ui-islands/，产物已随仓库提交）。三类：
        · 挂载点式：分段筛选（.island 宿主）、页面级面板（直接挂 .page section）；
        · 自动增强式：带 data-island-input 的原生输入框，加载时就地升级
@@ -426,18 +440,18 @@
        纯 localStorage 存取、无任何依赖，排在所有消费面板之前即可。
        必须在 islands/ui.js **之前**：日志页的岛首次渲染就要读它（先读不到会兜住，
        但排在前面才没有这一拍的抖动）。 -->
-  <script src="filter-memory.js"></script>
-  <script src="islands/ui.js"></script>
+  <script src="filter-memory.js?v=449abfb9f1ab"></script>
+  <script src="islands/ui.js?v=7b6477db5259"></script>
   <!-- 自定义标题栏（桌面端）：主窗口去掉了系统装饰（src-tauri/lib.rs 建窗处
        decorations(false)），这里动态补一条 32px 的标题栏（左标题右三键，
        拖动与双击最大化靠 data-tauri-drag-region）。网页端没有应用窗口，
        脚本内部按 platform 守卫直接不渲染，body 布局因此不受影响。
        它只依赖 workbuddyDesktop 与 icons.js，不依赖 wbApp；排在 app.js
        之后仅为读取顺序整洁。 -->
-  <script src="titlebar.js"></script>
+  <script src="titlebar.js?v=a9bee4747efd"></script>
   <!-- 端口状态面板已迁到组件库：实现见 desktop-tauri/ui-islands/src/islands/port-panel.tsx，
        随 islands/ui.js 一起加载，对外仍是 window.wbPortPanel = { render, sync, portLabel, isReady }。 -->
-  <script src="clipboard.js"></script>
+  <script src="clipboard.js?v=3c0c494ab3cc"></script>
   <!-- 网关页「可用模型」区块（渲染 / 本地过滤 / 刷新模型清单按钮）：必须排在
        app.js 之后 —— 它在加载期就从 window.wbApp 取 esc / toast / getState
        （跨文件引用走 wbApp 是本项目的既有约定，见 accounts-table.js）；
@@ -468,42 +482,42 @@
        只实现一次，两家各交一份配置。必须在 add-account.js 之前 —— 后者在加载期就要用它
        建 WorkBuddy 那一份（DOM 在下面那个弹窗里），也必须在 add-provider-forms.js 之前
        —— 小浣熊那份由它建。 -->
-  <script src="web-login.js"></script>
+  <script src="web-login.js?v=b7c68c15401c"></script>
   <!-- 手机验证码登录的交互引擎（当前只有 AutoClaw 用）：与小浣熊的网页登录是两套
        东西 —— 那条链路开窗口等回调，这条在本弹窗里「发码 → 填码 → 换 token」。
        必须在 add-provider-forms.js 之前 —— 加载期由它建 AutoClaw 那一份。 -->
-  <script src="sms-login.js"></script>
+  <script src="sms-login.js?v=9fe108dc11b9"></script>
   <!-- 阿里云无痕验证（滑块）求解器 —— **共用模块**：AutoClaw 的 OAuth 登录与
        ZCode 的「周末套餐领取」都要过这道风控，求解过程完全一致（只有拿到验证串
        之后干的事不同），因此只留一份实现。
        必须排在两个消费者（下面那行 autoclaw-oauth.js 与 zcode-claim.js）之前：
        它们在加载期就取 `window.wbAliyunCaptcha`。 -->
-  <script src="aliyun-captcha.js"></script>
+  <script src="aliyun-captcha.js?v=4486d5fe1c14"></script>
   <!-- AutoClaw 国际版的 OAuth 网页登录（Zai / Google）。单独一个文件是因为它的
        顺序与另外五家相反：点按钮后先在**本弹窗**里跑阿里云风控验证码（浏览器端
        SDK，从 o.alicdn.com 加载），拿到验证串才去换授权地址、再交壳开窗口。
        必须在 add-provider-forms.js 之前 —— 加载期由它建国际版那一份。 -->
-  <script src="autoclaw-oauth.js"></script>
+  <script src="autoclaw-oauth.js?v=7590a0c64f2a"></script>
   <!-- ZCode「周末套餐」的探测与领取（账号页那一列按钮）。
        依赖 window.wbAccountsView 的列注册与 window.wbAliyunCaptcha。 -->
-  <script src="zcode-claim.js"></script>
+  <script src="zcode-claim.js?v=30e14f9da8cb"></script>
   <!-- CodeArts 的「领福利」流程（与上面 zcode-claim.js 同一约定：岛只把账号对象递过去，
        探测 → 确认 → 领取 → 回读二次确认这四步都在这个引擎里，它要问的是管理接口
        而不是本页的普通 fetch —— 桌面壳里管理接口要走 Tauri 的 api_request 命令）。
        界面上那颗按钮的判据（能力位 welfare）与台账读数都在岛上，见
        ui-islands/src/islands/accounts-domain.ts 的 supportsWelfare / welfareStateOf。 -->
-  <script src="codearts-welfare.js"></script>
+  <script src="codearts-welfare.js?v=1ff6754b08d6"></script>
   <!-- ZCode 活动套餐通道的**验证码令牌池守卫**：后台循环向网关问库存，需要时用
        无痕验证静默铸令牌（`wbAliyunCaptcha.mintTraceless`）并推回网关 —— 活动套餐
        的推理端点每条请求都要一个这种令牌，而转发是后台发生的（没有让用户拖滑块的
        机会）。必须排在 aliyun-captcha.js 之后：它加载完就自启，第一轮就要用那个模块。 -->
-  <script src="zcode-captcha-pool.js"></script>
+  <script src="zcode-captcha-pool.js?v=b1acf59e033b"></script>
   <!-- 提供商目录：provider 摘要与「作用提供商」写入的唯一前端入口。
        必须排在所有消费者（accounts-groups / logs-panel）之前 -->
-  <script src="providers.js"></script>
+  <script src="providers.js?v=cc8bb2360397"></script>
   <!-- 自定义提供商的预置目录（纯常量，无依赖）：add-provider-forms.js 第 1 步的
        「自定义」分段与 add-custom-provider.js 的预填都要读它，排在两者之前 -->
-  <script src="preset-providers.js"></script>
+  <script src="preset-providers.js?v=b8a5b1f8e042"></script>
   <!-- 账号页整页已迁到组件库：岛见 ui-islands/src/islands/accounts-page.tsx，
        数据与逻辑拆在旁边的 accounts-shared.ts / accounts-domain.ts / accounts-columns.ts /
        accounts-store.ts / accounts-data.ts / accounts-panels.tsx / accounts-dialogs.tsx
@@ -513,10 +527,10 @@
        各管各的列宽口径（账号表是定宽像素预算，这三张是相对宽度）。
        它启动时就把表头把手插好并绑好委托，所以排在靠后（DOM 里的表格与列表都已存在）；
        请求日志的表头是整块重绘的，它自己用 MutationObserver 补把手，不依赖面板脚本。 -->
-  <script src="table-columns.js"></script>
+  <script src="table-columns.js?v=076c4ed31832"></script>
   <!-- 移动端表格卡片化：窄屏下把表头列名写进每行 td 的 data-col，
        配合 css/mobile.css 的 td::before 渲染成卡片 label。桌面端不执行。 -->
-  <script src="mobile-columns.js"></script>
+  <script src="mobile-columns.js?v=f49370caae94"></script>
   <!-- 并发上限小对话框已迁到组件库：实现见 desktop-tauri/ui-islands/src/conc-dialog.tsx，
        随 islands/ui.js 一起加载（排在 accounts-view 之前），对外仍是
        window.wbAccountConcDialog.open(account) / .close()，调用方不用改。 -->
@@ -542,7 +556,7 @@
        desktop-tauri/ui-islands/src/islands/request-hover.tsx，随 islands/ui.js 一起加载，
        对外仍是 window.wbRequestHover = { bind, close, hasProcessFacts, beforeListRedraw,
        afterListRedraw }（requests-panel.js 在加载期就调 bind，所以它必须排在后面）。 -->
-  <script src="conversation-preview.js"></script>
+  <script src="conversation-preview.js?v=20b1580f4bd9"></script>
   <!-- 请求详情弹窗已迁到组件库：实现见
        desktop-tauri/ui-islands/src/islands/request-detail.tsx，随 islands/ui.js
        一起加载，对外仍是 window.wbRequestDetail.open(id, row) / .close()。 -->
@@ -565,29 +579,28 @@
        window.wbAddAccountModal.open() / .close() 与 window.wbAccountAddForms。
        五个登录引擎（web-login / sms-login / autoclaw-oauth / aliyun-captcha /
        zcode-claim）原样保留、由岛调用，容器契约没变。 -->
-  <script src="custom-provider-ui.js"></script>
+  <script src="custom-provider-ui.js?v=7483bd4c88f2"></script>
   <!-- 账号设置 / 批量操作弹窗（原 account-panel.js）已迁到组件库：
        实现见 desktop-tauri/ui-islands/src/islands/accounts-dialogs.tsx，
        随 islands/ui.js 一起加载，对外仍是 window.wbAccountPanel.open(id) 等接口。 -->
   <!-- Markdown 渲染器：更新日志用。纯函数、无依赖，只认白名单语法（见文件头说明）；
        必须在 islands/ui.js 之后加载 —— 软件更新面板（update-panel.tsx）渲染更新
        日志时要读 window.wbMarkdown.render。 -->
-  <script src="markdown.js"></script>
+  <script src="markdown.js?v=6bb1b154128e"></script>
   <!-- 软件更新面板与设置页都已迁到组件库，随 islands/ui.js 一起加载：
        · 软件更新面板 → ui-islands/src/islands/update-panel.tsx
        · 设置页（含保留天数确认框）→ ui-islands/src/islands/settings-page.tsx
        设置页对外仍是 window.wbSettingsPanel 的九个方法，调用方一行未改。 -->
   <!-- 数据结构升级弹窗：启动时问一次 /api/upgrade，有待迁移数据就弹。
        排在最后：它的 refreshPanels() 要调各面板的 load()，那些都得先挂好 -->
-  <script src="upgrade-panel.js"></script>
-  <script src="js/prefs.js"></script>
-  <script src="js/notify-center.js"></script>
+  <script src="upgrade-panel.js?v=b9a734eb6eee"></script>
+  <script src="js/notify-center.js?v=949fe5b4a245"></script>
   <!-- 顶栏用户菜单：账号名 + 修改账号密码（POST /api/panel/password）+ 退出登录
        （POST /api/panel/logout）。独立容器插在 #topbar-status 之前并 MutationObserver
        自愈（app.js 会整体重写那个容器，同 notify-center 的约定）。 -->
-  <script src="js/user-menu.js"></script>
-  <script src="js/shell.js"></script>
-  <script src="js/tags-view.js"></script>
-<script src="js/branding.js"></script>
+  <script src="js/user-menu.js?v=61d3b4f8aa71"></script>
+  <script src="js/shell.js?v=7528397401e7"></script>
+  <script src="js/tags-view.js?v=a472082ecd7e"></script>
+<script src="js/branding.js?v=0f6d716817bb"></script>
 </body>
 </html>

@@ -98,6 +98,7 @@ public class GatewayServiceTest {
             JSONObject state=command(scenario,GatewayService.START);assertTrue(state.getBoolean("running"));assertEquals("http://127.0.0.1:3065",state.getString("base"));
             assertEquals(200,request("GET", "/health"));assertEquals(200,request("GET", "/login"));assertEquals(200,request("GET", "/islands/ui.js"));
             assertEquals(200,request("GET", "/m/mobile.js"));assertEquals(200,request("GET", "/m/mobile.css"));
+            assertEquals(200,request("GET", "/m-feature-bridge.js"));assertEquals(200,request("GET", "/m-features.css"));
             assertEquals("inference fails closed until an API key is configured",503,request("POST", "/v1/chat/completions"));assertEquals("new panel requires setup/login",401,request("GET", "/api/accounts"));
             File data=new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getFilesDir(),"gateway-data/agent2api.db");
             // Exact database filename can evolve; private data directory must contain persisted state.

@@ -274,6 +274,7 @@ class Store {
     }
     applyTheme(mode)
     this.patch({ theme: mode })
+    window.dispatchEvent(new window.CustomEvent('wb:theme', { detail: mode }))
   }
 
   /** 系统主题变化时，system 档要跟着重算一次 */

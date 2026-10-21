@@ -1,4 +1,5 @@
-import { Badge } from '@ui'
+import { usePageReady } from '../components/use-page-ready'
+import { Alert, AlertDescription, Badge } from '@ui'
 import { UsageRankChart, UsageDonutChart, CacheHistoryChart, DailyTokensChart } from './report-chart-components'
 import { donutChartData, reportAccountProvider } from './report-chart-data'
 import { InfoTip } from '../components/info-tip'
@@ -679,8 +680,9 @@ function ReportRefreshStamp() {
   </span>
 }
 
-function ReportPage() {
+export function ReportPage() {
   const [data, setData] = React.useState<PageData>(EMPTY_DATA)
+  usePageReady('overview', Boolean(data.summary || data.error))
   const [range, setRange] = React.useState<string>(readRange)
   const [customRange, setCustomRange] = React.useState<CustomRange>(readCustomRange)
   const customRef = React.useRef(customRange)
@@ -714,6 +716,7 @@ function ReportPage() {
    * 正常数据时必然是一次真正的内容变化，不该被这张签名挡住。
    */
   const signatureRef = React.useRef('')
+  const successfulQuery = React.useRef('')
 
   const applyData = React.useCallback((next: PageData, signature: string) => {
     signatureRef.current = signature
@@ -732,6 +735,7 @@ function ReportPage() {
     void syncAutoRefresh()
     const token = ++seq
     const requested = rangeRef.current
+    const queryKey = JSON.stringify([requested, requested === CUSTOM_RANGE ? customRef.current : null])
     try {
       const api = shared().workbuddyDesktop
       if (!api) throw new Error('后端桥不可用')
@@ -739,6 +743,7 @@ function ReportPage() {
       if (token !== seq) return summaryValue
       if (!payload || typeof payload !== 'object') throw new Error('后端未返回报表数据')
       summaryValue = payload
+      successfulQuery.current = queryKey
       markReportRefresh()
       // 内容与上一轮完全一致就不落 state（见 signatureRef 的说明）：轮询到「没有变化」
       // 是常态，那一轮不该付整页重渲染的代价
@@ -750,10 +755,12 @@ function ReportPage() {
     } catch (error) {
       if (token !== seq) return summaryValue
       const message = error instanceof Error ? error.message : ''
-      summaryValue = null
+      // Keep the last settled report visible when a background refresh fails.
       // silent：只压掉控制台噪音（首屏自持加载 / 轮询用），错误态照常显示在页面上
       if (!options.silent) console.warn('读取报表数据失败:', message)
-      applyData({ summary: null, error: message || t('未知错误') }, '')
+      if (successfulQuery.current === queryKey) setData(previous => ({ ...previous, error: message || t('未知错误') }))
+      else { summaryValue = null; setData({ summary: null, error: message || t('未知错误') }) }
+      signatureRef.current = ''
       return null
     }
   }, [applyData])
@@ -867,6 +874,10 @@ function ReportPage() {
   const heatWidth = useContainerWidth()
 
   const { summary, error } = data
+  React.useLayoutEffect(() => {
+    const page = document.querySelector<HTMLElement>(PAGE_SELECTOR)
+    if (page) page.dataset.initialReady = summary || error ? 'true' : 'false'
+  }, [summary, error])
   // 概览小格的说明文字用后端回显的档位（与这份数据同一轮），后端没回显才退回本地档位
   const rangeKey = summary && RANGES.includes(summary.range ?? '') ? (summary.range as string) : range
 
@@ -916,6 +927,7 @@ function ReportPage() {
 
   return (
     <>
+      {error && summary ? <Alert variant='destructive'><AlertDescription>{t('读取报表失败：{error}', { error })}</AlertDescription></Alert> : null}
       {/* ── 统计概览 ──
            时间范围控件住在这一块的面板头里：它控制的就是这一页的统计口径，与旁边的读数
            同处一行最直观 */}

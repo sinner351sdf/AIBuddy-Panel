@@ -80,7 +80,7 @@ html[data-pref-density="relaxed"] .panel .panel-body { padding: 16px 20px; }
 html[data-pref-density="relaxed"] .panel .panel-foot { padding: 11px 18px; }
 
 /* 深色侧栏 / 深色顶栏：独立于整体主题的局部深色 */
-:root[data-pref-sidebar="dark"] #shell-sidebar {
+:root[data-pref-sidebar="dark"] :is(#shell-sidebar, #desktop-startup-sidebar) {
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.985 0 0);

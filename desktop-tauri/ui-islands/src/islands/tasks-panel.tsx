@@ -1,3 +1,4 @@
+import { usePageReady } from '../components/use-page-ready'
 import { Alert, AlertDescription } from '@ui'
 import { InfoTip } from '../components/info-tip'
 import * as React from 'react'
@@ -426,7 +427,7 @@ async function load() {
 
 /* ─── 面板本体 ───────────────────────────────── */
 
-function TasksPanel() {
+export function TasksPanel() {
   /** 最近一次拉到的间隔型任务清单 */
   const [tasks, setTasks] = React.useState<IntervalTask[]>([])
   /**
@@ -435,6 +436,7 @@ function TasksPanel() {
    * 只看数据会把「后端不可用」显示成永远转不完的「正在加载…」。
    */
   const [loaded, setLoaded] = React.useState(false)
+  usePageReady('tasks', loaded)
   /** 正在「立即执行」的那条任务 id（按钮文案切「执行中…」；同时只可能有一条） */
   const [runningId, setRunningId] = React.useState<string | null>(null)
   /**

@@ -345,7 +345,7 @@ function PreferencesRoot({ api }: { api: API }) {
 
 let root: Root | null = null
 function connect(api: API) {
-  if (!document.getElementById('topbar-status')) return
+  if (!document.getElementById('topbar-status') && document.documentElement.dataset.mobileUi !== 'true') return
   if (!root) {
     const host = document.createElement('div')
     host.id = 'shell-preferences-host'

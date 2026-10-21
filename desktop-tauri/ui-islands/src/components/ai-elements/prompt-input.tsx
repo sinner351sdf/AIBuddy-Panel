@@ -32,13 +32,17 @@ export function ChatAttachment({ data, file, onRemove }: { data: FileUIPart; fil
   </>
 }
 
+// These IDs identify draft UI rows, not credentials. LAN HTTP may omit randomUUID.
+let attachmentSequence = 0
+function attachmentId(): string { return globalThis.crypto?.randomUUID?.() || `draft-file-${++attachmentSequence}` }
 type DraftFile = { id: string; file: File; part: FileUIPart }
-export function PromptInput({ value, onChange, disabled, busy, awaiting, onStop, onSend, model, onFilesChange }: {
+export function PromptInput({ value, onChange, disabled, busy, awaiting, onStop, onSend, model, onFilesChange, initialFiles = [] }: {
   value: string; onChange: (text: string) => void; disabled: boolean; busy: boolean; awaiting: boolean
   onStop: () => void; onSend: (message: { text: string; files: FileUIPart[] }) => boolean | Promise<boolean>; model: React.ReactNode
   onFilesChange?: (files: File[]) => void
+  initialFiles?: File[]
 }) {
-  const [files, setFiles] = React.useState<DraftFile[]>([])
+  const [files, setFiles] = React.useState<DraftFile[]>(() => initialFiles.map(file => ({ id: attachmentId(), file, part: {type: 'file', filename: file.name, mediaType: attachmentType(file), url: URL.createObjectURL(file)} })))
   const filesRef = React.useRef(files)
   const [error, setError] = React.useState('')
   const [preparing, setPreparing] = React.useState(false)
@@ -54,7 +58,7 @@ export function PromptInput({ value, onChange, disabled, busy, awaiting, onStop,
     if (locked || !selected.length) return
     try {
       validateSelection(filesRef.current.map(item => item.file), selected)
-      replaceFiles([...filesRef.current, ...selected.map(file => ({ id: crypto.randomUUID(), file, part: { type: 'file' as const, filename: file.name, mediaType: attachmentType(file), url: URL.createObjectURL(file) } }))])
+      replaceFiles([...filesRef.current, ...selected.map(file => ({ id: attachmentId(), file, part: { type: 'file' as const, filename: file.name, mediaType: attachmentType(file), url: URL.createObjectURL(file) } }))])
       setError('')
     } catch (err) { setError(err instanceof Error ? err.message : String(err)) }
   }

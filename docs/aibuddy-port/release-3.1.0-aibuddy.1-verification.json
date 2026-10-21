@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-21",
+  "releaseTag": "v3.1.0-aibuddy.1",
+  "state": "prepared; version and notes awaiting human review before commit/push/tag",
+  "sourceBase": "0b5b724f90e05c7001d40db460cd796aab0c5325",
+  "sourceIncludesUncommittedChanges": true,
+  "tests": {
+    "rustPassed": 849,
+    "rustIgnored": 18,
+    "frontendSuitesPassed": 41,
+    "mobileAssistantPassed": true,
+    "releaseScriptMockScenarios": 28,
+    "publishWorkflowFixtureChecks": 8,
+    "isolatedApiAssertions": {
+      "upstream310": 41,
+      "accountGrowth": 76,
+      "taskCenter": 59,
+      "assistant": 69,
+      "upstream308": 56
+    },
+    "builds": [
+      "server debug offline",
+      "UI islands TypeScript/Vite",
+      "mobile TypeScript/Vite",
+      "i18n"
+    ],
+    "shadcn": "89 React island files + 11 shell sources",
+    "finalTreeDiffCheck": "passed",
+    "credentialPatternScan": "no private-key, GitHub token or OpenAI project-key patterns found in proposed source paths"
+  },
+  "notes": "docs/releases/v3.1.0-aibuddy.1.zh-CN.md",
+  "releaseAttachments": {
+    "expectedCount": 11,
+    "androidApkIncluded": false,
+    "platformInstallTests": "not rerun locally; CI installers pending after approved tag"
+  },
+  "runtime": "3065 current service was not replaced during release preparation",
+  "backups": "/private/tmp/aibuddy-release-prep-20261021",
+  "providerActionsExecuted": false
+}

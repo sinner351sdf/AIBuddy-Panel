@@ -130,7 +130,7 @@ pub async fn execute(service: &BillingService, session: &Value, code: &str, mode
         if code == "black_cat" && !night_window() {
             return R::new("skipped", "不在北京时间 23:00–08:00 夜猫窗口");
         }
-        if task.accept_status != "accepted" {
+        if !task.is_registered() {
             task = match growth::accept_verified_task(service, session, code).await {
                 Ok(fresh) => fresh,
                 Err(_) if should_stop() => {
@@ -178,7 +178,8 @@ pub async fn execute(service: &BillingService, session: &Value, code: &str, mode
             match growth::task_by_code_waiting(service, session, code).await {
                 Ok(Some(after)) if after.claimed => return R::new("already", "上游确认奖励已领取"),
                 Ok(Some(after)) if after.claimable => {}
-                Ok(_) => return R::new("pending", "动作已提交，回读未确认达标；不立即重复动作"),
+                Ok(Some(after)) => return R::new("pending", format!("动作已提交，上游进度 {}/{}，尚未确认达标；不立即重复动作", after.current, after.target)),
+                Ok(None) => return R::new("pending", "动作已提交，上游暂未返回该任务；需核实后再执行"),
                 Err(_) => return R::new("pending", "动作已提交，进度回读失败，需核实后再执行"),
             }
         }
