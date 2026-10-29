@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "aibuddy-providers",
   "name": "AIBuddy 提供商增强",
-  "version": "0.2.2-aibuddy.1-beta.1",
+  "version": "0.2.2-aibuddy.1-beta.2",
   "protocol": 1,
   "homepage": "https://github.com/sinner351sdf/AIBuddy-Panel",
   "release": {

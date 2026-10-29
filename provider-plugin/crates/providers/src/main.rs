@@ -67,7 +67,7 @@ mod workbuddy_shared;
 
 fn main() {
     if std::env::args().any(|arg| arg == "--build-info") {
-        println!("{}", serde_json::json!({"id":"aibuddy-providers","version":env!("CARGO_PKG_VERSION"),"protocol":1,"target":env!("AIBUDDY_BUILD_TARGET")}));
+        println!("{}", serde_json::json!({"id":"aibuddy-providers","version":env!("CARGO_PKG_VERSION"),"protocol":1,"target":env!("AIBUDDY_BUILD_TARGET"),"fixture":cfg!(feature="demo")}));
         return;
     }
     agent2api_provider_sdk::serve::set_init_hook(|env|paths::init(&env.data_dir));

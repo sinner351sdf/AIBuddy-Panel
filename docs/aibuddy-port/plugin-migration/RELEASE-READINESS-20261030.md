@@ -41,3 +41,11 @@ The migration imported upstream split OAuth constants. The plugin now uses the s
 The new frontend entries were brought into the existing shared-component contracts (cn composition, SelectGroup and shared Button); UI behavior and callback payloads are unchanged. Docker cache/source stages now preserve the repository layout required by the shared provider protocol path; locked offline metadata of the cache-layer layout passed.
 
 The user subsequently requested CI completion first and deferred GitHub Release upload authorization. No public Release is to be created in this phase.
+
+## Beta.1 CI findings and approved Beta.2
+
+The user approved v3.3.0-aibuddy.1-beta.2 and providers-v0.2.2-aibuddy.1-beta.2, cumulative notes plus the build/RPC fixture corrections, and pushing main/beta and the two new tags. The existing Beta.1 tags stay unchanged. No Release upload is authorized in this phase.
+
+First CI: server regressions passed. Frontend behavior/contract tests passed, but mobile.js referenced a feature hash generated before the final island rebuild; the corrected islands → mobile → i18n order is byte-identical across two local rebuilds. Linux server containers missed compile-time ui includes; Docker now copies the UI into the builder at its repository-relative path. Standalone Windows server missed Win32_System_Threading (the desktop feature union masked this); its manifest now enables the required feature explicitly. Provider native builds succeeded but the offline RPC suite used the production binary without the Demo provider; the workflow now builds a separate Demo-enabled fixture target and rejects fixture=true binaries during production packaging. Existing private GHCR publication remains blocked by missing GHCR_PUBLISH_TOKEN; no secret was configured.
+
+Local follow-up evidence: the real Demo-enabled native executable passed all 28 RPC/backpressure/cancel/normalization checks against loopback fixtures. Production packaging refused that same executable specifically because fixture=true. A second complete islands/mobile/i18n rebuild produced zero byte differences. The server passed locked offline compilation after the standalone Windows feature declaration.

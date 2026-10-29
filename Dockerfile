@@ -82,6 +82,9 @@ RUN mkdir -p desktop-tauri/src-tauri/server/src/bin desktop-tauri/src-tauri/andr
 # 桩依赖层：整棵依赖树编一遍，命中后成为之后每次构建的缓存底座
 RUN /build/cargo-build.sh
 
+# The plugin theme API embeds shared styles, island code and provider icons at
+# compile time. Keep these at their source-relative paths in the real build layer.
+COPY desktop-tauri/ui desktop-tauri/ui
 COPY desktop-tauri/src-tauri/server/src desktop-tauri/src-tauri/server/src
 RUN cd desktop-tauri/src-tauri \
     && find server/src -type f -exec touch {} + \

@@ -13,7 +13,7 @@ new rights in third-party code, native SDKs, brand assets or trademarks.
 
 The main application and this provider executable are built and updated
 separately. The pack ID is `aibuddy-providers`, wire protocol is `1`, and the
-pack version is `0.2.2-aibuddy.1-beta.1`. The provider binary remains
+pack version is `0.2.2-aibuddy.1-beta.2`. The provider binary remains
 `agent2api-providers` for compatibility with the upstream package format.
 
 `security_guard.cjs` is the existing local stdio adapter. It does not contain or

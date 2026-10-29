@@ -61,7 +61,11 @@ jobs:
         working-directory: provider-plugin
         shell: bash
         run: |
-          exe="target/release/agent2api-providers"
+          # The demo RPC contract runs against an explicitly separate fixture
+          # binary. Never enable demo in the packaged production executable.
+          fixture="$RUNNER_TEMP/aibuddy-provider-fixture"
+          cargo build --locked --release -p agent2api-providers --features demo --target-dir "$fixture"
+          exe="$fixture/release/agent2api-providers"
           if [[ "$RUNNER_OS" == Windows ]]; then exe="$exe.exe"; fi
           node scripts/verify.mjs --exe "$exe"
       - uses: actions/upload-artifact@v7

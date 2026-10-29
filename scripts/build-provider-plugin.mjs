@@ -21,6 +21,7 @@ if(!args.includes('--skip-build')){
 if(target===host){
  const exe=binary||path.join(plugin,'target','release',target.includes('windows')?'agent2api-providers.exe':'agent2api-providers')
  const built=JSON.parse(execFileSync(exe,['--build-info'],{encoding:'utf8'}))
+ if(built.fixture===true)throw new Error('禁止将 demo 验证二进制打成生产提供商包')
  if(built.id!==PACK_ID||built.version!==manifest.version||built.protocol!==1||built.target!==target)throw new Error('已编译二进制的身份、版本或目标与pack.json不一致')
 }
 const packArgs=[path.join(plugin,'scripts/pack.mjs'),'--skip-build','--target',target,'--out',out]
