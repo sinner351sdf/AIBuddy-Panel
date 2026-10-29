@@ -56,11 +56,10 @@
 //!     auto_checkin.rs /api/auto-checkin*（定时签到设置 / 手动执行）
 //!     scheduled_tasks.rs /api/scheduled-tasks*（间隔型定时任务：开关 / 间隔 / 立即执行）
 //!     update.rs     /api/update/*（软件更新检查 / 下载 / 进度 / 取消）
-//!     endpoints.rs  GET /api/endpoints（接口清单）
 //!     storage_api.rs GET /api/storage（统一库的位置、大小与各表条数，只读）
 //!     upgrade_api.rs GET /api/upgrade、POST /api/upgrade/run（旧数据 → SQLite 库）
 //!   core/
-//!     endpoints.rs 端点/版本/UA/上下文（唯一事实来源）
+//!     endpoints.rs 版本（edition）标识：cn / intl（落盘值与展示名）
 //!     account_store/  账号存储（优先级、迁移、CRUD、限额标记）。
 //!                 持久化已从 `{config_dir}/accounts.json` 换到
 //!                 `agent2api.db` 的 `accounts` 表；`sql.rs` 是行级访问层，
@@ -73,7 +72,7 @@
 //!     clash.rs     Clash Verge 配置读取与快照缓存
 //!     egress.rs    出网点（按出口缓存 reqwest Client）+ 出口连通性测试
 //!     billing/     积分 / 签到（checkin.rs） / 运营活动
-//!     models/      模型目录（workbuddy 单家：内置清单 + /v3/config 远程刷新）
+//!     models/      模型条目的出口形状（/v1/models 的条目与信封翻译，各家共用）
 //!     routing.rs   账号选路（严格优先级 + 限额冷却判定）
 //!     auto_checkin.rs 定时签到调度（30 秒轮询 + 当天去重 + 启动补签）
 //!     credential_maintenance.rs 凭证自动维护（遍历账号 → 刷新临期凭证；
@@ -100,7 +99,8 @@
 //!     即可自动带 API Key 检查；免鉴权路由放 `public` 分组。
 //!     管理 API 已全部就位（切片 1-6），切片 7 只剩打包收尾。
 //!   - 账号与鉴权：`ServerState::store()` / `auth()` / `login()` 三个克隆句柄。
-//!   - 模型目录与转发：`ServerState::models()` / `upstream()`。
+//!   - 模型目录与转发：目录走 `core::providers::catalog`（每次读取时聚合各家
+//!     适配器的清单，没有本进程的目录对象）；转发走 `ServerState::upstream()`。
 //!   - 指纹脱敏：无句柄，转发层每次出站前读 `config::current().sanitize_fingerprints()`
 //!     决定要不要调 `core::sanitize::sanitize_body`（纯函数，无状态）。
 //!   - 系统提示词：同样无句柄，转发层逐请求取一次 `config::current().prompt_plan()`
@@ -134,10 +134,10 @@
 //! 真正没人用的函数已删；排障与路由登记等有意保留的设施逐个标注 `#[allow(dead_code)]`
 //! 并写明保留理由，便于后续定位。
 
-pub mod api;
-mod account_bootstrap;
 pub mod access;
+mod account_bootstrap;
 pub mod altcha;
+pub mod api;
 pub mod config;
 pub mod config_migration;
 pub mod core;
@@ -162,7 +162,6 @@ use crate::server::core::auth::AuthService;
 use crate::server::core::auto_checkin::AutoCheckin;
 use crate::server::core::billing::BillingService;
 use crate::server::core::login::LoginService;
-use crate::server::core::models::ModelCatalog;
 use crate::server::core::update::UpdateManager;
 use crate::server::core::upstream::UpstreamService;
 use crate::server::db::Db;
@@ -210,7 +209,6 @@ pub struct ServerState {
     /// 计费服务句柄（积分 / 签到 / 运营活动；出网按 session.proxy 挂出口）
     billing: BillingService,
     /// 模型目录句柄（内置清单 + /v3/config 远程刷新；内部 RwLock）
-    models: ModelCatalog,
     /// 对话转发器句柄（选路 / 429 轮换 / SSE 透传 / 去重排队）
     upstream: UpstreamService,
     /// 定时签到句柄（轮询调度 + 启动补签；内部 Mutex + 后台任务）
@@ -292,18 +290,13 @@ impl ServerState {
         if let Some(reason) = config_migration::pending_reason() {
             return Err(reason);
         }
-        // Accio 的 OAuth 回调要落在本机端口上，而授权地址由**适配器**拼
-        // （`ProviderAdapter::build_login_url` 是同步无参的，拿不到 ServerState）。
-        // 端口在进程生命周期内不变，这里写一次、之后只读 —— 与各家 models 的
-        // 进程级缓存同一手法（见 `providers::accio::oauth::set_loopback_port`）。
-        crate::server::core::providers::accio::oauth::set_loopback_port(port);
-        // CodeArts 同理：授权地址由适配器拼（同步无参），而 portal 只认 `port`，
-        // 所以端口要在发起登录之前就写在进程级常量里（见该模块 `set_loopback_port`）。
-        crate::server::core::providers::codearts::oauth::set_loopback_port(port);
-        // Antigravity 的网页登录同理：Google 授权页完成后要回到
-        // `http://localhost:{port}/oauth-callback`（redirect_uri 由适配器在发起
-        // 登录时本地拼），端口必须在第一次发起之前就位（见该模块 `set_loopback_port`）。
-        crate::server::core::providers::antigravity::oauth::set_loopback_port(port);
+        // 进程启动时刻：设置页「版本信息」的「已运行」由它算。记录点放在
+        // 最前面 —— 后面每一步都可能耗时（开库、迁移、模型清单预热），
+        // 那些时间同样是「这个进程已经跑了多久」的一部分。
+        crate::server::core::system_info::record_start();
+        // 网页登录的端口不在网关里设了：各家的实现（含授权地址拼接与回调监听）
+        // 都在插件里，插件自己 bind 空闲端口，或从握手的 `HostEnv.loopback_port`
+        // 读端口。
         let config_dir = config::config_dir();
         // 与 Node 版一致：verbose 由环境变量 AGENT2API_VERBOSE=1 打开
         // （旧名 WORKBUDDY_VERBOSE 仍可读，新名优先），
@@ -404,18 +397,54 @@ impl ServerState {
         // 订阅存储（「订阅管理」维护的订阅链接）：同一个 `Db`（与 proxyPool
         // 同一形态）。位置只要求早于任何一次 `/api/subscriptions*` 请求。
         core::subscriptions::install(db.clone());
+        // 云同步（设置页「数据 → 云同步」）：设置与状态落在 kv 的保留键
+        // `cloudSync`，装库句柄即可。自动同步的工作线程在下面 spawn ——
+        // 必须先装句柄再起线程，否则第一轮读设置会拿到默认值。
+        core::cloud_sync::install(db.clone());
+        if !core::validation::enabled() {
+            if let Some(db) = db.clone() {
+                core::cloud_sync::auto_sync::spawn_worker(db);
+            }
+        }
         // 订阅内核（mihomo sidecar）的命令 worker：单条队列串行消费内核操作
         // （下载 / 重建配置 / 重启 / 停止），见 `core::sub_kernel` 的模块头。
-        core::sub_kernel::spawn_worker();
+        if !core::validation::enabled() {
+            core::sub_kernel::spawn_worker();
+        }
+        // 启动时清一次孤儿订阅节点：正常路径下内核同步会摘掉它们，但内核未安装 /
+        // 手动关闭期间删掉的订阅没有人来收（旧版本还可能因为缺这一步留下历史
+        // 遗留）。清理放在内核启动之前 —— 它不依赖内核，读到什么就按什么清。
+        // 读订阅失败时 `live_ids` 返回 Err，这里整段跳过（宁可留着也不误删）。
+        if !core::validation::enabled() {
+            match core::subscriptions::live_ids() {
+                Ok(live) => match core::proxy_pool::prune_orphan_subscription_items(&live) {
+                    Ok(changes) if changes > 0 => logging::console_line(
+                        "[Subscription]",
+                        &format!("已清理 {changes} 个不属于任何订阅的节点"),
+                    ),
+                    Ok(_) => {}
+                    Err(error) => logging::console_line(
+                        "[Subscription]",
+                        &format!("清理孤儿订阅节点失败: {error}"),
+                    ),
+                },
+                Err(error) => {
+                    logging::console_line("[Subscription]", &format!("跳过孤儿节点清理（{error}）"))
+                }
+            }
+        }
         // 内核已安装且有启用的订阅 → 自动拉起（清理上次运行遗留的进程后
         // 重建配置）。**未安装时不自动下载**：二进制 ~20-40MB，下载必须有
         // 用户的手势（界面上的「下载内核」按钮），启动时静默拉网不合适。
-        if core::subscriptions::should_autostart() {
+        if !core::validation::enabled() && core::subscriptions::should_autostart() {
             let providers = core::subscriptions::enabled_provider_inputs();
             crate::spawn_task(async move {
                 core::sub_kernel::request_restart(providers);
             });
-            logging::console_line("[Subscription]", "检测到已安装的代理内核与启用的订阅，后台自动拉起");
+            logging::console_line(
+                "[Subscription]",
+                "检测到已安装的代理内核与启用的订阅，后台自动拉起",
+            );
         }
         // 模型清单的持久化缓存：把**同一个 `Db`** 传进去（与配置 / 日志库 /
         // 账号库同一形态）。各家的远程清单在进程重启后由它读回，不再回落到
@@ -423,11 +452,8 @@ impl ServerState {
         // 位置必须在这里：它得早于下面那次 `restore_cached_catalogs` 预热 ——
         // 各家的目录句柄首次初始化时才读缓存，句柄先被碰到就再也读不回来了。
         core::providers::catalog_cache::install(db.clone());
-        // OfficeAce 模型可用性探测的结论也落同一个库（kv 的 `officeaceModelProbe`
-        // 键）：目录刷新后探一轮、把「这个号打不通」的模型从对外清单里收窄掉。
-        // 与 catalog_cache 同一形态（kv 固定键 + 整份读写），位置只需早于
-        // 第一次 `advertise_models`（那是纯读，未 install 时给空结论 = 不藏）。
-        core::providers::officeace::probe::install(db.clone());
+        // OfficeAce 的模型可用性探测随实现搬到了插件（探测结论在插件进程内，
+        // 收窄也由插件在 `models.list` 里做）—— 网关这边不再有这份状态。
         // models.dev 模型元数据（能力位 / 思考档位）的刷新结果也落同一个库
         // （kv 的 `modelsDevCatalog` 键）。与 catalog_cache 同一形态：未 install
         // 时只读内嵌快照（功能仍在，只是拿不到上次的刷新结果），所以位置不敏感；
@@ -506,21 +532,23 @@ impl ServerState {
         // `sub_kernel::runtime::listener_node_keys`）。AccountStore 是轻量 Arc
         // 句柄，clone 与 ServerState 里那份同实例。
         core::sub_kernel::install_store(Some(store.clone()));
-        let context = core::endpoints::default_context();
-        let auth = AuthService::new(store.clone(), context);
-        let login = LoginService::new(auth.clone(), store.clone());
+        // 插件家的登录回调要把账号落库，而那条链路拿不到 ServerState（它是
+        // trait 方法，签名里只有一个插件不用的 &AccountStore）。装一个进程级
+        // 句柄，见 `account_store::plugin_accounts::shared`。
+        core::account_store::plugin_accounts::install_shared(store.clone());
+        let auth = AuthService::new(store.clone());
+        let login = LoginService::new(store.clone());
         let billing = BillingService::new(auth.clone());
-        // 模型目录：**进程级单例，按地区各一份**（Agent2API 改造 W2a-T2；
-        // WorkBuddy 拆家后国内版与国际版各持一份，见 `core::models` 模块头）。
-        // 聚合模型目录（core::providers::catalog）只收 &AccountStore，不该让
-        // 调用方层层传目录，因此目录自身也做成进程级句柄（与 config /
-        // auto_checkin 同一模式）：`core::models::global_catalog(region)` 与
-        // 这里的 `models` 是**同一实例**（共享同一把 RwLock），刷新对两边同时可见。
-        let models = core::models::global_catalog(core::providers::workbuddy::Region::Cn);
-        // 恢复各家的持久化清单缓存：各家的目录句柄在这一步**首次初始化**
-        // （`OnceLock`），缓存也只在这一刻读得回来（见 `providers::catalog_cache`
-        // 的模块头）。必须在上面那次 `install` 之后 —— 句柄先被别处碰到的话，
-        // 它就固化在「没有缓存」的空状态上，这次预热也补不回来。
+        // 模型目录：**没有本进程的目录对象了**。原先这里持一份 WorkBuddy 的
+        // `ModelCatalog`（内置清单 + `/v3/config` 远程刷新 + 按地区分槽的持久化
+        // 缓存），随该家的实现整体搬到提供商插件 —— 拉清单是「怎么打上游」，
+        // 网关不再需要知道。
+        //
+        // 现在清单的唯一来源是各家的适配器（内置家的 `list_models` / 插件家的
+        // `models.list` RPC），由 `core::providers::catalog` 在每次读取时聚合。
+        // 下面是那次聚合的**预热**：它把所有适配器的清单缓存初始化一遍（插件家
+        // 的 RPC 缓存在这里首次填充），于是首个 `/v1/models` 请求不必等一次 RPC。
+        // 必须在上面那次 `install` 之后 —— 账号库先就绪，插件才能读到记录。
         core::providers::adapter::restore_cached_catalogs();
         let upstream = UpstreamService::new(store.clone(), auth.clone());
 
@@ -529,10 +557,8 @@ impl ServerState {
         // 定时签到的 stop() 要从**停机路径**（backend::shutdown，只有 Tauri 的
         // AppState）调到，所以必须能从全局拿到；这里装入后 ServerState 里那份
         // 与全局那份是同一实例。
-        let auto_checkin = core::auto_checkin::init_global(AutoCheckin::new(
-            store.clone(),
-            billing.clone(),
-        ));
+        let auto_checkin =
+            core::auto_checkin::init_global(AutoCheckin::new(store.clone(), billing.clone()));
         // 更新管理器：下载目录 `{config_dir}/updates`，与壳侧 update::download_dir() 同源
         let update = core::update::init_global(UpdateManager::new(config_dir.clone()));
 
@@ -548,7 +574,10 @@ impl ServerState {
         // 「清空 / 按筛选删除」）。所以构造不再接收保留期回调。
         let request_stats = Arc::new(RequestStats::with_db(db.clone(), || {
             let retention = config::retention_settings();
-            request_stats::Retention { request_days: retention.request_days, daily_days: retention.daily_days }
+            request_stats::Retention {
+                request_days: retention.request_days,
+                daily_days: retention.daily_days,
+            }
         }));
         // 启动即收尾上次运行遗留的进行中行（详情见方法注释）：不等到第一条
         // 请求进来才清理，界面打开时看到的就已经是「已中断」的终态
@@ -579,7 +608,7 @@ impl ServerState {
         // 完整论证、以及「为什么升级后必须补调一次」都在
         // `account_bootstrap` 的模块头里 —— 那一段是本次改动最容易读错的地方，
         // 值得一个能被直接找到的位置，所以整组搬到了那个文件。
-        if !upgrade_pending {
+        if !upgrade_pending && !core::validation::enabled() {
             account_bootstrap::run(&store);
             // 统计侧的一次性口径订正：模型维度从「请求名（映射别名）」重算成
             // 「上游真名」（见 `RequestStats::remap_model_dimension_once`）。
@@ -599,7 +628,6 @@ impl ServerState {
             auth,
             login,
             billing,
-            models,
             upstream,
             auto_checkin,
             update,
@@ -607,17 +635,27 @@ impl ServerState {
             db,
             upgrade_pending: Arc::new(AtomicBool::new(upgrade_pending)),
         };
-        logging::log("[Server]", "Agent2API 多提供商本地网关（Rust 进程内服务）启动中…");
+        logging::log(
+            "[Server]",
+            "Agent2API 多提供商本地网关（Rust 进程内服务）启动中…",
+        );
         logging::log("[Config]", &format!("API 端口: {}", port));
         logging::log("[Config]", &format!("API 监听地址: {}", host));
         logging::log(
             "[Config]",
             &format!(
                 "API Key 认证: {}",
-                if snapshot.api_key_set() { "✅ 已启用" } else { "❌ 未启用" }
+                if snapshot.api_key_set() {
+                    "✅ 已启用"
+                } else {
+                    "❌ 未启用"
+                }
             ),
         );
-        logging::log("[Config]", &format!("默认模型: {}", snapshot.default_model()));
+        logging::log(
+            "[Config]",
+            &format!("默认模型: {}", snapshot.default_model()),
+        );
         logging::log("[Config]", &format!("计费语言: {}", snapshot.locale()));
         // 出站指纹脱敏一行：开着时说明「出站会剥离审核指纹」，关着时点明后果
         // （客户端 system 模板会原样发上游，可能被 400 code=11128 误拦）
@@ -647,12 +685,15 @@ impl ServerState {
                 },
             ),
         );
-        logging::log("[Config]", &format!("配置目录: {}", state.config_dir.display()));        // 数据库状态一行（排障第一手信息：库在哪、有没有就绪）。
-        // 放在「配置目录」之后：坏库时的第一句话就是「库在哪、能不能打开」，
-        // 而 `Db::file()` 是唯一知道自己路径的对象（不让别处再拼一次
-        // `config_dir.join(FILE_NAME)` —— 那是把路径知识复制到第二个地方）。
-        // 打开失败的情形在 `Db::open` 那一步已经打过 ❌ 日志，这里不重复报错，
-        // 只把「本次运行数据库不可用」这个后果说清楚（各 store 会降级回落）。
+        logging::log(
+            "[Config]",
+            &format!("配置目录: {}", state.config_dir.display()),
+        ); // 数据库状态一行（排障第一手信息：库在哪、有没有就绪）。
+           // 放在「配置目录」之后：坏库时的第一句话就是「库在哪、能不能打开」，
+           // 而 `Db::file()` 是唯一知道自己路径的对象（不让别处再拼一次
+           // `config_dir.join(FILE_NAME)` —— 那是把路径知识复制到第二个地方）。
+           // 打开失败的情形在 `Db::open` 那一步已经打过 ❌ 日志，这里不重复报错，
+           // 只把「本次运行数据库不可用」这个后果说清楚（各 store 会降级回落）。
         match state.db() {
             Some(db) => {
                 logging::log("[Storage]", &format!("数据库: {}", db.file().display()));
@@ -688,7 +729,10 @@ impl ServerState {
                 .get("currentAccountId")
                 .and_then(serde_json::Value::as_str)
                 .unwrap_or("未知");
-            logging::log("[Init]", &format!("✅ 凭证来源: {source}（账号 {account}）"));
+            logging::log(
+                "[Init]",
+                &format!("✅ 凭证来源: {source}（账号 {account}）"),
+            );
             if let Some(expires_at) = summary
                 .get("tokenExpiresAt")
                 .and_then(serde_json::Value::as_f64)
@@ -720,9 +764,7 @@ impl ServerState {
             if available > 0 {
                 logging::log(
                     "[Init]",
-                    &format!(
-                        "多账号模式：{available} 个账号可用（WorkBuddy 单账号登录态未配置）"
-                    ),
+                    &format!("多账号模式：{available} 个账号可用（WorkBuddy 单账号登录态未配置）"),
                 );
             } else {
                 let reason = summary
@@ -741,59 +783,75 @@ impl ServerState {
         //
         // 注意它**不在** `scheduled_tasks` 的清单里：自动签到是「每天定点」型，
         // 与那个模块的「等间隔重复」不是同一个形状（理由见那边的模块头）。
-        let checkin_state = state.auto_checkin.state();
-        if checkin_state
-            .get("enabled")
-            .and_then(serde_json::Value::as_bool)
-            .unwrap_or(false)
-        {
-            let time = checkin_state
-                .get("time")
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or(core::auto_checkin::DEFAULT_TIME);
-            logging::log("[Checkin]", &format!("定时签到已启用：每天 {time} 执行"));
-            state.auto_checkin.start();
+        if !core::validation::enabled() {
+            let checkin_state = state.auto_checkin.state();
+            if checkin_state
+                .get("enabled")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false)
+            {
+                let time = checkin_state
+                    .get("time")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or(core::auto_checkin::DEFAULT_TIME);
+                logging::log("[Checkin]", &format!("定时签到已启用：每天 {time} 执行"));
+                state.auto_checkin.start();
+            }
+
+            // 间隔型定时任务（凭证自动维护 / 模型目录刷新）：
+            // 起一个循环，按各自配置的开关与间隔重复执行。
+            //
+            // ── 改造前后的行为对照 ────────────────────────────────────
+            // 改造前这里是两处硬编码：凭证维护 `loop { 刷; sleep(600s) }`（spawn 出来
+            // 立刻刷一次）、模型目录在「有可用登录态」的分支里 spawn 一次启动刷新。
+            // 现在两者都由注册表驱动，启动时的那一次变成「首轮排期立刻到点」——
+            // 开关默认开启，因此**默认行为一致**，且关掉任务后启动也不刷。
+            //
+            // 一处有意的差异：模型目录的启动刷现在不再被「有无登录态」挡住
+            // （原先写在 `configured` 分支里）。于是全新安装、还没登录时也会拉一次
+            // 各家的清单 —— 小浣熊的公开目录本来就不需要凭证（见其 `refresh_models`
+            // 里空 token 的分支），workbuddy 无登录态则早退返回「缺少登录态」而不打
+            // 网络，CatPaw / AutoClaw 是静态清单直接跳过。代价只是首启多一次
+            // 无害的请求，换来的是「这一页的开关说了算」这条一致性。
+            //
+            // ── 为什么循环里不处理停机信号 ────────────────────────────
+            // 服务器停机时进程会结束，任务随之消失。用 crate::spawn_task
+            // （与 auto_checkin 同一理由）保证从非 tokio 上下文调用也能进入全局运行时。
+            core::scheduled_tasks::spawn(state.store.clone(), state.update.clone());
+            // 定时备份的轮询循环（60s tick；tick 里先读设置，开关关闭时不碰库 ——
+            // 排期/占位/冷却在 `core::task_state`，到点判定与手动入口共用它）。
+            core::backup::spawn();
+            core::probe::ensure_loop(state.store.clone());
+            // 成长任务定时调度（30s tick；growth 队列 01:00 / travel [9,21] /
+            // blackcat 23:00，默认全关——开关与时点落 task_state 的 kv，设置 API
+            // 在 `api::growth_tasks::schedule`；streak 不设时点，挂 auto_checkin
+            // fire 完成后顺跑）。
+            core::growth_schedule::spawn(state.store.clone(), state.billing().clone());
+            // ZCode 活动套餐的「推理要不要验证码令牌」由上游配置说，每 5 分钟同步一次
+            // （判据、代价与三条口径见 `providers::zcode::config_sync` 的模块头）。
+            // 不进上面那张定时任务表：它没有「用户可配的间隔」、也不产生任何运行状态
+            // 要展示，硬塞进去只会多一条没人会去动的设置行。
+
+            // 每账号自动余额查询的心跳循环：与上面的间隔型任务同一形态（一个进程
+            // 一个循环，到点判定全在「记录 + 配置」上），只是排期按账号各自算，
+            // 不再是全局任务（见 `core::usage_query` 的模块头）。
+            core::usage_query::spawn_sweeper(state.store.clone());
+        } else {
+            logging::console_line(
+                "[Validation]",
+                "隔离验收：自动签到、任务、旅行、保活、备份和余额查询已暂停",
+            );
         }
 
-        // 间隔型定时任务（凭证自动维护 / 模型目录刷新）：
-        // 起一个循环，按各自配置的开关与间隔重复执行。
-        //
-        // ── 改造前后的行为对照 ────────────────────────────────────
-        // 改造前这里是两处硬编码：凭证维护 `loop { 刷; sleep(600s) }`（spawn 出来
-        // 立刻刷一次）、模型目录在「有可用登录态」的分支里 spawn 一次启动刷新。
-        // 现在两者都由注册表驱动，启动时的那一次变成「首轮排期立刻到点」——
-        // 开关默认开启，因此**默认行为一致**，且关掉任务后启动也不刷。
-        //
-        // 一处有意的差异：模型目录的启动刷现在不再被「有无登录态」挡住
-        // （原先写在 `configured` 分支里）。于是全新安装、还没登录时也会拉一次
-        // 各家的清单 —— 小浣熊的公开目录本来就不需要凭证（见其 `refresh_models`
-        // 里空 token 的分支），workbuddy 无登录态则早退返回「缺少登录态」而不打
-        // 网络，CatPaw / AutoClaw 是静态清单直接跳过。代价只是首启多一次
-        // 无害的请求，换来的是「这一页的开关说了算」这条一致性。
-        //
-        // ── 为什么循环里不处理停机信号 ────────────────────────────
-        // 服务器停机时进程会结束，任务随之消失。用 crate::spawn_task
-        // （与 auto_checkin 同一理由）保证从非 tokio 上下文调用也能进入全局运行时。
-        core::scheduled_tasks::spawn(state.store.clone(), state.update.clone());
-        // 定时备份的轮询循环（60s tick；tick 里先读设置，开关关闭时不碰库 ——
-        // 排期/占位/冷却在 `core::task_state`，到点判定与手动入口共用它）。
-        core::backup::spawn();
-        core::probe::ensure_loop(state.store.clone());
-        // 成长任务定时调度（30s tick；growth 队列 01:00 / travel [9,21] /
-        // blackcat 23:00，默认全关——开关与时点落 task_state 的 kv，设置 API
-        // 在 `api::growth_tasks::schedule`；streak 不设时点，挂 auto_checkin
-        // fire 完成后顺跑）。
-        core::growth_schedule::spawn(state.store.clone(), state.billing().clone());
-        // ZCode 活动套餐的「推理要不要验证码令牌」由上游配置说，每 5 分钟同步一次
-        // （判据、代价与三条口径见 `providers::zcode::config_sync` 的模块头）。
-        // 不进上面那张定时任务表：它没有「用户可配的间隔」、也不产生任何运行状态
-        // 要展示，硬塞进去只会多一条没人会去动的设置行。
-        core::providers::zcode::config_sync::spawn(state.store.clone());
-
-        // 每账号自动余额查询的心跳循环：与上面的间隔型任务同一形态（一个进程
-        // 一个循环，到点判定全在「记录 + 配置」上），只是排期按账号各自算，
-        // 不再是全局任务（见 `core::usage_query` 的模块头）。
-        core::usage_query::spawn_sweeper(state.store.clone());
+        // ── 提供商插件（用户安装的包）─────────────────────────────
+        // 后台启动：握手要 spawn 子进程，可能要等几秒。这里不 await ——
+        // 插件是可选增强，没装/装坏了网关都必须照常跑（内置家仍然工作），
+        // 所以整条路径的错误都只记日志（见 `plugin_host::bootstrap`）。
+        // 真正用到插件家时 `RpcAdapter::call` 会 `ensure()` 等它就绪。
+        // 插件侧的网页登录回调地址同样要指向本机端口（LobsterAI / Accio 那几家
+        // 的 `redirect_uri` 由插件自己拼），所以先登记端口再起宿主。
+        core::plugin_host::set_loopback_port(port);
+        core::plugin_host::spawn_bootstrap(state.store.clone());
 
         Ok(state)
     }
@@ -816,11 +874,6 @@ impl ServerState {
     /// 计费服务句柄（积分 / 签到 / 运营活动）
     pub fn billing(&self) -> &BillingService {
         &self.billing
-    }
-
-    /// 模型目录句柄（/v1/models、/api/session、/health 与聊天路由的模型校验共用）
-    pub fn models(&self) -> &ModelCatalog {
-        &self.models
     }
 
     /// 对话转发器句柄
@@ -923,7 +976,10 @@ fn available_account_count(state: &ServerState) -> usize {
     core::routing::accounts_of(&state.store.list_accounts())
         .iter()
         .filter(|account| {
-            account.get("available").and_then(serde_json::Value::as_bool) == Some(true)
+            account
+                .get("available")
+                .and_then(serde_json::Value::as_bool)
+                == Some(true)
         })
         .count()
 }

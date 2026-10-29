@@ -31,7 +31,7 @@ const TRIAL_CLAIM: BillingSpec = BillingSpec {
 const TRIAL_ALREADY_CODE: i64 = 14_051;
 
 /// 领取结果。
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TrialOutcome {
     /// true = 本次成功新领；false = 已领过（幂等成功，非错误）
     pub claimed: bool,
@@ -51,40 +51,11 @@ pub async fn claim_trial(
     service: &BillingService,
     session: &Value,
 ) -> Result<TrialOutcome, BillingError> {
-    let options = CallOptions {
-        session: Some(session),
-        // 幂等码要从非 0 业务码里读，不能让 call_billing 替我们报错
-        expect_code_ok: false,
-        extra: growth_extra(session, false),
-        ..Default::default()
-    };
-    match service.call_billing(TRIAL_CLAIM, options).await {
-        Ok(call) => {
-            if call.code == Some(0) {
-                return Ok(TrialOutcome {
-                    claimed: true,
-                    message: "trial 加油包领取成功".to_string(),
-                });
-            }
-            if call.code == Some(TRIAL_ALREADY_CODE) {
-                return Ok(TrialOutcome {
-                    claimed: false,
-                    message: "trial 加油包已领取过（一次性权益）".to_string(),
-                });
-            }
-            Err(BillingError::with_code(
-                call.msg
-                    .unwrap_or_else(|| format!("trial 领取返回 code={:?}", call.code)),
-                502,
-                call.code,
-            ))
-        }
-        // HTTP ≥400 形态：refs 的 `"code":14051` 指纹 —— call_billing 把
-        // payload.code 放进 upstream_code 透出
-        Err(error) if error.upstream_code == Some(TRIAL_ALREADY_CODE) => Ok(TrialOutcome {
-            claimed: false,
-            message: "trial 加油包已领取过（一次性权益）".to_string(),
-        }),
-        Err(error) => Err(error),
-    }
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.trial.claim_trial",
+        serde_json::json!({}),
+    )
+    .await
 }

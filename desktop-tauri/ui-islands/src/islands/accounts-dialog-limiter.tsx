@@ -22,19 +22,14 @@
 
 import * as React from 'react'
 import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  SelectGroup,
   Badge, Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-  Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch,
+  Input, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Switch,
 } from '@ui'
 import { t } from '../i18n'
 import {
   balanceBlockedOf, formatIntervalSeconds, formatTokenCount, limitersOf,
   TOKEN_PERIOD_MAX_SECONDS, TOKEN_PERIOD_MIN_SECONDS, tokenCountdownText,
-  tokenReadingForRule, tokenWindowInfo,
+  tokenReadingForRule, tokenWindowInfo, supportsUsage,
 } from './accounts-domain'
 import { tokenUsageOf, usageEntryOf } from './accounts-data'
 import { type AccountRecord, type LimiterRule, type TokenReading, numberText } from './accounts-shared'
@@ -115,7 +110,7 @@ function ruleStateOf(account: AccountRecord, rule: LimiterRule): RuleState {
 /* ─── 编辑器弹层（添加 / 编辑复用一张卡）────────────────────── */
 
 /** 编辑器的草稿：数字输入框以字符串中转（输入中途允许为空 / 非法） */
-type LimiterEditorDraft = {
+export type LimiterEditorDraft = {
   type: 'balance' | 'token'
   action: 'skip' | 'disable'
   thresholdInput: string
@@ -161,7 +156,7 @@ function editorDraftOf(rule: LimiterRule | null): LimiterEditorDraft {
 }
 
 /** 编辑器草稿 → 规则（校验不过返回错误文案；与后端 `apply_patch` 同一套规则） */
-function ruleOfDraft(draft: LimiterEditorDraft): { error: string } | { rule: LimiterRule } {
+export function ruleOfDraft(draft: LimiterEditorDraft): { error: string } | { rule: LimiterRule } {
   const thresholdRaw = Number(draft.thresholdInput)
   if (!Number.isFinite(thresholdRaw) || thresholdRaw <= 0) {
     return { error: t('限制阈值必须是大于 0 的数字') }
@@ -170,6 +165,9 @@ function ruleOfDraft(draft: LimiterEditorDraft): { error: string } | { rule: Lim
     return { rule: { type: 'balance', action: draft.action, threshold: thresholdRaw, enabled: true } }
   }
   const threshold = Math.round(draft.tokenUnit === 'wan' ? thresholdRaw * 10_000 : thresholdRaw)
+  if (!Number.isSafeInteger(threshold) || threshold <= 0) {
+    return { error: t('Token 限制阈值必须是大于 0 的安全整数') }
+  }
   if (draft.reset === 'daily') {
     return { rule: { type: 'token', action: draft.action, threshold, reset: 'daily', enabled: true } }
   }
@@ -186,9 +184,10 @@ function ruleOfDraft(draft: LimiterEditorDraft): { error: string } | { rule: Lim
 
 /** 编辑器弹层（受控：`target` 为 null = 关闭；index -1 = 添加）。 */
 function LimiterEditorDialog({
-  account, target, onClose, onSave,
+  account, allowBalance, target, onClose, onSave,
 }: {
-  account: AccountRecord
+  account?: AccountRecord
+  allowBalance: boolean
   /** 正在编辑的规则与它在草稿里的下标；null = 关闭 */
   target: { index: number; draft: LimiterEditorDraft } | null
   onClose: () => void
@@ -218,6 +217,7 @@ function LimiterEditorDialog({
 
   /** 实况提示：余额读数 / 窗口用量与倒计时（判不出给兜底口径说明） */
   const liveHint = (): string => {
+    if (!account) return t('批量规则按每个账号分别判定，不合并余额或 Token 用量。')
     if (draftLocal.type === 'balance') {
       const data = usageEntryOf(account)
       if (data && typeof data === 'object') {
@@ -255,147 +255,133 @@ function LimiterEditorDialog({
           <DialogTitle>{target.index >= 0 ? t('编辑限制') : t('添加限制')}</DialogTitle>
         </DialogHeader>
         <DialogBody>
-          <FieldGroup className='gap-2.5'>
-            <Field orientation='horizontal' className='field-row flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
-              <FieldLabel htmlFor='limiter-type'>{t('限制类型')}</FieldLabel>
-              <Select value={draftLocal.type}
-                onValueChange={value => update({ type: value as LimiterEditorDraft['type'], thresholdInput: '' })}>
-                <SelectTrigger id='limiter-type' className='w-[150px]' aria-label={t('限制类型')}>
-                  <SelectValue>{draftLocal.type === 'balance' ? t('余额') : t('Token 消耗')}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value='balance'>{t('余额')}</SelectItem>
-                    <SelectItem value='token'>{t('Token 消耗')}</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <span className='detail'>{t('余额沿用现有口径；Token 按重置方式内的累计消耗判定（切换类型会清空阈值）')}</span>
-            </Field>
-            {draftLocal.type === 'balance' ? (
-              <>
-                <Field orientation='horizontal' className='field-row flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none' data-invalid={!!error || undefined}>
-                  <FieldLabel htmlFor='limiter-threshold'>{t('触发条件')}</FieldLabel>
-                  <span className='detail' style={{ fontSize: 13 }}>{t('余额低于')}</span>
-                  <Input id='limiter-threshold' aria-invalid={!!error || undefined} aria-describedby={error ? 'limiter-error' : undefined} type='number' min={0} step={1} className='max-w-[120px]' placeholder={t('阈值')}
-                    value={draftLocal.thresholdInput}
-                    onChange={event => update({ thresholdInput: event.currentTarget.value })} />
-                  <span className='detail' style={{ fontSize: 13 }}>{t('时')}</span>
-                </Field>
-                <Field orientation='horizontal' className='field-row flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
-                  <FieldLabel htmlFor='limiter-action'>{t('触发后')}</FieldLabel>
-                  <Select value={draftLocal.action}
-                    onValueChange={value => update({ action: value as LimiterEditorDraft['action'] })}>
-                    <SelectTrigger id='limiter-action' className='min-w-[280px]' aria-label={t('触发动作')}>
-                      <SelectValue>{draftLocal.action === 'disable' ? t('禁用该账号（需手动重新启用）') : t('跳过该账号（余额回升自动恢复）')}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value='skip'>{t('跳过该账号（余额回升自动恢复）')}</SelectItem>
-                        <SelectItem value='disable'>{t('禁用该账号（需手动重新启用）')}</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </>
-            ) : (
-              <>
-                <Field orientation='horizontal' className='field-row flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
-                  <FieldLabel htmlFor='limiter-reset'>{t('重置方式')}</FieldLabel>
-                  <Select value={draftLocal.reset}
-                    onValueChange={value => update({ reset: value as LimiterEditorDraft['reset'] })}>
-                    <SelectTrigger id='limiter-reset' className='w-[190px]' aria-label={t('重置方式')}>
-                      <SelectValue>{draftLocal.reset === 'daily' ? t('自然日（每天 0 点）') : t('固定周期')}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value='fixed'>{t('固定周期')}</SelectItem>
-                        <SelectItem value='daily'>{t('自然日（每天 0 点）')}</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  <span className='detail'>{t('有的账号过了 0 点额度就回来 —— 选「自然日」')}</span>
-                </Field>
-                <Field orientation='horizontal' className='field-row flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none' data-invalid={!!error || undefined}>
-                  <FieldLabel htmlFor='limiter-threshold'>{t('触发条件')}</FieldLabel>
-                  {draftLocal.reset === 'daily' ? (
-                    <>
-                      <span className='detail' style={{ fontSize: 13 }}>{t('每日消耗 ≥')}</span>
-                      <Input id='limiter-threshold' aria-invalid={!!error || undefined} aria-describedby={error ? 'limiter-error' : undefined} type='number' min={0} step={1} className='max-w-[110px]' placeholder={t('阈值')}
-                        value={draftLocal.thresholdInput}
-                        onChange={event => update({ thresholdInput: event.currentTarget.value })} />
-                      <Select value={draftLocal.tokenUnit}
-                        onValueChange={value => update({ tokenUnit: value as LimiterEditorDraft['tokenUnit'] })}>
-                        <SelectTrigger className='w-[92px]' aria-label={t('Token 单位')}>
-                          <SelectValue>{draftLocal.tokenUnit === 'wan' ? t('万') : t('个')}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectItem value='wan'>{t('万')}</SelectItem>
-                            <SelectItem value='unit'>{t('个')}</SelectItem>
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                      <span className='detail' style={{ fontSize: 13 }}>{t('Token 时')}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className='detail' style={{ fontSize: 13 }}>{t('每')}</span>
-                      <Input id='limiter-period' aria-label={t('重置周期')} aria-invalid={!!error || undefined} aria-describedby={error ? 'limiter-error' : undefined} type='number' min={1} step={1} className='max-w-[90px]' placeholder={t('周期')}
-                        value={draftLocal.periodInput}
-                        onChange={event => update({ periodInput: event.currentTarget.value })} />
-                      <Select value={draftLocal.periodUnit}
-                        onValueChange={value => update({ periodUnit: value as LimiterEditorDraft['periodUnit'] })}>
-                        <SelectTrigger className='w-[92px]' aria-label={t('周期单位')}>
-                          <SelectValue>{draftLocal.periodUnit === 'hours' ? t('小时') : t('分钟')}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectItem value='minutes'>{t('分钟')}</SelectItem>
-                            <SelectItem value='hours'>{t('小时')}</SelectItem>
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                      <span className='detail' style={{ fontSize: 13 }}>{t('内消耗 ≥')}</span>
-                      <Input id='limiter-threshold' aria-invalid={!!error || undefined} aria-describedby={error ? 'limiter-error' : undefined} type='number' min={0} step={1} className='max-w-[110px]' placeholder={t('阈值')}
-                        value={draftLocal.thresholdInput}
-                        onChange={event => update({ thresholdInput: event.currentTarget.value })} />
-                      <Select value={draftLocal.tokenUnit}
-                        onValueChange={value => update({ tokenUnit: value as LimiterEditorDraft['tokenUnit'] })}>
-                        <SelectTrigger className='w-[92px]' aria-label={t('Token 单位')}>
-                          <SelectValue>{draftLocal.tokenUnit === 'wan' ? t('万') : t('个')}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectItem value='wan'>{t('万')}</SelectItem>
-                            <SelectItem value='unit'>{t('个')}</SelectItem>
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                      <span className='detail' style={{ fontSize: 13 }}>{t('Token 时')}</span>
-                    </>
-                  )}
-                </Field>
-                <Field orientation='horizontal' className='field-row flex-wrap gap-2.5 [&>[data-slot=field-label]]:flex-none'>
-                  <FieldLabel htmlFor='limiter-action'>{t('触发后')}</FieldLabel>
-                  <Select value={draftLocal.action}
-                    onValueChange={value => update({ action: value as LimiterEditorDraft['action'] })}>
-                    <SelectTrigger id='limiter-action' className='min-w-[280px]' aria-label={t('触发动作')}>
-                      <SelectValue>{draftLocal.action === 'disable' ? t('禁用该账号（需手动重新启用）') : t('跳过该账号（重置后自动恢复）')}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value='skip'>{t('跳过该账号（重置后自动恢复）')}</SelectItem>
-                        <SelectItem value='disable'>{t('禁用该账号（需手动重新启用）')}</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </>
-            )}
-            <p className='detail limiter-hint'>{liveHint()}</p>
-            {error ? <FieldError id='limiter-error' className='detail'>{error}</FieldError> : null}
-          </FieldGroup>
+          <div className='field-row'>
+            <label>{t('限制类型')}</label>
+            <Select value={draftLocal.type}
+              onValueChange={value => update({ type: value as LimiterEditorDraft['type'], thresholdInput: '' })}>
+              <SelectTrigger className='w-[150px]' aria-label={t('限制类型')}>
+                <SelectValue>{draftLocal.type === 'balance' ? t('余额') : t('Token 消耗')}</SelectValue>
+              </SelectTrigger>
+              <SelectContent><SelectGroup>
+                <SelectItem value='balance' disabled={!allowBalance}>{t('余额')}</SelectItem>
+                <SelectItem value='token'>{t('Token 消耗')}</SelectItem>
+              </SelectGroup></SelectContent>
+            </Select>
+            <span className='detail'>{!allowBalance
+              ? t('该提供商没有余额查询；可按 Token 消耗设置限制。')
+              : t('余额沿用现有口径；Token 按重置方式内的累计消耗判定（切换类型会清空阈值）')}</span>
+          </div>
+          {draftLocal.type === 'balance' ? (
+            <>
+              <div className='field-row'>
+                <label>{t('触发条件')}</label>
+                <span className='detail' style={{ fontSize: 13 }}>{t('余额低于')}</span>
+                <Input type='number' min={0} step={1} className='max-w-[120px]' placeholder={t('阈值')}
+                  value={draftLocal.thresholdInput}
+                  onChange={event => update({ thresholdInput: event.currentTarget.value })} />
+                <span className='detail' style={{ fontSize: 13 }}>{t('时')}</span>
+              </div>
+              <div className='field-row'>
+                <label>{t('触发后')}</label>
+                <Select value={draftLocal.action}
+                  onValueChange={value => update({ action: value as LimiterEditorDraft['action'] })}>
+                  <SelectTrigger className='min-w-[280px]' aria-label={t('触发动作')}>
+                    <SelectValue>{draftLocal.action === 'disable' ? t('禁用该账号（需手动重新启用）') : t('跳过该账号（余额回升自动恢复）')}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent><SelectGroup>
+                    <SelectItem value='skip'>{t('跳过该账号（余额回升自动恢复）')}</SelectItem>
+                    <SelectItem value='disable'>{t('禁用该账号（需手动重新启用）')}</SelectItem>
+                  </SelectGroup></SelectContent>
+                </Select>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className='field-row'>
+                <label>{t('重置方式')}</label>
+                <Select value={draftLocal.reset}
+                  onValueChange={value => update({ reset: value as LimiterEditorDraft['reset'] })}>
+                  <SelectTrigger className='w-[190px]' aria-label={t('重置方式')}>
+                    <SelectValue>{draftLocal.reset === 'daily' ? t('自然日（每天 0 点）') : t('固定周期')}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent><SelectGroup>
+                    <SelectItem value='fixed'>{t('固定周期')}</SelectItem>
+                    <SelectItem value='daily'>{t('自然日（每天 0 点）')}</SelectItem>
+                  </SelectGroup></SelectContent>
+                </Select>
+                <span className='detail'>{t('有的账号过了 0 点额度就回来 —— 选「自然日」')}</span>
+              </div>
+              <div className='field-row'>
+                <label>{t('触发条件')}</label>
+                {draftLocal.reset === 'daily' ? (
+                  <>
+                    <span className='detail' style={{ fontSize: 13 }}>{t('每日消耗 ≥')}</span>
+                    <Input type='number' min={0} step={1} className='max-w-[110px]' placeholder={t('阈值')}
+                      value={draftLocal.thresholdInput}
+                      onChange={event => update({ thresholdInput: event.currentTarget.value })} />
+                    <Select value={draftLocal.tokenUnit}
+                      onValueChange={value => update({ tokenUnit: value as LimiterEditorDraft['tokenUnit'] })}>
+                      <SelectTrigger className='w-[92px]' aria-label={t('Token 单位')}>
+                        <SelectValue>{draftLocal.tokenUnit === 'wan' ? t('万') : t('个')}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent><SelectGroup>
+                        <SelectItem value='wan'>{t('万')}</SelectItem>
+                        <SelectItem value='unit'>{t('个')}</SelectItem>
+                      </SelectGroup></SelectContent>
+                    </Select>
+                    <span className='detail' style={{ fontSize: 13 }}>{t('Token 时')}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className='detail' style={{ fontSize: 13 }}>{t('每')}</span>
+                    <Input type='number' min={1} step={1} className='max-w-[90px]' placeholder={t('周期')}
+                      value={draftLocal.periodInput}
+                      onChange={event => update({ periodInput: event.currentTarget.value })} />
+                    <Select value={draftLocal.periodUnit}
+                      onValueChange={value => update({ periodUnit: value as LimiterEditorDraft['periodUnit'] })}>
+                      <SelectTrigger className='w-[92px]' aria-label={t('周期单位')}>
+                        <SelectValue>{draftLocal.periodUnit === 'hours' ? t('小时') : t('分钟')}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent><SelectGroup>
+                        <SelectItem value='minutes'>{t('分钟')}</SelectItem>
+                        <SelectItem value='hours'>{t('小时')}</SelectItem>
+                      </SelectGroup></SelectContent>
+                    </Select>
+                    <span className='detail' style={{ fontSize: 13 }}>{t('内消耗 ≥')}</span>
+                    <Input type='number' min={0} step={1} className='max-w-[110px]' placeholder={t('阈值')}
+                      value={draftLocal.thresholdInput}
+                      onChange={event => update({ thresholdInput: event.currentTarget.value })} />
+                    <Select value={draftLocal.tokenUnit}
+                      onValueChange={value => update({ tokenUnit: value as LimiterEditorDraft['tokenUnit'] })}>
+                      <SelectTrigger className='w-[92px]' aria-label={t('Token 单位')}>
+                        <SelectValue>{draftLocal.tokenUnit === 'wan' ? t('万') : t('个')}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent><SelectGroup>
+                        <SelectItem value='wan'>{t('万')}</SelectItem>
+                        <SelectItem value='unit'>{t('个')}</SelectItem>
+                      </SelectGroup></SelectContent>
+                    </Select>
+                    <span className='detail' style={{ fontSize: 13 }}>{t('Token 时')}</span>
+                  </>
+                )}
+              </div>
+              <div className='field-row'>
+                <label>{t('触发后')}</label>
+                <Select value={draftLocal.action}
+                  onValueChange={value => update({ action: value as LimiterEditorDraft['action'] })}>
+                  <SelectTrigger className='min-w-[280px]' aria-label={t('触发动作')}>
+                    <SelectValue>{draftLocal.action === 'disable' ? t('禁用该账号（需手动重新启用）') : t('跳过该账号（重置后自动恢复）')}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent><SelectGroup>
+                    <SelectItem value='skip'>{t('跳过该账号（重置后自动恢复）')}</SelectItem>
+                    <SelectItem value='disable'>{t('禁用该账号（需手动重新启用）')}</SelectItem>
+                  </SelectGroup></SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+          <p className='detail limiter-hint'>{liveHint()}</p>
+          {error ? <p className='detail text-destructive'>{error}</p> : null}
         </DialogBody>
         <DialogFooter>
           <Button variant='outline' onClick={onClose}>{t('取消')}</Button>
@@ -411,22 +397,24 @@ function LimiterEditorDialog({
  * 添加 / 编辑的表单在二级弹层，见 LimiterEditorDialog）。
  */
 export function LimiterSection({
-  account, draft, onChange,
+  account, draft, onChange, allowBalance = account ? supportsUsage(account) : true,
 }: {
-  account: AccountRecord
+  account?: AccountRecord
   draft: LimiterRule[]
   onChange: (next: LimiterRule[]) => void
+  allowBalance?: boolean
 }) {
   const [editor, setEditor] = React.useState<{ index: number; draft: LimiterEditorDraft } | null>(null)
 
-  const openAdd = (): void => setEditor({ index: -1, draft: editorDraftOf(null) })
+  const openAdd = (): void => {
+    const next = editorDraftOf(null)
+    if (!allowBalance) next.type = 'token'
+    setEditor({ index: -1, draft: next })
+  }
   const openEdit = (index: number): void => setEditor({ index, draft: editorDraftOf(draft[index]) })
 
   const saveEditor = (rule: LimiterRule, index: number): void => {
-    const next = [...draft]
-    if (index >= 0) next[index] = rule
-    else next.push(rule)
-    onChange(next)
+    onChange(applyEditedLimiter(draft, rule, index))
     setEditor(null)
   }
 
@@ -447,7 +435,7 @@ export function LimiterSection({
       {draft.length ? (
         <div className='limiter-rules mt-2.5'>
           {draft.map((rule, index) => {
-            const state = ruleStateOf(account, rule)
+            const state = account ? ruleStateOf(account, rule) : null
             return (
               <div key={index} className='limiter-rule' data-off={rule.enabled === false || undefined}>
                 <Switch checked={rule.enabled !== false} aria-label={t('启用该规则')}
@@ -458,10 +446,12 @@ export function LimiterSection({
                     {' '}{t('{cond} 时 → {action}', { cond: describeRuleCondition(rule), action: describeRuleAction(rule) })}
                   </span>
                 </div>
-                <Badge variant={state.kind === 'ok' ? 'success' : state.kind === 'warn' ? 'warning'
-                  : state.kind === 'danger' ? 'destructive' : 'secondary'} shape='tag' title={state.title}>
-                  {state.text}
-                </Badge>
+                {state ? (
+                  <Badge variant={state.kind === 'ok' ? 'success' : state.kind === 'warn' ? 'warning'
+                    : state.kind === 'danger' ? 'destructive' : 'secondary'} shape='tag' title={state.title}>
+                    {state.text}
+                  </Badge>
+                ) : null}
                 <div className='limiter-rule-ops'>
                   <Button variant='ghost' onClick={() => openEdit(index)}>{t('编辑')}</Button>
                   <Button variant='ghost' onClick={() => removeRule(index)}>{t('删除')}</Button>
@@ -471,13 +461,16 @@ export function LimiterSection({
           })}
         </div>
       ) : (
-        <p className='detail mt-2.5'>{t('还没有限制规则：账号照常参与转发，余额与 Token 消耗都不设上限。')}</p>
+        <p className='detail mt-2.5'>{account
+          ? t('还没有限制规则：账号照常参与转发，余额与 Token 消耗都不设上限。')
+          : t('还没有批量规则，请先添加限制或从所选账号复制。')}</p>
       )}
       <div className='field-row mt-2.5'>
         <Button variant='outline' onClick={openAdd}>{t('＋ 添加限制')}</Button>
         <span className='detail'>{t('可添加多条；同类规则也允许并存（例如一条按余额、两条不同重置方式的 Token）')}</span>
       </div>
-      <LimiterEditorDialog account={account} target={editor} onClose={() => setEditor(null)} onSave={saveEditor} />
+      <LimiterEditorDialog account={account} allowBalance={allowBalance} target={editor}
+        onClose={() => setEditor(null)} onSave={saveEditor} />
     </>
   )
 }
@@ -499,4 +492,12 @@ export function readLimiterChanges(
 /** 弹窗挂载时的初始草稿：账号的**有效规则**（未显式配置 = 后端推导的结果）。 */
 export function limiterDraftOf(account: AccountRecord | null | undefined): LimiterRule[] {
   return limitersOf(account).map(rule => ({ ...rule }))
+}
+
+/** Editing changes the rule fields while preserving its deliberate enabled state. */
+export function applyEditedLimiter(rules: LimiterRule[], rule: LimiterRule, index: number): LimiterRule[] {
+  const next = [...rules]
+  if (index >= 0 && next[index]) next[index] = { ...rule, enabled: next[index].enabled !== false }
+  else next.push(rule)
+  return next
 }

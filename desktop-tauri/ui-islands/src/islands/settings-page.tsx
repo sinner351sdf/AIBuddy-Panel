@@ -2,6 +2,8 @@ import { SectionSkeleton } from '../components/section-skeleton'
 import { usePageReady } from '../components/use-page-ready'
 import { SettingsMobileMenu } from './settings-mobile-menu'
 import { UpdatePanel } from './update-panel'
+import { SidebarPane } from './sidebar-pane'
+import { DbRestoreDialog } from './settings-db-restore'
 import { AssistantSettingsPane } from './assistant-settings-pane'
 import { Alert, AlertDescription } from '@ui'
 import { NavItem } from '@ui'
@@ -1858,9 +1860,9 @@ function SecurityPane({ snap }: { snap: SettingsSnapshot }) {
           <SwitchRow
             id='settings-captcha'
             label={t('登录 / 注册需要通过 ALTCHA 人机验证（工作量证明）')}
-            checked={snap.captcha.enabled}
+            checked={(snap.captcha.localPanel ? snap.captcha.desktop : snap.captcha.web)}
             disabled={!snap.captcha.available || snap.busy === 'captcha'}
-            onCheckedChange={next => void saveCaptcha(next)}
+            onCheckedChange={next => void saveCaptcha(snap.captcha.localPanel ? 'desktop' : 'web', next)}
           />
         </CardContent>
       </Card>
@@ -2362,19 +2364,19 @@ const FEEDBACK_LINKS = [
     title: t('问题反馈'),
     desc: t('遇到 Bug、报错或异常行为'),
     cta: t('去反馈'),
-    url: 'https://github.com/Agent2API/agent2api/issues/new?template=bug_report.yml',
+    url: 'https://github.com/sinner351sdf/AIBuddy-Panel/issues/new?template=bug_report.yml',
   },
   {
     title: t('功能建议'),
     desc: t('想要的新功能或改进想法'),
     cta: t('提建议'),
-    url: 'https://github.com/Agent2API/agent2api/issues/new?template=feature_request.yml',
+    url: 'https://github.com/sinner351sdf/AIBuddy-Panel/issues/new?template=feature_request.yml',
   },
   {
     title: t('请求提供商 / 模型支持'),
     desc: t('希望接入新的提供商或模型'),
     cta: t('去申请'),
-    url: 'https://github.com/Agent2API/agent2api/issues/new?template=provider_request.yml',
+    url: 'https://github.com/sinner351sdf/AIBuddy-Panel/issues/new?template=provider_request.yml',
   },
 ] as const
 
@@ -2763,7 +2765,7 @@ function DeployPane({ snap }: { snap: SettingsSnapshot }) {
             />
             <DeployRow
               label='登录人机验证'
-              value={snap.captcha.enabled
+              value={(snap.captcha.localPanel ? snap.captcha.desktop : snap.captcha.web)
                 ? <span style={{ color: 'var(--ok)' }}>已开启 · ALTCHA 工作量证明</span>
                 : '已关闭'}
               hint='在「安全」分区切换；开启后登录页自动完成验证（对真人无感），脚本暴力破解成本大幅上升。'
@@ -5097,7 +5099,7 @@ export function SettingsPage({ mobile = false, initialCategory, onDevicePreferen
           {shouldMount('notify') ? <NotifyPane snap={snap} /> : null}
         </div>
         <div className={paneClass('prefs')} data-cat='prefs'>
-          {shouldMount('prefs') ? <PrefsPane /> : null}
+          {shouldMount('prefs') ? <><PrefsPane /><SidebarPane /></> : null}
         </div>
         <div className={paneClass('shell')} data-cat='shell'>
           {shouldMount('shell') ? <ShellPane /> : null}
@@ -5124,6 +5126,7 @@ export function SettingsPage({ mobile = false, initialCategory, onDevicePreferen
 
       <RetentionConfirmDialog confirm={snap.retentionConfirm} />
       <DbBackupConfirmDialog confirm={snap.dbBackupConfirm} />
+      <DbRestoreDialog />
       <LanDialog confirm={snap.lanConfirm} register={snap.lanRegister} />
     </div>
     </MobileSettingsContext.Provider>

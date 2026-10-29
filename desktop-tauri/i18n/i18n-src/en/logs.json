@@ -33,6 +33,7 @@
   "系统事件": "System events",
   "警告": "Warning",
   "读取日志失败": "",
+  "读取运行日志失败，详见控制台": "",
   "调试": "Debug",
   "运行日志已清空": "Runtime logs cleared",
   "错误": "Error"

@@ -57,7 +57,7 @@ ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc \
 # 统一构建脚本：amd64 原生 / arm64 交叉，产物统一归位到 /build/agent2api-server
 #（COPY --from 无法条件分支，所以在这里收拢路径）
 RUN { echo '#!/bin/sh -e'; \
-      echo 'cd /build/src-tauri'; \
+      echo 'cd /build/desktop-tauri/src-tauri'; \
       echo 'if [ "$TARGETARCH" = "arm64" ]; then'; \
       echo '  cargo build --release -p agent2api-server --target aarch64-unknown-linux-gnu --target-dir /build/target'; \
       echo '  cp /build/target/aarch64-unknown-linux-gnu/release/agent2api-server /build/agent2api-server'; \
@@ -67,20 +67,23 @@ RUN { echo '#!/bin/sh -e'; \
       echo 'fi'; \
     } > /build/cargo-build.sh && chmod +x /build/cargo-build.sh
 
-COPY desktop-tauri/src-tauri/Cargo.toml desktop-tauri/src-tauri/Cargo.lock src-tauri/
-COPY desktop-tauri/src-tauri/server/Cargo.toml src-tauri/server/
-COPY desktop-tauri/src-tauri/android-gateway/Cargo.toml src-tauri/android-gateway/
-RUN mkdir -p src-tauri/server/src/bin src-tauri/android-gateway/src src-tauri/src \
-    && echo "" > src-tauri/server/src/lib.rs \
-    && echo "fn main() {}" > src-tauri/server/src/bin/agent2api-server.rs \
-    && echo "" > src-tauri/android-gateway/src/lib.rs \
-    && echo "" > src-tauri/src/lib.rs \
-    && echo "fn main() {}" > src-tauri/src/main.rs
+# Preserve repository-relative paths: server's ../../../provider-plugin protocol
+# dependency must resolve in the cache layer as well as the real source layer.
+COPY desktop-tauri/src-tauri/Cargo.toml desktop-tauri/src-tauri/Cargo.lock desktop-tauri/src-tauri/
+COPY desktop-tauri/src-tauri/server/Cargo.toml desktop-tauri/src-tauri/server/
+COPY desktop-tauri/src-tauri/android-gateway/Cargo.toml desktop-tauri/src-tauri/android-gateway/
+COPY provider-plugin provider-plugin/
+RUN mkdir -p desktop-tauri/src-tauri/server/src/bin desktop-tauri/src-tauri/android-gateway/src desktop-tauri/src-tauri/src \
+    && echo "" > desktop-tauri/src-tauri/server/src/lib.rs \
+    && echo "fn main() {}" > desktop-tauri/src-tauri/server/src/bin/agent2api-server.rs \
+    && echo "" > desktop-tauri/src-tauri/android-gateway/src/lib.rs \
+    && echo "" > desktop-tauri/src-tauri/src/lib.rs \
+    && echo "fn main() {}" > desktop-tauri/src-tauri/src/main.rs
 # 桩依赖层：整棵依赖树编一遍，命中后成为之后每次构建的缓存底座
 RUN /build/cargo-build.sh
 
-COPY desktop-tauri/src-tauri/server/src src-tauri/server/src
-RUN cd src-tauri \
+COPY desktop-tauri/src-tauri/server/src desktop-tauri/src-tauri/server/src
+RUN cd desktop-tauri/src-tauri \
     && find server/src -type f -exec touch {} + \
     && /build/cargo-build.sh
 

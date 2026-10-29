@@ -17,8 +17,10 @@ import { LogsPanel } from './islands/logs-panel'
 import { TasksPanel } from './islands/tasks-panel'
 import { DocsPage } from './islands/docs-page'
 import { CreditsPage } from './islands/credits-page'
+import { HiddenAccountsNotice } from './islands/accounts-hidden-notice'
+import { PluginsPage } from './islands/plugins-page'
 import { AgentPage } from './islands/agent-page'
-import { allAccounts, subscribe, getStore, openBatchDialog, closeDialog, reorderQueue, clearLimits, setAccountEnabled } from './islands/accounts-data'
+import { allAccounts, hiddenAccounts, subscribe, getStore, openBatchDialog, closeDialog, reorderQueue, clearLimits, setAccountEnabled } from './islands/accounts-data'
 import { ActionsCell, UsageCell } from './islands/accounts-panels'
 import { displayNameOf } from './islands/accounts-domain'
 import { t } from './i18n'
@@ -61,6 +63,7 @@ function MobileAccountManager({ edit, add }: { edit: (id: string) => void; add: 
   const [selected, setSelected] = React.useState<string[]>([])
   const [pending, setPending] = React.useState(false)
   const all = allAccounts()
+  const hidden = hiddenAccounts()
   const visible = all.filter(a => `${displayNameOf(a)} ${a.provider}`.toLowerCase().includes(query.toLowerCase()))
   const move = async (id: string, delta: number) => {
     const ids = all.map(a => a.id), at = ids.indexOf(id), to = at + delta
@@ -70,6 +73,7 @@ function MobileAccountManager({ edit, add }: { edit: (id: string) => void; add: 
     try { await reorderQueue(ids) } finally { setPending(false) }
   }
   return <div className='mobile-account-manager'>
+    {hidden.total > 0 ? <HiddenAccountsNotice hidden={hidden} compact /> : null}
     <Button onClick={add}>{t('添加账号')}</Button>
     <Input aria-label={t('搜索账号')} placeholder={t('搜索账号')} value={query} onChange={e => setQuery(e.target.value)} />
     <div className='mobile-actions'><Button variant='outline' onClick={() => setSelected(visible.map(a => a.id))}>{t('全选')}</Button><Button variant='ghost' onClick={() => setSelected([])}>{t('取消选择')}</Button><Button disabled={!selected.length} onClick={() => openBatchDialog(selected)}>{t('批量操作')} ({selected.length})</Button></div>
@@ -109,7 +113,7 @@ function installMobileAccountActions() {
   })() }
 }
 
-const pages: Record<string, React.ComponentType> = {gateway: ModelsPage, keys: KeysPage, agent: AgentPage, proxies: ProxiesPage, checkin: CheckinPage, overview: ReportPage, requests: RequestsPage, logs: LogsPanel, tasks: TasksPanel, docs: DocsPage, credits: CreditsPage}
+const pages: Record<string, React.ComponentType> = {plugins: PluginsPage, gateway: ModelsPage, keys: KeysPage, agent: AgentPage, proxies: ProxiesPage, checkin: CheckinPage, overview: ReportPage, requests: RequestsPage, logs: LogsPanel, tasks: TasksPanel, docs: DocsPage, credits: CreditsPage}
 class FeatureError extends React.Component<{ children: React.ReactNode }, {error: string}> {
   state = { error: '' }
   static getDerivedStateFromError(error: Error) { return { error: error.message } }

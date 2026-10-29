@@ -2,8 +2,8 @@
 <html lang="zh-CN" data-theme="system">
 <head>
   <meta charset="UTF-8">
-  <script src="js/desktop-startup.js?v=a99e612a6438"></script>
-  <script src="js/page-loading.js?v=3ed79c569a35"></script>
+  <script src="js/desktop-startup.js?v=b6641dae41f7"></script>
+  <script src="js/page-loading.js?v=e936f47971cb"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <link rel="icon" href="brand/favicon.ico?v=b-mono-1">
   <link rel="manifest" href="m/manifest.webmanifest">
@@ -67,28 +67,28 @@
   <link rel="stylesheet" href="css/prefs.css?v=75a1073ff4f3">
   <link rel="stylesheet" href="css/notify-center.css?v=317e6f6b0472">
   <link rel="stylesheet" href="css/tags-view.css?v=6ebc72dc186d">
-  <link rel="stylesheet" href="css/layout.css?v=63199168fd8d">
+  <link rel="stylesheet" href="css/layout.css?v=c3b76cf60189">
   <link rel="stylesheet" href="css/components.css?v=58f30261237f">
-  <link rel="stylesheet" href="css/page-accounts.css?v=d75966781d8e">
+  <link rel="stylesheet" href="css/page-accounts.css?v=78c70ade9784">
   <link rel="stylesheet" href="css/page-accounts-providers.css?v=7fd110ca0f44">
   <!-- 账号页表格化（四家混排的一张表）：排在两个账号页样式之后 ——
        它要覆盖 page-accounts.css 里 .acct-scroll 的滚动方向等既有声明 -->
-  <link rel="stylesheet" href="css/page-accounts-table.css?v=789102fae7e1">
+  <link rel="stylesheet" href="css/page-accounts-table.css?v=614282ad233e">
   <link rel="stylesheet" href="css/page-gateway.css?v=74f00808cd75">
   <link rel="stylesheet" href="css/page-agent.css?v=eae426a19f60">
   <link rel="stylesheet" href="css/page-logs.css?v=d8387261dcd9">
   <link rel="stylesheet" href="css/page-tasks.css?v=17207bf75c54">
-  <link rel="stylesheet" href="css/page-checkin.css?v=2acd5c8b83d2">
+  <link rel="stylesheet" href="css/page-checkin.css?v=3ada0e0f5c18">
   <link rel="stylesheet" href="css/page-requests.css?v=04de187a2705">
-  <link rel="stylesheet" href="css/page-settings.css?v=682b1ad6d243">
+  <link rel="stylesheet" href="css/page-settings.css?v=9b419b72a267">
   <!-- 更新日志（Markdown 正文 / 版本卡片 / 导航更新提示）：排在页面样式之后，
        需要时可覆盖 page-settings.css 里为旧的纯文本说明写的规则 -->
   <link rel="stylesheet" href="css/update-notes.css?v=430b8d697330">
-  <link rel="stylesheet" href="css/mobile.css?v=1cc77a8676d6">
-  <link rel="stylesheet" href="css/page-report.css?v=ebdbf19846fc">
+  <link rel="stylesheet" href="css/mobile.css?v=10cff4227534">
+  <link rel="stylesheet" href="css/page-report.css?v=f09e0c652bc7">
   <!-- AI 助手页（智能组）：消息流 / 工具卡 / 确认卡 / 输入区。排在页面样式之后，
        它是一个新页面，没有需要覆盖的既有规则 -->
-  <link rel="stylesheet" href="css/page-assistant.css?v=b8d6afb84d54">
+  <link rel="stylesheet" href="css/page-assistant.css?v=86068111ca90">
   <!-- 小问号提示外观（tooltip.js 增强出来的气泡）：排在页面样式之后，
        需要时可覆盖各页面自己写的尺寸约束 -->
   <link rel="stylesheet" href="css/tooltip.css?v=eb375186a5b9">
@@ -98,16 +98,16 @@
        靠级联顺序取胜而不是堆特异性。与 tooltip.css 同一编排。
        （select.css 已随 select.js 一并删除：全站最后一个原生 <select> 换成组件库的
        Select 之后，.select-shell 那一族样式再无任何引用。） -->
-  <link rel="stylesheet" href="css/table-col-settings.css?v=55e7f29aca7e">
+  <link rel="stylesheet" href="css/table-col-settings.css?v=a6ec27210e2c">
   <!-- 移动端适配层：最后加载，断点 768px。不动既有 900px 折叠规则，
        只处理 768px 以下真机小屏：侧边栏抽屉化 + 表格卡片化 + 卡片堆叠 -->
-  <link rel="stylesheet" href="css/mobile.css?v=1cc77a8676d6">
+  <link rel="stylesheet" href="css/mobile.css?v=10cff4227534">
   <!-- 组件库产物（desktop-tauri/ui-kit/，由 ui-islands 构建时一并编译成 ui/islands/ui.css）：
        Tailwind 的 theme + utilities 两层，刻意不含 preflight —— 基础重置仍由 tokens.css
        承担，否则 h1-h6 字号、列表缩进、img 显示方式会被整体重置。
        排在最后：工具类带 !important（原因见 ui-kit/styles/globals.css 顶部），
        顺序其实已不影响结果，但保持「后加载的是更新的体系」这条阅读线索。 -->
-  <link rel="stylesheet" href="islands/ui.css?v=3627c6ad8e7c">
+  <link rel="stylesheet" href="islands/ui.css?v=7a93c8c35671">
   <link rel="stylesheet" href="css/sidebar-navigation.css?v=838ef2a8bad4">
   <!-- 多语言运行时：查表 t() + 静态文案扫描器（data-i18n 系列）。
        词典已由上面 head 里的引导脚本同步注入（document.write），这里只放运行时逻辑。
@@ -324,6 +324,8 @@
              （islands/update-panel.tsx 的软件更新面板）的挂载点：设置页的岛会把它
              原样渲染成空容器并同步提交首帧，那个岛在模块加载期就把它接管过去 ——
              别把这一块从岛的树里拿掉。 -->
+        <section class="page" data-page="plugins"></section>
+        <section id="plugin-page-host" class="page plugin-page" data-page="__plugin__"></section>
         <section class="page" data-page="settings"></section>
 
         </div>
@@ -408,7 +410,7 @@
        两个多选（可用提供商 / 可用模型）仍走 select.js 的原生 select 增强 ——
        组件库目前没有多选下拉，见该岛文件头的说明。 -->
 
-  <script src="icons.js?v=0fd7c09dd2d3"></script>
+  <script src="icons.js?v=18b4bd46bb16"></script>
   <!-- 表格列设置已迁到组件库：实现见 desktop-tauri/ui-islands/src/islands/table-col-settings.tsx，
        随 islands/ui.js 一起加载，对外仍是 window.wbColSettings = { register, apply, configOf,
        syncStaticHead, close }。四张表在**加载期**就 register，所以 islands/ui.js 必须排在
@@ -424,7 +426,8 @@
   <!-- Token 计量单位的展示口径（中文亿/万 ⇄ 英文 M/k）：报表页与请求日志页都读它，
        设置页的开关写它，所以排在所有业务脚本之前，它们执行时就能用上。 -->
   <script src="units.js?v=385753790f01"></script>
-  <script src="app.js?v=b84a33595165"></script>
+  <script src="sidebar-layout.js?v=fa5e5bd4536f"></script>
+  <script src="app.js?v=fc431a78dcad"></script>
   <!-- React 岛（源码 desktop-tauri/ui-islands/，产物已随仓库提交）。三类：
        · 挂载点式：分段筛选（.island 宿主）、页面级面板（直接挂 .page section）；
        · 自动增强式：带 data-island-input 的原生输入框，加载时就地升级
@@ -441,7 +444,7 @@
        必须在 islands/ui.js **之前**：日志页的岛首次渲染就要读它（先读不到会兜住，
        但排在前面才没有这一拍的抖动）。 -->
   <script src="filter-memory.js?v=449abfb9f1ab"></script>
-  <script src="islands/ui.js?v=7b6477db5259"></script>
+  <script src="islands/ui.js?v=f35d2d843f18"></script>
   <!-- 自定义标题栏（桌面端）：主窗口去掉了系统装饰（src-tauri/lib.rs 建窗处
        decorations(false)），这里动态补一条 32px 的标题栏（左标题右三键，
        拖动与双击最大化靠 data-tauri-drag-region）。网页端没有应用窗口，
@@ -482,7 +485,7 @@
        只实现一次，两家各交一份配置。必须在 add-account.js 之前 —— 后者在加载期就要用它
        建 WorkBuddy 那一份（DOM 在下面那个弹窗里），也必须在 add-provider-forms.js 之前
        —— 小浣熊那份由它建。 -->
-  <script src="web-login.js?v=b7c68c15401c"></script>
+  <script src="web-login.js?v=7ccdb3168baa"></script>
   <!-- 手机验证码登录的交互引擎（当前只有 AutoClaw 用）：与小浣熊的网页登录是两套
        东西 —— 那条链路开窗口等回调，这条在本弹窗里「发码 → 填码 → 换 token」。
        必须在 add-provider-forms.js 之前 —— 加载期由它建 AutoClaw 那一份。 -->
@@ -492,7 +495,7 @@
        之后干的事不同），因此只留一份实现。
        必须排在两个消费者（下面那行 autoclaw-oauth.js 与 zcode-claim.js）之前：
        它们在加载期就取 `window.wbAliyunCaptcha`。 -->
-  <script src="aliyun-captcha.js?v=4486d5fe1c14"></script>
+  <script src="aliyun-captcha.js?v=d348d895966b"></script>
   <!-- AutoClaw 国际版的 OAuth 网页登录（Zai / Google）。单独一个文件是因为它的
        顺序与另外五家相反：点按钮后先在**本弹窗**里跑阿里云风控验证码（浏览器端
        SDK，从 o.alicdn.com 加载），拿到验证串才去换授权地址、再交壳开窗口。
@@ -511,7 +514,7 @@
        无痕验证静默铸令牌（`wbAliyunCaptcha.mintTraceless`）并推回网关 —— 活动套餐
        的推理端点每条请求都要一个这种令牌，而转发是后台发生的（没有让用户拖滑块的
        机会）。必须排在 aliyun-captcha.js 之后：它加载完就自启，第一轮就要用那个模块。 -->
-  <script src="zcode-captcha-pool.js?v=b1acf59e033b"></script>
+  <script src="zcode-captcha-pool.js?v=d52ab6bf4100"></script>
   <!-- 提供商目录：provider 摘要与「作用提供商」写入的唯一前端入口。
        必须排在所有消费者（accounts-groups / logs-panel）之前 -->
   <script src="providers.js?v=cc8bb2360397"></script>
@@ -527,7 +530,7 @@
        各管各的列宽口径（账号表是定宽像素预算，这三张是相对宽度）。
        它启动时就把表头把手插好并绑好委托，所以排在靠后（DOM 里的表格与列表都已存在）；
        请求日志的表头是整块重绘的，它自己用 MutationObserver 补把手，不依赖面板脚本。 -->
-  <script src="table-columns.js?v=076c4ed31832"></script>
+  <script src="table-columns.js?v=e65f115678c0"></script>
   <!-- 移动端表格卡片化：窄屏下把表头列名写进每行 td 的 data-col，
        配合 css/mobile.css 的 td::before 渲染成卡片 label。桌面端不执行。 -->
   <script src="mobile-columns.js?v=f49370caae94"></script>
@@ -556,7 +559,7 @@
        desktop-tauri/ui-islands/src/islands/request-hover.tsx，随 islands/ui.js 一起加载，
        对外仍是 window.wbRequestHover = { bind, close, hasProcessFacts, beforeListRedraw,
        afterListRedraw }（requests-panel.js 在加载期就调 bind，所以它必须排在后面）。 -->
-  <script src="conversation-preview.js?v=20b1580f4bd9"></script>
+  <script src="conversation-preview.js?v=c1a635ac7b52"></script>
   <!-- 请求详情弹窗已迁到组件库：实现见
        desktop-tauri/ui-islands/src/islands/request-detail.tsx，随 islands/ui.js
        一起加载，对外仍是 window.wbRequestDetail.open(id, row) / .close()。 -->
@@ -598,9 +601,9 @@
   <!-- 顶栏用户菜单：账号名 + 修改账号密码（POST /api/panel/password）+ 退出登录
        （POST /api/panel/logout）。独立容器插在 #topbar-status 之前并 MutationObserver
        自愈（app.js 会整体重写那个容器，同 notify-center 的约定）。 -->
-  <script src="js/user-menu.js?v=61d3b4f8aa71"></script>
+  <script src="js/user-menu.js?v=d7ae1e92b7f0"></script>
   <script src="js/shell.js?v=7528397401e7"></script>
-  <script src="js/tags-view.js?v=a472082ecd7e"></script>
+  <script src="js/tags-view.js?v=7f3afef0ca3e"></script>
 <script src="js/branding.js?v=0f6d716817bb"></script>
 </body>
 </html>

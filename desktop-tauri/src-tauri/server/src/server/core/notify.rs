@@ -38,6 +38,7 @@
 //! 时区 HH:mm）内只记日志不发送，其余走 [`dispatch`]。事件源（429 降级、
 //! 账号掉线、探活自动禁用）分散在各自模块里，本模块不回头 import 它们。
 
+use crate::server::core::validation::ValidatedRequest as _;
 use std::time::Duration;
 
 use chrono::Timelike;
@@ -539,7 +540,7 @@ fn with_query(url: &str, key: &str, value: &str) -> String {
 /// 成败字段的渠道 —— SMS 网关普遍如此 —— 用它拿正文再做业务校验）
 async fn send_and_read(request: reqwest::RequestBuilder) -> Result<String, String> {
     let mut response = request
-        .send()
+        .send_guarded()
         .await
         .map_err(|error| format!("请求失败: {error}"))?;
     let status = response.status();
@@ -603,7 +604,7 @@ fn http_client() -> &'static reqwest::Client {
 /// 发送并校验 2xx；非 2xx 时带上（截断后的）响应正文，方便排障
 async fn send(request: reqwest::RequestBuilder) -> Result<(), String> {
     let mut response = request
-        .send()
+        .send_guarded()
         .await
         .map_err(|error| format!("请求失败: {error}"))?;
     let status = response.status();

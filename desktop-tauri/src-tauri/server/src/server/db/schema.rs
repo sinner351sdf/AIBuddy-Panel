@@ -79,6 +79,7 @@ use rusqlite::Connection;
 /// 清单里可能有**没有使用方常量**的项（如遗留的 `desensitize`）：那些是
 /// 「功能已删、数据留着」的键，登记它们的唯一目的就是让配置写入别去动它。
 pub const RESERVED_KV_KEYS: &[&str] = &[
+    "cloudSync",
     "agentProfiles",
     // 账号优先级的全局作用域（core::account_store::sql）
     "priorityScope",
@@ -726,7 +727,9 @@ CREATE INDEX IF NOT EXISTS idx_checkin_records_provider ON checkin_records(provi
 pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     let current: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
     if current > SCHEMA_VERSION {
-        return Err(rusqlite::Error::InvalidParameterName(format!("数据库版本 {current} 高于程序支持的 {SCHEMA_VERSION}，请使用新版或恢复升级前备份")));
+        return Err(rusqlite::Error::InvalidParameterName(format!(
+            "数据库版本 {current} 高于程序支持的 {SCHEMA_VERSION}，请使用新版或恢复升级前备份"
+        )));
     }
     if current >= 12 && current < SCHEMA_VERSION {
         // Upstream v12-v14 use the same numbers for different content. Probe/repair actual structure.
@@ -800,15 +803,31 @@ fn apply_version(conn: &Connection, version: i64) -> rusqlite::Result<()> {
         14 => {
             conn.execute_batch(V12_SCHEMA)?;
             conn.execute_batch(V13_SCHEMA)?;
-            let has_client = conn.prepare("PRAGMA table_info(requests)")?
+            let has_client = conn
+                .prepare("PRAGMA table_info(requests)")?
                 .query_map([], |row| row.get::<_, String>(1))?
-                .collect::<rusqlite::Result<Vec<_>>>()?.iter().any(|name| name == "client");
-            if !has_client { conn.execute_batch("ALTER TABLE requests ADD COLUMN client TEXT NOT NULL DEFAULT '';")?; }
+                .collect::<rusqlite::Result<Vec<_>>>()?
+                .iter()
+                .any(|name| name == "client");
+            if !has_client {
+                conn.execute_batch(
+                    "ALTER TABLE requests ADD COLUMN client TEXT NOT NULL DEFAULT '';",
+                )?;
+            }
             super::account_history::install(conn)
         }
         15 => {
-            let has_client = conn.prepare("PRAGMA table_info(requests)")?.query_map([], |row| row.get::<_, String>(1))?.collect::<rusqlite::Result<Vec<_>>>()?.iter().any(|name| name == "client");
-            if !has_client { conn.execute_batch("ALTER TABLE requests ADD COLUMN client TEXT NOT NULL DEFAULT '';")?; }
+            let has_client = conn
+                .prepare("PRAGMA table_info(requests)")?
+                .query_map([], |row| row.get::<_, String>(1))?
+                .collect::<rusqlite::Result<Vec<_>>>()?
+                .iter()
+                .any(|name| name == "client");
+            if !has_client {
+                conn.execute_batch(
+                    "ALTER TABLE requests ADD COLUMN client TEXT NOT NULL DEFAULT '';",
+                )?;
+            }
             // Also runs when importing upstream v14: it may not have local task/history tables.
             conn.execute_batch(V12_SCHEMA)?;
             conn.execute_batch(V13_SCHEMA)?;
@@ -830,7 +849,6 @@ CREATE TABLE IF NOT EXISTS assistant_conversations (
 );
 CREATE INDEX IF NOT EXISTS idx_assistant_conversations_updated ON assistant_conversations(deleted, updated_at DESC);
 ";
-
 
 /// Credential-free identity archive. No account FK: logout/deletion and request
 /// retention must not remove historical provider or region information.

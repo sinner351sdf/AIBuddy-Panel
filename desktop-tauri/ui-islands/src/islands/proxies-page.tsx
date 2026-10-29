@@ -140,7 +140,9 @@ import {
   FieldGroup,
   FieldLabel,
 } from '@ui'
-import { poolItemAddress } from './accounts-shared'
+import {
+  isPortlessSubscription, kernelInstalled, poolItemAddress, portlessSubscriptionLabel,
+} from './accounts-shared'
 import {
   batchRemove, batchTest, clearSelection, durationText, enableHint, isDisabledSubscriptionItem, isMirrorOffItem, formatTime, getSnapshot, poolItemStatus,
   isOrphanSubscriptionItem, isPicked, isReadonlyPoolItem, isUnprovisionedItem, items,
@@ -301,10 +303,14 @@ export function ProxiesPage() {
    * `data-copy` 给文本，`.copy-btn` 负责「⧉ → ✓」那一下反馈。
    */
   function addrCell(item: ProxyPoolItem): React.ReactNode {
+    // 内核装没装：池列表响应是首选真相源（与账号页下拉同一个），拿不到时退回
+    // 订阅接口的快照；两个都没有就是 null，此时不下「没装」的结论
+    const installed = kernelInstalled() ?? (subKernel() ? subKernel()!.installed !== false : null)
     // 禁用中的订阅节点：监听端口已随禁用一起收掉，这一格说明的是**为什么**
-    // 没有地址 —— 落到下面的「未分配端口」分支会把话说成「还没有账号引用它」，
-    // 而这条其实可能是用户自己关的
-    if (isDisabledSubscriptionItem(item) && (item.port === null || item.port === undefined)) {
+    // 没有地址 —— 落到下面的「未被使用」分支会把话说成「还没有账号用它」，
+    // 而这条其实可能是用户自己关的。**内核没装时先不提它**（见下面的说明）
+    if (installed !== false && isDisabledSubscriptionItem(item)
+      && (item.port === null || item.port === undefined)) {
       return <span className='text-subtle'>{t('已禁用（未开监听端口）')}</span>
     }
     // 测试走统一测试口；只有账号引用后才需要独立监听端口。

@@ -163,6 +163,7 @@
   "请求日志表": "Tabela de logs de requisições",
   "请求来源": "",
   "请求正在转发中，用时列显示的是已用时": "A requisição está sendo encaminhada; a coluna Duração mostra o tempo decorrido",
+  "请求筛选": "",
   "请求详情": "Detalhes da requisição",
   "读取请求日志失败，详见控制台": "Falha ao ler os logs de requisições; veja o console",
   "路由回放": "Replay de roteamento",

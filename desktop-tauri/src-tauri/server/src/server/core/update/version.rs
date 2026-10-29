@@ -10,7 +10,7 @@
 //! （见 [`compare_versions`]），外加 [`pick_listed_release`]（从 Release 列表里
 //! 挑版本最高的一版）—— 两者都是「加入 beta 版」这条通道的必要条件：通道打开
 //! 后 `3.1.0-beta.1` 与 `3.1.0-beta.2` 必须能分出先后，正式通道的行为则一字不变
-//! （`/releases/latest` 本来就不会返回预发布标签）。
+//! （应用与插件的 Release 在列表内按各自产物筛选）。
 
 use serde_json::Value;
 
@@ -24,9 +24,8 @@ pub const GITHUB_API: &str = "https://api.github.com";
 ///
 /// 用途是「不连 GitHub 也能更新」：内网镜像站、离线演练都走这条。配置后
 /// **只管更新检查与下载两件事**（账号转发、模型清单一概不受影响）：
-///   · 检查更新打 `{base}/repos/{repo}/releases/latest`，返回体与 GitHub 同形；
-///     「加入 beta 版」打开时改打 `{base}/repos/{repo}/releases?per_page=…`
-///     （取的是**数组**，元素同形）—— 自建源要支持 beta 通道就得提供这个列表接口；
+///   · 检查更新打 `{base}/repos/{repo}/releases?per_page=100`，返回 GitHub 同形数组；
+///     正式通道仅在显式自建源列表返回 404 时兼容旧的 `/releases/latest`；
 ///   · 下载白名单额外放行 `base` 的 host（见 [`assert_downloadable`]）——
 ///     这是**显式配置才生效**的口子，没配就还是只有 GitHub 那几个域名。
 pub fn custom_api_base() -> Option<String> {
@@ -96,6 +95,67 @@ impl std::fmt::Display for UpdateError {
 /// 非语义化版本返回 None（此时不做「有新版本」判断，只展示原文）。
 pub fn parse_version(text: &str) -> Option<[u64; 3]> {
     split_version(text).map(|(core, _)| core)
+}
+
+/// A complete semver, without a tag prefix. Release selection is stricter than
+/// the legacy display/comparison parser: an unrelated tag must never be an update.
+pub(crate) fn strict_semver(text: &str) -> bool {
+    if text.is_empty() || text.trim() != text { return false; }
+    let mut metadata = text.split('+');
+    let core_and_pre = metadata.next().unwrap_or("");
+    let identifiers = |value: &str, numeric_zeros: bool| {
+        !value.is_empty() && value.split('.').all(|part| {
+            !part.is_empty() && part.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+                && (numeric_zeros || !part.bytes().all(|b| b.is_ascii_digit()) || part == "0" || !part.starts_with('0'))
+        })
+    };
+    if let Some(build) = metadata.next() {
+        if !identifiers(build, true) || metadata.next().is_some() { return false; }
+    }
+    let (core, pre) = core_and_pre.split_once('-').map_or((core_and_pre, None), |(core, pre)| (core, Some(pre)));
+    let numbers: Vec<_> = core.split('.').collect();
+    numbers.len() == 3 && numbers.iter().all(|part| {
+        !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit())
+            && (*part == "0" || !part.starts_with('0')) && part.parse::<u64>().is_ok()
+    }) && pre.map_or(true, |value| identifiers(value, false))
+}
+
+pub(crate) fn application_tag_version(tag: &str) -> Option<&str> {
+    let version = tag.strip_prefix('v')?;
+    strict_semver(version).then_some(version)
+}
+
+/// The application and its provider plugin share a GitHub repository, but never
+/// share release tags or asset families. A malformed/asset-less release is ignored.
+pub(crate) fn application_release_assets(release: &Value) -> bool {
+    let Some(version) = release.get("tag_name").and_then(Value::as_str).and_then(application_tag_version) else { return false; };
+    let package_version = version.split("-aibuddy.").next().unwrap_or(version);
+    let desktop_prefix = format!("Agent2API_{package_version}_");
+    release.get("assets").and_then(Value::as_array).is_some_and(|assets| assets.iter().any(|asset| {
+        let name = asset.get("name").and_then(Value::as_str).unwrap_or("");
+        let desktop = name.starts_with(&desktop_prefix)
+            && [".exe", ".dmg", ".deb", ".AppImage"].iter().any(|suffix| name.ends_with(suffix));
+        let server = ["agent2api-server-linux-amd64.tar.gz", "agent2api-server-linux-arm64.tar.gz", "agent2api-server-windows-amd64.zip"].contains(&name);
+        (desktop || server)
+            && asset.get("size").and_then(Value::as_u64).is_some_and(|size| size > 0 && size <= MAX_INSTALLER_BYTES)
+            && asset.get("browser_download_url").and_then(Value::as_str).is_some_and(|url| !url.is_empty())
+    }))
+}
+
+pub(crate) fn pick_application_release(payload: &Value, beta: bool, only_prerelease: bool) -> Option<&Value> {
+    let mut best: Option<&Value> = None;
+    let candidates: Vec<&Value> = match payload.as_array() {
+        Some(items) => items.iter().collect(),
+        None => vec![payload],
+    };
+    for release in candidates {
+        if release.get("draft").and_then(Value::as_bool) == Some(true) || !application_release_assets(release) { continue; }
+        let tag = release["tag_name"].as_str().unwrap_or("");
+        let prerelease = release.get("prerelease").and_then(Value::as_bool) == Some(true) || is_prerelease_version(tag);
+        if (!beta && prerelease) || (only_prerelease && !prerelease) { continue; }
+        if best.map_or(true, |current| compare_versions(tag, current["tag_name"].as_str().unwrap_or("")) == Some(1)) { best = Some(release); }
+    }
+    best
 }
 
 /// 这个标签是不是**预发布版**（`-beta.1` 这类 semver 预发布段）？
@@ -240,16 +300,12 @@ pub fn compare_versions(a: &str, b: &str) -> Option<i32> {
 pub fn pick_listed_release<'a>(payload: &'a Value, only_prerelease: bool) -> Option<&'a Value> {
     let list = payload.as_array()?;
     let mut best: Option<&Value> = None;
-    let mut first: Option<&Value> = None;
     for item in list {
         if item.get("draft").and_then(Value::as_bool) == Some(true) {
             continue;
         }
-        if first.is_none() {
-            first = Some(item);
-        }
         let tag = item.get("tag_name").and_then(Value::as_str).unwrap_or("");
-        if parse_version(tag).is_none() {
+        if application_tag_version(tag).is_none() {
             continue;
         }
         // 「不要用转正版把人踢出 beta 频道」：只在这里筛预发布（见函数说明）
@@ -270,7 +326,7 @@ pub fn pick_listed_release<'a>(payload: &'a Value, only_prerelease: bool) -> Opt
     // 兜底取列表第一条（= 创建时间最新）只在「一个能认的版本号都没有」时用；
     // 只看预发布的那条路上不用 —— 它要的是「没有 beta 就没有更新」，不是
     // 「随便挑一条充数」。
-    if only_prerelease { best } else { best.or(first) }
+    best
 }
 
 // ─── URL 与资产 ─────────────────────────────────────────────
@@ -439,24 +495,28 @@ fn asset_name(item: &Value) -> &str {
 ///   - `universal` 两种芯片都能跑，最优；
 ///   - `aarch64` 是 Apple Silicon 原生；
 ///   - `x86_64` 只在 Intel 上能跑（Apple Silicon 要靠 Rosetta 转译）。
-/// 三个都没有（用户手工命名的资产）时退回第一个 —— 至少是个 dmg。
+/// 找不到 universal 或当前架构时不提供安装资产。
 ///
 /// ── Linux（桌面壳）：按架构，其次发行版标记 ──────────────────
 /// 同一次 Linux 构建会出 amd64 与 arm64 两套产物（deb / AppImage 各一份），
 /// 所以先按本机架构筛（`amd64` 与 `x86_64` / `arm64` 与 `aarch64` 是同一件事
-/// 的两种写法，两类都要认），同架构多个时按发行版常见命名排个先后，都不命中
-/// 就退回第一个 —— 至少是同后缀的产物。
+/// 的两种写法，两类都要认）；找不到当前架构时不提供安装资产。
 fn pick_preferred<'a>(candidates: &[&'a Value]) -> Option<&'a Value> {
     if cfg!(target_os = "macos") {
-        for keyword in ["universal", "aarch64", "arm64", "x86_64", "x64"] {
+        let keywords: &[&str] = match std::env::consts::ARCH {
+            "aarch64" => &["universal", "aarch64", "arm64"],
+            "x86_64" => &["universal", "x86_64", "x64"],
+            _ => &["universal"],
+        };
+        for keyword in keywords {
             if let Some(found) = candidates
                 .iter()
-                .find(|item| asset_name(item).to_lowercase().contains(keyword))
+                .find(|item| asset_name(item).to_lowercase().contains(*keyword))
             {
                 return Some(*found);
             }
         }
-        return candidates.first().copied();
+        return None;
     }
     if cfg!(target_os = "linux") {
         // 本机架构的两种写法：`std::env::consts::ARCH` 给的是 x86_64 / aarch64，
@@ -464,7 +524,7 @@ fn pick_preferred<'a>(candidates: &[&'a Value]) -> Option<&'a Value> {
         let keywords: &[&str] = match std::env::consts::ARCH {
             "aarch64" => &["aarch64", "arm64"],
             "x86_64" => &["x86_64", "amd64"],
-            // 未知架构：不做架构筛选，下面的 `.first()` 兜底
+            // 未知架构：不猜测资产架构
             _ => &[],
         };
         for keyword in keywords {
@@ -475,7 +535,7 @@ fn pick_preferred<'a>(candidates: &[&'a Value]) -> Option<&'a Value> {
                 return Some(*found);
             }
         }
-        return candidates.first().copied();
+        return None;
     }
     candidates
         .iter()
@@ -633,5 +693,36 @@ mod fork_channel_regressions {
             {"tag_name":"v3.0.8-aibuddy.1-beta.2","prerelease":true}
         ]);
         assert_eq!(pick_listed_release(&list, true).unwrap()["tag_name"], "v3.0.8-aibuddy.1-beta.2");
+    }
+
+    fn release(tag: &str) -> Value {
+        let version = tag.strip_prefix('v').unwrap_or(tag).split("-aibuddy.").next().unwrap_or("");
+        serde_json::json!({"tag_name":tag,"prerelease":is_prerelease_version(tag),"assets":[{
+            "name":format!("Agent2API_{version}_universal.dmg"),"size":100,
+            "browser_download_url":"https://github.com/sinner351sdf/AIBuddy-Panel/releases/download/fixture/app.dmg"
+        }]})
+    }
+    #[test]
+    fn application_selection_never_uses_a_plugin_or_unknown_tag() {
+        let payload = serde_json::json!([
+            {"tag_name":"providers-v99.0.0","assets":[{"name":"aibuddy-providers-99.0.0-aarch64-apple-darwin.zip","size":10,"browser_download_url":"https://github.com/x"}]},
+            release("v3.1.0-aibuddy.1"), release("v3.3.0-beta.3"),
+            release("v3.4.0junk"), release("v03.4.0"), release("v3.4.0-beta.01")
+        ]);
+        assert_eq!(pick_application_release(&payload,false,false).unwrap()["tag_name"],"v3.1.0-aibuddy.1");
+        assert_eq!(pick_application_release(&payload,true,false).unwrap()["tag_name"],"v3.3.0-beta.3");
+        assert!(pick_application_release(&payload[0],false,false).is_none());
+        assert!(pick_listed_release(&serde_json::json!([{"tag_name":"providers-v99.0.0"}]),false).is_none());
+    }
+    #[test]
+    fn application_requires_matching_asset_family_and_skips_drafts() {
+        let mut wrong=release("v3.3.0"); wrong["assets"][0]["name"]=serde_json::json!("Agent2API_3.2.0_universal.dmg");
+        assert!(pick_application_release(&wrong,false,false).is_none());
+        let mut empty=release("v3.3.0"); empty["assets"][0]["size"]=serde_json::json!(0);
+        assert!(pick_application_release(&empty,false,false).is_none());
+        let mut draft=release("v3.4.0"); draft["draft"]=serde_json::json!(true);
+        assert!(pick_application_release(&draft,true,false).is_none());
+        let list=serde_json::json!([draft,release("v3.3.0"),release("v3.3.0-beta.3")]);
+        assert_eq!(pick_application_release(&list,true,true).unwrap()["tag_name"],"v3.3.0-beta.3");
     }
 }

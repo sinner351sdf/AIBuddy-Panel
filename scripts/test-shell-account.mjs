@@ -76,7 +76,7 @@ function fixture({ tauri = false, status = { data: { username: 'cached-admin' } 
     return Object.hasOwn(result, 'data') ? result.data : result
   } }
   const context = vm.createContext({ window, document, localStorage: {
-    getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, String(value)),
+    getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, String(value)), removeItem: key => storage.delete(key),
   }, fetch: async (path, options = {}) => {
     const request = { path, method: options.method || 'GET', body: options.body ? JSON.parse(options.body) : null }
     requests.push(request)
@@ -215,3 +215,9 @@ const draft = (patch = {}) => ({ oldUser: ' cached-admin ', oldPassword: 'old-te
   assert.equal(f.window.location.href, '/login')
 }
 console.log('PASS: account controller validation, request contracts, session outcomes, subscriptions and host recovery (mock requests only)')
+
+// Losing authentication clears only panel identity, and a late status cannot revive it.
+{
+  const f=fixture();await tick();f.storage.set('assistant-draft','keep');f.api.setMenuOpen(true);f.api.invalidateSession();await tick();
+  assert.equal(f.api.getSnapshot().username,'');assert.equal(f.api.getSnapshot().menuOpen,false);assert(!f.storage.has('agent2api-user'));assert.equal(f.storage.get('assistant-draft'),'keep');
+}

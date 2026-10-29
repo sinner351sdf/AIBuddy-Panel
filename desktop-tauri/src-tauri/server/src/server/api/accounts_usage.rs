@@ -64,5 +64,11 @@ pub async fn accounts_usage_snapshot(state: &ServerState) -> Response {
 /// 没有逐包明细（差异见 `usage_query::query_credit_packages` 的说明）。
 /// 每次点按钮都真打上游（get-user-resource），不走快照。
 pub async fn credit_packages(state: &ServerState) -> Response {
+    if crate::server::core::validation::enabled() {
+        return ok_json(serde_json::json!({
+            "results": [], "skipped": 0,
+            "pauseReason": "隔离验收已暂停积分包刷新，保留原有账号与余额记录",
+        }));
+    }
     ok_json(usage_query::query_credit_packages(state.store()).await)
 }

@@ -1,0 +1,72 @@
+name: provider-plugin-build
+
+# Separate from v* application builds. This workflow only uploads artifacts.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'providers-v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provider-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-26-intel
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          # Match the Debian runtime ABI; do not silently move to newer glibc.
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: provider-plugin -> target
+      - name: Validate plugin tag and version
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs'
+          import {pluginVersion,PACK_ID} from './scripts/provider-plugin-assets.mjs'
+          const pack=JSON.parse(fs.readFileSync('provider-plugin/pack.json'))
+          if(pack.id!==PACK_ID||pack.protocol!==1)throw new Error('wrong provider identity')
+          if(process.env.GITHUB_REF_TYPE==='tag'&&pluginVersion(process.env.GITHUB_REF_NAME)!==pack.version)throw new Error('tag/version mismatch')
+          JS
+      - name: Build and validate the native plugin
+        env:
+          AIBUDDY_VALIDATION_MODE: '1'
+        run: node scripts/build-provider-plugin.mjs --target ${{ matrix.target }}
+      - name: Offline RPC verification
+        env:
+          AIBUDDY_VALIDATION_MODE: '1'
+        working-directory: provider-plugin
+        shell: bash
+        run: |
+          exe="target/release/agent2api-providers"
+          if [[ "$RUNNER_OS" == Windows ]]; then exe="$exe.exe"; fi
+          node scripts/verify.mjs --exe "$exe"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: provider-${{ matrix.target }}
+          path: provider-plugin/dist/*
+          if-no-files-found: error
+          retention-days: 14

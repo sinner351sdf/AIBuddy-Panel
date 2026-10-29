@@ -34,6 +34,7 @@ export function MorePage() {
     { id: 'tasks', label: t('定时任务'), description: t('执行计划与任务记录'), icon: 'task' },
   ]
   const system: Entry[] = [
+    { id: 'plugins', label: t('插件'), description: t('管理 AIBuddy 提供商增强'), icon: 'server' },
     { id: 'settings', label: t('设置'), description: t('网关配置与系统管理'), icon: 'settings' },
     { id: 'report', label: t('报表'), description: t('Token 趋势与用量排行'), icon: 'chart' },
   ]

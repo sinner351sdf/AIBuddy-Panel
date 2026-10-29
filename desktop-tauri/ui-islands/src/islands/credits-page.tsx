@@ -1,6 +1,6 @@
 import { usePageReady } from '../components/use-page-ready'
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@ui'
-import { Badge } from '@ui'
+import { Badge, Alert, AlertDescription } from '@ui'
 /**
  * Agent2API · 积分构成页（对照 workbuddy2api-panel 的同名页三段结构）。
  *
@@ -121,7 +121,7 @@ type UsageResult = {
   error?: string | null
   usage?: UsagePayload | null
 }
-type Snapshot = { at?: number; results?: UsageResult[]; skipped?: number; skippedProviders?: string[] }
+type Snapshot = { at?: number; results?: UsageResult[]; skipped?: number; skippedProviders?: string[]; pauseReason?: string }
 
 /* ─── 参考站口径的小工具 ─────────────────────────────────────── */
 
@@ -617,6 +617,7 @@ function AccountDetail({
 
 export function CreditsPage(): React.ReactElement {
   const [snapshot, setSnapshot] = React.useState<Snapshot | null>(null)
+  const [pauseReason, setPauseReason] = React.useState('')
   const [ready, setReady] = React.useState(false)
   usePageReady('credits', ready)
   const [querying, setQuerying] = React.useState(false)
@@ -630,7 +631,15 @@ export function CreditsPage(): React.ReactElement {
   const load = React.useCallback(async (): Promise<void> => {
     setQuerying(true)
     try {
-      setSnapshot(await callLocal<Snapshot>('GET', '/api/accounts/usage/packages'))
+      const next = await callLocal<Snapshot>('GET', '/api/accounts/usage/packages')
+      const paused = typeof next.pauseReason === 'string' ? next.pauseReason.trim() : ''
+      if (paused) {
+        // A paused refresh does not invalidate the last successful package snapshot or expansion state.
+        setPauseReason(paused)
+        return
+      }
+      setPauseReason('')
+      setSnapshot(next)
       setQuerySeq(seq => seq + 1)
     } catch (error) {
       toast(`读取积分构成失败：${describeError(error)}`, 'err')
@@ -756,11 +765,12 @@ export function CreditsPage(): React.ReactElement {
         </div>
       </div>
 
+      {pauseReason ? <Alert role='status'><AlertDescription>{pauseReason}</AlertDescription></Alert> : null}
       {!ready ? (
         <div className='rounded-md border border-hairline bg-card px-4 py-8 text-center text-[12px] text-subtle'>
           <Spinner className='mr-1.5 inline-block size-3.5' />正在逐账号向上游查询积分包…
         </div>
-      ) : results.length === 0 ? (
+      ) : results.length === 0 ? (pauseReason ? null : (
         <div className='rounded-md border border-hairline bg-card p-6 text-center'>
           <p className='text-[13px] font-medium'>没有可展示的积分包</p>
           <p className='hint mx-auto mt-1 max-w-[560px]'>
@@ -768,7 +778,7 @@ export function CreditsPage(): React.ReactElement {
             积分包是 WorkBuddy（腾讯 CodeBuddy）的额度概念，其他提供商不产生积分包。
           </p>
         </div>
-      ) : (
+      )) : (
         <>
           {/* ── 积分到期分布（参考站 pkExpiry：剩余天数 × 账号分段堆叠条）── */}
           <section className='rounded-md border border-hairline bg-card p-3 sm:p-4'>

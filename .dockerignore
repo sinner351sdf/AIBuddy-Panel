@@ -17,6 +17,9 @@ target
 node_modules
 *.md
 .env
+provider-plugin/dist
+*.key.json
+legacy
 
 # 桌面壳的 Rust 工程不进镜像（tauri 全家桶），但网关 crate（server/）
 # 与 workspace 清单（Cargo.toml / Cargo.lock）必须进

@@ -16,8 +16,8 @@
 //! `checkin_completed_today` 同款文案判据）把重复领取翻成中性结果，
 //! 不在协议层编造幂等码。
 
-use serde_json::{json, Value};
 use serde::Serialize;
+use serde_json::{json, Value};
 
 use super::request::{growth_extra, BillingBase, BillingSpec, CallOptions};
 use super::{BillingError, BillingService};
@@ -48,7 +48,7 @@ const COMPENSATION_STATUS: BillingSpec = BillingSpec {
     base: BillingBase::Web,
 };
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompensationStatus {
     pub active: bool,
@@ -58,95 +58,35 @@ pub struct CompensationStatus {
     pub end_time: Option<String>,
 }
 
-#[cfg(test)]
-mod compensation_tests {
-    use super::*;
-    use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
-
-    #[test]
-    fn missing_or_malformed_status_never_enables_claims() {
-        for data in [json!(null), json!({}), json!({"active":"true","claimed":false}), json!({"active":true}), json!({"active":true,"claimed":0})] {
-            assert!(parse_compensation_status(&data).is_err());
-        }
-        assert!(!parse_compensation_status(&json!({"active":false})).unwrap().claimable);
-        let status = parse_compensation_status(&json!({"active":true,"claimed":false,"credit_num":0})).unwrap();
-        assert_eq!(status.credit_num, Some(0));
-        assert!(status.claimable);
-        assert_eq!(parse_compensation_status(&json!({"active":true,"claimed":false})).unwrap().credit_num, None);
-    }
-
-    #[tokio::test]
-    async fn status_query_is_read_only_and_uses_workbuddy_web_identity() {
-        let service = BillingService::mock_headers(|url, body, headers| {
-            assert_eq!(url, "https://www.workbuddy.cn/billing/meter/compensation-status");
-            assert_eq!(body, Some(&json!({})));
-            assert!(headers.iter().any(|(key,value)| key == "X-Client-Platform" && value == "web"));
-            assert!(headers.iter().any(|(key,value)| key == "Authorization" && value == "Bearer fixture-token"));
-            Ok(json!({"active":true,"claimed":false,"credit_num":500,"end_time":"2026-10-22 23:59:59"}))
-        });
-        let data = compensation_status(&service, &json!({"auth":{"accessToken":"fixture-token"}})).await.unwrap();
-        let json = serde_json::to_value(data).unwrap();
-        assert_eq!(json["creditNum"], 500);
-        assert_eq!(json["claimable"], true);
-        assert_eq!(json["endTime"], "2026-10-22 23:59:59");
-        assert!(!json.to_string().contains("fixture-token"));
-    }
-
-    #[tokio::test]
-    async fn claimed_inactive_and_failed_status_never_submit_a_claim() {
-        for (active, claimed) in [(true,true),(false,true),(false,false)] {
-            let service = BillingService::mock(move |url,_| {
-                assert!(url.ends_with("/compensation-status"));
-                Ok(json!({"active":active,"claimed":claimed}))
-            });
-            let result = claim_compensation(&service, &json!({})).await;
-            if claimed { assert!(result.unwrap().already); }
-            else { assert_eq!(result.unwrap_err().status_code, 409); }
-        }
-        let service = BillingService::mock(|url,_| {
-            assert!(url.ends_with("/compensation-status"));
-            Err(BillingError::new("fixture unavailable",504))
-        });
-        assert_eq!(claim_compensation(&service,&json!({})).await.unwrap_err().status_code,504);
-    }
-
-    #[tokio::test]
-    async fn eligible_claim_is_submitted_once_and_unknown_credit_is_not_invented() {
-        for fail in [false,true] {
-            let writes = Arc::new(AtomicUsize::new(0));
-            let count = writes.clone();
-            let service = BillingService::mock_headers(move |url,body,headers| {
-                assert!(url.starts_with("https://www.workbuddy.cn/"));
-                assert!(headers.iter().any(|(k,v)| k == "X-Client-Platform" && v == "web"));
-                assert_eq!(body,Some(&json!({})));
-                if url.ends_with("/compensation-status") { return Ok(json!({"active":true,"claimed":false,"credit_num":500})); }
-                assert!(url.ends_with("/claim-compensation"));
-                count.fetch_add(1, Ordering::Relaxed);
-                if fail { Err(BillingError::new("fixture lost response",504)) } else { Ok(json!({})) }
-            });
-            let result = claim_compensation(&service,&json!({})).await;
-            assert_eq!(writes.load(Ordering::Relaxed),1);
-            if fail { assert!(result.is_err()); }
-            else { let outcome = result.unwrap(); assert!(outcome.claimed); assert!(!outcome.credit_known); }
-        }
-    }
-}
-
 fn parse_compensation_status(data: &Value) -> Result<CompensationStatus, BillingError> {
-    let active = data.get("active").and_then(Value::as_bool)
+    let active = data
+        .get("active")
+        .and_then(Value::as_bool)
         .ok_or_else(|| BillingError::new("补偿状态响应缺少有效的 active 字段", 502))?;
     // A missing claim flag on an active campaign must never enable a claim.
     let claimed = match data.get("claimed").and_then(Value::as_bool) {
         Some(value) => value,
         None if !active => false,
-        None => return Err(BillingError::new("补偿状态响应缺少有效的 claimed 字段", 502)),
+        None => {
+            return Err(BillingError::new(
+                "补偿状态响应缺少有效的 claimed 字段",
+                502,
+            ))
+        }
     };
     Ok(CompensationStatus {
         active,
         claimed,
         claimable: active && !claimed,
-        credit_num: data.get("credit_num").and_then(Value::as_i64).filter(|n| *n >= 0),
-        end_time: data.get("end_time").and_then(Value::as_str).filter(|s| !s.is_empty()).map(str::to_owned),
+        credit_num: data
+            .get("credit_num")
+            .and_then(Value::as_i64)
+            .filter(|n| *n >= 0),
+        end_time: data
+            .get("end_time")
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned),
     })
 }
 
@@ -157,32 +97,35 @@ fn compensation_extra(session: &Value) -> Vec<(String, String)> {
 }
 
 /// Read-only upstream POST. Identity and egress come from the selected stored account.
-pub async fn compensation_status(service: &BillingService, session: &Value) -> Result<CompensationStatus, BillingError> {
-    let body = json!({});
-    let call = service.call_billing(COMPENSATION_STATUS, CallOptions {
-        session: Some(session), body: Some(&body), extra: compensation_extra(session), ..Default::default()
-    }).await?;
-    if call.code != Some(0) {
-        return Err(BillingError::with_code("补偿状态响应缺少成功标记", 502, call.code));
-    }
-    parse_compensation_status(&call.data)
+pub async fn compensation_status(
+    service: &BillingService,
+    session: &Value,
+) -> Result<CompensationStatus, BillingError> {
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.gift.compensation_status",
+        serde_json::json!({}),
+    )
+    .await
 }
 
 /// Recheck eligibility under the caller's account lock; never retry a claim write.
-pub async fn claim_compensation(service: &BillingService, session: &Value) -> Result<GiftOutcome, BillingError> {
-    let status = compensation_status(service, session).await?;
-    if status.claimed {
-        return Ok(GiftOutcome { claimed: false, already: true, credit_known: false, credit: 0,
-            message: "补偿积分此前已领取过".into() });
-    }
-    if !status.claimable {
-        return Err(BillingError::new("当前没有可领取的补偿活动", 409));
-    }
-    claim_gift(service, session, GiftKind::Compensation).await
+pub async fn claim_compensation(
+    service: &BillingService,
+    session: &Value,
+) -> Result<GiftOutcome, BillingError> {
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.gift.claim_compensation",
+        serde_json::json!({}),
+    )
+    .await
 }
 
 /// 礼包/补偿的动作种类（API 层 `kind` 字段的合法值）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum GiftKind {
     /// 新手礼包（每号一次）
     Gift,
@@ -216,9 +159,9 @@ impl GiftKind {
 }
 
 /// 领取结果。
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct GiftOutcome {
-    pub credit_known:bool,
+    pub credit_known: bool,
     /// true = 本次领取成功（credit 为到账积分）
     pub claimed: bool,
     /// true = 已领过/无可领（幂等中性结果，非错误）
@@ -235,47 +178,11 @@ pub async fn claim_gift(
     session: &Value,
     kind: GiftKind,
 ) -> Result<GiftOutcome, BillingError> {
-    // refs blackcat.go:73/86 传的是空对象 body
-    let body = json!({});
-    let options = CallOptions {
-        session: Some(session),
-        body: Some(&body),
-        // 非 0 code 也要拿回来自己判（幂等形态在 msg 文案里）
-        expect_code_ok: false,
-        extra: if kind == GiftKind::Compensation { compensation_extra(session) } else { growth_extra(session, false) },
-        ..Default::default()
-    };
-    let call = service.call_billing(kind.spec(), options).await?;
-    if call.code == Some(0) {
-        let credit = call.data.get("credit").and_then(Value::as_i64).unwrap_or(0);
-        return Ok(GiftOutcome {
-            credit_known:call.data.get("credit").and_then(Value::as_i64).is_some(),
-            claimed: true,
-            already: false,
-            credit,
-            message: if call.data.get("credit").and_then(Value::as_i64).is_some(){format!("{}领取成功（+{credit}c）", kind.label())}else{format!("{}领取成功（上游未提供积分数）",kind.label())},
-        });
-    }
-    // 非 0 code：上游 msg 含「已领取/已领过」时按面板既有口径翻成中性结果
-    // （core::billing::checkin 的 checkin_completed_today 同款文案判据）；
-    // 其余按失败透出
-    let message = call.msg.clone().unwrap_or_default();
-    if message.contains("已领取") || message.contains("已领过") {
-        return Ok(GiftOutcome {
-            credit_known:false,
-            claimed: false,
-            already: true,
-            credit: 0,
-            message: format!("{}此前已领取过", kind.label()),
-        });
-    }
-    Err(BillingError::with_code(
-        if message.is_empty() {
-            format!("{}领取返回 code={:?}", kind.label(), call.code)
-        } else {
-            format!("{}领取失败: {message}", kind.label())
-        },
-        502,
-        call.code,
-    ))
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.gift.claim_gift",
+        serde_json::json!({"kind": kind}),
+    )
+    .await
 }

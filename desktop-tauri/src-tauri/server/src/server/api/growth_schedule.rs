@@ -17,8 +17,7 @@
 //! （那是 Node 版历史契约，本接口是纯新增的管理 API）。
 //!
 //! ── 「正在执行中」────────────────────────────────────────────
-//! 手动 run 撞上已有轮次在跑时返回 400 管理信封（与 `/api/scheduled-tasks`
-//! 的 run 同款），前端能按一个套路处理。
+//! 手动 run 撞上正在执行的轮次返回 409；能力不可用返回中性跳过，真正失败保留原因。
 
 use axum::body::Bytes;
 use axum::extract::{State, Query};
@@ -56,7 +55,10 @@ pub async fn configure(body: Bytes) -> Response {
     }
     match growth_scheduler::configure(&payload) {
         Ok(state) => {
-            let enabled = state.get("enabled").and_then(Value::as_bool).unwrap_or(false);
+            let enabled = state
+                .get("enabled")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
             let times = state
                 .get("times")
                 .and_then(Value::as_array)

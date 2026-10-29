@@ -480,4 +480,14 @@ function fixture({ stored = [], current = 'overview', storage = new Map() } = {}
   assert.equal(f.api.getSnapshot().current, 'tasks')
 }
 
+{
+  const f = fixture()
+  assert.equal(f.window.showPage('plugins'), 'shown:plugins')
+  assert.equal(f.api.getSnapshot().current, 'plugins', 'the management page retains its own selected tab')
+  const pluginPage = 'plugin:aibuddy-providers:fixture'
+  assert.equal(f.window.showPage(pluginPage), 'shown:' + pluginPage)
+  assert.equal(f.api.getSnapshot().current, pluginPage, 'plugin-contributed pages do not become the overview tab')
+  assert(f.list().includes(pluginPage))
+}
+
 console.log('PASS: shell-tabs archive, close actions, subscriptions, pointer sorting and showPage wrappers')

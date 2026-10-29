@@ -4,6 +4,7 @@
   if (window.wbAccountMenu) return;
 
   var holder = null;
+  var sessionInvalidated = false;
   var listeners = new Set();
   var snapshot = Object.freeze({
     username: currentUser().trim(),
@@ -37,6 +38,12 @@
     update({ username: String(name || '').trim() });
   }
 
+  function invalidateSession() {
+    sessionInvalidated = true;
+    try { localStorage.removeItem('agent2api-user'); } catch (error) { /* storage unavailable */ }
+    update({ username: '', menuOpen: false, dialogOpen: false, busy: false });
+  }
+
   // /status 的账号名用于显示；读取失败保持原缓存，接口与会话行为不变。
   function refreshUserName() {
     var invoke = (window.__TAURI_INTERNALS__ || {}).invoke;
@@ -44,6 +51,7 @@
       ? invoke('api_request', { request: { method: 'GET', path: '/api/panel/status' } })
       : fetch('/api/panel/status', { headers: { 'Accept': 'application/json' } }).then(function (response) { return response.json(); });
     return Promise.resolve(request).then(function (result) {
+      if (sessionInvalidated) return;
       var data = (result && result.data) || result || {};
       var name = data.username || data.user || '';
       if (name) { rememberUser(name); paintName(name); }
@@ -137,9 +145,15 @@
 
   function doLogout() {
     update({ menuOpen: false });
-    return Promise.resolve().then(function () { return gatewayCall('POST', '/api/panel/logout', {}); }).then(function () {
+    return Promise.resolve().then(function () {
+      var bridge = window.workbuddyDesktop;
+      if (bridge && bridge.platform === 'web' && typeof bridge.panelLogout === 'function') return bridge.panelLogout();
+      return gatewayCall('POST', '/api/panel/logout', {});
+    }).then(function () {
+      invalidateSession();
       window.location.href = '/login';
     }, function () {
+      invalidateSession();
       // 与旧控制器一致，后端兜底已清 cookie / 已撤会话的分支。
       window.location.href = '/login';
     });
@@ -173,6 +187,15 @@
     // Sidebar/Sheet 可替换整棵侧栏，不能只观察已脱离文档的旧 sidebar。
     window.__umObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['inert', 'hidden'] });
     refreshUserName();
+    // Recheck a visible panel after idle/background time; never trust a cached
+    // username as proof of authentication. The web bridge owns refresh/logout.
+    var checkVisible = function () { if (!document.hidden) refreshUserName(); };
+    document.addEventListener('visibilitychange', checkVisible);
+    if (typeof window.addEventListener === 'function') {
+      window.addEventListener('focus', checkVisible);
+      window.addEventListener('pageshow', checkVisible);
+    }
+    if (typeof window.setInterval === 'function') window.setInterval(checkVisible, 60000);
   }
 
   window.wbAccountMenu = {
@@ -184,6 +207,7 @@
     save: save,
     logout: doLogout,
     refreshUserName: refreshUserName,
+    invalidateSession: invalidateSession,
   };
   document.addEventListener('wb:shell-account-ready', mountIsland);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });

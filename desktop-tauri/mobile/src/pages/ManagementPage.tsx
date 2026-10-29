@@ -3,7 +3,7 @@ import { Button, Alert, AlertTitle, AlertDescription, Skeleton } from '@ui'
 import { store, useStore } from '../state/store'
 import { loadFeatures, type MobileFeatureOptions } from '../lib/features'
 import { t } from '../i18n'
-export const MANAGEMENT_PAGES = ['accounts', 'gateway', 'keys', 'agent', 'proxies', 'checkin', 'settings', 'assistant', 'overview', 'requests', 'logs', 'tasks', 'docs', 'credits'] as const
+export const MANAGEMENT_PAGES = ['accounts', 'gateway', 'keys', 'agent', 'proxies', 'checkin', 'settings', 'assistant', 'overview', 'requests', 'logs', 'tasks', 'docs', 'credits', 'plugins'] as const
 export type ManagementPageId = typeof MANAGEMENT_PAGES[number]
 export function openManagement(page: ManagementPageId, title: string, action = '', id = '') { store.push('management', { page, title, action, id }) }
 export function ManagementButton({ page, children }: { page: ManagementPageId; children: React.ReactNode }) {
@@ -43,6 +43,6 @@ export function FeatureSurface({ page, action = '', id = '' }: { page: string; a
 }
 export function ManagementPage() {
   const { route } = useStore(), params = route.params || {}
-  const page = MANAGEMENT_PAGES.includes(params.page as ManagementPageId) ? params.page : route.screen === 'credits' ? 'credits' : 'accounts'
+  const page = MANAGEMENT_PAGES.includes(params.page as ManagementPageId) ? params.page : route.screen === 'credits' ? 'credits' : route.screen === 'plugins' ? 'plugins' : 'accounts'
   return <FeatureSurface key={[page,params.action,params.id].join(':')} page={page} action={params.action} id={params.id}/>
 }

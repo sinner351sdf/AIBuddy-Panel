@@ -379,6 +379,7 @@ fn translate_completion(
         TestProtocol::ChatCompletions => TestOutcome {
             status,
             error: None,
+            error_code: None,
             reply: message_field(&chat_completion, "content"),
             reasoning_text: message_field(&chat_completion, "reasoning_content"),
             raw_response: pipeline::capture_raw_json(&chat_completion),
@@ -397,6 +398,7 @@ fn translate_completion(
                 return TestOutcome {
                     status: 502,
                     error: Some(message),
+                    error_code: None,
                     reply: String::new(),
                     reasoning_text: String::new(),
                     raw_response,
@@ -406,6 +408,7 @@ fn translate_completion(
             TestOutcome {
                 status,
                 error: None,
+            error_code: None,
                 reply,
                 reasoning_text,
                 raw_response,
@@ -418,6 +421,7 @@ fn translate_completion(
             TestOutcome {
                 status,
                 error: None,
+            error_code: None,
                 reply,
                 reasoning_text,
                 raw_response,
@@ -462,9 +466,30 @@ fn parse_proxy_override(
 struct TestOutcome {
     status: i64,
     error: Option<String>,
+    error_code: Option<String>,
     reply: String,
     reasoning_text: String,
     raw_response: Option<String>,
+}
+
+impl TestOutcome {
+    fn from_error(error: errors::GatewayError) -> Self {
+        Self { status: i64::from(error.status_code), error: Some(error.message),
+            error_code: error.code, reply: String::new(), reasoning_text: String::new(), raw_response: None }
+    }
+}
+
+#[cfg(test)]
+mod outcome_tests {
+    use super::*;
+    #[test]
+    fn classified_error_keeps_code_without_exposing_upstream_details() {
+        let error = errors::GatewayError::with_status(403, "Accio WAF_BLOCK")
+            .with_code("accio_waf_block").with_details(json!({"private":"must not enter model test output"}));
+        let outcome = TestOutcome::from_error(error);
+        assert_eq!(outcome.status, 403);assert_eq!(outcome.error_code.as_deref(),Some("accio_waf_block"));
+        assert_eq!(outcome.error.as_deref(),Some("Accio WAF_BLOCK"));assert!(outcome.raw_response.is_none());assert!(outcome.reply.is_empty());
+    }
 }
 
 /// POST /api/models/test
@@ -653,6 +678,7 @@ pub async fn run_model_test(State(state): State<ServerState>, body: Bytes) -> Re
         "success": outcome.error.is_none(),
         "status": outcome.status,
         "error": outcome.error,
+        "error_code": outcome.error_code,
         "reply": outcome.reply,
         "reasoning": outcome.reasoning_text,
         "provider": provider,
@@ -724,18 +750,13 @@ async fn run_forward(
     match tokio::time::timeout(TEST_TIMEOUT, forward).await {
         Err(_elapsed) => TestOutcome {
             status: 504,
+            error_code: Some("model_test_timeout".into()),
             error: Some(format!("测试超时（{} 秒内没拿到完整回答）", TEST_TIMEOUT.as_secs())),
             reply: String::new(),
             reasoning_text: String::new(),
             raw_response: None,
         },
-        Ok(Err(error)) => TestOutcome {
-            status: i64::from(error.status_code),
-            error: Some(error.message),
-            reply: String::new(),
-            reasoning_text: String::new(),
-            raw_response: None,
-        },
+        Ok(Err(error)) => TestOutcome::from_error(error),
         Ok(Ok(ForwardOutcome::Completion { body })) => {
             translate_completion(protocol, model, protocol_request, 200, body)
         }
@@ -753,6 +774,7 @@ async fn run_forward(
             {
                 Err(_elapsed) => TestOutcome {
                     status: 504,
+                    error_code: Some("model_test_timeout".into()),
                     error: Some(format!(
                         "测试超时（{} 秒内没拿到完整回答）",
                         TEST_TIMEOUT.as_secs()
@@ -761,13 +783,7 @@ async fn run_forward(
                     reasoning_text: String::new(),
                     raw_response: None,
                 },
-                Ok(Err(error)) => TestOutcome {
-                    status: i64::from(error.status_code),
-                    error: Some(error.message),
-                    reply: String::new(),
-                    reasoning_text: String::new(),
-                    raw_response: None,
-                },
+                Ok(Err(error)) => TestOutcome::from_error(error),
                 Ok(Ok(aggregated)) => {
                     translate_completion(protocol, model, protocol_request, status, aggregated.body)
                 }

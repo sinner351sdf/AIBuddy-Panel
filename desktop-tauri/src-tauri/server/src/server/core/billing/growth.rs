@@ -147,7 +147,7 @@ pub fn growth_pending(task: &Task) -> bool {
 // ─── Task 结构 ──────────────────────────────────────────────
 
 /// growth 任务的对外视图（字段与上游 JSON / refs tasks.go:38-57 对齐）。
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct Task {
     pub task_code: String,
     pub title: String,
@@ -302,11 +302,7 @@ pub fn task_scan_json(task: &Task) -> Value {
 
 /// growth 域调用的公共选项：固定会话 + BillingHeaders 差集头（growth_extra）。
 /// `mp` 决定是否叠加 X-Client-Platform: miniprogram（tasks.go:100）。
-fn growth_options<'a>(
-    session: &'a Value,
-    mp: bool,
-    expect_code_ok: bool,
-) -> CallOptions<'a> {
+fn growth_options<'a>(session: &'a Value, mp: bool, expect_code_ok: bool) -> CallOptions<'a> {
     CallOptions {
         session: Some(session),
         expect_code_ok,
@@ -322,10 +318,13 @@ pub async fn list_tasks(
     service: &BillingService,
     session: &Value,
 ) -> Result<Vec<Task>, BillingError> {
-    let call = service
-        .call_billing(GROWTH_TASKS_LIST, growth_options(session, false, true))
-        .await?;
-    Ok(parse_tasks(&call.data))
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.growth.list_tasks",
+        serde_json::json!({}),
+    )
+    .await
 }
 
 /// 拉取小程序口径的任务列表（X-Client-Platform: miniprogram；refs tasks.go:76-82）。
@@ -333,10 +332,13 @@ pub async fn list_tasks_mp(
     service: &BillingService,
     session: &Value,
 ) -> Result<Vec<Task>, BillingError> {
-    let call = service
-        .call_billing(GROWTH_TASKS_LIST, growth_options(session, true, true))
-        .await?;
-    Ok(parse_tasks(&call.data))
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.growth.list_tasks_mp",
+        serde_json::json!({}),
+    )
+    .await
 }
 
 /// 双口径合并列表：普通任务优先默认口径，MP 专属任务优先 MP 口径。
@@ -344,29 +346,13 @@ pub async fn list_tasks_merged(
     service: &BillingService,
     session: &Value,
 ) -> Result<Vec<Task>, BillingError> {
-    let default_result = list_tasks(service, session).await;
-    let mp_result = list_tasks_mp(service, session).await;
-    match (default_result, mp_result) {
-        (Ok(mut tasks), Ok(mp_tasks)) => {
-            let mut seen: Vec<String> = tasks.iter().map(|t| t.task_code.clone()).collect();
-            for task in mp_tasks {
-                if is_mp_task_code(&task.task_code) && seen.contains(&task.task_code) {
-                    if let Some(existing) = tasks.iter_mut().find(|t| t.task_code == task.task_code)
-                    {
-                        *existing = task;
-                    }
-                } else if !seen.contains(&task.task_code) {
-                    seen.push(task.task_code.clone());
-                    tasks.push(task);
-                }
-            }
-            Ok(tasks)
-        }
-        // 单边失败时取成功的那份（refs taskcenter 的扫描对两口径分别容错）：
-        // mp 列表失败在「无 mp 任务的部署 / 活动结束」时是常态，静默回落。
-        (Ok(tasks), Err(_)) | (Err(_), Ok(tasks)) => Ok(tasks),
-        (Err(default_error), Err(_)) => Err(default_error),
-    }
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.growth.list_tasks_merged",
+        serde_json::json!({}),
+    )
+    .await
 }
 
 /// 拉取任务列表并定位单个任务；未找到返回 None（不视为错误）。
@@ -376,14 +362,13 @@ pub async fn task_by_code(
     session: &Value,
     code: &str,
 ) -> Result<Option<Task>, BillingError> {
-    // MP codes must be read from their own platform even if the ordinary list
-    // includes a stale duplicate. Registration and progress share this route.
-    let tasks = if is_mp_task_code(code) {
-        list_tasks_mp(service, session).await?
-    } else {
-        list_tasks(service, session).await?
-    };
-    Ok(tasks.into_iter().find(|task| task.task_code == code))
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.growth.task_by_code",
+        serde_json::json!({"code": code}),
+    )
+    .await
 }
 
 // ─── accept ────────────────────────────────────────────────
@@ -396,20 +381,13 @@ pub async fn accept_tasks(
     codes: &[String],
     mp: bool,
 ) -> Result<(), BillingError> {
-    if codes.is_empty() {
-        return Ok(());
-    }
-    let body = json!({ "task_codes": codes });
-    service
-        .call_billing(
-            GROWTH_TASKS_ACCEPT,
-            CallOptions {
-                body: Some(&body),
-                ..growth_options(session, mp, true)
-            },
-        )
-        .await?;
-    Ok(())
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.growth.accept_tasks",
+        serde_json::json!({"codes": codes, "mp": mp}),
+    )
+    .await
 }
 
 /// 分批接受：每批 ≤ [`ACCEPT_BATCH_SIZE`]，批间 [`REPORT_GAP_MS`]
@@ -420,17 +398,13 @@ pub async fn accept_tasks_batched(
     codes: &[String],
     mp: bool,
 ) -> Result<(), BillingError> {
-    let total = codes.len();
-    let mut start = 0;
-    while start < total {
-        let end = (start + ACCEPT_BATCH_SIZE).min(total);
-        accept_tasks(service, session, &codes[start..end], mp).await?;
-        if end < total {
-            tokio::time::sleep(Duration::from_millis(REPORT_GAP_MS)).await;
-        }
-        start = end;
-    }
-    Ok(())
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.growth.accept_tasks_batched",
+        serde_json::json!({"codes": codes, "mp": mp}),
+    )
+    .await
 }
 
 /// Accept on the task's own platform, returning the confirmed fresh snapshot.
@@ -440,21 +414,11 @@ pub async fn accept_verified_task(
     session: &Value,
     code: &str,
 ) -> Result<Task, BillingError> {
-    let codes = [code.to_string()];
-    super::growth_accept::confirm(
-        || accept_tasks(service, session, &codes, is_mp_task_code(code)),
-        || async {
-            task_by_code(service, session, code)
-                .await?
-                .ok_or_else(|| BillingError::new("接受任务回读未找到该任务，未执行后续动作", 502))
-        },
-        |task| {
-            if task.locked {
-                "locked"
-            } else {
-                task.accept_status.as_str()
-            }
-        },
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.growth.accept_verified_task",
+        serde_json::json!({"code": code}),
     )
     .await
 }
@@ -462,7 +426,7 @@ pub async fn accept_verified_task(
 // ─── claim（领奖，mp → web 降级）────────────────────────────
 
 /// 领奖结果（refs tasks.go:133-144 parseClaimReward）。
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct ClaimReward {
     pub credit_known: bool,
     pub energy_known: bool,
@@ -481,22 +445,13 @@ pub async fn claim_reward(
     code: &str,
     mp: bool,
 ) -> Result<ClaimReward, BillingError> {
-    if mp {
-        match claim_via_chat(session, code).await {
-            Ok(reward) => Ok(reward),
-            // chat 域对该路径 400（部分任务/租户形态）→ Web 域降级（已实测可领）
-            Err(error) if error.status_code == 400 => {
-                logging::verbose(
-                    "[Growth]",
-                    &format!("chat 域领奖 {code} 返回 400，降级 web 域"),
-                );
-                claim_via_web(session, code).await
-            }
-            Err(error) => Err(error),
-        }
-    } else {
-        claim_via_web(session, code).await
-    }
+    crate::server::core::billing::legacy_call(
+        &crate::server::core::billing::shared_for_rpc(),
+        session,
+        "aibuddy.growth.claim_reward",
+        serde_json::json!({"code": code, "mp": mp}),
+    )
+    .await
 }
 
 /// 任务码的路径安全性检查：refs 用 url.PathEscape（tasks.go:116/229）。
@@ -518,10 +473,7 @@ fn safe_path_code(code: &str) -> Result<(), BillingError> {
 
 /// chat 域 mp 口径领奖（refs tasks.go:114-131）。走 raw_json_call，不需要
 /// BillingService 实例（出网代理与会话都从 session 取）。
-async fn claim_via_chat(
-    session: &Value,
-    code: &str,
-) -> Result<ClaimReward, BillingError> {
+async fn claim_via_chat(session: &Value, code: &str) -> Result<ClaimReward, BillingError> {
     safe_path_code(code)?;
     let url = format!("{CHAT_BASE}/activity/growth/tasks/{code}/claim");
     let headers = super::request::growth_headers(
@@ -538,10 +490,7 @@ async fn claim_via_chat(
 }
 
 /// web 域领奖（refs tasks.go:227-272 `ClaimReward`，头逐条对齐浏览器实测形状）。
-async fn claim_via_web(
-    session: &Value,
-    code: &str,
-) -> Result<ClaimReward, BillingError> {
+async fn claim_via_web(session: &Value, code: &str) -> Result<ClaimReward, BillingError> {
     safe_path_code(code)?;
     let url = format!("{WEB_BASE}/activity/growth/tasks/{code}/claim");
     let headers = web_claim_headers(session);
@@ -632,29 +581,13 @@ pub async fn task_by_code_waiting(
     session: &Value,
     code: &str,
 ) -> Result<Option<Task>, BillingError> {
-    let mut task = task_by_code(service, session, code).await?;
-    let Some(current) = task.clone() else {
-        return Ok(None);
-    };
-    if current.claimable || current.claimed {
-        return Ok(task);
-    }
-    for _ in 1..CLAIM_POLL_ATTEMPTS {
-        tokio::time::sleep(Duration::from_millis(CLAIM_POLL_GAP_MS)).await;
-        match task_by_code(service, session, code).await {
-            // 轮询期间的查询失败不覆盖已拿到的结果（refs 同款语义）
-            Err(_) => return Ok(task),
-            Ok(Some(next)) => {
-                let done = next.claimable || next.claimed;
-                task = Some(next);
-                if done {
-                    return Ok(task);
-                }
-            }
-            Ok(None) => return Ok(task),
-        }
-    }
-    Ok(task)
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.growth.task_by_code_waiting",
+        serde_json::json!({"code": code}),
+    )
+    .await
 }
 
 /// 任务进度的可读表示（对照 refs autotask.go:718-730 `taskProgressText`）。
@@ -677,6 +610,4 @@ pub fn task_progress_text(task: Option<&Task>) -> String {
     }
 }
 
-#[cfg(test)]
-#[path = "growth_accept_tests.rs"]
-mod acceptance_tests;
+// The accept/verify/claim execution regressions live with the worker implementation.

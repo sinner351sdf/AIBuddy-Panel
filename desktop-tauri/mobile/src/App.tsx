@@ -43,6 +43,7 @@ type ScreenDef = {
 }
 
 const SCREENS: Record<string, ScreenDef> = {
+  plugins: { title: t('插件'), component: ManagementPage },
   credits: { title: t('积分构成'), component: ManagementPage },
   management: { title: t('管理'), component: ManagementPage },
   home: { title: t('首页'), component: HomePage, primary: true },

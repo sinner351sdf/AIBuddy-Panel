@@ -87,6 +87,7 @@ jobs:
           node scripts/test-mobile-requests.mjs
           node scripts/test-mobile-features.mjs
           node scripts/test-assistant.mjs --mobile
+          npm run test:review
           node scripts/check-shadcn-ui.mjs
 
       - name: 校验产物与源码同源
@@ -112,3 +113,17 @@ jobs:
           echo "  node desktop-tauri/i18n/build.mjs"
           echo "（不要手动编辑 ui/islands/ui.js、ui/m/** 或 ui/i18n/** —— 它们是产物，重建即可）"
           exit 1
+
+  server-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: 安装 Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: 缓存 Rust 依赖
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop-tauri/src-tauri -> ../../target
+      - name: 服务端回归（跳过显式 ignored 的真实上游测试）
+        working-directory: desktop-tauri/src-tauri
+        run: cargo test --locked -p agent2api-server

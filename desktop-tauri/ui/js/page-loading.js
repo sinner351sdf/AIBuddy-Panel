@@ -1,6 +1,6 @@
 /* Content-only navigation loading. Placeholders are pre-rendered shared shadcn components. */
 (() => {
-  const layouts = {overview:'report',credits:'report',agent:'form',settings:'form',assistant:'chat',docs:'form',accounts:'table',checkin:'table',gateway:'table',proxies:'table',keys:'table',logs:'table',tasks:'table',requests:'table'}
+  const layouts = {overview:'report',credits:'report',agent:'form',plugins:'table',settings:'form',assistant:'chat',docs:'form',accounts:'table',checkin:'table',gateway:'table',proxies:'table',keys:'table',logs:'table',tasks:'table',requests:'table'}
   const settled = new WeakSet()
   let overlay, content, active, timer, failed = false
   function clear() {

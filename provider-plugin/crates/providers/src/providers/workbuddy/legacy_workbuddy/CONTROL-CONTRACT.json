@@ -1,0 +1,418 @@
+{
+  "namespace": "aibuddy.{module}.{function}",
+  "protocol": 1,
+  "actions": [
+    {
+      "action": "aibuddy.growth.list_tasks",
+      "parameters": [],
+      "returnRustType": "Result<Vec<Task>, BillingError>"
+    },
+    {
+      "action": "aibuddy.growth.list_tasks_mp",
+      "parameters": [],
+      "returnRustType": "Result<Vec<Task>, BillingError>"
+    },
+    {
+      "action": "aibuddy.growth.list_tasks_merged",
+      "parameters": [],
+      "returnRustType": "Result<Vec<Task>, BillingError>"
+    },
+    {
+      "action": "aibuddy.growth.task_by_code",
+      "parameters": [
+        {
+          "name": "code",
+          "rustType": "&str"
+        }
+      ],
+      "returnRustType": "Result<Option<Task>, BillingError>"
+    },
+    {
+      "action": "aibuddy.growth.accept_tasks",
+      "parameters": [
+        {
+          "name": "codes",
+          "rustType": "&[String]"
+        },
+        {
+          "name": "mp",
+          "rustType": "bool"
+        }
+      ],
+      "returnRustType": "Result<(), BillingError>"
+    },
+    {
+      "action": "aibuddy.growth.accept_tasks_batched",
+      "parameters": [
+        {
+          "name": "codes",
+          "rustType": "&[String]"
+        },
+        {
+          "name": "mp",
+          "rustType": "bool"
+        }
+      ],
+      "returnRustType": "Result<(), BillingError>"
+    },
+    {
+      "action": "aibuddy.growth.accept_verified_task",
+      "parameters": [
+        {
+          "name": "code",
+          "rustType": "&str"
+        }
+      ],
+      "returnRustType": "Result<Task, BillingError>"
+    },
+    {
+      "action": "aibuddy.growth.claim_reward",
+      "parameters": [
+        {
+          "name": "code",
+          "rustType": "&str"
+        },
+        {
+          "name": "mp",
+          "rustType": "bool"
+        }
+      ],
+      "returnRustType": "Result<ClaimReward, BillingError>"
+    },
+    {
+      "action": "aibuddy.growth.task_by_code_waiting",
+      "parameters": [
+        {
+          "name": "code",
+          "rustType": "&str"
+        }
+      ],
+      "returnRustType": "Result<Option<Task>, BillingError>"
+    },
+    {
+      "action": "aibuddy.report.report_chat_activity",
+      "parameters": [
+        {
+          "name": "conversation_id",
+          "rustType": "&str"
+        },
+        {
+          "name": "request_id",
+          "rustType": "&str"
+        },
+        {
+          "name": "model_id",
+          "rustType": "&str"
+        },
+        {
+          "name": "model_name",
+          "rustType": "&str"
+        }
+      ],
+      "returnRustType": "Result<(), BillingError>"
+    },
+    {
+      "action": "aibuddy.report.report_desktop_events",
+      "parameters": [
+        {
+          "name": "events",
+          "rustType": "Vec<Value>"
+        }
+      ],
+      "returnRustType": "Result<(), BillingError>"
+    },
+    {
+      "action": "aibuddy.report.report_web_event",
+      "parameters": [
+        {
+          "name": "event_code",
+          "rustType": "&str"
+        },
+        {
+          "name": "page_url",
+          "rustType": "&str"
+        },
+        {
+          "name": "element_id",
+          "rustType": "&str"
+        },
+        {
+          "name": "element_name",
+          "rustType": "&str"
+        }
+      ],
+      "returnRustType": "Result<(), BillingError>"
+    },
+    {
+      "action": "aibuddy.report.report_mp_events",
+      "parameters": [
+        {
+          "name": "events",
+          "rustType": "Vec<Value>"
+        }
+      ],
+      "returnRustType": "Result<(), BillingError>"
+    },
+    {
+      "action": "aibuddy.report.set_appearance_theme",
+      "parameters": [
+        {
+          "name": "resource_key",
+          "rustType": "&str"
+        }
+      ],
+      "returnRustType": "Result<(), BillingError>"
+    },
+    {
+      "action": "aibuddy.streak.streak_full",
+      "parameters": [],
+      "returnRustType": "Result<StreakFull, BillingError>"
+    },
+    {
+      "action": "aibuddy.streak.redeem_tier",
+      "parameters": [
+        {
+          "name": "tier",
+          "rustType": "&str"
+        }
+      ],
+      "returnRustType": "Result<(), BillingError>"
+    },
+    {
+      "action": "aibuddy.streak.lottery_chances",
+      "parameters": [],
+      "returnRustType": "Result<i64, BillingError>"
+    },
+    {
+      "action": "aibuddy.streak.lottery_draw",
+      "parameters": [],
+      "returnRustType": "Result<Value, BillingError>"
+    },
+    {
+      "action": "aibuddy.streak.heatmap_yesterday_missed",
+      "parameters": [],
+      "returnRustType": "Result<bool, BillingError>"
+    },
+    {
+      "action": "aibuddy.streak.use_makeup_card",
+      "parameters": [
+        {
+          "name": "date",
+          "rustType": "&str"
+        }
+      ],
+      "returnRustType": "Result<(), BillingError>"
+    },
+    {
+      "action": "aibuddy.streak.streak_bonus_account",
+      "parameters": [],
+      "returnRustType": "Vec<String>"
+    },
+    {
+      "action": "aibuddy.streak.streak_bonus_with_policy",
+      "parameters": [
+        {
+          "name": "spend",
+          "rustType": "bool"
+        }
+      ],
+      "returnRustType": "Vec<String>"
+    },
+    {
+      "action": "aibuddy.streak.active_today",
+      "parameters": [],
+      "returnRustType": "Result<bool, BillingError>"
+    },
+    {
+      "action": "aibuddy.travel.buddy_info",
+      "parameters": [],
+      "returnRustType": "Result<Option<Buddy>, BillingError>"
+    },
+    {
+      "action": "aibuddy.travel.buddy_agreement",
+      "parameters": [],
+      "returnRustType": "Result<(), BillingError>"
+    },
+    {
+      "action": "aibuddy.travel.buddy_first",
+      "parameters": [],
+      "returnRustType": "Result<(), BillingError>"
+    },
+    {
+      "action": "aibuddy.travel.travel_status",
+      "parameters": [],
+      "returnRustType": "Result<TravelState, BillingError>"
+    },
+    {
+      "action": "aibuddy.travel.travel_depart",
+      "parameters": [],
+      "returnRustType": "Result<(), BillingError>"
+    },
+    {
+      "action": "aibuddy.travel.travel_claim",
+      "parameters": [
+        {
+          "name": "record_id",
+          "rustType": "i64"
+        }
+      ],
+      "returnRustType": "Result<i64,BillingError>"
+    },
+    {
+      "action": "aibuddy.travel.travel_claim_known",
+      "parameters": [
+        {
+          "name": "record_id",
+          "rustType": "i64"
+        }
+      ],
+      "returnRustType": "Result<Option<i64>, BillingError>"
+    },
+    {
+      "action": "aibuddy.travel.travel_account_once",
+      "parameters": [
+        {
+          "name": "uid",
+          "rustType": "&str"
+        }
+      ],
+      "returnRustType": "String"
+    },
+    {
+      "action": "aibuddy.gift.compensation_status",
+      "parameters": [],
+      "returnRustType": "Result<CompensationStatus, BillingError>"
+    },
+    {
+      "action": "aibuddy.gift.claim_compensation",
+      "parameters": [],
+      "returnRustType": "Result<GiftOutcome, BillingError>"
+    },
+    {
+      "action": "aibuddy.gift.claim_gift",
+      "parameters": [
+        {
+          "name": "kind",
+          "rustType": "GiftKind"
+        }
+      ],
+      "returnRustType": "Result<GiftOutcome, BillingError>"
+    },
+    {
+      "action": "aibuddy.trial.claim_trial",
+      "parameters": [],
+      "returnRustType": "Result<TrialOutcome, BillingError>"
+    },
+    {
+      "action": "aibuddy.expert.market_expert_list",
+      "parameters": [
+        {
+          "name": "expert_type",
+          "rustType": "&str"
+        }
+      ],
+      "returnRustType": "Result<Vec<MarketExpert>, BillingError>"
+    },
+    {
+      "action": "aibuddy.task_execution.execute_refreshed",
+      "parameters": [
+        {
+          "name": "code",
+          "rustType": "&str"
+        },
+        {
+          "name": "mode",
+          "rustType": "&str"
+        }
+      ],
+      "returnRustType": "ResultRow"
+    },
+    {
+      "action": "aibuddy.task_execution.execute",
+      "parameters": [
+        {
+          "name": "code",
+          "rustType": "&str"
+        },
+        {
+          "name": "mode",
+          "rustType": "&str"
+        }
+      ],
+      "returnRustType": "ResultRow"
+    },
+    {
+      "action": "aibuddy.task_execution.travel_run",
+      "parameters": [],
+      "returnRustType": "ResultRow"
+    },
+    {
+      "action": "aibuddy.task_execution.activity_run",
+      "parameters": [],
+      "returnRustType": "ResultRow"
+    },
+    {
+      "action": "aibuddy.task_execution.rewards_run",
+      "parameters": [],
+      "returnRustType": "ResultRow"
+    },
+    {
+      "action": "aibuddy.growth_actions.run_action",
+      "parameters": [
+        {
+          "name": "code",
+          "rustType": "&str"
+        },
+        {
+          "name": "task",
+          "rustType": "growth::Task"
+        }
+      ],
+      "returnRustType": "ActionOutcome"
+    },
+    {
+      "action": "aibuddy.school.run_all",
+      "parameters": [
+        {
+          "name": "only",
+          "rustType": "Vec<String>"
+        },
+        {
+          "name": "lottery",
+          "rustType": "bool"
+        }
+      ],
+      "returnRustType": "{id,results,lottery}"
+    },
+    {
+      "action": "aibuddy.raw",
+      "parameters": [
+        {
+          "name": "method",
+          "rustType": "String"
+        },
+        {
+          "name": "path",
+          "rustType": "String"
+        },
+        {
+          "name": "body",
+          "rustType": "Option<Value>"
+        },
+        {
+          "name": "query",
+          "rustType": "String"
+        }
+      ],
+      "returnRustType": "Value"
+    }
+  ],
+  "taskExecutionControl": {
+    "payload.control": {
+      "automatic": "boolean",
+      "kind": "string"
+    },
+    "returns": "original ResultRow fields plus steps[{code,outcome,message,credit,energy}]",
+    "persistenceOwner": "host task_records"
+  }
+}

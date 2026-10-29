@@ -43,6 +43,32 @@ const a = parse('', anthropic).messages[0]
 assert.equal(a.text, 'Sunny')
 assert.equal(a.thinking, 'why now')
 assert.equal(JSON.parse(a.calls[0].args).city, 'Paris')
+const keepalivePrefixes = [
+  ['blank lines', '\n\r\n'],
+  ['LF heartbeat', ': heartbeat\n\n'],
+  ['CRLF heartbeat', '\r\n: ping\r\n\r\n'],
+  ['multiple comments', ': first\n: second\n\n'],
+  ['comment before data without a blank line', ': heartbeat\n'],
+]
+for (const [label, prefix] of keepalivePrefixes) {
+  for (const [protocol, response] of [['OpenAI Chat', sse], ['Anthropic', anthropic]]) {
+    const original = parse('', response)
+    const prefixed = parse('', prefix + response)
+    assert.equal(JSON.stringify(prefixed.messages), JSON.stringify(original.messages), `${protocol}: ${label}`)
+    assert.equal(JSON.stringify(prefixed.notices), JSON.stringify(original.notices), `${protocol}: ${label} must remain parseable`)
+    assert.equal(prefixed.raw[0].source, prefix + response, 'keep the original response unchanged')
+  }
+}
+const betweenFrames = sse.replace('\r\n\r\n', '\r\n\r\n: heartbeat\r\n\r\n')
+assert.equal(JSON.stringify(parse('', betweenFrames).messages), JSON.stringify(parse('', sse).messages))
+for (const response of [': heartbeat\n\n', '\n: first\r\n: second\r\n\r\n', 'ordinary text\n\n' + sse]) {
+  const fallback = parse('', response)
+  assert.equal(fallback.messages.length, 0, 'comments alone or ordinary text must not create an assistant message')
+  assert.ok(fallback.notices.some(notice => notice.kind === 'response'), 'unparseable content keeps the raw fallback')
+  assert.equal(fallback.raw[0].source, response)
+}
+const jsonWithSseText = JSON.stringify({ choices: [{ message: { role: 'assistant', content: ': heartbeat\n\ndata: literal text' } }] })
+assert.equal(parse('', jsonWithSseText).messages[0].text, ': heartbeat\n\ndata: literal text')
 assert.equal(parse('', JSON.stringify({ type: 'message', role: 'assistant', content: [{ type: 'thinking', thinking: 'json thought' }] })).messages[0].thinking, 'json thought')
 const bad = parse('raw not json', 'event: keepalive\ndata: not-json\n\n')
 assert.equal(bad.notices.length, 2)
@@ -53,4 +79,4 @@ assert.equal(render('', ''), '')
 assert.ok(render('<img src=x onerror=alert(1)>', '').includes('&lt;img'))
 window.wbConversationPreviewUi = { render: data => `react:${data.raw.length}` }
 assert.equal(render(request, ''), 'react:1')
-console.log('conversation-preview: history, tools, images, OpenAI/Anthropic SSE/JSON, reasoning-only, raw fallback, escaping, legacy bridge passed')
+console.log('conversation-preview: history, tools, images, OpenAI/Anthropic SSE/JSON, leading/interleaved keepalives, reasoning-only, raw fallback, escaping, legacy bridge passed')

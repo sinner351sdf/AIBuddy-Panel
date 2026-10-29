@@ -1,6 +1,6 @@
 # AIBuddy Panel · 多提供商 AI 网关
 
-基于 [agent2api](https://github.com/Agent2API/agent2api) 的定制版本。当前源码整合上游 **3.1.0**（`072e3c7`，beta 整合中），保留 AIBuddy Panel 品牌、账号池、任务中心、本地 AI 助手与数据策略。
+基于 [Agent2API](https://github.com/aimod-cc/Agent2API) 的定制版本。当前已发布定制版为 [v3.1.0-aibuddy.1](https://github.com/sinner351sdf/AIBuddy-Panel/releases/tag/v3.1.0-aibuddy.1)，整合上游 **3.1.0**（`072e3c7`），保留 AIBuddy Panel 品牌、账号池、任务中心、本地 AI 助手与数据策略。
 
 **简体中文** | [English](docs/README.en.md) | [繁體中文](docs/README.zh-Hant.md) | [日本語](docs/README.ja.md) | [한국어](docs/README.ko.md) | [Português (BR)](docs/README.pt-BR.md)
 
@@ -9,7 +9,7 @@
 ## 安装方式
 
 - **Windows / macOS**：从[本仓库 Releases](https://github.com/sinner351sdf/AIBuddy-Panel/releases)下载对应安装包。macOS Universal 同时包含 Apple Silicon 与 Intel；未签名／公证状态以每次 Release 说明为准。
-- **Linux 桌面端**：本次已接入 deb / AppImage 构建和更新识别。仅在对应 Release 附件实际出现后下载；macOS 源码检查不等于 Linux 实机安装验收。
+- **Linux 桌面端**：[v3.1.0-aibuddy.1](https://github.com/sinner351sdf/AIBuddy-Panel/releases/tag/v3.1.0-aibuddy.1) 已提供 deb / AppImage 附件，并支持更新识别；Linux 实机安装与更新仍需在对应平台验证。
 - **服务器 / 容器**：沿用本仓库现有私有 GHCR 镜像及访问权限。Linux amd64 / arm64 服务端包用于无 GUI 部署与容器原地更新，和 deb / AppImage 用途不同。
 - **源码运行**：安装 Rust、Node.js 和依赖后运行 `sh scripts/start-local.sh`，默认面板为 `http://127.0.0.1:3065`，运行数据位于 `data/local/`。
 

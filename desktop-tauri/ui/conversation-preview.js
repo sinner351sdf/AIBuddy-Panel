@@ -99,6 +99,16 @@
     }
     return messages.length ? messages : null;
   }
+  // SSE may begin with blank lines or keepalive comments before its first event.
+  // Keep event: detection for Anthropic/Responses and leave the raw text untouched.
+  function looksSse(raw) {
+    for (const line of raw.split(/\r?\n/)) {
+      const text = line.trim();
+      if (!text || text.startsWith(':')) continue;
+      return /^(?:event:|data:)/.test(text);
+    }
+    return false;
+  }
   function sseFrames(raw) {
     return raw.split(/\r?\n\r?\n+/).map(block => block.split(/\r?\n/).filter(line => line.startsWith('data:')).map(line => line.slice(5).replace(/^ /, '')).join('\n')).filter(Boolean);
   }
@@ -209,7 +219,7 @@
       raw.push({ kind: 'request', label: t('请求原文'), source: request });
     } else if (response.trim()) notices.push({ kind: 'request', text: t('无请求原文') });
     if (response.trim()) {
-      const parsed = /^\s*(?:event:|data:)/.test(response) ? parseSseResponse(response) : parseJsonResponse(response);
+      const parsed = looksSse(response) ? parseSseResponse(response) : parseJsonResponse(response);
       if (parsed) messages.push(parsed); else notices.push({ kind: 'response', text: t('无法解析响应内容') });
       raw.push({ kind: 'response', label: t('响应原文'), source: response });
     } else if (request.trim()) notices.push({ kind: 'response', text: t('无响应原文') });

@@ -135,12 +135,16 @@ pub async fn run_upgrade(State(state): State<ServerState>) -> Response {
     let store = state.store().clone();
     let request_stats = state.request_stats();
     let result = tokio::task::spawn_blocking(move || {
-        let outcomes =
-            db.with(|conn| crate::server::db::migrate::run_legacy_migrations(conn, &config_dir));
+        let outcomes = crate::server::config::update_persisted_and_reload(|| {
+            let outcomes = db
+                .with(|conn| crate::server::db::migrate::run_legacy_migrations(conn, &config_dir))
+                .ok_or_else(|| "数据库连接不可用，迁移未执行".to_string())?;
+            let changed = !outcomes.is_empty();
+            Ok((outcomes, changed))
+        });
         // 只有真导入了东西才补做后续动作（一项都没成时库里的配置与账号都没变）
-        if matches!(outcomes, Some(ref list) if !list.is_empty()) {
-            // 配置快照必须重装：迁移把配置搬进库之后，库才是真相来源（见模块头）。
-            crate::server::config::reload();
+        if matches!(outcomes, Ok(ref list) if !list.is_empty()) {
+            // 导入及配置快照重装已在同一写入闸门内完成。
             // 账号侧的启动期迁移必须**补做一次**（见 `account_bootstrap` 的
             // 模块头）：启动时它们被整块跳过了（那时 `accounts` 表还空着，
             // 跑它们会把 `import_accounts` 的幂等闸门永久关上）。现在账号已经
@@ -164,10 +168,10 @@ pub async fn run_upgrade(State(state): State<ServerState>) -> Response {
     end_run();
 
     let outcomes = match result {
-        Ok(Some(outcomes)) => outcomes,
+        Ok(Ok(outcomes)) => outcomes,
         // `Db::with` 返回 None = 连接锁中毒（某次持锁 panic 打断了未提交的事务）。
         // 接管连接去读可能读到半截数据，所以它保守回落 —— 这里如实报错。
-        Ok(None) => return errors::management_error(500, "数据库连接不可用，迁移未执行"),
+        Ok(Err(error)) => return errors::management_error(500, error),
         Err(error) => return errors::management_error(500, format!("迁移任务执行失败: {error}")),
     };
 

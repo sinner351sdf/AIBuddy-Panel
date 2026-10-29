@@ -19,6 +19,7 @@
 //! 只走 `core::egress::client_for`：同一出口共用一个连接池，
 //! 客户端上的 connect/read 超时也一并复用（见 egress 头部的旋钮映射）。
 
+use crate::server::core::validation::ValidatedRequest as _;
 use std::time::Duration;
 
 use serde_json::{json, Value};
@@ -175,7 +176,7 @@ pub async fn send_chat_request(
     // 等待响应头有上限（见 headers_timeout 的说明）：超时后 future 被丢弃，
     // 上游连接随之关闭（与客户端断开时的取消是同一机制）
     let headers_budget = headers_timeout();
-    match tokio::time::timeout(headers_budget, builder.send()).await {
+    match tokio::time::timeout(headers_budget, builder.send_guarded()).await {
         Ok(Ok(response)) => Ok(response),
         Ok(Err(error)) => {
             // `send()` 阶段的超时只可能来自连接（等待响应头由外层计时器管，

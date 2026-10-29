@@ -28,16 +28,19 @@ import { loadAssistantModels } from './assistant-state'
 export type ToolResult = {
   text: string
   summary: string
+  failed?: boolean
 }
 
 /** 确认卡上的计划（改动类工具在用户确认前渲染它） */
 export type ToolPlan = {
   /** 一句话说清将要做什么（含数量） */
   lead: string
-  /** 明细表（可选；列数任意，行数由调用方截断显示） */
+  /** 明细表（可选；执行前可查看每一条改动） */
   table?: { head: string[]; rows: string[][] }
   /** 底部的补充说明（风险 / 生效时机 / 失败语义） */
   note?: string
+  /** 可展开查看的完整内容，不能用摘要替代实际请求。 */
+  content?: { label: string; text: string }
 }
 
 export type ToolContext = { signal?: AbortSignal; beforeAction?: () => Promise<void> }
@@ -73,16 +76,23 @@ type Bridge = {
 function bridge(context?: ToolContext): Bridge {
   const api = (window as unknown as { workbuddyDesktop?: Bridge }).workbuddyDesktop
   if (!api) throw new Error(t('桌面桥不可用（本页需要在 Agent2API 客户端里打开）'))
-  if (!context) return api
   return new Proxy(api, { get(target, key) {
     const value = target[key as keyof Bridge]
-    if (typeof value !== 'function') return value
+    if (key === 'platform') return value
+    if (typeof value !== 'function') throw new Error(t('当前客户端不支持此操作：{method}', { method: String(key) }))
     return async (...args: unknown[]) => {
-      context.signal?.throwIfAborted()
-      await context.beforeAction?.()
-      context.signal?.throwIfAborted()
-      const result = await (value as (...args: unknown[]) => unknown).apply(target, args)
-      context.signal?.throwIfAborted()
+      context?.signal?.throwIfAborted()
+      await context?.beforeAction?.()
+      context?.signal?.throwIfAborted()
+      let result: unknown
+      try {
+        result = await (value as (...args: unknown[]) => unknown).apply(target, args)
+      } catch (error) {
+        context?.signal?.throwIfAborted()
+        // 上游错误可能包含请求头、凭据或完整响应；模型只接收固定分类。
+        throw new Error(safeError(error))
+      }
+      context?.signal?.throwIfAborted()
       return result
     }
   } })
@@ -106,11 +116,119 @@ function num(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 function list(value: unknown): Array<Record<string, unknown>> {
-  return Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object') : []
+  if (!Array.isArray(value) || !value.length || value.length > 100 || value.some(item => !item || typeof item !== 'object' || Array.isArray(item))) {
+    throw new Error(t('items 必须包含 1 至 100 个有效对象'))
+  }
+  return value
 }
 function errorText(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error)
   return message.replace(/^Error:\s*/, '')
+}
+
+function requiredText(value: unknown, key: string, max = 256): string {
+  if (typeof value !== 'string' || !value.trim() || value.trim().length > max) throw new Error(t('参数无效：{key}', { key }))
+  return value.trim()
+}
+
+function enabledItems(args: Record<string, unknown>, accounts = false) {
+  return list(args.items).map(item => {
+    const enabled = bool(item.enabled)
+    if (enabled === undefined) throw new Error(t('enabled 需要 true / false'))
+    return accounts
+      ? { account: requiredText(item.account, 'account', 128), provider: '', id: '', enabled }
+      : { account: '', provider: requiredText(item.provider, 'provider'), id: requiredText(item.id, 'id'), enabled }
+  })
+}
+
+function mappingItems(args: Record<string, unknown>) {
+  return list(args.items).map(item => {
+    if (item.action !== 'add' && item.action !== 'remove') throw new Error(t('action 只接受 add / remove'))
+    return { provider: requiredText(item.provider, 'provider'), id: requiredText(item.id, 'id'), alias: requiredText(item.alias, 'alias', 128), action: item.action }
+  })
+}
+
+function testPayload(args: Record<string, unknown>) {
+  const provider = requiredText(args.provider, 'provider')
+  const model = requiredText(args.id, 'id')
+  if (args.prompt !== undefined && (typeof args.prompt !== 'string' || args.prompt.trim().length > 4000)) throw new Error(t('prompt 必须为不超过 4000 字符的文本'))
+  const prompt = str(args.prompt, 4000)
+  return { provider, model, ...(prompt ? { prompt } : {}) }
+}
+
+/** 既有桥只有单项写入：预检之后仍可能运行失败，准确报告已完成与未执行项。 */
+async function runBatch(actions: Array<{ label: string; run: () => Promise<unknown> }>, summary: (n: number) => string): Promise<ToolResult> {
+  const changed: string[] = []
+  for (let index = 0; index < actions.length; index++) {
+    try {
+      await actions[index].run()
+      changed.push(actions[index].label)
+    } catch (error) {
+      refreshApp()
+      if (error instanceof Error && error.name === 'AbortError') throw error
+      const message = t('已完成 {done} 项，第 {index} 项失败，后续 {remaining} 项未执行；请核对状态后重试。', { done: changed.length, index: index + 1, remaining: actions.length - index - 1 })
+      return { failed: true, summary: message, text: JSON.stringify({ ok: false, partial: changed.length > 0, changed, failed: { index: index + 1, item: actions[index].label, error: safeError(error), outcome: 'unconfirmed' }, notExecuted: actions.slice(index + 1).map(action => action.label) }) }
+    }
+  }
+  refreshApp()
+  return { text: JSON.stringify({ ok: true, changed }), summary: summary(changed.length) }
+}
+
+function safeError(value: unknown): string {
+  const message = value instanceof Error ? value.message : typeof value === 'string' ? value : ''
+  if (/401|403|unauthori[sz]ed|forbidden|认证|鉴权/i.test(message)) return t('认证失败，请检查账号登录状态')
+  if (/429|rate.?limit|限流/i.test(message)) return t('请求受限，请稍后重试')
+  if (/timeout|timed out|超时/i.test(message)) return t('请求超时，请稍后重试')
+  return t('操作失败，请在管理页面检查状态和日志')
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+/** 只允许契约里的标量；即使白名单键被替换成嵌套对象也不会透出。 */
+function pickFields(value: unknown, numbers: string[], strings: string[], booleans: string[] = []) {
+  const source = record(value)
+  const safe: Record<string, unknown> = {}
+  for (const key of numbers) if (source[key] === null || num(source[key]) !== undefined) safe[key] = source[key]
+  for (const key of strings) if (typeof source[key] === 'string') safe[key] = str(source[key], 160)
+  for (const key of booleans) if (bool(source[key]) !== undefined) safe[key] = source[key]
+  return safe
+}
+
+function safeUsage(value: unknown) {
+  const source = record(value)
+  const safe = pickFields(source, ['available', 'used', 'total', 'resetAt', 'totalLeft', 'planLeft', 'bonusLeft'], ['unit', 'availableView', 'kind'], ['unlimited'])
+  if (Array.isArray(source.wallets)) safe.wallets = source.wallets.slice(0, 16).map(row => pickFields(row, ['balance', 'usedTokens', 'allowanceTokens', 'usedPercent'], ['type', 'displayName', 'unit', 'balanceView'], ['unlimited']))
+  if (Array.isArray(source.windows)) safe.windows = source.windows.slice(0, 16).map(row => pickFields(row, ['remainingPercent', 'usedPercent', 'resetsAt'], ['key', 'label', 'view']))
+  if (Array.isArray(source.credits)) safe.credits = source.credits.slice(0, 16).map(row => pickFields(row, ['remain', 'total', 'used', 'expireAt'], ['name'], ['daily']))
+  if (source.subscription === null) safe.subscription = null
+  else if (source.subscription) safe.subscription = pickFields(source.subscription, ['expireAt', 'remainQuota', 'totalQuota'], ['planName', 'status', 'resetDate'])
+  return safe
+}
+
+/** 先压缩结构再序列化，绝不截断 JSON；返回省略标记供模型识别。 */
+function boundedJson(value: Record<string, unknown>, max: number): string {
+  let text = JSON.stringify(value)
+  if (text.length <= max) return text
+  value.truncated = true
+  while ((text = JSON.stringify(value)).length > max) {
+    let largest: { parent: Record<string, unknown> | unknown[]; key: string | number; size: number; value: string | unknown[] } | undefined
+    const visit = (parent: Record<string, unknown> | unknown[]) => {
+      for (const [key, item] of Object.entries(parent)) {
+        if ((typeof item === 'string' && item.length > 16) || (Array.isArray(item) && item.length)) {
+          const size = JSON.stringify(item).length
+          if (!largest || size > largest.size) largest = { parent, key, size, value: item }
+        }
+        if (item && typeof item === 'object') visit(item as Record<string, unknown> | unknown[])
+      }
+    }
+    visit(value)
+    if (!largest) return JSON.stringify({ truncated: true })
+    if (Array.isArray(largest.value)) largest.value.pop()
+    else (largest.parent as Record<string, unknown>)[largest.key] = largest.value.slice(0, Math.floor(largest.value.length / 2)) + '…'
+  }
+  return text
 }
 
 /* ─── 数据形状（只声明用到的字段）── */
@@ -138,7 +256,7 @@ async function readModels(context?: ToolContext): Promise<ModelRow[]> {
 }
 
 async function readAccounts(context?: ToolContext): Promise<AccountRow[]> {
-  const state = (await bridge(context).getState?.()) as { accounts?: AccountRow[] } | undefined
+  const state = (await bridge(context).getState!()) as { accounts?: AccountRow[] } | undefined
   const rows = Array.isArray(state?.accounts) ? state.accounts : []
   // 全局队列 = priority 升序（后端 priority 0 起、越小越靠前）
   return rows
@@ -229,18 +347,16 @@ const listAccountBalance: AssistantTool = {
     const ref = str(args.account, 128)
     // 点名某个账号时先把它解析成 id（余额接口按 id 查）
     const id = ref ? str(findAccount(await readAccounts(context), ref).id) : ''
-    const data = (await bridge(context).getAllBalances?.(id || undefined)) as unknown
+    const data = (await bridge(context).getAllBalances!(id || undefined)) as unknown
     const results = Array.isArray((data as { results?: unknown[] })?.results)
       ? ((data as { results: unknown[] }).results)
       : data
     const rows = Array.isArray(results) ? results : []
     return {
-      text: JSON.stringify({ accounts: rows.slice(0, 60).map(value => {
-        const row = value as Record<string, unknown>
-        const usage = row.usage && typeof row.usage === 'object' ? row.usage as Record<string, unknown> : {}
-        const safe = Object.fromEntries(['available','used','total','unit','wallets','windows','subscription','resetAt'].filter(key => key in usage).map(key => [key, usage[key]]))
-        return { id: row.id, name: row.name, usage: safe, error: row.error }
-      }) }).slice(0, 12000),
+      text: boundedJson({ total: rows.length, accounts: rows.slice(0, 60).map(value => {
+        const row = record(value)
+        return { ...pickFields(row, [], ['id', 'name']), usage: safeUsage(row.usage), error: row.error ? safeError(row.error) : null }
+      }), ...(rows.length > 60 ? { truncated: true } : {}) }, 12000),
       summary: t('{n} 个账号', { n: rows.length }),
     }
   },
@@ -257,7 +373,7 @@ const setModelEnabled: AssistantTool = {
     properties: {
       items: {
         type: 'array',
-        description: '要改的模型列表',
+        description: '要改的模型列表', minItems: 1, maxItems: 100,
         items: {
           type: 'object',
           properties: {
@@ -272,7 +388,7 @@ const setModelEnabled: AssistantTool = {
     required: ['items'],
   },
   plan: args => {
-    const items = list(args.items)
+    const items = enabledItems(args)
     return {
       lead: t('将修改 {n} 个模型的启停状态：', { n: items.length }),
       table: {
@@ -288,18 +404,12 @@ const setModelEnabled: AssistantTool = {
   },
   run: async (args, context) => {
     const api = bridge(context)
-    const items = list(args.items)
-    const done: string[] = []
-    for (const item of items) {
-      const provider = str(item.provider)
-      const id = str(item.id)
-      const enabled = bool(item.enabled)
-      if (!provider || !id || enabled === undefined) throw new Error(t('参数不完整（需要 provider / id / enabled）'))
-      await api.setModelState?.({ provider, id, enabled })
-      done.push(`${enabled ? '启用' : '禁用'} ${provider}/${id}`)
-    }
-    refreshApp()
-    return { text: JSON.stringify({ ok: true, changed: done }), summary: t('已修改 {n} 个模型', { n: done.length }) }
+    const items = enabledItems(args)
+    const write = api.setModelState!
+    return runBatch(items.map(({ provider, id, enabled }) => ({
+      label: `${enabled ? '启用' : '禁用'} ${provider}/${id}`,
+      run: () => write({ provider, id, enabled }),
+    })), n => t('已修改 {n} 个模型', { n }))
   },
 }
 
@@ -316,7 +426,7 @@ const setModelMapping: AssistantTool = {
     properties: {
       items: {
         type: 'array',
-        description: '要改的映射列表',
+        description: '要改的映射列表', minItems: 1, maxItems: 100,
         items: {
           type: 'object',
           properties: {
@@ -332,8 +442,8 @@ const setModelMapping: AssistantTool = {
     required: ['items'],
   },
   plan: args => {
-    const items = list(args.items)
-    const adds = items.filter(item => str(item.action) !== 'remove').length
+    const items = mappingItems(args)
+    const adds = items.filter(item => item.action === 'add').length
     const removes = items.length - adds
     const parts: string[] = []
     if (adds) parts.push(t('新增 {n} 条', { n: adds }))
@@ -354,23 +464,14 @@ const setModelMapping: AssistantTool = {
   },
   run: async (args, context) => {
     const api = bridge(context)
-    const items = list(args.items)
-    const done: string[] = []
-    for (const item of items) {
-      const provider = str(item.provider)
-      const id = str(item.id)
-      const alias = str(item.alias, 128)
-      if (!provider || !id || !alias) throw new Error(t('参数不完整（需要 provider / id / alias）'))
-      if (str(item.action) === 'remove') {
-        await api.removeModelMapping?.(alias, id, provider)
-        done.push(`删除 ${alias} → ${provider}/${id}`)
-      } else {
-        await api.addModelMapping?.(alias, id, provider)
-        done.push(`新增 ${alias} → ${provider}/${id}`)
-      }
-    }
-    refreshApp()
-    return { text: JSON.stringify({ ok: true, changed: done }), summary: t('已改动 {n} 条映射', { n: done.length }) }
+    const items = mappingItems(args)
+    // 先取得整批需要的桥方法，避免后一项方法缺失时前面已经写入。
+    const add = items.some(item => item.action === 'add') ? api.addModelMapping! : undefined
+    const remove = items.some(item => item.action === 'remove') ? api.removeModelMapping! : undefined
+    return runBatch(items.map(({ provider, id, alias, action }) => ({
+      label: `${action === 'remove' ? '删除' : '新增'} ${alias} → ${provider}/${id}`,
+      run: () => action === 'remove' ? remove!(alias, id, provider) : add!(alias, id, provider),
+    })), n => t('已改动 {n} 条映射', { n }))
   },
 }
 
@@ -446,7 +547,7 @@ const setModelCapability: AssistantTool = {
       }
     }
     if (!provider || !id || !Object.keys(caps).length) throw new Error(t('参数不完整（需要 provider / id / capabilities）'))
-    await bridge(context).setModelCapabilities?.(provider, id, caps)
+    await bridge(context).setModelCapabilities!(provider, id, caps)
     refreshApp()
     return { text: JSON.stringify({ ok: true, provider, id, capabilities: caps }), summary: t('已修改 {n} 项能力', { n: Object.keys(caps).length }) }
   },
@@ -463,40 +564,37 @@ const testModel: AssistantTool = {
     properties: {
       provider: { type: 'string', description: '提供商 id' },
       id: { type: 'string', description: '模型 ID' },
-      prompt: { type: 'string', description: '测试用的用户提示词；不填 = 默认一句问候（最小请求）' },
+      prompt: { type: 'string', maxLength: 4000, description: '测试用的用户提示词；不填 = 默认一句问候（最小请求）' },
     },
     required: ['provider', 'id'],
   },
-  plan: args => ({
-    lead: t('将对 {model} 发起一次真实请求：', { model: `${str(args.provider)} / ${str(args.id)}` }),
-    table: {
-      head: [t('项'), t('值')],
-      rows: [
-        [t('提示词'), str(args.prompt) || t('（默认问候）')],
-        [t('代价'), t('消耗该账号额度')],
-      ],
-    },
-    note: t('这是真实的上游请求，与生产走同一条链路（会记账，报表排除）。'),
-  }),
+  plan: args => {
+    const payload = testPayload(args)
+    return {
+      lead: t('将对 {model} 发起一次真实请求：', { model: `${payload.provider} / ${payload.model}` }),
+      content: { label: t('完整提示词'), text: payload.prompt || t('（默认问候）') },
+      note: t('这是真实的上游请求，与生产走同一条链路（会记账，报表排除）。'),
+    }
+  },
   run: async (args, context) => {
-    const payload: Record<string, unknown> = { provider: str(args.provider), model: str(args.id) }
-    const prompt = str(args.prompt, 4000)
-    if (prompt) payload.prompt = prompt
-    const result = (await bridge(context).testModel?.(payload)) as Record<string, unknown> | undefined
-    const status = String(result?.status ?? '')
-    const ok = result?.success === true
+    const payload = testPayload(args)
+    const result = record(await bridge(context).testModel!(payload))
+    const status = num(result.status)
+    const ok = result.success === true
     const slim = {
       ok,
-      status,
-      error: result?.error ?? null,
-      reply: String(result?.reply ?? '').slice(0, 1500),
-      duration_ms: result?.duration_ms ?? null,
-      ttfb_ms: result?.ttfb_ms ?? null,
-      account: result?.account_name ?? null,
+      status: status ?? null,
+      error: result.error || !ok ? safeError(result.error) : null,
+      // 回复是模型生成内容，仅提取字符串；其它供应商响应一律不透出。
+      reply: str(result.reply, 1500),
+      duration_ms: num(result.duration_ms) ?? null,
+      ttfb_ms: num(result.ttfb_ms) ?? null,
+      account: str(result.account_name, 160) || null,
     }
     return {
-      text: JSON.stringify(slim).slice(0, 6000),
-      summary: ok ? t('连通 · {ms}ms', { ms: String(slim.duration_ms ?? '') }) : t('失败 · {status}', { status: status || '—' }),
+      failed: !ok,
+      text: boundedJson(slim, 6000),
+      summary: ok ? t('连通 · {ms}ms', { ms: String(slim.duration_ms ?? '') }) : t('失败 · {status}', { status: String(status ?? '—') }),
     }
   },
 }
@@ -533,8 +631,8 @@ const setProviderOrder: AssistantTool = {
       const id = str(row.id)
       const key = str(row.provider).toLowerCase()
       if (!id) continue
-      const last = groups[groups.length - 1]
-      if (last && last.provider === key) last.ids.push(id)
+      const group = groups.find(item => item.provider === key)
+      if (group) group.ids.push(id)
       else groups.push({ provider: key, ids: [id] })
     }
     const from = groups.findIndex(group => group.provider === provider)
@@ -542,7 +640,7 @@ const setProviderOrder: AssistantTool = {
     const to = Math.max(0, Math.min(groups.length - 1, Math.round(position) - 1))
     const [moved] = groups.splice(from, 1)
     groups.splice(to, 0, moved)
-    await bridge(context).reorderAccounts?.(groups.flatMap(group => group.ids))
+    await bridge(context).reorderAccounts!(groups.flatMap(group => group.ids))
     refreshApp()
     return {
       text: JSON.stringify({ ok: true, provider, from: from + 1, to: to + 1, moved: moved.ids.length }),
@@ -585,7 +683,7 @@ const setAccountOrder: AssistantTool = {
     ids.splice(from, 1)
     const to = Math.max(0, Math.min(ids.length, Math.round(position) - 1))
     ids.splice(to, 0, id)
-    await bridge(context).reorderAccounts?.(ids)
+    await bridge(context).reorderAccounts!(ids)
     refreshApp()
     return {
       text: JSON.stringify({ ok: true, account: accountLabel(target), from: from + 1, to: to + 1 }),
@@ -605,7 +703,7 @@ const setAccountEnabled: AssistantTool = {
     properties: {
       items: {
         type: 'array',
-        description: '要改的账号列表',
+        description: '要改的账号列表', minItems: 1, maxItems: 100,
         items: {
           type: 'object',
           properties: {
@@ -619,7 +717,7 @@ const setAccountEnabled: AssistantTool = {
     required: ['items'],
   },
   plan: args => {
-    const items = list(args.items)
+    const items = enabledItems(args, true)
     const disabling = items.filter(item => bool(item.enabled) === false).length
     return {
       lead: t('将修改 {n} 个账号的启用状态（其中禁用 {k} 个）：', { n: items.length, k: disabling }),
@@ -632,18 +730,18 @@ const setAccountEnabled: AssistantTool = {
   },
   run: async (args, context) => {
     const api = bridge(context)
-    const items = list(args.items)
+    const items = enabledItems(args, true)
     const accounts = await readAccounts(context)
-    const done: string[] = []
-    for (const item of items) {
-      const enabled = bool(item.enabled)
-      if (enabled === undefined) throw new Error(t('参数不完整（需要 account / enabled）'))
-      const target = findAccount(accounts, str(item.account, 128))
-      await api.updateAccount?.(str(target.id), { enabled })
-      done.push(`${enabled ? '启用' : '禁用'} ${accountLabel(target)}`)
-    }
-    refreshApp()
-    return { text: JSON.stringify({ ok: true, changed: done }), summary: t('已修改 {n} 个账号', { n: done.length }) }
+    // 整批解析账号，保证缺失或歧义账号在任何写入之前失败。
+    const targets = items.map(item => {
+      const target = findAccount(accounts, item.account)
+      return { target, id: requiredText(target.id, 'account.id'), enabled: item.enabled }
+    })
+    const write = api.updateAccount!
+    return runBatch(targets.map(({ target, id, enabled }) => ({
+      label: `${enabled ? '启用' : '禁用'} ${accountLabel(target)}`,
+      run: () => write(id, { enabled }),
+    })), n => t('已修改 {n} 个账号', { n }))
   },
 }
 

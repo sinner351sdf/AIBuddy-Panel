@@ -129,6 +129,7 @@ import { ModelTestDialog, testBlockReason, type ModelTestTarget } from './model-
 import { ModelBatchDialog } from './models-batch-dialog'
 import { CUSTOM_LEVEL, levels as reasoningLevels } from './models-reasoning'
 import * as customSource from './models-custom-source'
+import { ALL_CUSTOM } from './models-custom-source'
 import type { ManageModel, ManageView } from './models-custom-source'
 // 内置家的图标映射（与添加账号弹窗、签到中心同一份，别处不要照抄这份映射）
 import { PROVIDER_ICONS } from './add-provider-pick'
@@ -269,7 +270,7 @@ function providerIconOf(id: string, label: string): string {
     挂 .mute 走中性灰，不参与色环。 */
 function providerAvatar(id: string, label: string, glyph?: React.ReactNode): React.ReactNode {
   const icon = glyph ? '' : providerIconOf(id, label)
-  const sentinel = id === 'all' || id === 'custom-all'
+  const sentinel = id === 'all' || id === ALL_CUSTOM
   return (
     <span className={cn('pv-ico', sentinel && 'mute', icon && 'img')}
       style={icon ? undefined : avatarStyle(id)} aria-hidden='true'>
@@ -332,7 +333,7 @@ function matches(model: ManageModel, keyword: string, provider: string, stateFil
   if (visibilityFilter === 'visible' && visibility === 'hidden') return false
   if (visibilityFilter === 'hidden' && visibility !== 'hidden') return false
   if (visibilityFilter === 'undeclared' && visibility !== 'undeclared') return false
-  if (provider !== 'all' && (model.provider || '') !== provider) return false
+  if (provider !== 'all' && provider !== ALL_CUSTOM && (model.provider || '') !== provider) return false
   if (!keyword) return true
   const hay = [model.id, model.name, ...(model.aliases || [])].join(' ').toLowerCase()
   return hay.includes(keyword)
@@ -343,7 +344,7 @@ export function ModelsPage() {
   usePageReady('gateway', state.data !== null || Boolean(state.loadError))
   const provider = resolveProvider(state)
   /** 当前视图是不是自定义侧（单家或「自定义 · 全部」聚合都算 —— 列隐藏 / 页脚说明同一口径） */
-  const custom = customSource.isCustom(provider) || provider === 'custom-all'
+  const custom = customSource.isCustom(provider) || provider === ALL_CUSTOM
   /**
    * 「测试」弹窗的目标行。这一份状态刻意**不放进模块级快照**（与三个弹窗的 context 不同）：
    * 它只被本页用、也没有从 React 之外打开的调用点（入口就是表格里那颗按钮），
@@ -419,7 +420,7 @@ export function ModelsPage() {
    */
   const titleLabel = provider === 'all'
     ? t('全部')
-    : (provider === 'custom-all'
+    : (provider === ALL_CUSTOM
       ? t('自定义 · 全部')
       : (custom
         ? String(customSource.record(provider)?.name || provider)
@@ -971,7 +972,7 @@ export function ModelsPage() {
             <CardHeader variant='panel-flush' className='panel-head'>
               <div className='mm-titlebar'>
                 <div className='mm-title'>
-                  {provider === 'all' || provider === 'custom-all'
+                  {provider === 'all' || provider === ALL_CUSTOM
                     ? providerAvatar(provider, '', GRID_GLYPH)
                     : providerAvatar(provider, titleLabel)}
                   <h2>{titleLabel}</h2>

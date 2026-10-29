@@ -553,9 +553,6 @@
   .acct-table tbody td:empty { display: none; }
   /* 连接数收起后，余额那一格补到整行，不留半截空位 */
   .acct-table tr.acct-row:has(.cell-connections:empty) .cell-usage { grid-column: 1 / 4; }
-
-  /* 展开的限流明细行（.acct-panels，单 td 跨全部列）整行铺开，不套两列网格 */
-  .acct-table tr.acct-panels { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ═══ 请求日志：多列 grid -> 卡片 ═══
@@ -874,176 +871,6 @@
   .ep-line button { flex: 0 0 auto; align-self: flex-start; }
 }
 
-/* ═══ 签到中心：面板被内容撑破（461px vs 375px 视口） ═══
-   .ck-main 是 grid 但没写 grid-template-columns，默认单列 auto = max-content，
-   被 .ck-prov-row 的内容（提供商名 + 右侧按钮组）撑到 461px —— panel 直接
-   破出视口，整页横向裁掉 86px，签到按钮全部点不到。
-   修法：单列改 minmax(0,1fr) 让轨道收进容器宽，行内再允许折行。 */
-@media (max-width: 767px) {
-  .ck-main { grid-template-columns: minmax(0, 1fr); }
-  /* 提供商行：名字/描述占满剩余宽度，右侧操作组折行到下一行，不再顶宽 */
-  .ck-prov-main { flex-wrap: wrap; }
-  .ck-prov-info { min-width: 0; }
-  .ck-prov-name, .ck-prov-desc { overflow-wrap: anywhere; }
-  .ck-prov-right { flex: 1 1 100%; justify-content: flex-start; gap: 8px; flex-wrap: wrap; }
-
-  /* 展开的账号明细（.ck-prov-detail）：桌面左侧留 58px 缩进对齐上方
-     提供商的 logo/文字。298px 容器减掉 58+16=74px padding 只剩 224px，
-     而 4 列表（账号 / 今日签到 / 上次签到时间 / 操作）需要 ~307px，
-     行尾「重签」按钮被推出容器右缘裁掉（实测 detail scrollWidth 307 >
-     clientWidth 298）。
-     修法：手机收掉左侧缩进（只留 12px），表格改卡片式四行。 */
-  .ck-prov-detail { padding: 4px 12px 12px; }
-  .ck-table { display: block; }
-  .ck-table thead { display: none; }
-  .ck-table tbody { display: block; }
-  .ck-table tr {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 4px 8px;
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--hairline, #eee);
-  }
-  .ck-table tr:last-child { border-bottom: 0; }
-  .ck-table td {
-    display: block;
-    padding: 0;
-    border-bottom: 0;
-    min-width: 0;
-  }
-  /* 账号名第一行、签到状态跟在右侧；时间第二行整行；操作按钮第二行右端 */
-  .ck-table td:nth-child(1) { grid-column: 1; grid-row: 1; font-weight: 600; overflow-wrap: anywhere; }
-  .ck-table td:nth-child(2) { grid-column: 2; grid-row: 1; justify-self: end; }
-  .ck-table td:nth-child(3) { grid-column: 1 / -1; grid-row: 2; font-size: 11.5px; }
-  .ck-table td:nth-child(4) {
-    grid-column: 2;
-    grid-row: 2;
-    justify-self: end;
-    display: flex;
-    justify-content: flex-end;
-    gap: 6px;
-  }
-  /* 操作列可能有多颗按钮（国际版有「保活 / 领取 / 保活+领取」）—— 让它们换行不溢出 */
-  .ck-table td:nth-child(4) { flex-wrap: wrap; }
-  .ck-table td:nth-child(4) button { min-height: 28px; }
-
-  /* 签到记录表（.ck-records-table）：桌面 6 列 table-layout:fixed +
-     colgroup 固定列宽（时间 160px + 18%/10%/11%/13%/48%），总宽远超手机屏。
-     320px 下整表 336px 宽、右侧「来源 / 详情」列被推出视口裁掉。
-     改卡片：外层滚动容器不再横滚、表格/列组不再定宽，每行变多行网格。 */
-  .ck-records-scroll { overflow-x: hidden; }
-  .ck-records-table {
-    display: block;
-    table-layout: auto;
-    width: 100%;
-    min-width: 0 !important;   /* 压住 JS 写入的固定列宽合计（实测 336px） */
-  }
-  .ck-records-table colgroup { display: none; }
-  .ck-records-table thead { display: none; }
-  .ck-records-table tbody { display: block; }
-  .ck-records-table tr {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 4px 8px;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--hairline, #eee);
-  }
-  .ck-records-table tr:last-child { border-bottom: 0; }
-  .ck-records-table td {
-    display: block;
-    width: auto !important;
-    min-width: 0;
-    overflow: visible;   /* 桌面靠 overflow:hidden 裁超长内容，卡片里要折行 */
-    padding: 0;
-    border-bottom: 0;
-  }
-  /* 时间（含日期）第一行左、结果第一行右 */
-  .ck-records-table .ck-col-time { grid-column: 1; grid-row: 1; white-space: normal; }
-  .ck-records-table .ck-col-outcome { grid-column: 2; grid-row: 1; justify-self: end; }
-  /* 账号 + 提供商第二行 */
-  .ck-records-table .ck-col-account { grid-column: 1; grid-row: 2; }
-  .ck-records-table .ck-col-provider { grid-column: 2; grid-row: 2; justify-self: end; }
-  /* 来源 + 详情第三行（详情常是长句，整行折行） */
-  .ck-records-table .ck-col-source { grid-column: 1; grid-row: 3; }
-  .ck-records-table .ck-col-detail { grid-column: 1 / -1; grid-row: 4; overflow-wrap: anywhere; }
-  .ck-records-table .ck-record-reason { margin-left: 6px; }
-}
-
-/* ═══ 定时签到：条目行不折行 → 信息区被压成 0 宽（文字竖排）+ 按钮溢出 ═══
-   .ck-sched-main 是 flex 且 nowrap（桌面布局），行内是 开关 + .ck-prov-info
-   （弹性）+ .ck-prov-right（flex:none，含「下次 …」+ 立即执行/编辑/删除）。
-   375px 下 .ck-prov-right 实测占 311px，把 .ck-prov-info 挤成 width:0 ——
-   该格里「00:01 · 每天 · 全部…」全部逐字堆叠（看起来是竖排），而右侧
-   三个按钮一路顶到 x=425，出了 300px 面板看不见。
-   修法：与每日签到同款 —— 行内折行，操作组整行下移。 */
-@media (max-width: 767px) {
-  .ck-sched-main { flex-wrap: wrap; }
-  .ck-sched-main .ck-prov-info { flex: 1 1 100%; min-width: 0; order: 2; }
-  /* 操作区：三段排布 ——
-     第一行「下次 …」时间徽标（整行，可读全）；
-     第二行「立即执行 / 编辑 / 删除」三颗按钮排成等宽网格。
-     原来让它们自然折行 + 左对齐，结果是「下一行时间 + 立即执行」一行、
-     左边孤零零「编辑 / 删除」另起一行，看不出这三个按钮是一组。 */
-  .ck-sched-main .ck-prov-right {
-    flex: 1 1 100%;
-    order: 3;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-    justify-content: stretch;
-    align-items: center;
-  }
-  .ck-sched-main .ck-prov-right > .ck-sched-next { grid-column: 1 / -1; justify-self: start; }
-  .ck-sched-main .ck-prov-right > button { width: 100%; min-width: 0; }
-  .ck-sched-main > [role="switch"], .ck-sched-main > [data-slot="switch"] { order: 1; }
-}
-
-/* ═══ 设置区「标签 + 开关 + 说明」行（定时签到总开关、保活链等）═══
-   .ck-set-line 是 flex nowrap：.ck-set-k 固定 58px 标签、.ck-set-v 弹性。
-   桌面一行够宽时比例正常；375px 下开关与它右侧的说明文字之间被推到
-   远端（实测开关 x123、说明 x167，中间空 44px），看着像两个不相干的
-   控件，用户认不出「说明是在讲这个开关」。
-   修法：窄屏把标签提到上一行（整行），开关与说明在第二行紧挨成一组。 */
-@media (max-width: 767px) {
-  .ck-set-line { flex-wrap: wrap; row-gap: 6px; }
-  /* 标签独占一行；短标签（如「总开关」）不占满宽度也行，这里统一放行首 */
-  .ck-set-line .ck-set-k { flex: 1 1 100%; width: auto; }
-  /* 值区（开关 + 说明）整行，内容左对齐挨在一起 */
-  .ck-set-line .ck-set-v { flex: 1 1 100%; min-width: 0; }
-  /* 保活模型链面板里那条已经是上下排（见下），这里只兜底不让它重复换行 */
-  .ck-chain-panel .ck-set-line .ck-set-k { flex: 1 1 100%; }
-}
-
-/* ═══ 活动福利 / 新手福利：行不折行 → 账号名字被压成 0 宽（文字竖排） ═══
-   .ck-welfare-row 是 flex 且 nowrap（桌面布局），行内是 徽标 + .ck-prov-info
-   （账号名 + 说明）+ .ck-prov-right（去领取）。手机上 .ck-prov-right 拿
-   flex:1 1 100% 后把 .ck-prov-info 挤成 width:0 —— 账号名
-   「ZCode 国际版 · fbda9ca4-…」与说明在该宽度里逐字堆叠（全竖排）。
-   修法：行内折行，领取按钮整行下移（与每日签到/定时签到同款）。 */
-@media (max-width: 767px) {
-  .ck-welfare-row { flex-wrap: wrap; }
-  .ck-welfare-row .ck-prov-info { flex: 1 1 0; min-width: 0; }
-  .ck-welfare-row .ck-prov-name { overflow-wrap: anywhere; }
-  .ck-welfare-row .ck-prov-right { flex: 1 1 100%; justify-content: flex-start; flex-wrap: wrap; gap: 8px; }
-}
-
-/* ═══ 保活模型链：桌面「半幅」在手机上把清单压成 48px ═══
-   .ck-chain-panel { width: 50%; max-width: 640px } 是桌面口径（清单短，
-   拉满整行太空）。375px 下 50% = 150px，内部 .ck-set-line 的 .ck-set-k
-   固定 58px 后，模型清单容器 .ck-set-v 只剩 48px —— 模型名与「按序逐个
-   尝试，共 4 个」在该宽度里逐字断行（竖排），行尾的 × 也顶出面板外。
-   修法：手机上取消半幅，铺满整行。 */
-@media (max-width: 767px) {
-  .ck-chain-panel { width: auto; max-width: none; }
-  /* 标签与内容：窄屏下改成上下排，内容区拿满整行 */
-  .ck-chain-panel .ck-set-line { flex-wrap: wrap; }
-  .ck-chain-panel .ck-set-k { width: auto; flex: 1 1 100%; }
-  .ck-chain-panel .ck-set-v { flex: 1 1 100%; }
-  /* 清单一行的触控目标放大（原 22px） */
-  .ck-chain-grip, .ck-chain-del { min-width: 28px; min-height: 28px; }
-}
-
 /* ═══ 账号分组带：尾部「⋯ / 折叠」按钮被挤出带外裁掉 ═══
    .grp-band-inner 是 flex 且 nowrap，中部 .grp-name/.grp-stat 都 nowrap，
    长组名把 ⋯ 按钮推出 td 右缘（实测 ⋯ 按钮出界 14-63px）。
@@ -1129,8 +956,9 @@
 
   /* ── CJK 断行口径 ──
      中文按字换行是正常行为，真正的"竖排"来自容器被挤到 ~1 个字宽
-     （如 .ck-prov-info 被 flex 压成 width:0），已在各页就地修容器宽度。
-     这里只保证长串不撑破布局：默认按字断，超长英文/URL 允许断词。 */
+     （例如 flex 行里某个弹性格被固定宽的兄弟挤成 width:0），
+     已在各页就地修容器宽度。这里只保证长串不撑破布局：默认按字断，
+     超长英文/URL 允许断词。 */
   .page.active, .modal, [role="dialog"] { word-break: normal; overflow-wrap: break-word; }
 
   /* ── 图标 / 小按钮触控目标放大（原 16-22px，手指点不中）── */
@@ -1146,8 +974,6 @@
   .models-table td button.sm, .models-table td [class*="button"] { min-height: 28px; }
   /* 账号表：组内拖动手柄（order-grip / queue-grip） */
   .acct-table .order-grip, .acct-table .queue-grip { min-width: 28px; min-height: 28px; }
-  /* 签到页：全选 / 清空 小按钮 */
-  .ck-mini-btn { min-height: 30px; }
 }
 
 /* The proxy toolbar has six actions: keep every action reachable on phones. */

@@ -42,6 +42,7 @@
 //! 引用计数归零而释放）。这里就是 drop —— 效果一致，但释放时点取决于
 //! 是否还有在途请求持有该 Client 的 Arc 克隆（在途请求会正常跑完）。
 
+use crate::server::core::validation::ValidatedRequest as _;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
@@ -236,6 +237,12 @@ fn build_client_with(
     timeouts: &TimeoutSettings,
     no_redirect: bool,
 ) -> Result<reqwest::Client, String> {
+    if crate::server::core::validation::enabled() {
+        return crate::server::core::validation::client_builder()
+            .connect_timeout(Duration::from_millis(timeouts.connect_ms()))
+            .read_timeout(Duration::from_millis(timeouts.read_timeout_backstop_ms()))
+            .build().map_err(|error| format!("创建隔离 HTTP 客户端失败: {error}"));
+    }
     let mut builder = base_builder(timeouts);
     if no_redirect {
         builder = builder.redirect(reqwest::redirect::Policy::none());
@@ -280,6 +287,7 @@ fn build_client_with(
 /// 因此这条出口的语义是「与浏览器同口径」：系统配了代理就跟随它，没配就是
 /// 直连 —— 不是「一定走代理」。显式配了代理的账号仍走 `client_for(Some(..))`。
 fn build_system_proxy_client(timeouts: &TimeoutSettings) -> Result<reqwest::Client, String> {
+    if crate::server::core::validation::enabled() { return build_client_with(None, timeouts, true); }
     // 既不调 `.no_proxy()` 也不调 `.proxy()`：reqwest 的 `auto_sys_proxy`
     // 因此保持默认开启（`system-proxy` feature，见 server/Cargo.toml 的说明）
     base_builder(timeouts)
@@ -456,7 +464,7 @@ async fn read_exit_ip(client: &reqwest::Client, proxy: Option<&ResolvedProxy>, t
         .get(IP_ECHO_URL)
         .header("Accept", "application/json")
         .timeout(Duration::from_millis(timeout_ms));
-    let Ok(response) = request.send().await else {
+    let Ok(response) = request.send_guarded().await else {
         return String::new();
     };
     if !response.status().is_success() {
@@ -497,7 +505,7 @@ pub async fn test_connectivity(
         // 单请求超时覆盖这里（测试用的是总超时，与 Node 的 AbortSignal.timeout 同语义；
         // 客户端上的 read_timeout 不会妨碍它 —— 总超时更短就先触发）
         .timeout(Duration::from_millis(timeout_ms));
-    match request.send().await {
+    match request.send_guarded().await {
         Ok(response) => {
             let status = response.status().as_u16();
             let duration_ms = logging::now_ms() - started;

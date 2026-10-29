@@ -59,7 +59,7 @@
 //! 唯一的字面量）。
 
 use std::path::{Path, PathBuf};
-use std::sync::RwLock;
+use std::sync::{Mutex, RwLock};
 
 use serde_json::{Map, Value};
 
@@ -69,6 +69,8 @@ mod assistant_config;
 pub(crate) mod parse;
 pub(crate) mod sql;
 mod types;
+#[cfg(test)]
+pub(crate) mod persistence_tests;
 
 pub use assistant_config::*;
 pub use types::*;
@@ -889,6 +891,11 @@ pub fn read_prompt_file(path: &str) -> Result<String, String> {
 /// 进程内全局配置快照：所有模块共用，避免每个请求都读盘
 static CONFIG: RwLock<Option<RuntimeConfig>> = RwLock::new(None);
 
+/// Serializes the whole read/mutate/persist/publish cycle, including reloads.
+/// Never hold CONFIG while doing database IO or logging: those paths can read
+/// configuration themselves. The empty gate is safe to recover after a panic.
+static CONFIG_WRITE: Mutex<()> = Mutex::new(());
+
 /// 初始化全局配置（启动时调用一次；重复调用会重新读库，幂等）。
 ///
 /// ── 签名为什么从 `init()` 改成接 `Db` ───────────────────────
@@ -903,6 +910,7 @@ static CONFIG: RwLock<Option<RuntimeConfig>> = RwLock::new(None);
 /// 东西搬进库」，而快照已经从旧文件读到了同样的值（`merge_legacy`），
 /// 重装只是白读一遍库。
 pub fn init(db: Option<Db>) -> RuntimeConfig {
+    let _write = CONFIG_WRITE.lock().unwrap_or_else(|error| error.into_inner());
     let db = db.filter(|db| {
         // 打不开的库句柄不该装进来（`Db` 只在打开成功时才有值，这里是防御）
         let _ = db;
@@ -927,6 +935,28 @@ pub fn init(db: Option<Db>) -> RuntimeConfig {
 /// 只在迁移真的产生过结果时才由调用点触发（`db::migrate` 的返回非空）；
 /// 没有任何旧文件时不必多读一次库。
 pub fn reload() -> RuntimeConfig {
+    let _write = CONFIG_WRITE.lock().unwrap_or_else(|error| error.into_inner());
+    reload_locked()
+}
+
+/// Database imports must hold the same gate from the database replacement until
+/// its snapshot is published, otherwise a setter can write the pre-import snapshot
+/// back over the imported values. Return true only after a committed change;
+/// failures and no-ops keep the current snapshot. The callback must not call config
+/// setters/reload and must release its database lock before returning.
+pub(crate) fn update_persisted_and_reload<T>(
+    write: impl FnOnce() -> Result<(T, bool), String>,
+) -> Result<T, String> {
+    let _write = CONFIG_WRITE.lock().unwrap_or_else(|error| error.into_inner());
+    let (result, changed) = write()?;
+    if changed {
+        reload_locked();
+    }
+    Ok(result)
+}
+
+/// CONFIG_WRITE must be held by the caller.
+fn reload_locked() -> RuntimeConfig {
     let snapshot = build(read_raw());
     if let Ok(mut guard) = CONFIG.write() {
         *guard = Some(snapshot.clone());
@@ -1187,19 +1217,54 @@ pub fn cline_upstream_overrides() -> Vec<(String, String)> {
 ///
 /// `mutate` 只改内存快照；落库由本函数统一负责，避免两处都写库。
 ///
-/// 「原子」有两层：内存快照的替换是一次写锁（`CONFIG.write()`），而库那一侧
-/// 由 `sql::write_all` 的一个事务保证（多行 UPSERT + 删除要么全成、要么全不成）。
+/// 写入闸门覆盖完整读改写，避免另一 setter/reload 发布旧快照。数据库事务
+/// 保证多行 UPSERT 与删除的原子性；普通 setter 保留写失败时仅内存生效的兼容语义。
 fn update<F>(mutate: F) -> bool
 where
     F: FnOnce(&mut RuntimeConfig),
 {
+    update_with_persistence(false, mutate)
+}
+
+/// Permission-bearing settings must only become visible after persistence succeeds.
+fn update_with_persistence<F>(require_persistence: bool, mutate: F) -> bool
+where
+    F: FnOnce(&mut RuntimeConfig),
+{
+    update_checked(require_persistence, |snapshot| {
+        mutate(snapshot);
+        Ok::<_, std::convert::Infallible>(())
+    }).is_ok()
+}
+
+#[derive(Debug)]
+pub(crate) enum ConfigUpdateError<E> {
+    Invalid(E),
+    Persistence,
+}
+
+/// Validation runs against the latest snapshot under the same write gate.
+fn update_checked<T, E>(
+    require_persistence: bool,
+    mutate: impl FnOnce(&mut RuntimeConfig) -> Result<T, E>,
+) -> Result<T, ConfigUpdateError<E>> {
+    let _write = CONFIG_WRITE.lock().unwrap_or_else(|error| error.into_inner());
     let mut next = current();
-    mutate(&mut next);
+    let result = mutate(&mut next).map_err(ConfigUpdateError::Invalid)?;
     let saved = save_raw(&next.raw);
+    if require_persistence && !saved {
+        return Err(ConfigUpdateError::Persistence);
+    }
     if let Ok(mut guard) = CONFIG.write() {
         *guard = Some(next);
+    } else {
+        return Err(ConfigUpdateError::Persistence);
     }
-    saved
+    if saved {
+        Ok(result)
+    } else {
+        Err(ConfigUpdateError::Persistence)
+    }
 }
 
 /// 把整份配置写进统一库（对应 Node 版 `saveConfig`）。
@@ -1212,11 +1277,8 @@ where
 /// `sql::write_all` 在同一个事务里做「逐键 UPSERT + 删掉不在 `raw` 里的配置键」，
 /// 删除范围**排除** `db::schema::RESERVED_KV_KEYS`（那些是别的模块的状态）。
 ///
-/// ── 为什么成功与否都要让内存快照生效 ────────────────────────
-/// 本函数只负责落库；内存快照由调用方（`update`）在之后统一刷新。写失败
-/// （库不可用、事务回滚）返回 `false`，但**本次运行内的改动仍然生效** ——
-/// 与改造前「写文件失败只打日志、不中断请求」一致：失败影响的只是
-/// 「重启后还在不在」，不该让正在跑的请求或被改的配置报错。
+/// 本函数只负责落库，调用方必须持有 CONFIG_WRITE。普通 setter 允许失败时
+/// 仅内存生效；助手等权限配置必须由 update_with_persistence 保持旧快照。
 ///
 /// ── 日志为什么在 {@link sql::write_all} 之外打 ──────────────
 /// `Db::with` 持的是**全局唯一那把连接锁**，而 `logging::log` 的入库那一路
@@ -1228,11 +1290,11 @@ where
 /// `config::init` 早于 `logging::init_store`）：那时 `logging::log` 的入库
 /// 那一路会静默丢弃，只剩控制台 —— 这也正是它该用的通道（`console_line`
 /// 与 `log` 的控制台部分是同一个输出）。
-pub fn save_raw(raw: &Map<String, Value>) -> bool {
+fn save_raw(raw: &Map<String, Value>) -> bool {
     let Some(db) = db() else {
         crate::server::logging::log(
             "[Config]",
-            "❌ 保存失败: 数据库不可用（本次改动仅内存生效）",
+            "❌ 保存失败: 数据库不可用",
         );
         return false;
     };
@@ -1771,15 +1833,24 @@ pub fn set_cors_enabled(enabled: bool) -> bool {
 
 /// 写入 AI 助手配置（整块替换）。
 ///
-/// 与其它 setter 同一模式：内存快照立即生效（下一个对话请求就用新值），raw 底稿
-/// 一起改保证写盘不吃掉其它键。返回 `false` 只表示**落库失败**（本次运行内仍生效）。
+/// 包含工具权限：落库成功后才发布内存快照。失败返回 false 并保留原配置，
+/// 避免前端误以为已撤销权限、重启后却恢复旧权限。
 pub fn set_assistant_config(config: AssistantConfig) -> bool {
-    let value = config.to_value();
-    update(|current| {
+    update_assistant_config(|_| Ok(config)).is_ok()
+}
+
+/// Merge and validate inside the global gate, including concurrent imports/reloads.
+/// The returned value is the exact committed configuration for the API response.
+pub(crate) fn update_assistant_config(
+    mutate: impl FnOnce(&AssistantConfig) -> Result<AssistantConfig, String>,
+) -> Result<AssistantConfig, ConfigUpdateError<String>> {
+    update_checked(true, |current| {
+        let config = mutate(&current.assistant)?;
         current
             .raw
-            .insert(KEY_ASSISTANT_CONFIG.to_string(), value);
-        current.assistant = config;
+            .insert(KEY_ASSISTANT_CONFIG.to_string(), config.to_value());
+        current.assistant = config.clone();
+        Ok(config)
     })
 }
 
@@ -2368,9 +2439,7 @@ mod auto_continue_tests {
     use super::*;
     use serde_json::json;
 
-    /// 全局快照是进程级状态，而 `update()` 是「读整份 → 改 → 写整份」的**非原子**
-    /// 读改写：两条用例并行时，一条的写可能被另一条「读走的旧底稿」整体盖掉。
-    /// 本模块动全局的用例因此串行跑（与 `api::panel` 那把探针槽位锁同一手法）。
+    /// 多步断言之间也需隔离，避免另一条测试改变本用例正在检查的配置。
     static CONFIG_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     fn hold_config() -> std::sync::MutexGuard<'static, ()> {
@@ -2537,14 +2606,22 @@ pub fn set_auto_continue_max_rounds(rounds: i64) -> bool { set_auto_continue_pat
 /// Persist opt-in before publishing it in memory. A failed disk write must not enable remote conversations.
 pub fn set_checkin_web_conversation(enabled: bool) -> Result<(), String> {
     const KEY: &str = "checkinWebConversationEnabled";
+    let _write = CONFIG_WRITE.lock().unwrap_or_else(|error| error.into_inner());
     let database = db().ok_or_else(|| "数据库不可用，网页会话保活设置未改变".to_string())?;
-    let mut guard = CONFIG.write().map_err(|_| "配置锁不可用".to_string())?;
-    let snapshot = guard.as_mut().ok_or_else(|| "配置尚未初始化".to_string())?;
+    if CONFIG.read().map_err(|_| "配置锁不可用".to_string())?.is_none() {
+        return Err("配置尚未初始化".to_string());
+    }
     database.with(|connection| connection.execute(
         "INSERT INTO kv(key,value) VALUES (?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
         rusqlite::params![KEY, Value::Bool(enabled).to_string()],
     )).ok_or_else(|| "数据库锁不可用，设置未改变".to_string())?
         .map_err(|_| "保存失败，网页会话保活设置未改变".to_string())?;
+    let mut guard = CONFIG.write().map_err(|_| "配置锁不可用".to_string())?;
+    let snapshot = guard.as_mut().ok_or_else(|| "配置尚未初始化".to_string())?;
     snapshot.raw.insert(KEY.to_string(), Value::Bool(enabled));
     Ok(())
 }
+
+pub const PLUGIN_SETTING_GATEWAY_PROMPT: &str = "gatewayPrompt";
+
+pub const PLUGIN_SETTING_GATEWAY_PROMPT_TEXT: &str = "gatewayPromptText";

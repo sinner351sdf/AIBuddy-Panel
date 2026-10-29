@@ -1,3 +1,4 @@
+import { modelTestErrorHint } from './model-test-error-hint'
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@ui'
 /**
  * Agent2API · 「测试模型」两层弹窗 —— React 岛。
@@ -91,6 +92,7 @@ type TestModelRequest = {
 type TestModelResponse = {
   success?: boolean
   status?: number
+  error_code?: string | null
   error?: string | null
   reply?: string
   reasoning?: string
@@ -191,34 +193,6 @@ const SOURCE_LABEL: Record<string, string> = {
   builtin: t('内置清单'),
   manual: t('手动登记'),
 }
-
-/**
- * 失败原因 → 下一步。**只按 HTTP 状态分类**，不猜上游的文案：429 与 401 指向完全不同的处置
- * （一个等一会儿自己会好，一个换账号也救不回来），5xx / 404 又是另外两件事。
- * 后端给的 `error` 原样展示在上一行，这里只补「接下来做什么」。
- */
-const STATUS_HINT: Array<{ test: (status: number) => boolean; hint: string }> = [
-  {
-    test: status => status === 429,
-    hint: t('该账号对这个模型正在限额冷却，等一会儿自己会好；也可以先测别的账号。'),
-  },
-  {
-    test: status => status === 401 || status === 403,
-    hint: t('上游拒绝了这条登录态：重新登录一次，或把这条账号删掉。'),
-  },
-  {
-    test: status => status === 404,
-    hint: t('上游不认识这个模型名：先点「获取模型」刷新清单，或核对默认绑定指向的上游模型。'),
-  },
-  {
-    test: status => status === 504,
-    hint: t('上游没在预算内给完回答。可以只勾一个账号再测一次，看是普遍慢还是某一个账号慢。'),
-  },
-  {
-    test: status => status >= 500,
-    hint: t('多半是上游自己的问题，过一会儿再试。同一个错误出现在所有账号上时，先查模型目录与映射。'),
-  },
-]
 
 /* ─── 纯函数工具 ─────────────────────────────── */
 
@@ -545,9 +519,12 @@ export function ModelTestDialog({ target, onClose }: { target: ModelTestTarget; 
   const proxyItems: Array<{ value: string; label: string; disabled?: boolean }> = [
     { value: '', label: t('跟随账号配置') },
     { value: PROXY_DIRECT, label: t('直连（不使用代理）') },
+    // 已禁用的池条目置灰：测试会走它解析（失败即回退直连），选它测出来的
+    // 结论不是用户想要的那个 —— 与账号页代理列同一口径
     ...(pool ?? []).map(item => ({
       value: `${POOL_VALUE_PREFIX}${item.id}`,
       label: poolItemLabel(item),
+      disabled: item.enabled === false,
     })),
   ]
   if (pool === null) {
@@ -598,7 +575,7 @@ export function ModelTestDialog({ target, onClose }: { target: ModelTestTarget; 
     const result = slot.result
     if (!isOk(slot)) {
       const status = Number(result?.status) || 0
-      const hint = STATUS_HINT.find(item => item.test(status))?.hint
+      const hint = modelTestErrorHint(status, result?.error_code, result?.error)
         ?? (slot.transport ? t('确认桌面端还在运行，再重试一次。') : '')
       return (
         <div key={slot.testId} className='rounded-md border border-border bg-surface-2'>

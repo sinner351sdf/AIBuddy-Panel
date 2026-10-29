@@ -131,62 +131,7 @@ pub async fn report_chat_activity(
     model_id: &str,
     model_name: &str,
 ) -> Result<(), BillingError> {
-    let request_id = if request_id.is_empty() { conversation_id } else { request_id };
-    let model_id = if model_id.is_empty() { "deepseek-v4-flash" } else { model_id };
-    let model_name = if model_name.is_empty() { model_id } else { model_name };
-    let now = crate::server::logging::now_ms();
-    // 事件字段全量照抄 refs report.go:102-139 chatRequestEvent（勿用最小 3 字段，
-    // 防上游后续加严）
-    let event = json!({
-        "eventCode": "chat_request_send",
-        "timestamp": now,
-        "reportDelay": 0,
-        "mode": "craft",
-        "conversationId": conversation_id,
-        "requestId": request_id,
-        "inputLength": 12,
-        "requestModelId": model_id,
-        "requestModelName": model_name,
-        "isPlan": false,
-        "isAutoExecuteTerminal": false,
-        "isAutoModify": false,
-        "codebaseEnable": false,
-        "maxToken": 0,
-        "maxSteps": 0,
-        "temperature": 0,
-        "maxRetries": 0,
-        "mentionContexts": [],
-        "knowledgeId": [],
-        "knowledgeName": [],
-        "codebaseId": "",
-        "mentionContextCount": 0,
-        "command": "",
-        "expertId": "",
-        "recommendId": "",
-        "skillId": "",
-        "skillCount": 0,
-        "totalCount": 0,
-        "fileUri": "",
-        "presentAt": now,
-        "traceId": "",
-        "rootRequestId": request_id,
-        "parentConversationId": conversation_id,
-        "agentName": "default",
-        "agentType": "conversation",
-        // userId 必填：缺失服务端 200 但静默丢弃（refs report.go 模块头）
-        "userId": uid_of(session),
-    });
-    let body = json!([event]);
-    let options = CallOptions {
-        session: Some(session),
-        body: Some(&body),
-        // BillingHeaders 差集头（X-CodeBuddy-Request / zh-CN / billingUA）
-        extra: growth_extra(session, false),
-        ..Default::default()
-    };
-    let spec=BillingSpec { base: if session.get("edition").and_then(Value::as_str)==Some("intl") { BillingBase::Session } else { BillingBase::Billing }, ..REPORT_ACTIVITY };
-    service.call_billing(spec, options).await?;
-    Ok(())
+    crate::server::core::billing::legacy_call(service, session, "aibuddy.report.report_chat_activity", serde_json::json!({"conversation_id": conversation_id, "request_id": request_id, "model_id": model_id, "model_name": model_name})).await
 }
 
 // ─── 桌面指纹（refs desktop.go）─────────────────────────────
@@ -243,50 +188,13 @@ pub async fn report_desktop_events(
     session: &Value,
     events: Vec<Value>,
 ) -> Result<(), BillingError> {
-    if events.is_empty() {
-        return Err(BillingError::new("desktop report: no events", 400));
-    }
-    let fingerprint = desktop_fingerprint(session);
-    let body = Value::Array(
-        events
-            .into_iter()
-            .map(|event| merge_event(&fingerprint, event))
-            .collect(),
-    );
-    let uid = uid_of(session);
-    let mut headers = vec![
-        (
-            "Authorization".to_string(),
-            format!("Bearer {}", access_token_of(session)),
-        ),
-        (
-            "Accept".to_string(),
-            "application/json, text/plain, */*".to_string(),
-        ),
-        (
-            "Content-Type".to_string(),
-            "application/json;charset=UTF-8".to_string(),
-        ),
-        ("User-Agent".to_string(), DESKTOP_UA.to_string()),
-        // X-Domain = chatBase（refs desktop.go:119）
-        ("X-Domain".to_string(), CHAT_BASE.to_string()),
-        ("X-Product".to_string(), "SaaS".to_string()),
-        (
-            "X-Request-ID".to_string(),
-            format!(
-                "{}{}",
-                derive_id("req", &uid),
-                unique_suffix()
-            ),
-        ),
-    ];
-    if !uid.is_empty() {
-        headers.push(("X-User-Id".to_string(), uid));
-    }
-    let proxy = BillingService::proxy_of(session);
-    let url = format!("{CHAT_BASE}{REPORT_PATH}");
-    raw_json_call("POST", &url, Some(&body), &headers, proxy.as_ref()).await?;
-    Ok(())
+    crate::server::core::billing::legacy_call(
+        &crate::server::core::billing::shared_for_rpc(),
+        session,
+        "aibuddy.report.report_desktop_events",
+        serde_json::json!({"events": events}),
+    )
+    .await
 }
 
 /// X-Request-ID 的尾缀（refs desktop.go:121：`UnixNano() % 1e6`）。
@@ -419,7 +327,13 @@ pub fn desktop_template_use_sequence(
     template_id: &str,
     template_name: &str,
 ) -> Vec<Value> {
-    let mut events = desktop_chat_sequence(conversation_id, request_id, &format!("msg-{template_id}"), "fast-model", "fast-model");
+    let mut events = desktop_chat_sequence(
+        conversation_id,
+        request_id,
+        &format!("msg-{template_id}"),
+        "fast-model",
+        "fast-model",
+    );
     events.push(json!({
         "eventCode": "agent_task_created_with_template", "mode": "working",
         "isCustomModel": false, "id": template_id, "name": template_name,
@@ -441,7 +355,13 @@ pub fn desktop_playbook_prompt_sequence(
     case_id: &str,
     case_name: &str,
 ) -> Vec<Value> {
-    let mut events = desktop_chat_sequence(conversation_id, request_id, "msg-pb", "fast-model", "fast-model");
+    let mut events = desktop_chat_sequence(
+        conversation_id,
+        request_id,
+        "msg-pb",
+        "fast-model",
+        "fast-model",
+    );
     events.push(json!({
         "eventCode": "web_element_click", "pageName": "playbook_detail",
         "elementId": "playbook_ctaClick", "elementName": case_name, "source": "discover",
@@ -462,11 +382,14 @@ pub fn desktop_playbook_prompt_sequence(
 
 /// 「设计创意画布」事件组（refs desktop.go:354-367
 /// `DesktopDesignCanvasSequence`：wbx_design_canvas_task_create/open）。
-pub fn desktop_design_canvas_sequence(
-    conversation_id: &str,
-    request_id: &str,
-) -> Vec<Value> {
-    let mut events = desktop_chat_sequence(conversation_id, request_id, "msg-canvas", "fast-model", "fast-model");
+pub fn desktop_design_canvas_sequence(conversation_id: &str, request_id: &str) -> Vec<Value> {
+    let mut events = desktop_chat_sequence(
+        conversation_id,
+        request_id,
+        "msg-canvas",
+        "fast-model",
+        "fast-model",
+    );
     events.push(json!({
         "eventCode": "wbx_design_canvas_task_create", "conversationId": conversation_id,
         "requestId": request_id, "source": "summon_keyword", "cost": 12000,
@@ -501,40 +424,7 @@ pub async fn report_web_event(
     element_id: &str,
     element_name: &str,
 ) -> Result<(), BillingError> {
-    let uid = uid_of(session);
-    let now = crate::server::logging::now_ms();
-    let event = json!({
-        "eventCode": event_code, "timestamp": now, "reportDelay": 0,
-        "pageURL": page_url, "elementId": element_id, "elementName": element_name,
-        "os": "Win32", "arch": "", "osVersion": "10.0", "userAgent": WEB_UA,
-        "machineId": derive_id("webmachine", &uid), "userId": uid,
-        "userNickname": nickname_of(session),
-        "enterpriseId": session
-            .get("account")
-            .and_then(|account| account.get("enterpriseId"))
-            .and_then(Value::as_str)
-            .unwrap_or(""),
-    });
-    let body = json!([event]);
-    let mut headers = vec![
-        (
-            "Authorization".to_string(),
-            format!("Bearer {}", access_token_of(session)),
-        ),
-        ("Content-Type".to_string(), "application/json".to_string()),
-        ("Accept".to_string(), "application/json".to_string()),
-        ("x-client-platform".to_string(), "web".to_string()),
-        ("Origin".to_string(), WEB_BASE.to_string()),
-        ("Referer".to_string(), page_url.to_string()),
-        ("User-Agent".to_string(), WEB_UA.to_string()),
-    ];
-    if !uid.is_empty() {
-        headers.push(("X-User-Id".to_string(), uid));
-    }
-    let proxy = BillingService::proxy_of(session);
-    let url = format!("{WEB_BASE}{REPORT_PATH}");
-    raw_json_call("POST", &url, Some(&body), &headers, proxy.as_ref()).await?;
-    Ok(())
+    crate::server::core::billing::legacy_call(&crate::server::core::billing::shared_for_rpc(), session, "aibuddy.report.report_web_event", serde_json::json!({"event_code": event_code, "page_url": page_url, "element_id": element_id, "element_name": element_name})).await
 }
 
 // ─── mp 指纹（refs school.go ReportMPEvent，M4 小程序链路预留）──
@@ -565,40 +455,14 @@ fn mp_fingerprint(session: &Value) -> Value {
 /// 以小程序指纹向 www.codebuddy.cn/v2/report 批量上报事件
 /// （refs school.go:83-119；头集合 X-Client-Platform: mp-weixin /
 /// X-Platform: wechatmp / extName=workbuddy-mp 指纹）。
-pub async fn report_mp_events(
-    session: &Value,
-    events: Vec<Value>,
-) -> Result<(), BillingError> {
-    if events.is_empty() {
-        return Err(BillingError::new("mp report: no events", 400));
-    }
-    let fingerprint = mp_fingerprint(session);
-    let body = Value::Array(
-        events
-            .into_iter()
-            .map(|event| merge_event(&fingerprint, event))
-            .collect(),
-    );
-    let uid = uid_of(session);
-    let mut headers = vec![
-        (
-            "Authorization".to_string(),
-            format!("Bearer {}", access_token_of(session)),
-        ),
-        ("Content-Type".to_string(), "application/json".to_string()),
-        ("Accept".to_string(), "application/json".to_string()),
-        ("X-Client-Product".to_string(), "workbuddy-mp".to_string()),
-        ("X-Client-Version".to_string(), "2.4.0".to_string()),
-        ("X-Client-Platform".to_string(), "mp-weixin".to_string()),
-        ("X-Platform".to_string(), "wechatmp".to_string()),
-    ];
-    if !uid.is_empty() {
-        headers.push(("X-User-Id".to_string(), uid));
-    }
-    let proxy = BillingService::proxy_of(session);
-    let url = format!("{BILLING_BASE}{REPORT_PATH}");
-    raw_json_call("POST", &url, Some(&body), &headers, proxy.as_ref()).await?;
-    Ok(())
+pub async fn report_mp_events(session: &Value, events: Vec<Value>) -> Result<(), BillingError> {
+    crate::server::core::billing::legacy_call(
+        &crate::server::core::billing::shared_for_rpc(),
+        session,
+        "aibuddy.report.report_mp_events",
+        serde_json::json!({"events": events}),
+    )
+    .await
 }
 
 // ─── 外观主题（refs desktop.go SetAppearanceTheme）──────────
@@ -606,35 +470,14 @@ pub async fn report_mp_events(
 /// 应用外观主题（refs desktop.go:203-226：POST chat 域
 /// /v2/user-asset/appearance/set）。Hp_Appearance 的组合动作：
 /// set API 留痕 + appearance_skin_apply 事件上报（autotask.go:986-1004）。
-pub async fn set_appearance_theme(
-    session: &Value,
-    resource_key: &str,
-) -> Result<(), BillingError> {
-    let body = json!({ "kind": "theme", "resource_key": resource_key });
-    let uid = uid_of(session);
-    let mut headers = vec![
-        (
-            "Authorization".to_string(),
-            format!("Bearer {}", access_token_of(session)),
-        ),
-        (
-            "Accept".to_string(),
-            "application/json, text/plain, */*".to_string(),
-        ),
-        (
-            "Content-Type".to_string(),
-            "application/json;charset=UTF-8".to_string(),
-        ),
-        ("User-Agent".to_string(), DESKTOP_UA.to_string()),
-        ("X-Product".to_string(), "SaaS".to_string()),
-    ];
-    if !uid.is_empty() {
-        headers.push(("X-User-Id".to_string(), uid));
-    }
-    let proxy = BillingService::proxy_of(session);
-    let url = format!("{CHAT_BASE}{APPEARANCE_SET_PATH}");
-    raw_json_call("POST", &url, Some(&body), &headers, proxy.as_ref()).await?;
-    Ok(())
+pub async fn set_appearance_theme(session: &Value, resource_key: &str) -> Result<(), BillingError> {
+    crate::server::core::billing::legacy_call(
+        &crate::server::core::billing::shared_for_rpc(),
+        session,
+        "aibuddy.report.set_appearance_theme",
+        serde_json::json!({"resource_key": resource_key}),
+    )
+    .await
 }
 
 // ─── mp 指纹事件载荷构造器（refs school.go，判据事件的业务字段部分）────
@@ -644,7 +487,10 @@ pub async fn set_appearance_theme(
 /// `SchoolChatTimesEvents`：chat_3_times / Sequential 链的计数判据）。
 pub fn mini_chat_event(conversation_id: &str) -> Value {
     let rid = format!("wb2api-{}", client_token());
-    let message_tail = rid.get(rid.len().saturating_sub(8)..).unwrap_or(&rid).to_string();
+    let message_tail = rid
+        .get(rid.len().saturating_sub(8)..)
+        .unwrap_or(&rid)
+        .to_string();
     json!({
         "eventCode": "chat_request_send",
         "inputLength": 14, "isPlan": false, "isAutoExecuteTerminal": false,
@@ -688,8 +534,16 @@ pub fn mini_chat_model_event(conversation_id: &str, model_id: &str, model_name: 
 /// Sequential_Tasks_2 判据；不带 conversationId/activityId、extVersion=2.2.8、
 /// source=mini_program、type 恒 "send_message"；expertID 必须是市场真实 ex_ id）。
 pub fn mini_expert_use_event(expert_id: &str, expert_name: &str, expert_type: &str) -> Value {
-    let expert_type = if expert_type.is_empty() { "agent" } else { expert_type };
-    let expert_name = if expert_name.is_empty() { expert_id } else { expert_name };
+    let expert_type = if expert_type.is_empty() {
+        "agent"
+    } else {
+        expert_type
+    };
+    let expert_name = if expert_name.is_empty() {
+        expert_id
+    } else {
+        expert_name
+    };
     json!({
         "eventCode": "expert_actual_use", "reportDelay": 0,
         "extVersion": "2.2.8", "source": "mini_program",
@@ -761,7 +615,11 @@ pub fn desktop_expert_summon_sequence(expert: &super::expert::MarketExpert) -> V
 }
 
 /// expert_actual_use 公共载荷（refs desktop.go:569-588）。
-fn desktop_expert_actual_use(expert: &super::expert::MarketExpert, conversation_id: &str, request_id: &str) -> Value {
+fn desktop_expert_actual_use(
+    expert: &super::expert::MarketExpert,
+    conversation_id: &str,
+    request_id: &str,
+) -> Value {
     let category = expert.first_category();
     let version = expert.version_or_default();
     json!({
@@ -779,7 +637,11 @@ fn desktop_expert_actual_use(expert: &super::expert::MarketExpert, conversation_
 
 /// 「专家真实使用」事件 mode:"craft" 变体（refs desktop.go:554-558，
 /// expert_5/Expert_team_use_3 计数；requestID 必须是真实对话的服务端 id）。
-pub fn desktop_expert_actual_use_event(expert: &super::expert::MarketExpert, conversation_id: &str, request_id: &str) -> Value {
+pub fn desktop_expert_actual_use_event(
+    expert: &super::expert::MarketExpert,
+    conversation_id: &str,
+    request_id: &str,
+) -> Value {
     let mut event = desktop_expert_actual_use(expert, conversation_id, request_id);
     if let Some(object) = event.as_object_mut() {
         object.insert("mode".to_string(), json!("craft"));
@@ -789,7 +651,11 @@ pub fn desktop_expert_actual_use_event(expert: &super::expert::MarketExpert, con
 
 /// mode:"LOCAL" 变体（refs desktop.go:560-566：Expert_lighthouse 判据要求
 /// LOCAL，对齐真实样本 row 868：type 空、cost=0 由调用方覆盖）。
-pub fn desktop_expert_actual_use_local(expert: &super::expert::MarketExpert, conversation_id: &str, request_id: &str) -> Value {
+pub fn desktop_expert_actual_use_local(
+    expert: &super::expert::MarketExpert,
+    conversation_id: &str,
+    request_id: &str,
+) -> Value {
     let mut event = desktop_expert_actual_use(expert, conversation_id, request_id);
     if let Some(object) = event.as_object_mut() {
         object.insert("mode".to_string(), json!("LOCAL"));

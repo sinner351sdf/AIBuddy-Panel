@@ -311,14 +311,27 @@ export function setPreview(preview: AgentPreview | null): void {
  * 单配置客户端在这里做「单选」归一：只留一条 enabled，其余关掉 ——
  * 后端还会再兜一层（防手写请求），但界面上的开关行为要在这里就对。
  */
-export async function saveProfiles(clientId: string, profiles: AgentProfile[]): Promise<boolean> {
+// Resolve edits against the last acknowledged snapshot, including earlier queued
+// switch/default changes. A stale form must never replace an entire saved row.
+let profileWrites: Promise<unknown> = Promise.resolve()
+type ProfileUpdate = AgentProfile[] | ((current: AgentProfile[]) => AgentProfile[])
+
+export function saveProfiles(clientId: string, profiles: ProfileUpdate): Promise<boolean> {
+  const pending = profileWrites.then(() => writeProfiles(clientId, profiles))
+  profileWrites = pending.catch(() => undefined)
+  return pending
+}
+
+async function writeProfiles(clientId: string, profiles: ProfileUpdate): Promise<boolean> {
   const bridge = wb().workbuddyDesktop
   if (typeof bridge?.saveAgentProfiles !== 'function') {
     toast(t('当前环境不支持保存（桥接方法缺失）'), 'err')
     return false
   }
   const client = clientById(clientId)
-  const payload = profiles.map(item => ({ ...item }))
+  if (!client) return false
+  const current = client.profiles.map(item => ({ ...item }))
+  const payload = (typeof profiles === 'function' ? profiles(current) : profiles).map(item => ({ ...item }))
   if (client && client.configMode === 'single') {
     let kept = false
     for (const item of payload) {
@@ -329,6 +342,7 @@ export async function saveProfiles(clientId: string, profiles: AgentProfile[]): 
     const active = payload.find(item => item.enabled)
     for (const item of payload) item.default = item === active
   }
+  if (JSON.stringify(payload) === JSON.stringify(client.profiles)) return true
   try {
     accept(await bridge.saveAgentProfiles({ clientId, profiles: payload }))
     return true

@@ -20,7 +20,7 @@ import { t } from '../i18n'
  * Agent2API · 端口状态面板（React 岛）。
  *
  * 替换 ui/port-panel.js。对外接口与原实现**完全一致**：
- *   `window.wbPortPanel = { render, sync, portLabel, isReady }`
+ *   `window.wbPortPanel = { render, sync, portLabel, isReady, gatewayBase: () => snapshot.gatewayBase }`
  * 调用点全在 ui/app.js（sync 157 / 820 / 856、isReady 183、portLabel 186、
  * render 588），一行都不用改。差别只在两处控件的实现：状态条那两个按钮走
  * 组件库的 Button，弹窗走 Dialog 一族 + Input / Label，排版类名从 ui/css 的
@@ -732,7 +732,7 @@ if (document.readyState === 'loading') {
 paintGatewayAddress(snapshot.gatewayBase)
 void sync()
 
-window.wbPortPanel = { render, sync, portLabel, isReady }
+window.wbPortPanel = { render, sync, portLabel, isReady, gatewayBase: () => snapshot.gatewayBase }
 
 declare global {
   interface Window {
@@ -744,6 +744,7 @@ declare global {
       sync(): Promise<void>
       /** 网关地址（不含协议），顶栏徽标用 */
       portLabel(): string
+      gatewayBase(): string
       /** 网关进程是否在监听，顶栏徽标用 */
       isReady(): boolean
     }

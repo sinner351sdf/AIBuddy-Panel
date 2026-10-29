@@ -6,7 +6,7 @@ import { cn, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Separa
 import { t } from '../i18n'
 
 type BadgeState = { text: string; title: string; visible: boolean; running: boolean }
-type GroupId = 'intelligence' | 'pool' | 'forward' | 'ops'
+type GroupId = string
 const groups = [
   { id: 'intelligence' as const, label: '智能', icon: Sparkles, pages: [{ id: 'assistant', label: 'AI 助手', icon: Sparkles }] },
   { id: 'pool' as const, label: '账号与用量', icon: LayoutGrid, pages: [
@@ -19,9 +19,17 @@ const groups = [
   ] },
   { id: 'ops' as const, label: '运维', icon: Server, pages: [
     { id: 'requests', label: '运行日志', icon: List }, { id: 'logs', label: '系统日志', icon: FileText },
-    { id: 'tasks', label: '系统维护', icon: Activity }, { id: 'settings', label: '配置', icon: Settings },
+    { id: 'tasks', label: '系统维护', icon: Activity }, { id: 'plugins', label: '插件', icon: Blocks }, { id: 'settings', label: '配置', icon: Settings },
   ] },
 ]
+type NavigationGroup = { id: string; label: string; icon: typeof Sparkles; pages: { id: string; label: string; icon: typeof Sparkles }[] }
+type LayoutBridge = { readLayout(): unknown; renderGroups(layout: unknown): { id: string; label: string; items: { key: string; label: string; icon: string }[] }[]; groupLabel(label: string): string }
+function navigationGroups(): NavigationGroup[] {
+  const api = (window as unknown as { wbSidebarLayout?: LayoutBridge }).wbSidebarLayout
+  if (!api) return groups
+  const icons: Record<string, typeof Sparkles> = { spark: Sparkles, overview: LayoutGrid, accounts: Users, credits: Blocks, checkin: CalendarCheck, gateway: Workflow, agent: Workflow, proxies: Globe, key: KeyRound, logs: FileText, requests: List, tasks: Activity, plugins: Blocks, settings: Settings }
+  return api.renderGroups(api.readLayout()).map(group => ({ id: group.id, label: api.groupLabel(group.label), icon: groups.find(item => item.id === group.id)?.icon || LayoutGrid, pages: group.items.map(menu => ({ id: menu.key, label: menu.label, icon: icons[menu.icon] || Blocks })) }))
+}
 function stored(key: string) { try { return localStorage.getItem(key) } catch { return null } }
 function persist(key: string, value: string) { try { localStorage.setItem(key, value) } catch { /* storage unavailable */ } }
 const listeners = new Set<() => void>()
@@ -29,6 +37,7 @@ let snapshot = {
   page: document.querySelector<HTMLElement>('.page.active')?.dataset.page || 'overview',
   open: stored('aibuddy-sidebar-collapsed') !== '1',
   groups: Object.fromEntries(groups.map(group => [group.id, stored('nav-group-' + group.id) !== 'closed'])) as Record<GroupId, boolean>,
+  layoutRevision: 0,
   badges: {} as Record<string, BadgeState>,
 }
 function emit() { listeners.forEach(listener => listener()) }
@@ -58,13 +67,16 @@ function badgeHandle(id: string) {
 let toggleSidebar = () => {}
 let closeMobile = () => {}
 function syncPage() {
-  const page = document.querySelector<HTMLElement>('.page.active')?.dataset.page || snapshot.page
-  const group = groups.find(group => group.pages.some(item => item.id === page))
+  const section = document.querySelector<HTMLElement>('.page.active')
+  const page = (section?.dataset.page === '__plugin__' ? section.querySelector<HTMLIFrameElement>('iframe')?.dataset.pluginPage : section?.dataset.page) || snapshot.page
+  const group = navigationGroups().find(group => group.pages.some(item => item.id === page))
   if (page !== snapshot.page) { snapshot = { ...snapshot, page }; emit() }
   if (group) setGroup(group.id, true)
   closeMobile()
 }
-;(window as unknown as { wbShell: object }).wbShell = { syncPage, toggleSidebar: () => toggleSidebar(), badgeHandle }
+function refreshLayout() { snapshot = { ...snapshot, layoutRevision: snapshot.layoutRevision + 1 }; emit() }
+window.addEventListener('wb:sidebar-layout', refreshLayout)
+;(window as unknown as { wbShell: object }).wbShell = { refreshLayout, syncPage, toggleSidebar: () => toggleSidebar(), badgeHandle }
 
 /** Keep separately mounted status/account roots alive when Sidebar changes between desktop and Sheet. */
 function RetainedHost({ id, className }: { id: string; className?: string }) {
@@ -118,10 +130,10 @@ function Navigation() {
         <nav id='nav' aria-label={t('页面导航')}>
           <SidebarGroup className='py-0'><SidebarGroupLabel className='nav-section-label'>{t('工作区')}</SidebarGroupLabel>
             <SidebarMenu className='gap-2'>
-              {groups.map(group => <SidebarMenuItem key={group.id} className='nav-group' data-group={group.id}>
-                <Collapsible open={rail || state.groups[group.id]} onOpenChange={open => { if (!rail) setGroup(group.id, open) }}>
+              {navigationGroups().map(group => <SidebarMenuItem key={group.id} className='nav-group' data-group={group.id}>
+                <Collapsible open={rail || state.groups[group.id] !== false} onOpenChange={open => { if (!rail) setGroup(group.id, open) }}>
                   <CollapsibleTrigger id={'nav-group-toggle-' + group.id} aria-controls={'nav-group-' + group.id} render={<SidebarMenuButton className='nav-group-toggle group-data-[collapsible=icon]:hidden' data-group={group.id} />}>
-                    <group.icon /><span className='nav-group-title flex-1'>{t(group.label)}</span><ChevronRight className={cn(state.groups[group.id] && 'rotate-90')} />
+                    <group.icon /><span className='nav-group-title flex-1'>{t(group.label)}</span><ChevronRight className={cn(state.groups[group.id] !== false && 'rotate-90')} />
                   </CollapsibleTrigger>
                   <CollapsibleContent id={'nav-group-' + group.id} aria-labelledby={'nav-group-toggle-' + group.id}>
                     <SidebarMenuSub className='nav-group-content mt-1 gap-1 group-data-[collapsible=icon]:m-0 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:translate-x-0 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:p-0'>

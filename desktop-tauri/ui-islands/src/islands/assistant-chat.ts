@@ -56,6 +56,10 @@ export function restoreMessages(messages: UIMessage[]): UIMessage[] {
       ? { type: 'dynamic-tool' as const, toolName: getToolName(part), toolCallId: part.toolCallId, input: part.input ?? {}, state: 'output-error' as const, errorText: '历史操作已中断，未执行；需要时请重新发起。' } : part) }))
 }
 
+export function hasAssistantReply(message: UIMessage): boolean {
+  return message.role === 'assistant' && message.parts.some(part => part.type === 'text' ? Boolean(part.text.trim()) : part.type === 'reasoning' ? Boolean(part.text.trim()) : isToolUIPart(part))
+}
+
 type Run = { controller: AbortController; rounds: number }
 export function useAssistantChat() {
   const run = React.useRef<Run>({ controller: new AbortController(), rounds: 0 })
@@ -96,7 +100,7 @@ export function useAssistantChat() {
       try {
         const result = await tool.run(input, { signal: current.controller.signal, beforeAction: authorize })
         if (!valid(current)) return
-        writeCard(call.id, { call, state: 'done', summary: result.summary, detail: result.text })
+        writeCard(call.id, { call, state: result.failed ? 'failed' : 'done', summary: result.summary, detail: result.text, ...(result.failed ? { error: result.summary } : {}) })
         output(current, call, result)
       } finally {
         if (valid(current)) setRunningTools(n => Math.max(0, n - 1))
@@ -138,8 +142,9 @@ export function useAssistantChat() {
       void execute(call, input, false, current)
     },
     sendAutomaticallyWhen: ({ messages }) => valid(run.current) && lastAssistantMessageIsCompleteWithToolCalls({ messages }),
-    onFinish: ({ isAbort, isError, isDisconnect }) => {
+    onFinish: ({ message, isAbort, isError, isDisconnect }) => {
       if (isAbort || isError || isDisconnect) cancelTools()
+      else if (!hasAssistantReply(message)) setNotice('模型返回了空回复，可以重试或切换模型。')
     },
   })
   apiRef.current = chat

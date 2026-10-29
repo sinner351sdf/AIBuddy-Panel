@@ -51,13 +51,39 @@
     if (typeof value === 'string' && value) return value;
     return '';
   }
-  function storePanelAuth(access, refresh) {
+  function storePanelAuth(access, refresh, expiresIn) {
     try {
-      localStorage.setItem(PANEL_AUTH, JSON.stringify({ access: access, refresh: refresh }));
+      var seconds = Number(expiresIn);
+      localStorage.setItem(PANEL_AUTH, JSON.stringify({ access: access, refresh: refresh,
+        expiresAt: isFinite(seconds) && seconds > 0 ? Date.now() + seconds * 1000 : 0 }));
     } catch (e) { /* 隐私模式等：留在本次调用链即可 */ }
   }
   function clearPanelAuth() {
     try { localStorage.removeItem(PANEL_AUTH); } catch (e) { /* 无害 */ }
+  }
+
+  var refreshFlight = null;
+  var panelEpoch = 0;
+  var panelExpired = false;
+  function expiredPanelError() {
+    var error = new Error('登录会话已失效，请重新登录');
+    error.status = 401;
+    error.type = 'panel_login_required';
+    return error;
+  }
+  function expirePanel() {
+    if (!panelExpired) {
+      panelExpired = true;
+      clearPanelAuth();
+      try { localStorage.removeItem('agent2api-user'); } catch (e) { /* storage unavailable */ }
+      if (window.wbAccountMenu && typeof window.wbAccountMenu.invalidateSession === 'function') {
+        window.wbAccountMenu.invalidateSession();
+      }
+      var target = '/login?reason=session-expired';
+      if (typeof window.location.replace === 'function') window.location.replace(target);
+      else window.location.href = target;
+    }
+    return expiredPanelError();
   }
 
   // ── 覆盖层（Key 输入 / 链接兜底）：原生 DOM，界面样式不依赖 ──
@@ -288,6 +314,8 @@
   async function httpCall(method, path, body, retried) {
     // The mobile shell owns session refresh and its authentication sheet.
     if (typeof window.wbMobileHttp === 'function') return window.wbMobileHttp(method, path, body);
+    if (panelExpired) throw expiredPanelError();
+    var requestEpoch = panelEpoch;
     var headers = { 'Accept': 'application/json' };
     if (apiKey) headers['x-api-key'] = apiKey;
     // 面板会话的头部回退（见 PANEL_AUTH 段）：有存令牌就带上；
@@ -317,23 +345,28 @@
       throw new Error('无法连接网关：' + (error && error.message ? error.message : error));
     }
     var text = await response.text();
-    if (response.status === 401 && !retried) {
+    if (panelExpired) throw expiredPanelError();
+    var probe = null;
+    try { probe = JSON.parse(text); } catch (e) { /* handled below */ }
+    var errorType = probe && probe.error && probe.error.type;
+    // /status is public and returns 200 with no username when access expired.
+    // Never let that response keep a cached administrator badge alive.
+    var missingPanelUser = path === '/api/panel/status' && response.status === 200
+      && probe && probe.data && probe.data.registered === true && !probe.data.username;
+    if ((response.status === 401 && errorType === 'panel_login_required') || missingPanelUser) {
+      if (retried) throw expirePanel();
+      // A late response from the previous access token must not rotate the
+      // newly issued refresh token for a second time.
+      if (requestEpoch !== panelEpoch) return httpCall(method, path, body, true);
+      var refreshed = await tryRefresh();
+      if (refreshed === 'refreshed') return httpCall(method, path, body, true);
+      if (refreshed === 'expired') throw expirePanel();
+      throw new Error('暂时无法验证登录状态，请检查网络后重试');
+    }
+    if (response.status === 401 && !retried && (!errorType || errorType === 'invalid_api_key')) {
       // 按错误类型分流。panel_login_required：管理员已注册、要登录 ——
       // 先用长效 refresh 静默换新（access 过期时用户无感），不行再整页
       // 跳独立登录页；其余 401 = 未配管理员的部署，弹 Key 框兜底。
-      var probe = null;
-      try { probe = JSON.parse(text); } catch (e) { /* 非 JSON */ }
-      var errorType = probe && probe.error && probe.error.type;
-      if (errorType === 'panel_login_required') {
-        var refreshed = await tryRefresh();
-        if (refreshed) return httpCall(method, path, body, true);
-        // 续期失败 = 会话链真的没了：清掉本地令牌再跳登录页，
-        // 否则下次进来还带着死 token，永远是同一轮失败。
-        clearPanelAuth();
-        window.location.href = '/login';
-        // 页面即将整页跳转，返回一个挂起的承诺占位
-        return new Promise(function () {});
-      }
       var key = await askForKey();
       if (key) {
         storeKey(key);
@@ -374,7 +407,12 @@
   // **显式覆盖**（见 `api::panel::tokens_in_body`），所以不发标记时它会自己按
   // 探针 cookie 判：直连 → 仍走 cookie（响应体无令牌）；中转 → 探针判不通，
   // 令牌照样进响应体。两侧行为都不比原来差，只有直连侧少暴露一份凭据。
-  async function tryRefresh() {
+  function tryRefresh() {
+    if (refreshFlight) return refreshFlight;
+    refreshFlight = refreshPanelSession().finally(function () { refreshFlight = null; });
+    return refreshFlight;
+  }
+  async function refreshPanelSession() {
     try {
       var headers = { 'Accept': 'application/json' };
       var refreshToken = storedPanelToken('refresh');
@@ -386,16 +424,19 @@
         url += '?auth-mode=body';
       }
       var resp = await fetch(url, { method: 'POST', headers: headers });
-      if (!resp.ok) return false;
+      if (resp.status === 401) return 'expired';
+      if (!resp.ok) return 'unavailable';
       var payload = await resp.json();
+      if (!payload || payload.success === false) return 'unavailable';
       var data = payload && payload.data;
       if (data && typeof data.accessToken === 'string' && data.accessToken
         && typeof data.refreshToken === 'string' && data.refreshToken) {
-        storePanelAuth(data.accessToken, data.refreshToken);
+        storePanelAuth(data.accessToken, data.refreshToken, data.expiresIn);
       }
-      return true;
+      panelEpoch++;
+      return 'refreshed';
     } catch (e) {
-      return false;
+      return 'unavailable';
     }
   }
 

@@ -28,8 +28,8 @@
 //! 新配置；排期不动，定时任务照旧（细节见该方法的说明）。
 //!
 //! ── 两个通道：正式 / beta（`config::KEY_UPDATE_BETA`）──────────
-//! 默认走正式通道（`/releases/latest`，GitHub 自己排除预发布）。「加入 beta 版」
-//! 打开后改问 `/releases` 列表，由 `pick_listed_release` 挑一版 —— **当前跑 beta
+//! 正式与 beta 通道都读 `/releases` 列表，按应用标签与附件过滤后挑一版；
+//! 「加入 beta 版」打开时，**当前跑 beta
 //! 版的人只看预发布**（转正版不算更新，不会自动切回正式版），跑正式版的人预发布
 //! 一并参与（仓库没有 beta 时照旧收正式版更新）。
 //! 拨完开关**下一次检查**就换路（通道每次检查现读），排期与冷却都沿用同一条记录
@@ -218,15 +218,9 @@ impl UpdateManager {
 
     /// 拉一次最新 Release，并把**上游给的冷却截止**一并带回。
     ///
-    /// ── 两个通道 ────────────────────────────────────────────
-    /// 正式通道（默认）问 `/releases/latest`：GitHub 自己排除预发布与草稿。
-    /// 「加入 beta 版」打开后改问 `/releases` 列表，由 [`pick_listed_release`]
-    /// 按版本号挑一版 —— 挑法看**当前跑的是不是 beta 版**（`current_version`
-    /// 带不带预发布段）：跑正式版的人预发布一并参与（没有 beta 时照旧收正式版
-    /// 更新），跑 beta 版的人只看预发布（转正版不算更新，不会把人从 beta 频道
-    /// 拽回正式版）—— 见 `config::KEY_UPDATE_BETA` 与 [`pick_listed_release`]。
-    /// 两条路的返回体**元素同形**，之后共用同一段字段归一（[`release_json`]），
-    /// 所以面板、徽标、下载安装包三条下游都不感知通道差异。
+    /// 两个通道均查询 Release 列表，严格筛选应用标签和附件，避免同仓库的
+    /// 插件 Release 占用 latest 指针。beta 用户只看预发布，正式用户开启 beta
+    /// 后按版本取最高。仅显式自建源缺少列表接口时可尝试受同样筛选的 latest。
     ///
     /// 返回值里的 `Ok(None)` 表示这次没有可更新的一版（404、beta 列表为空、
     /// 或 beta 通道里当前没有可用 beta）：那不是错误，按「无更新」处理
@@ -249,24 +243,30 @@ impl UpdateManager {
         let prerelease_only = beta && version::is_prerelease_version(current_version);
         // 更新源根地址：默认 GitHub，`WORKBUDDY_UPDATE_API_BASE` 可指向自建源
         // （返回体与 GitHub 同形：tag_name / name / body / assets[]…）
-        let url = if beta {
-            format!(
-                "{}/repos/{repository}/releases?per_page={RELEASE_LIST_PER_PAGE}",
-                api_base()
-            )
-        } else {
-            format!("{}/repos/{repository}/releases/latest", api_base())
-        };
+        // Both channels list releases because /latest may refer to a provider
+        // plugin published in this same repository. Only a legacy custom source
+        // with no list endpoint may use /latest, with the same strict validation.
+        let url = format!("{}/repos/{repository}/releases?per_page={RELEASE_LIST_PER_PAGE}", api_base());
         let response = client::fetch_with_egress(&url, &client::github_headers(), Some(REQUEST_TIMEOUT_MS))
             .await.map_err(|error| (error, 0))?;
         let status = response.status().as_u16();
         let retry_at = retry_deadline(response.headers(), status);
         if status == 404 {
-            // 404 有两种来源：正式通道的「仓库还没有任何 Release」（GitHub 官方
-            // 行为）、自建更新源没实现被请求的那条路径（`WORKBUDDY_UPDATE_API_BASE`
-            // 只做了 `/releases/latest`、beta 通道却要列表时会这样）。两者都按
-            // 「无更新」处理，而不是把整次检查报成失败 —— 后者会让面板一直显示
-            // 错误、也挡住正式通道那条仍可用的路。
+            if !beta && version::custom_api_base().is_some() {
+                let legacy_url = format!("{}/repos/{repository}/releases/latest", api_base());
+                let legacy = client::fetch_with_egress(&legacy_url, &client::github_headers(), Some(REQUEST_TIMEOUT_MS))
+                    .await.map_err(|error| (error, 0))?;
+                let legacy_status = legacy.status().as_u16();
+                let retry_at = retry_deadline(legacy.headers(), legacy_status);
+                if legacy_status == 404 { return Ok((None, retry_at)); }
+                if !legacy.status().is_success() {
+                    return Err((UpdateError::new(format!("GitHub 返回 HTTP {legacy_status}")), retry_at));
+                }
+                let payload: Value = legacy.json().await.map_err(|error|
+                    (UpdateError::new(format!("解析 GitHub 响应失败: {error}")), retry_at))?;
+                let selected = version::pick_application_release(&payload, false, false);
+                return Ok((selected.map(|item| release_json(item, &repository)), retry_at));
+            }
             return Ok((None, retry_at));
         }
         if status == 403 || status == 429 {
@@ -279,28 +279,21 @@ impl UpdateManager {
         }
         let payload: Value = response.json().await
             .map_err(|error| (UpdateError::new(format!("解析 GitHub 响应失败: {error}")), retry_at))?;
-        // beta 通道拿到的是列表，先挑出「这次该更新到的一版」；挑不出来（列表空、
+        // 从列表挑出「这次该更新到的一版」；挑不出来（列表空、
         // 或只看预发布时一个 beta 都没有）= 无更新，交给 build_check_result 处理
-        let raw = if beta {
-            version::pick_listed_release(&payload, prerelease_only).cloned()
-        } else {
-            Some(payload)
-        };
+        let raw = version::pick_application_release(&payload, beta, prerelease_only).cloned();
         Ok((raw.map(|item| release_json(&item, &repository)), retry_at))
     }
 }
 
 /// 一次列表请求最多取多少条 Release。
 ///
-/// 30 条足够覆盖「取版本最高的一个」这件事：活跃仓库的发布间隔远大于此，
-/// 而响应体积仍很小（列表不带文件内容）。**别降到个位数** —— 热修补丁会排到
-/// 更旧的位置，取太少会漏掉真正版本最高的那一版。
-const RELEASE_LIST_PER_PAGE: u32 = 30;
+/// 应用与插件共用发布列表，取 100 条后按产物与通道筛选；列表不带附件内容。
+const RELEASE_LIST_PER_PAGE: u32 = 100;
 
 /// GitHub 的 Release 对象 → 内部形状（`build_check_result` 与容器内更新读它）。
 ///
-/// 两个通道共用：正式通道拿到的是单个对象（`/releases/latest`），beta 通道是
-/// 列表里挑出来的一个元素 —— 字段口径按 Node 版逐条对齐，**只在这里出现一次**。
+/// 两个通道共用列表里筛选出的元素，字段口径在这里统一。
 fn release_json(payload: &Value, repository: &str) -> Value {
     let text = |key: &str| payload.get(key).and_then(Value::as_str).unwrap_or("").to_string();
     let raw_tag = text("tag_name");
@@ -312,13 +305,22 @@ fn release_json(payload: &Value, repository: &str) -> Value {
     // 容器内更新的两件套：本机架构的更新包 + 它的 `.sha256` 伴随文件。
     // 包名先算一次（`server_bundle_name()` 在非 Linux 是 None，两个字段
     // 于是都为空 —— 桌面端根本用不到这条链路）。
+    let package_version = raw_tag.strip_prefix('v').unwrap_or(&raw_tag).split("-aibuddy.").next().unwrap_or("");
+    let desktop_prefix = format!("Agent2API_{package_version}_");
+    let assets = Value::Array(payload.get("assets").and_then(Value::as_array).into_iter().flatten()
+        .filter(|asset| {
+            let name = asset.get("name").and_then(Value::as_str).unwrap_or("");
+            (name.starts_with(&desktop_prefix) || name.starts_with("agent2api-server-"))
+                && asset.get("size").and_then(Value::as_u64).is_some_and(|size| size > 0 && size <= version::MAX_INSTALLER_BYTES)
+                && asset.get("browser_download_url").and_then(Value::as_str).is_some_and(|url| !url.is_empty())
+        }).cloned().collect());
     let bundle = server_bundle_name();
     let bundle_asset = bundle
         .as_deref()
-        .and_then(|name| pick_asset_by_name(payload.get("assets"), name));
+        .and_then(|name| pick_asset_by_name(Some(&assets), name));
     let bundle_checksums = bundle
         .as_deref()
-        .and_then(|name| pick_asset_by_name(payload.get("assets"), &format!("{name}.sha256")));
+        .and_then(|name| pick_asset_by_name(Some(&assets), &format!("{name}.sha256")));
     json!({
         "tag": tag,
         "name": if name.is_empty() { raw_tag } else { name },
@@ -326,7 +328,7 @@ fn release_json(payload: &Value, repository: &str) -> Value {
         "publishedAt": if published_at.is_empty() { text("created_at") } else { published_at },
         "pageUrl": if page_url.is_empty() { format!("https://github.com/{repository}/releases") } else { page_url },
         "prerelease": payload.get("prerelease").and_then(Value::as_bool) == Some(true),
-        "asset": pick_installer(payload.get("assets")),
+        "asset": pick_installer(Some(&assets)),
         "serverBundle": bundle_asset.unwrap_or(Value::Null),
         "serverChecksums": bundle_checksums.unwrap_or(Value::Null),
     })

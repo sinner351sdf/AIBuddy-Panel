@@ -39,7 +39,7 @@ jobs:
           fi
           if [ -n "$version" ]; then
             actual=$(sed -n 's/^version = "\(.*\)"/\1/p' desktop-tauri/src-tauri/server/Cargo.toml | head -1)
-            [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$ ]] && [ "${version%%-*}" = "$actual" ] || { echo '发布版本的基础版本必须与检出的服务端版本一致'; exit 1; }
+            [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]] && [ "${version%%-*}" = "${actual%%-*}" ] || { echo '发布版本的基础版本必须与检出的服务端版本一致'; exit 1; }
             echo "version=$version" >> "$GITHUB_OUTPUT"
           fi
           repository=$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')

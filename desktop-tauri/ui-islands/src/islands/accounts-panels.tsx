@@ -1,5 +1,4 @@
-import { Empty, EmptyHeader, EmptyDescription } from '@ui'
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator } from '@ui'
+import { SelectGroup } from '@ui'
 /**
  * 账号表的**行与单元格**（替换 ui/accounts-table.js 的单元格渲染 + ui/accounts-model.js
  * 的 ⋯ 菜单 / 行内面板 HTML + ui/accounts-view.js 的菜单交互）。
@@ -22,31 +21,19 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGro
 
 import * as React from 'react'
 import {
-  SelectGroup,
   Badge,
   BadgeDot,
   Button,
   Checkbox,
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogSection,
-  DialogTitle,
   Popover,
   PopoverContent,
   PopoverTrigger,
-  Progress,
-  Separator,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Spinner,
   Switch,
-  Toggle,
   Tooltip,
   TooltipArrow,
   TooltipContent,
@@ -54,29 +41,28 @@ import {
   TooltipTrigger,
   cn,
 } from '@ui'
-import { esc, errorMessage, toast, formatTime, numberText, poolItemLabel, POOL_VALUE_PREFIX, shared, type AccountRecord, type LimiterRule, type TokenReading, type UsageEntry } from './accounts-shared'
+import { formatTime, numberText, poolItemLabel, POOL_VALUE_PREFIX, shared, type AccountRecord, type LimiterRule, type TokenReading, type UsageEntry } from './accounts-shared'
 import {
-  accountEdition, accountTags, activeLimits, balanceBlockedOf, claimDoneTitle, claimedToday,
+  accountTags, activeLimits, balanceBlockedOf, claimDoneTitle, claimedToday,
   displayNameOf, expiryMillis, formatIntervalSeconds, formatResetText,
-  formatTokenCount, identifierOf, isDesktopAccount, isEnabled, isFreePlan, planBadgeLabel,
+  formatTokenCount, identifierKeyOf, identifierOf, isDesktopAccount, isEnabled, isFreePlan, planBadgeLabel,
   providerFeatures,
-  providerOf, RESET_UNKNOWN, supportsClaim, supportsCreditDetail, supportsUsage, supportsUsageDetail,
-  tokenBlockedOf, tokenCountdownText, tokenDisableTriggeredOf, tokenReadingForRule,
-  tokenRulesOf, tokenWindowInfo, zcodePlanStateLabel, zcodeLimitLabel, supportsPlanChannel,
-  supportsApiKeys,
+  providerOf, supportsClaim, supportsCreditDetail, supportsUsage, supportsUsageDetail,
+  tokenBlockedOf, tokenCountdownText, tokenDisableTriggeredOf, tokenExpiryOf, tokenReadingForRule,
+  tokenRulesOf, tokenWindowInfo, zcodePlanStateLabel,
 } from './accounts-domain'
 import { CreditDetailButton, creditRowsOf } from './accounts-credit-detail'
+import { LimitDetailButton, limitRowsOf } from './accounts-limit-detail'
 import {
   PROXY_CUSTOM_CURRENT, PROXY_CUSTOM_EDIT, applyProxyPick,
-  connectionsOf, maskName, openBatchDialog, openSettingsDialog, openZcodePlans,
-  poolError, proxyPoolSnapshot, queryUsageOnce, setAccountEnabled, setGroupEnabled, setPanelOpen,
+  connectionsOf, getStore, groupSortRules, maskName, openBatchDialog, openGroupDialog, openSettingsDialog, openZcodePlans,
+  poolError, proxyPoolSnapshot, queryUsageOnce, setAccountEnabled, setGroupEnabled,
   tokenUsageOf, toggleGroupCollapsed, toggleNamesHidden, usageEntryOf, usageFailureOf,
 } from './accounts-data'
 import type { AccountGroup } from './accounts-domain'
+import { groupSortSummary } from './accounts-group-settings'
 import { PROVIDER_ICONS } from './add-provider-pick'
 import { t } from '../i18n'
-import { WorkBuddyTasksDialog } from './workbuddy-tasks-dialog'
-import { balanceDisplayRows, type BalanceDisplayRow } from './accounts-balance'
 
 /** 图标（icons.js 的内联 SVG 串）：整站共用一份图标集，这里只做注入 */
 function iconHtml(name: string, size: number): string {
@@ -97,13 +83,26 @@ function iconHtml(name: string, size: number): string {
  * 把手是**唯一**的拖动起点（不是整行都能拖）：行里还有开关、下拉、按钮，整行可拖会
  * 让「点一下开关」变成「拖走了一行」。序号显示的是它在**本组内**的位次，组与组之间的
  * 先后由分组带的顺位表达 —— 两者合起来才是真实的尝试顺序。
+ *
+ * ── `sortActive`：这一组开着排序规则时把手锁定 ────────────────
+ * 顺序此时由规则算出来，拖它没有意义（松手之后一次重排又会按规则排回去）。
+ * 把手压淡、光标换成禁止，点击给一次说明（由 accounts-queue-drag 的 onLockedAttempt
+ * 统一提示）—— 静默不响应会让人以为界面卡了。
  */
-export function OrderCell({ account, rank }: { account: AccountRecord; rank: number }) {
+export function OrderCell({ account, rank, sortActive }: {
+  account: AccountRecord
+  rank: number
+  sortActive?: boolean
+}) {
   const label = t('组内第 {rank} 位', { rank })
   return (
     <div className='order-cell'>
-      <span className='order-grip' role='button' tabIndex={-1} aria-label={t('拖动调整组内顺序')}
-        title={t('按住拖动，调整这个账号在本组内的顺序')}
+      <span className={cn(`order-grip${sortActive ? ' locked' : ''}`)} role='button' tabIndex={-1}
+        aria-label={t('拖动调整组内顺序')}
+        aria-disabled={sortActive || undefined}
+        title={sortActive
+          ? t('这一组开着排序规则：关掉规则后才能手动拖')
+          : t('按住拖动，调整这个账号在本组内的顺序')}
         dangerouslySetInnerHTML={{ __html: iconHtml('gripVertical', 14) }} />
       <span className='order-rank' title={label}>{`#${rank}`}</span>
     </div>
@@ -127,34 +126,35 @@ export function OrderCell({ account, rank }: { account: AccountRecord; rank: num
  */
 function GroupMenu({ group, ids, collapsed }: { group: AccountGroup; ids: string[]; collapsed: boolean }) {
   const [open, setOpen] = React.useState(false)
+  const itemClass = 'w-full justify-start px-2 font-normal'
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger render={<Button variant='ghost' size='icon-xs' title={t('本组操作')} aria-label={t('本组操作')} />}>⋯</DropdownMenuTrigger>
-      <DropdownMenuContent align='end' sideOffset={4} className='w-[196px] p-1.5'>
-        <DropdownMenuGroup>
-          <DropdownMenuItem
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger render={<Button variant='ghost' size='sm' type='button' className='grp-iconbtn' title={t('本组操作')} />}>⋯</PopoverTrigger>
+      <PopoverContent align='end' sideOffset={4} className='w-[196px] p-1.5'>
+        <div className='flex flex-col gap-0.5'>
+          <Button variant='ghost' size='sm' className={itemClass}
             title={t('启用这一组里的全部账号（含被筛选隐藏的）')}
             onClick={() => { setOpen(false); void setGroupEnabled(ids, true) }}>
             {t('全部启用（{n}）', { n: ids.length })}
-          </DropdownMenuItem>
-          <DropdownMenuItem
+          </Button>
+          <Button variant='ghost' size='sm' className={itemClass}
             title={t('禁用这一组里的全部账号（含被筛选隐藏的）')}
             onClick={() => { setOpen(false); void setGroupEnabled(ids, false) }}>
             {t('全部禁用（{n}）', { n: ids.length })}
-          </DropdownMenuItem>
-          <DropdownMenuItem
+          </Button>
+          <Button variant='ghost' size='sm' className={itemClass}
             title={t('打开批量操作弹窗，并预选这一组的账号（改代理等动作在弹窗里挑参数）')}
             onClick={() => { setOpen(false); openBatchDialog(ids, 'proxy') }}>
             {t('批量操作本组')}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
+          </Button>
+          <div className='my-1 h-px bg-hairline' />
+          <Button variant='ghost' size='sm' className={itemClass}
             onClick={() => { setOpen(false); toggleGroupCollapsed(group.provider) }}>
             {collapsed ? t('展开这一组') : t('折叠这一组')}
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -170,7 +170,7 @@ function GroupMenu({ group, ids, collapsed }: { group: AccountGroup; ids: string
 type GroupBalance = {
   /** 能相加的账号数 */
   counted: number
-  /** 本组账号总数（含没查 / 失败 / 只给比例的） */
+  /** 参与统计的账号数（整组口径 = 组内全部；按筛选口径 = 可见的那些） */
   total: number
   /** 合计；一个都加不起来时 null */
   sum: number | null
@@ -186,15 +186,23 @@ type GroupBalance = {
   pending: number
   /** 半次失败（两台网关有一台没回话）：读数计入，但要点 ⚠ */
   partial: number
+  /** 求和口径：整组（默认）还是当前筛选后的可见行 —— tooltip 要照着说 */
+  scope: 'group' | 'filtered'
 }
 
 /**
- * 组头合计：这一组**全部**账号的可用余额之和。
+ * 组头合计：这一组账号的可用余额之和。
  *
- * ── 为什么按整组求和，不按筛选 / 分页 ────────────────────────
- * 与相邻那句「N 个账号 · 启用 x · 禁用 y」同一口径：组头回答的是「这一家有多少
- * 家底」，不是「这一屏显示了多少」。而且组折叠起来之后，行都没了，组头这个合计
- * 是唯一还看得见的余额读数 —— 它要是随筛选跳，收起来就连个稳当的数都没有。
+ * ── 两种口径（设置 → 显示 → 账号列表 的开关切）──────────────
+ *   · **整组**（默认）：算这一组**全部**账号，不受筛选 / 搜索 / 分页影响。
+ *     组头回答的是「这一家有多少家底」，而组折叠起来之后行都没了，组头这个
+ *     合计是唯一还看得见的余额读数 —— 它要是随筛选跳，收起来连个稳当的数都没有。
+ *   · **按筛选**（用户显式打开）：只算当前可见的行，与筛选徽标所见即所得。
+ *     总量口径会让人困惑：明明只显示一行 100，合计却是 1,000（另一行的 900
+ *     被筛掉了却仍计入）—— 打开这个开关就得到 100。
+ *
+ * 分页**不**参与这个开关：口径说的是「筛选 / 搜索」，翻页只是看同一份结果的
+ * 不同屏，把合计切成「当前页之和」会让同一个筛选下每翻一页数字都变。
  *
  * ── 为什么禁用账号也算 ────────────────────────────────────
  * 余额是**资产**不是流量：禁用只表示不参与转发，额度仍在账上。只算启用的话，
@@ -209,10 +217,10 @@ type GroupBalance = {
  * 单位不同的不相加：同一家理论上不会出现，真出现就按第一个计入的单位记账，
  * 其余算「没计入」—— 把两种单位加成一个数才是真正的谎。
  */
-function groupBalanceOf(members: AccountRecord[]): GroupBalance {
+function groupBalanceOf(members: AccountRecord[], scope: 'group' | 'filtered' = 'group'): GroupBalance {
   const out: GroupBalance = {
     counted: 0, total: members.length, sum: null, unlimited: 0, unit: '',
-    failed: 0, uncountable: 0, pending: 0, partial: 0,
+    failed: 0, uncountable: 0, pending: 0, partial: 0, scope,
   }
   let sum = 0
   for (const account of members) {
@@ -256,9 +264,13 @@ function balanceAmountText(value: number): string {
   return api?.formatTokens ? api.formatTokens(value) : numberText(value)
 }
 
-/** 合计的悬停全文：先讲口径（整组、不受筛选影响），再把没算进来的逐条交代 */
+/** 合计的悬停全文：先讲口径（整组 / 按筛选），再把没算进来的逐条交代 */
 function groupBalanceTitle(balance: GroupBalance): string {
-  const parts = [t('本组 {n} 个账号的可用余额之和，按整组统计（不受筛选、搜索影响）', { n: balance.total })]
+  const parts = [
+    balance.scope === 'filtered'
+      ? t('当前筛选下 {n} 个账号的可用余额之和（随筛选、搜索变化，不受分页影响）', { n: balance.total })
+      : t('本组 {n} 个账号的可用余额之和，按整组统计（不受筛选、搜索影响）', { n: balance.total }),
+  ]
   parts.push(t('{n} 个已计入', { n: balance.counted }))
   if (balance.unlimited) parts.push(t('含 {n} 个不限额度账号，合计记为 ∞', { n: balance.unlimited }))
   if (balance.pending) parts.push(t('{n} 个还没查到（未查询或正在查询）', { n: balance.pending }))
@@ -291,7 +303,7 @@ function GroupBalanceBadge({ balance }: { balance: GroupBalance }) {
     ? t('计入 {counted}/{total}', { counted: balance.counted, total: balance.total })
     : ''
   return (
-    <span className={cn('grp-balance', tone)} title={groupBalanceTitle(balance)}>
+    <span className={cn(`grp-balance ${tone}`)} title={groupBalanceTitle(balance)}>
       <span className='k'>{t('可用合计')}</span>
       <b className='v'>{amount}</b>
       {unit ? <span className='u'>{unit}</span> : null}
@@ -304,9 +316,10 @@ function GroupBalanceBadge({ balance }: { balance: GroupBalance }) {
 /**
  * 分组带：一家的分隔横幅（`<tbody>` 的第一行，通栏一格）。
  *
- * 拖动把手与 ⋯ 菜单独立；中间整条标题是折叠按钮，箭头放左侧以免横向滚动后看不到。
- * 标题包含顺位、家图标 + 家名与统计（N 个账号 · 启用 x · 禁用 y · 限流 z）。
- * 统计读的是**整组**（不受筛选影响）：它回答「这一家有多少账号」，不是「当前显示几行」。
+ * 从左到右：拖动把手（整组顺位的唯一拖动起点）→ 顺位 → 家图标 + 家名 → 统计
+ * （N 个账号 · 启用 x · 禁用 y · 限流 z）→ 可用合计 → 右侧折叠箭头与 ⋯ 菜单。
+ * 统计读的永远是**整组**（「这一家有多少账号」不随筛选变）；合计的口径由设置里
+ * 的开关决定（见 `groupBalanceOf`）：默认整组，打开后只算当前可见的行。
  *
  * 样式刻意保持中性（surface 底 + 一条 hairline）：一家一色会让整页像调色板，
  * 而「哪一段是哪一家」由家名与图标已经说清楚了。
@@ -317,25 +330,40 @@ export function GroupBandRow({ group, collapsed, colSpan }: {
   colSpan: number
 }) {
   const icon = PROVIDER_ICONS[group.provider]
-  // 合计只在「有求和的余地」时出现：一个账号的组，合计与下面那行读数逐字重复；
-  // 不支持余额查询的家，挂一个永远的「—」只是噪音
-  const balance = group.members.length > 1 && group.members.some(supportsUsage)
-    ? groupBalanceOf(group.members)
+  // 合计口径：默认整组（`members`），设置里打开「按筛选」后改用可见行（`accounts`）。
+  // 分页不参与 —— 见 groupBalanceOf 的说明。
+  const filtered = getStore().groupTotalFiltered
+  const members = filtered ? group.accounts : group.members
+  // 「值不值得画合计」看的是**整组**有几个账号（一个账号的组，合计与下面那行读数
+  // 逐字重复）；而**加哪些账号**看的是当前口径。两者不能合成一个判据：按筛选口径下
+  // 筛出唯一一行时，合计正是用户要的那个数（100），不能因为「可见只剩一行」就藏掉。
+  const worthSumming = group.members.length > 1 && members.length > 0
+  const balance = worthSumming && members.some(supportsUsage)
+    ? groupBalanceOf(members, filtered ? 'filtered' : 'group')
     : null
+  /**
+   * 整条分组带可点折叠。
+   *
+   * 判定「这一下算不算点击带宽」交给事件目标：落在按钮 / 拖动把手 / 链接 / 表单控件
+   * 上的点击都有各自的动作，不能顺手把组收起来。放在容器上而不是每个子元素上，
+   * 是因为带宽里还有家名、统计、合计这些纯文本 —— 用户点它们时心里想的就是「收起来」。
+   */
+  const onBandClick = (event: React.MouseEvent<HTMLTableCellElement>) => {
+    if ((event.target as Element | null)?.closest?.('button, a, input, select, label, .queue-grip')) return
+    // 拖选文字时（正在复制账号名）不折叠：那一下是选择而不是点击
+    if (String(window.getSelection?.() || '').length > 0) return
+    toggleGroupCollapsed(group.provider)
+  }
+  const sortSummary = groupSortSummary(groupSortRules(group.provider))
   return (
     <tr className='grp-band' data-provider={group.provider}>
-      <td colSpan={colSpan}>
+      <td colSpan={colSpan} onClick={onBandClick}>
         <div className='grp-band-inner'>
           <span className='queue-grip' role='button' tabIndex={-1} aria-label={t('拖动调整整组顺序')}
-            title={t('按住拖动，调整这一组的路由优先级（整组一起移动）')}
+            title={t('按住拖动，调整这一家的组顺位（整组一起动）')}
             dangerouslySetInnerHTML={{ __html: iconHtml('gripVertical', 14) }} />
-          <Button variant='ghost' size='xs' className='grp-toggle' aria-expanded={!collapsed}
-            aria-label={`${collapsed ? t('展开这一组') : t('折叠这一组')}：${group.label}`}
-            title={collapsed ? t('展开这一组') : t('折叠这一组')}
-            onClick={() => toggleGroupCollapsed(group.provider)}>
-          <span className='grp-fold' aria-hidden='true' dangerouslySetInnerHTML={{ __html: iconHtml('chevronDown', 14) }} />
-          <span className='grp-rank' title={t('路由优先级：数值越小，越优先尝试该组账号（拖动分组带调整）')}>
-            {t('路由优先级 {rank}', { rank: group.rank })}
+          <span className='grp-rank' title={t('组顺位：越小越先用（拖动分组带调整）')}>
+            {t('第 {rank} 顺位', { rank: group.rank })}
           </span>
           <span className='grp-logo'>
             {icon
@@ -350,8 +378,23 @@ export function GroupBandRow({ group, collapsed, colSpan }: {
             limited: group.limited > 0 ? t(' · 限流 {n}', { n: group.limited }) : '',
           })}</span>
           {balance ? <GroupBalanceBadge balance={balance} /> : null}
+          {sortSummary ? (
+            <Button variant='ghost' size='sm' type='button' className='grp-sort-mark'
+              title={t('当前排序规则：{rules}。点击调整', { rules: sortSummary })}
+              onClick={() => openGroupDialog(group.provider)}>
+              <span dangerouslySetInnerHTML={{ __html: iconHtml('sort', 10) }} />
+              {sortSummary}
+            </Button>
+          ) : null}
           <span className='grp-spacer' />
-          </Button>
+          <Button variant='ghost' size='sm' type='button' className='grp-iconbtn grp-fold' aria-expanded={!collapsed}
+            title={collapsed ? t('展开这一组') : t('折叠这一组')}
+            onClick={() => toggleGroupCollapsed(group.provider)}
+            dangerouslySetInnerHTML={{ __html: iconHtml('chevronDown', 14) }} />
+          <Button variant='ghost' size='sm' type='button' className='grp-iconbtn' title={t('分组设置')}
+            aria-label={t('分组设置')}
+            onClick={() => openGroupDialog(group.provider)}
+            dangerouslySetInnerHTML={{ __html: iconHtml('settings', 14) }} />
           <GroupMenu group={group} ids={group.accounts.map(account => account.id)} collapsed={collapsed} />
         </div>
       </td>
@@ -403,13 +446,20 @@ export function StatusCell({ account }: { account: AccountRecord }) {
 /**
  * 限流：这个账号**当前限流中的模型**。限额在后端按「账号 × 模型」记，四家通用 ——
  * 所以这一列对四家都成立，不再需要「选个模型看队列」的筛选器。
- * 有限流时是一枚可点的黄色徽章（点开 / 收起行下的明细面板），正常时是绿点「正常」。
+ * 有限流时是一枚可点的读数条（点开行下的明细弹层，见 accounts-limit-detail），
+ * 正常时是绿点「正常」。
  *
  * 「已限流」分段把限制器的跳过档也算进来（isLimitedNow 的口径），这一列必须同口径：
  * 没有模型限额但被限制器拦下的账号不亮绿点，给一枚黄色「余额不足 / Token 限额」
  * 说明它为何归入已限流（跳过的细节仍由余额列的徽章承载，这里不复述）。
+ *
+ * 三家形态的判据都是「有没有生效中的限额记录」，不为任何一家开特例 ——
+ * 记录怎么来（429 / 限额码 / 上游的 Retry-After）是转发层的事，界面只认这一份。
  */
-export function LimitsCell({ account, open }: { account: AccountRecord; open: boolean }) {
+export function LimitsCell({ account, onClear }: {
+  account: AccountRecord
+  onClear: (model: string) => void
+}) {
   const entries = activeLimits(account)
   if (!entries.length) {
     if (balanceBlockedOf(account, usageEntryOf(account))) {
@@ -434,19 +484,14 @@ export function LimitsCell({ account, open }: { account: AccountRecord; open: bo
       </Badge>
     )
   }
-  const soonest = formatResetText(entries[0].resetAt)
   return (
-    <>
-      <Badge variant='warning' shape='tag' render={<button type='button' />}
-        className={cn(open ? 'ring-2 ring-warning-soft' : undefined)}
-        title={t('点击{action}各模型的限流明细', { action: open ? t('收起') : t('查看') })}
-        onClick={() => setPanelOpen(account.id, 'limits', !open)}>
-        {supportsPlanChannel(account) ? t('{n} 项通道冷却 ▾', { n: entries.length }) : t('{n} 个模型 ▾', { n: entries.length })}
-      </Badge>
-      <span className='lim-sub' title={t('最早恢复')}>
-        {t('最早 {soonest} 恢复', { soonest: soonest === RESET_UNKNOWN ? t('待定') : soonest })}
-      </span>
-    </>
+    <LimitDetailButton
+      accountName={displayNameOf(account)}
+      rows={limitRowsOf(account)}
+      count={entries.length}
+      soonest={formatResetText(entries[0].resetAt)}
+      onClear={onClear}
+    />
   )
 }
 
@@ -462,10 +507,19 @@ export function LimitsCell({ account, open }: { account: AccountRecord; open: bo
  * 刷新响应都是 13 位毫秒），不归一时 `1791009732` 当毫秒读就是 1970-01-21，账号一进
  * 面板就红着显示「已过期」。归一规则与理由写在 accounts-domain.ts 那一处，
  * 后端 `providers::trae::Credential::expires_at_ms` 是同一个口径。
+ *
+ * ── 「长期有效」与「—」是两件事 ────────────────────────────
+ * 主凭证本来就没有到期时刻的家（Antigravity 的 Google refresh token、智谱清言、
+ * ModelScope、Command Code）显示「长期有效」—— 它回答的是「要不要担心过期」。
+ * 而「—」只表示「这条记录里读不到到期时间」（KukuAI 的 BDUSS 就是这种：读不出
+ * 时刻，但上游随时可能作废）。判据是能力表的 `longLived` 位，不是「字段为空」。
  */
 export function ExpiryCell({ account }: { account: AccountRecord }) {
   const features = providerFeatures(providerOf(account))
-  const expiresAt = expiryMillis(features.edition ? account.expiresAt : account[features.expiry])
+  if (features.longLived) {
+    return <span title={t('主凭证没有固定到期时刻，到期由网关自动续期或本来就不会过期')}>{t('长期有效')}</span>
+  }
+  const expiresAt = features.edition ? expiryMillis(account.expiresAt) : tokenExpiryOf(account)
   if (!expiresAt) return <span className='muted' title={t('记录里没有过期时间')}>—</span>
   const left = expiresAt - Date.now()
   if (left <= 0) return <Badge variant='destructive' shape='tag' title={t('凭证已过期，转发时会先刷新')}>{t('已过期')}</Badge>
@@ -480,13 +534,16 @@ export function ExpiryCell({ account }: { account: AccountRecord }) {
 
 /**
  * 连接数：此刻正在使用这个账号的请求数（2 秒一轮的实时计数）。
- * 默认显示 0，避免空白难以理解；空闲数字用中性色，正在处理请求时保留绿色强调。
- * 计数读取与轮询失败时保留缓存的行为由 connectionsOf / syncConnections 负责。
+ * 口径与 OmniProxy 上游管理页的「连接」列一致 —— 有连接时显示数字、为 0 时**什么都不
+ * 显示**（留空）。满屏的 0 会把少数几个真正在跑的账号淹没；要看「谁是 0」时空白本身
+ * 就是答案。计数缺失（还没拉到、后端不可达）与 0 同样处理：把一个尚未知的值渲染成 0
+ * 会读成「这个账号没在用」，而事实可能是「数据还没到」。
  */
 export function ConnectionsCell({ account }: { account: AccountRecord }) {
   const value = connectionsOf(account.id)
+  if (value <= 0) return null
   return (
-    <span className={cn('conn-count', value === 0 && 'idle')} title={t('{n} 个请求正在使用该账号（含还在下发内容的流式请求）', { n: value })}>
+    <span className='conn-count' title={t('{n} 个请求正在使用该账号（含还在下发内容的流式请求）', { n: value })}>
       {value}
     </span>
   )
@@ -601,8 +658,7 @@ export function usageSummary(entry: UsageEntry): { text: string; kind: string; t
     // 上游给的展示串优先（带千分位 / 单位的格式化），没有才按数值拼
     const detail = wallets
       .map(wallet => `${wallet?.displayName || wallet?.type || t('明细')} `
-        + `${wallet?.balanceView ? String(wallet.balanceView) : numberText(wallet?.balance)}`
-        + (wallet?.detail ? ` · ${String(wallet.detail)}` : ''))
+        + `${wallet?.balanceView ? String(wallet.balanceView) : numberText(wallet?.balance)}`)
       .join(' · ')
     const subscription = subscriptionText(data.subscription)
     // ── 没有额度桶时的口径说明（两档，判据都是**结构**不是文案）───────
@@ -624,16 +680,21 @@ export function usageSummary(entry: UsageEntry): { text: string; kind: string; t
     // 展示串优先：ZCode 的额度单位是 token（1 亿 = 9 位数字），而余额列只有几十
     // 像素宽 —— 后端因此给了 `availableView`（`1亿 token` 这类紧凑串）。没有这个
     // 字段的家（其余全部）走的仍是「数值 + 单位」那条老路，行为一字未变。
-    // Accio 只有周期百分比，available=null 是「没有积分绝对数」。从额度桶
-    // 取剩余比例，不能拼成「可用 — %」，也不能把未知值伪装成 0%。
-    const fallbackWallet = data.available == null ? wallets.find(wallet => numberOrNull(wallet?.balance) !== null && String(wallet?.unit || unit) !== '%') : undefined
-    const percentageOnly = unit === '%' && numberOrNull(data.available) === null
-    const percentagePool = percentageOnly ? usagePool(entry) : null
+    // `available` 为 null 是「上游只有比例、没有绝对剩余量」的形状（Accio 的
+    // `usagePercent`：issue #242 的「可用 — %」）—— 此时读**钱包里的实际读数**
+    // （`balance` + 自己的 `unit`），有可读的钱包就不再拼「—」。钱包也没有
+    // （真读空了）才落回「—」，如实说没读到。
+    const fallbackWallet = data.available == null
+      ? wallets.find(wallet => wallet?.balance != null)
+      : undefined
     const available = data.availableView
       ? String(data.availableView)
-      : fallbackWallet ? t('可用 {value} {unit}', { value: numberText(fallbackWallet.balance), unit: String(fallbackWallet.unit || unit) })
-      : percentageOnly ? (percentagePool?.text || t('无数据'))
-      : t('可用 {value} {unit}', { value: numberText(data.available), unit })
+      : fallbackWallet
+        ? t('可用 {value} {unit}', {
+            value: numberText(fallbackWallet.balance),
+            unit: String(fallbackWallet.unit || unit),
+          })
+        : t('可用 {value} {unit}', { value: numberText(data.available), unit })
     // ── 部分失败：一份账读到了、另一份没读到 ────────────────────
     // CodeArts 的余额是**两台网关**（订阅统计 + 福利网关，见后端
     // `providers::codearts::balance` 的模块头），后端把失败的一侧写进
@@ -655,7 +716,7 @@ export function usageSummary(entry: UsageEntry): { text: string; kind: string; t
       : []
     return {
       text: available + (missing.length ? ' ⚠' : ''),
-      kind: missing.length ? 'warn' : percentageOnly && !percentagePool && !fallbackWallet && !data.availableView ? 'muted' : 'ok',
+      kind: missing.length ? 'warn' : 'ok',
       title: [available, detail, subscription, ...notes, ...absent, ...missing].filter(Boolean).join(' · '),
     }
   }
@@ -744,7 +805,7 @@ function grantUsage(plan: Record<string, unknown>): { used: number; total: numbe
  * 不拿 0 或 100 冒充 —— 一条满格的进度条与一条空进度条读起来是相反的意思，
  * 而它们都可能是错的。
  */
-export function usagePool(entry: UsageEntry): { planName: string; text: string; valueText: string; unit?: string; percent: number | null } | null {
+export function usagePool(entry: UsageEntry): { planName: string; text: string; percent: number | null } | null {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null
   const data = entry as Record<string, unknown>
   const wallets = Array.isArray(data.wallets) ? data.wallets as Array<Record<string, unknown>> : []
@@ -761,7 +822,7 @@ export function usagePool(entry: UsageEntry): { planName: string; text: string; 
     // ② 只有比例的窗口（监控通道）：取剩余最少的那个
     let tightest: { wallet: Record<string, unknown>; percent: number } | null = null
     for (const wallet of wallets) {
-      const percent = walletRemainingPercent(wallet)
+      const percent = numberOrNull(wallet?.remainingPercent)
       if (percent === null) continue
       if (!tightest || percent < tightest.percent) tightest = { wallet, percent }
     }
@@ -775,7 +836,6 @@ export function usagePool(entry: UsageEntry): { planName: string; text: string; 
       return {
         planName: String(tightest.wallet.planName || subscription.planName || ''),
         text: view || t('剩余 {percent}%', { percent: Math.round(percent) }),
-        valueText: `${Math.round(percent)}%`,
         percent,
       }
     }
@@ -794,8 +854,6 @@ export function usagePool(entry: UsageEntry): { planName: string; text: string; 
           unit: usage.unit ? ` ${usage.unit}` : '',
         }),
         percent: Math.max(0, Math.min(100, (remaining / usage.total) * 100)),
-        valueText: `${compactNumber(remaining)} / ${compactNumber(usage.total)}`,
-        unit: usage.unit,
       }
     }
     const grant = biggestGrant(plan)
@@ -807,20 +865,15 @@ export function usagePool(entry: UsageEntry): { planName: string; text: string; 
         : t('权益 {value}', { value: compactNumber(grant.units) }),
       // 权益额度不是剩余量：不画条（口径见上面那段文档）
       percent: null,
-      valueText: compactNumber(grant.units),
-      unit: grant.unit,
     }
   }
   // 套餐名优先取这个桶自己的（`wallet.planName`），退回账号级那份 ——
   // 桶认不出归属时（上游没给 plan_id）至少还有订阅里的名字可显示
   const planName = String(lead.planName || subscription.planName || '')
-  const percent = walletRemainingPercent(lead)
+  const percent = numberOrNull(lead.remainingPercent)
   return {
     planName,
     text: String(lead.balanceView || numberText(lead.balance)),
-    valueText: numberOrNull(lead.balance) !== null ? compactNumber(Number(lead.balance))
-      : percent !== null ? `${Math.round(percent)}%` : '—',
-    unit: String(lead.unit || data.unit || ''),
     percent: percent === null ? null : Math.max(0, Math.min(100, percent)),
   }
 }
@@ -833,21 +886,9 @@ export function usagePool(entry: UsageEntry): { planName: string; text: string; 
  * 读起来一模一样，而那是两件事（见 `usagePool` 的缺失口径）。
  */
 function numberOrNull(value: unknown): number | null {
-  if (typeof value !== 'number' && typeof value !== 'string') return null
-  if (typeof value === 'string' && !value.trim()) return null
+  if (value === null || value === undefined || value === '') return null
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
-}
-
-/** 兼容旧 Accio 快照：% 桶的 balance / usedPercent 已是比例，其他单位不能这样推导。 */
-function walletRemainingPercent(wallet: Record<string, unknown>): number | null {
-  const remaining = numberOrNull(wallet?.remainingPercent)
-  if (remaining !== null) return remaining
-  if (wallet?.unit !== '%') return null
-  const balance = numberOrNull(wallet.balance)
-  if (balance !== null) return balance
-  const used = numberOrNull(wallet.usedPercent)
-  return used === null ? null : 100 - used
 }
 
 /* ─── 余额明细弹层（usageDetail 能力位的那几家，现役只有 CodeArts）─── */
@@ -880,9 +921,8 @@ type UsageFlatRow = {
   win?: string
   /** 读数（万/亿缩写；没有百分比时直接显示它） */
   view: string
-  /** 表格数值模式不带前缀，完整口径仍放在 title。 */
-  valueText: string
-  percentageOnly: boolean
+  /** 百分比读数（`72%`）：与线同源，有就优先于 `view` */
+  percentText?: string
   tone: 'ok' | 'warn' | 'bad' | 'muted'
   /** **剩余**百分比（线画的是剩余，与读数同向）；null = 上游没给，不画线 */
   percent: number | null
@@ -913,15 +953,20 @@ type UsageFlatRow = {
  * 0% 才是「用光了」，两者不能画成同一个样子。
  */
 function UsageFlatRowView({ row }: { row: UsageFlatRow }) {
+  const value = row.percentText || row.view
   return (
-    <span className='usage-flat-line' title={row.title}>
-      <span className='usage-flat-head'>
-        <span className='usage-flat-name'>{row.name}</span>
-        <span className={cn('usage-flat-view', row.tone)}>{row.valueText}</span>
+    <span className={cn(`usage-meter ${row.tone}`)} title={row.title}>
+      <span className='usage-meter-head'>
+        {row.name ? <span className='usage-meter-name'>{row.name}</span> : null}
+        {row.win ? <span className='usage-meter-win'>{row.win}</span> : null}
+        <span className='usage-meter-val'>{value}</span>
       </span>
-      {row.percentageOnly && row.percent !== null ? (
-        <Progress value={row.percent} tone={row.over ? 'warning' : 'default'} aria-label={t('剩余 {percent}%', { percent: Math.round(row.percent) })} />
-      ) : null}
+      <span className={cn(`usage-meter-track${row.over ? ' over' : ''}`)}>
+        {row.percent !== null ? (
+          <i style={{ width: `${row.percent}%` }}
+            aria-label={t('剩余 {percent}%', { percent: Math.round(row.percent) })} />
+        ) : null}
+      </span>
     </span>
   )
 }
@@ -1015,8 +1060,7 @@ export function usageWindows(entry: UsageEntry): UsageFlatRow[] {
       : ''
     out.push({
       name,
-      valueText: String(row.view || "").trim() || (percent === null ? "—" : t("剩余 {percent}%", { percent: Math.round(percent) })),
-      percentageOnly: true,
+      win: windowShort,
       view,
       tone: percent === null ? 'muted' : percent < 20 ? 'warn' : 'ok',
       percent,
@@ -1025,6 +1069,7 @@ export function usageWindows(entry: UsageEntry): UsageFlatRow[] {
       // 后接读数与重置时刻（后者只有后端给了才算）
       title: [label || [name, windowShort].filter(Boolean).join(' '), view, resetLine]
         .filter(Boolean).join(' · '),
+      percentText: percent === null ? '' : `${Math.round(percent)}%`,
       id: String(row.key || '').trim() || name,
     })
   }
@@ -1158,12 +1203,12 @@ function usageDetailOf(entry: UsageEntry): UsageDetail | null {
       const hasTotal = allowance !== null && allowance > 1
       const over = hasTotal && used > allowance
       const unlimited = wallet.unlimited === true
-      const percentageOnly = !unlimited && !hasTotal && usedPercent !== null
-      // 有真实总量时保留数量口径；没有总量但给了已用百分比时，
-      // 使用上游百分比推导剩余比例，不以占位总额（≤1）计算进度。
+      // 条与积分明细同款：画**剩余**比例，口径自算（used / allowance，与读数同一
+      // 来源，不依赖上游的 value 百分比）；无真总量（含占位包 ≤1、无上限）不画 ——
+      // 画不出比例就不装作有
       const percent = hasTotal
         ? Math.max(0, Math.min(100, (1 - used / allowance) * 100))
-        : percentageOnly ? Math.max(0, Math.min(100, 100 - usedPercent)) : null
+        : null
       const flat = unlimited
         ? t('无上限 · 已用 {used}', { used: compactNumber(used) })
         : hasTotal
@@ -1176,22 +1221,17 @@ function usageDetailOf(entry: UsageEntry): UsageDetail | null {
       token.push({
         name: flatMeterName(name),
         view: flat,
-        valueText: unlimited ? `∞ · ${compactNumber(used)} token`
-          : hasTotal ? `${compactNumber(Math.max(0, allowance - used))} / ${compactNumber(allowance)} token`
-          : percentageOnly ? `${Math.round(percent!)}%`
-          : used > 0 ? `${compactNumber(used)} token` : '—',
-        percentageOnly,
         tone: over ? 'bad' : !hasTotal && !unlimited ? 'muted'
           : percent !== null && percent < 20 ? 'warn' : 'ok',
         percent,
         over,
-        title: [flat, view, unlimited ? t('无上限按日计（上游到达上限后仍继续计数，超额如实显示）') : null]
+        title: [view, unlimited ? t('无上限按日计（上游到达上限后仍继续计数，超额如实显示）') : null]
           .filter(Boolean).join(' · '),
       })
       continue
     }
     // 既无积分也无 token 量（理论不该出现）：退回一句读数，不静默丢行
-    token.push({ name, view, valueText: numberText(wallet.balance), percentageOnly: false, tone: 'muted', percent: null, over: false, title: view })
+    token.push({ name, view, tone: 'muted', percent: null, over: false, title: view })
   }
   const subscription = (data.subscription && typeof data.subscription === 'object'
     ? data.subscription : {}) as Record<string, unknown>
@@ -1313,9 +1353,6 @@ export function UsageCell({ account }: { account: AccountRecord }) {
     ? {
       rows: creditRows,
       subscriptionLine: creditSubscriptionOf(entry),
-      accountName: displayNameOf(account) || account.id,
-      balanceText: balanceDisplayRows(entry, usagePool(entry), t('积分')).map(row => row.text).join(' · '),
-      planName: String((entry as Record<string, unknown> & { subscription?: { planName?: string } }).subscription?.planName || ''),
       kind: summary.kind,
       title: summary.title,
     }
@@ -1336,7 +1373,7 @@ export function UsageCell({ account }: { account: AccountRecord }) {
       <span className='usage-cell' title={summary.title}>
         {plan ? (
           <span className='usage-plan'>
-            <span className={cn('plan-chip', plan.free && 'free')}>{plan.text}</span>
+            <span className={cn(`plan-chip${plan.free ? ' free' : ''}`)}>{plan.text}</span>
           </span>
         ) : null}
         {windows.map(row => <UsageFlatRowView key={row.id || row.name} row={row} />)}
@@ -1355,59 +1392,60 @@ export function UsageCell({ account }: { account: AccountRecord }) {
     // 还没查到 / 查询失败 / 没拼出明细：维持单行读数的老样子
     return (
       <span className='usage-sum-wrap'>
-        <span className={cn('usage-sum', summary.kind)} title={summary.title}>{summary.text}</span>
-        <UsageNotices>{blockedBadge}{pendingBadge}{tokenSub}</UsageNotices>
+        <span className={cn(`usage-sum ${summary.kind}`)} title={summary.title}>{summary.text}</span>
+        {blockedBadge}
+        {pendingBadge}
+        {tokenSub}
       </span>
     )
   }
   // 失败 / 未配置那些档不画进度条：读数本身就不是「还剩多少」，
   // 给它配个进度条会把一句错误装饰成一条可信的读数
   const pool = summary.kind === 'ok' || summary.kind === 'warn' ? usagePool(entry) : null
-  const usable = summary.kind === 'ok' || summary.kind === 'warn'
-  if (!usable) {
+  if (!pool) {
+    // 有明细时读数整行就是按钮（`.usage-toggle`，与 CodeArts 那格同款）；
+    // 没有时仍是那条不可点的纯读数
     return (
       <span className='usage-sum-wrap'>
-        <span className={cn('usage-sum', summary.kind)} title={summary.title}>{summary.text}</span>
-        <UsageNotices>{blockedBadge}{pendingBadge}{tokenSub}</UsageNotices>
+        {creditDetail ? (
+          <CreditDetailButton variant='sum' {...creditDetail}>{summary.text}</CreditDetailButton>
+        ) : (
+          <span className={cn(`usage-sum ${summary.kind}`)} title={summary.title}>{summary.text}</span>
+        )}
+        {blockedBadge}
+        {pendingBadge}
+        {tokenSub}
       </span>
     )
   }
-  const poolLine = (
-    <>
-      <BalanceRows rows={balanceDisplayRows(entry, pool, t('积分'))} tone={summary.kind} />
-    </>
-  )
+  // ── 主额度桶：与逐窗口读数同一形态（标签 …… 读数 + 细线）──────────
+  // 原来是组件库 Progress（6px 主色条）挤在一行里，与旁边那些窗口读数的
+  // 3px 语义色细线不是一套；现在统一：套餐名单独一行（用户问得最多的那句
+  // 「这 1 亿是哪个活动给的」），下面一行读数 + 细线。
+  const poolRow: UsageFlatRow = {
+    name: pool.planName || '',
+    view: pool.text,
+    tone: summary.kind === 'warn' ? 'warn' : 'ok',
+    percent: pool.percent,
+    over: false,
+    title: summary.title,
+  }
   return (
-    <span className='usage-pool' title={summary.title}>
-      {pool?.planName ? <span className='usage-pool-name'>{pool.planName}</span> : null}
+    <span className='usage-cell' title={summary.title}>
+      {/* 读数与细线一起住在按钮里：点哪都开明细（只让读数可点的话，
+          这一格里最显眼的那条又变成了难点中的东西） */}
       {creditDetail ? (
-        <CreditDetailButton variant='pool' {...creditDetail}>{poolLine}</CreditDetailButton>
-      ) : poolLine}
-      <UsageNotices>{blockedBadge}{pendingBadge}{tokenSub}</UsageNotices>
+        <CreditDetailButton variant='pool' {...creditDetail}>
+          <UsageFlatRowView row={poolRow} />
+        </CreditDetailButton>
+      ) : (
+        <UsageFlatRowView row={poolRow} />
+      )}
+      {blockedBadge}
+      {pendingBadge}
+      {tokenSub}
     </span>
   )
-}
-
-/** 余额读数下方的状态区：有提示才占一行，不挤占余额的横向空间。 */
-function UsageNotices({ children }: { children: React.ReactNode }) {
-  const items = React.Children.toArray(children)
-  return items.length ? <span className='usage-notices'>{items}</span> : null
-}
-
-function BalanceRows({ rows, tone }: { rows: BalanceDisplayRow[]; tone: string }) {
-  return <span className='balance-readings'>
-    {rows.map((row, index) => {
-      const label = row.key === 'cycle' ? t('周期剩余额度')
-        : row.key === 'subscription' ? t('套餐剩余额度') : t('余额')
-      const title = `${label}：${row.text}`
-      return <span className='balance-reading' key={row.key} data-balance-kind={row.key} title={title}>
-        {row.key === 'cycle' && row.percent !== null
-          ? <Progress value={row.percent} className='usage-pool-bar' aria-label={label} /> : null}
-        <span className={cn('usage-pool-view', tone)}>{row.text}</span>
-        {tone === 'warn' && index === 0 ? <span aria-label={t('余额数据不完整')}>⚠</span> : null}
-      </span>
-    })}
-  </span>
 }
 
 /**
@@ -1436,7 +1474,7 @@ function UsageDetailCell({ summary, detail, blockedBadge, tokenSub }: {
     <span className={cn(open ? 'usage-cell open' : 'usage-cell')}>
       <span className='usage-plan'>
         {detail.plan
-          ? <Badge variant={detail.free ? 'secondary' : 'brand'} shape='tag'>{detail.plan}</Badge>
+          ? <span className={cn(`plan-chip${detail.free ? ' free' : ''}`)}>{detail.plan}</span>
           : null}
         {detail.resetDate
           ? <span className='plan-sub' title={t('套餐积分的重置日期')}>{t('重置 {date}', { date: detail.resetDate })}</span>
@@ -1444,13 +1482,15 @@ function UsageDetailCell({ summary, detail, blockedBadge, tokenSub }: {
       </span>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
-          render={<Button variant='ghost' size='xs' className='h-auto min-w-0 justify-start px-0'
+          render={<Button variant='ghost' size='sm' type='button' className={cn(`usage-toggle ${summary.kind}`)}
             title={summary.title} aria-label={t('积分明细')} />}
         >
-          <BalanceRows rows={[{ key: 'balance', text: detail.total === null ? '—' : `${numberText(detail.total)} ${detail.unit}`, percent: null }]} tone={summary.kind} />
+          <span className='val'>{summary.text}</span>
           <span className='caret' aria-hidden>▾</span>
         </PopoverTrigger>
-        <PopoverContent align='end' sideOffset={6} className='usage-pop w-[288px]'>
+        {/* `align='center'`：与 accounts-credit-detail / accounts-limit-detail
+            同一处置 —— 余额格的按钮靠右，'end' 会把弹层甩到表格右外侧。 */}
+        <PopoverContent align='center' sideOffset={6} className='usage-pop w-[288px]'>
           {usable && detail.missing.length
             ? detail.missing.map(line => <div key={line} className='usage-pop-missing' title={line}>{line}</div>)
             : null}
@@ -1470,7 +1510,10 @@ function UsageDetailCell({ summary, detail, blockedBadge, tokenSub }: {
               福利 token 池 —— available 为 null，摘要那行显示「可用 —」）不加这句
               弹层就是一个空框，「弹不出来」的观感比缺数据更让人怀疑是故障 */}
           {!detail.credit.length && detail.total === null ? (
-            <Empty variant='compact' title={t('该账号的额度只有福利 token 池（见余额格那两行），订阅统计没有积分类计量表')}><EmptyHeader><EmptyDescription>{t('该账号没有积分类读数（额度只有福利 token 池）')}</EmptyDescription></EmptyHeader></Empty>
+            <div className='usage-pop-empty'
+              title={t('该账号的额度只有福利 token 池（见余额格那两行），订阅统计没有积分类计量表')}>
+              {t('该账号没有积分类读数（额度只有福利 token 池）')}
+            </div>
           ) : null}
         </PopoverContent>
       </Popover>
@@ -1487,7 +1530,8 @@ function UsageDetailCell({ summary, detail, blockedBadge, tokenSub }: {
           <span className='usage-meter-track' />
         </span>
       ) : null}
-      <UsageNotices>{blockedBadge}{tokenSub}</UsageNotices>
+      {blockedBadge}
+      {tokenSub}
     </span>
   )
 }
@@ -1500,10 +1544,12 @@ function UsageDetailRowView({ row }: { row: UsageDetailRow }) {
     <div className='usage-pop-row' title={row.title}>
       <div className='usage-pop-line'>
         <span className='usage-pop-name'>{row.name}</span>
-        <span className={cn('usage-pop-view', row.tone)}>{row.view}</span>
+        <span className={cn(`usage-pop-view ${row.tone}`)}>{row.view}</span>
       </div>
       {row.percent !== null ? (
-        <Progress value={row.percent} tone={row.over ? 'warning' : 'default'} aria-label={t('剩余 {percent}%', { percent: Math.round(row.percent) })} />
+        <span className={cn(`usage-pop-track ${row.tone}${row.over ? ' over' : ''}`)}>
+          <i style={{ width: `${row.percent}%` }} aria-label={t('剩余 {percent}%', { percent: Math.round(row.percent) })} />
+        </span>
       ) : null}
     </div>
   )
@@ -1529,7 +1575,6 @@ function UsageDetailRowView({ row }: { row: UsageDetailRow }) {
  */
 export function AccountCell({ account, namesHidden }: { account: AccountRecord; namesHidden: boolean }) {
   const ident = identifierOf(account)
-  const features = providerFeatures(providerOf(account))
   const name = displayNameOf(account) || t('未命名账号')
   const email = String(account.email || '').trim()
   const nickname = String(account.nickname || '').trim()
@@ -1539,7 +1584,7 @@ export function AccountCell({ account, namesHidden }: { account: AccountRecord; 
   const mask = (value: string): string => (namesHidden ? maskName(value) : value)
   const titleLines = [
     email && email !== name ? t('邮箱 {email}', { email: mask(email) }) : '',
-    ident ? `${features.identifier} ${ident}` : '',
+    ident ? `${identifierKeyOf(account) || 'id'} ${ident}` : '',
     !account.nameCustom && rawName && rawName !== email && rawName !== nickname
       ? t('备注名 {name}', { name: mask(rawName) })
       : '',
@@ -1624,8 +1669,16 @@ export function ProxyCell({ account }: { account: AccountRecord }) {
   for (const item of poolItems) {
     // 文案是「名字（协议 主机:端口）」—— 名字是用户在「网络代理」页起的，
     // 地址是后端解析出来的实时值（见 poolItemLabel）。同一格里多条目同名时
-    // 地址是唯一能分辨它们的读数，不能只写名字
-    items.push({ value: `${POOL_VALUE_PREFIX}${item.id}`, label: poolItemLabel(item) })
+    // 地址是唯一能分辨它们的读数，不能只写名字。
+    //
+    // 禁用项**置灰不可选**：选它只会「保存成功 → 解析失败 → 回退直连」，
+    // 用户看到的是「代理已禁用」这种事后解释。要改就去「网络代理」页启用它。
+    // （当前值恰好是禁用项时照常显示 —— 触发器读的是这一项的 label，含「已禁用」）
+    items.push({
+      value: `${POOL_VALUE_PREFIX}${item.id}`,
+      label: poolItemLabel(item),
+      disabled: item.enabled === false,
+    })
   }
   if (pool === null) {
     // 还没读到（首帧 / 自愈 effect 尚未跑完）：给一句「读取中」而不是
@@ -1672,13 +1725,11 @@ export function ProxyCell({ account }: { account: AccountRecord }) {
         title={title} aria-label={t('出网代理')}>
         <SelectValue>{selected?.label || t('直连')}</SelectValue>
       </SelectTrigger>
-      <SelectContent>
-        <SelectGroup>
-          {items.map(item => (
-            <SelectItem key={item.value} value={item.value} disabled={item.disabled}>{item.label}</SelectItem>
-          ))}
-        </SelectGroup>
-      </SelectContent>
+      <SelectContent><SelectGroup>
+        {items.map(item => (
+          <SelectItem key={item.value} value={item.value} disabled={item.disabled}>{item.label}</SelectItem>
+        ))}
+      </SelectGroup></SelectContent>
     </Select>
   )
 }
@@ -1696,22 +1747,13 @@ export function ProxyCell({ account }: { account: AccountRecord }) {
  * checkin-page.tsx 的每日签到卡承接了它的职责，含单账号签到与重签。
  * CodeArts 的「领福利」同一场收敛：入口只留签到中心的「活动福利」卡
  * （领取状态也在那里标记），账号页不再放第二颗一样的按钮。）
- *
- * 「API Key」只有 Cline 两家渲染（supportsApiKeys）：管理的是账号在 Cline 官方的
- * Key 清单，打开行内自带的一个弹窗（见下方 ClineKeysDialog）—— 弹窗状态挂在
- * ActionsCell 本地而不是 store.dialog（那边只认 settings / batch 两类，加第三类要
- * 动 accounts-data 的状态形状，侵入面反而更大；Dialog 自带 Portal，从行内挂载
- * 不影响层叠与焦点陷阱）。
  */
 export function ActionsCell({ account, atFront }: { account: AccountRecord; atFront: boolean }) {
   const [usageBusy, setUsageBusy] = React.useState(false)
-  const [keysOpen, setKeysOpen] = React.useState(false)
-  const [tasksOpen, setTasksOpen] = React.useState(false)
   const canUsage = supportsUsage(account)
   const canClaim = supportsClaim(account)
 
   return (
-    <>
     <div className='acct-actions'>
       {canClaim ? (
         // 点开**套餐明细**弹窗（zcode-plans-modal.tsx）：可领取的逐份列出（标「今日已领」、
@@ -1734,14 +1776,8 @@ export function ActionsCell({ account, atFront }: { account: AccountRecord; atFr
       ) : null}
       <Button variant='outline' size='xs' title={t('备注名 / 启用 / 代理')}
         onClick={() => openSettingsDialog(account.id)}>{t('设置')}</Button>
-      {providerOf(account) === 'workbuddy' && accountEdition(account) === 'cn' ?
-        <Button variant='outline' size='xs' onClick={() => setTasksOpen(true)}>{t('任务')}</Button> : null}
-      {supportsApiKeys(account) ? <Button variant='outline' size='xs' onClick={() => setKeysOpen(true)}>API Key</Button> : null}
       <MoreMenu account={account} atFront={atFront} />
     </div>
-    {keysOpen ? <ClineKeysDialog account={account} onClose={() => setKeysOpen(false)} /> : null}
-    {tasksOpen ? <WorkBuddyTasksDialog account={account} onClose={() => setTasksOpen(false)} /> : null}
-    </>
   )
 }
 
@@ -1763,116 +1799,45 @@ export function MoreMenu({ account, atFront }: { account: AccountRecord; atFront
   const [open, setOpen] = React.useState(false)
   const enabled = isEnabled(account)
   const maxConcurrent = Number(account.maxConcurrent) || 0
+  const itemClass = 'w-full justify-start px-2 font-normal'
+  const dangerClass = `${itemClass} text-destructive hover:text-destructive`
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger render={<Button variant='outline' size='xs' title={t('更多操作')} />}>⋯</DropdownMenuTrigger>
-      <DropdownMenuContent align='end' sideOffset={4} className='w-[172px] p-1.5'>
-        <DropdownMenuGroup>
-          <DropdownMenuItem variant='destructive'
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger render={<Button variant='outline' size='xs' title={t('更多操作')} />}>⋯</PopoverTrigger>
+      <PopoverContent align='end' sideOffset={4} className='w-[172px] p-1.5'>
+        <div className='flex flex-col gap-0.5'>
+          <Button variant='ghost' size='sm' className={dangerClass}
             onClick={() => { setOpen(false); void setAccountEnabled(account.id, !enabled) }}>
             {enabled ? t('禁用') : t('启用')}
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled={atFront}
+          </Button>
+          <Button variant='ghost' size='sm' className={itemClass} disabled={atFront}
             title={atFront ? t('已在全局队列第一位') : t('仅将优先级调整到全局第一位，不改变启用状态')}
             onClick={() => { setOpen(false); shared().wbApp?.runAccountAction?.('switch', account.id) }}>
             {t('设为首选')}
-          </DropdownMenuItem>
-          <DropdownMenuItem
+          </Button>
+          <Button variant='ghost' size='sm' className={itemClass}
             title={t('在账号设置的「基本」分组里设置该账号同时最多处理的请求数')}
             onClick={() => { setOpen(false); openSettingsDialog(account.id) }}>
             {t('并发上限：{value}', { value: maxConcurrent > 0 ? maxConcurrent : t('不限') })}
-          </DropdownMenuItem>
+          </Button>
           {account.hasRefreshToken ? (
-            <DropdownMenuItem
+            <Button variant='ghost' size='sm' className={itemClass}
               onClick={() => { setOpen(false); shared().wbApp?.runAccountAction?.('refresh', account.id) }}>
               {t('刷新 Token')}
-            </DropdownMenuItem>
+            </Button>
           ) : null}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant='destructive'
+          <div className='my-1 h-px bg-hairline' />
+          <Button variant='ghost' size='sm' className={dangerClass}
             title={isDesktopAccount(account)
               ? t('删除这条账号记录（不会影响客户端自己的登录态；之后可再点「导入桌面端登录态」加回来）')
               : undefined}
             onClick={() => { setOpen(false); shared().wbApp?.runAccountAction?.('remove', account.id) }}>
             {t('删除账号')}
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
-/* ─── 展开的明细行（限流）──────────────────── */
-
-/**
- * 限流明细面板：这个账号**当前限流中的模型**逐行列出 —— 模型名、恢复时间、上游给的
- * 原因，以及「清除标记」动作（单条）与「全部清除」。
- *
- * 为什么值得一整块面板：限流是按模型的（一个账号完全可能 A 模型限流、B 模型正常），
- * 把模型名列出来才能回答「到底是谁把我限了」；而「清除标记」是真实动作，悬浮层里
- * 放不下也点不稳。「清除标记」只作用于本机这份冷却标记（下一次请求若上游仍限流会
- * 再次被标记），所以它是安全且可逆的，不需要二次确认。
- */
-function LimitPanel({ account, onClose, onClear }: {
-  account: AccountRecord
-  onClose: () => void
-  onClear: (model: string) => void
-}) {
-  const entries = activeLimits(account)
-  const close = (
-    <Button variant='ghost' size='icon-xs' className='panel-close' title={t('收起')} onClick={onClose}>✕</Button>
-  )
-  if (!entries.length) {
-    // 已展开但记录恰好全部过期时给一句中性说明 —— 数据是两次读盘之间变了的，
-    // 不该渲染成一块空面板
-    return <div className='row-panel limit-panel'>{t('当前没有限流中的模型。')}{close}</div>
-  }
-  return (
-    <div className='row-panel limit-panel'>
-      {close}
-      <div className='lp-head'>
-        <b>{displayNameOf(account)}</b>
-        <span className='muted'>{supportsPlanChannel(account) ? t('按套餐通道分别冷却，另一通道仍按该模型额度选择') : t('{n} 个模型限流中 · 记录来自上游 429 / 限额码，到恢复时间自动解除', { n: entries.length })}</span>
-        <Button variant='outline' size='xs' title={t('清掉该账号全部模型的限流标记')}
-          onClick={() => onClear('')}>{t('全部清除')}</Button>
-      </div>
-      {entries.map(entry => {
-        const reset = formatResetText(entry.resetAt)
-        const reason = entry.message || (entry.status ? t('上游返回 {status}', { status: entry.status }) : '')
-        return (
-          <div className='lp-row' key={entry.model}>
-            <span className='lp-model' title={zcodeLimitLabel(account, entry.model)}>{zcodeLimitLabel(account, entry.model)}</span>
-            <Badge variant='warning' shape='tag'>{t('限流中')}</Badge>
-            <span className='lp-reset' title={t('到恢复时间后自动解除，无需手动操作')}>
-              {reset === RESET_UNKNOWN ? t('恢复时间未知') : t('{time} 恢复', { time: reset })}
-            </span>
-            <span className='lp-reason' title={reason}>{reason}</span>
-            <Button variant='outline' size='2xs'
-              title={t('清掉本机的限流标记，立刻重新尝试该模型（上游若仍在限流会再次被标记）')}
-              onClick={() => onClear(entry.model)}>{t('清除标记')}</Button>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-export function PanelsRow({ account, colSpan, limitsOpen, onClear }: {
-  account: AccountRecord
-  colSpan: number
-  /** 展开态由页面从 store 读出来传进来（这一层只负责画） */
-  limitsOpen: boolean
-  onClear: (id: string, model: string) => void
-}) {
-  if (!limitsOpen) return null
-  return (
-    <tr className='acct-panels' data-panels-for={account.id}>
-      <td colSpan={colSpan}>
-        <LimitPanel account={account} onClose={() => setPanelOpen(account.id, 'limits', false)}
-          onClear={model => onClear(account.id, model)} />
-      </td>
-    </tr>
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -1957,133 +1922,8 @@ export function TableHead({ namesHidden, allPicked, somePicked, disabled, onTogg
 export function NameEyeButton({ hidden }: { hidden: boolean }) {
   const label = hidden ? t('显示账号名') : t('隐藏账号名（名字显示为星号）')
   return (
-    <Toggle size='xs' pressed={hidden} title={label} aria-label={label}
-      onPressedChange={() => toggleNamesHidden()}
+    <Button variant='ghost' size='sm' type='button' className={cn(`name-eye${hidden ? ' on' : ''}`)} title={label} aria-label={label}
+      aria-pressed={hidden} onClick={() => toggleNamesHidden()}
       dangerouslySetInnerHTML={{ __html: iconHtml(hidden ? 'eyeOff' : 'eye', 13) }} />
-  )
-}
-
-type ClineKeyRow = {
-  id: string
-  name: string
-  /** 毫秒时间戳；取不到为 null（显示「—」） */
-  createdAt: number | null
-  lastUsedAt: number | null
-  /** 上游给的掩码 / 缩略形态；取不到为空串 */
-  key: string
-}
-
-type ClineKeysPayload = { keys?: ClineKeyRow[] }
-
-/** 本机网关调用（api_request 壳命令：桌面 invoke 自动带 Key；网页 shim 同源 fetch） */
-async function callLocal<T>(method: 'GET' | 'DELETE', path: string): Promise<T> {
-  const internals = (shared() as unknown as {
-    __TAURI_INTERNALS__?: { invoke?: (cmd: string, args: unknown) => Promise<unknown> }
-  }).__TAURI_INTERNALS__
-  if (!internals || typeof internals.invoke !== 'function') {
-    throw new Error('桌面运行时不可用（Tauri 未初始化）')
-  }
-  return internals.invoke('api_request', { request: { method, path } }) as Promise<T>
-}
-
-function ClineKeysDialog({ account, onClose }: { account: AccountRecord; onClose: () => void }) {
-  const label = displayNameOf(account) || account.id
-  /** null = 还没有数据（首载中 / 首载失败）；[] = 上游确认没有 Key（空态） */
-  const [rows, setRows] = React.useState<ClineKeyRow[] | null>(null)
-  const [loading, setLoading] = React.useState(false)
-  const [error, setError] = React.useState('')
-  /** 删除在途的那把 Key id（空串 = 没有删除在途；全表按钮据此统一禁用） */
-  const [deletingId, setDeletingId] = React.useState('')
-
-  /** 拉一次列表（挂载、删除成功后与「刷新」共用） */
-  const load = React.useCallback(() => {
-    setError('')
-    setLoading(true)
-    void callLocal<ClineKeysPayload>('GET', `/api/providers/cline/${encodeURIComponent(account.id)}/keys`)
-      .then(data => {
-        // 后端保证 keys 是数组（缺集合键时给空数组，见 normalize_list）——
-        // 这里再守一道：旧后端 + 新前端的组合也不至于把 undefined.map 炸出来
-        setRows(Array.isArray(data?.keys) ? data.keys : [])
-      })
-      .catch(err => setError(errorMessage(err)))
-      .finally(() => setLoading(false))
-  }, [account.id])
-
-  React.useEffect(() => { load() }, [load])
-
-  async function remove(row: ClineKeyRow): Promise<void> {
-    if (deletingId) return
-    const confirmed = await Promise.resolve(shared().wbConfirm?.ask?.({
-      title: '删除 API Key',
-      html: `确定删除 <strong>${esc(row.name || row.id)}</strong>？删除后使用这把 Key 的调用会立即失效，此操作不可恢复。`,
-      okText: '删除',
-      okClass: 'danger',
-    }) ?? false)
-    if (!confirmed) return
-    setDeletingId(row.id)
-    setError('')
-    try {
-      await callLocal('DELETE', `/api/providers/cline/${encodeURIComponent(account.id)}/keys/${encodeURIComponent(row.id)}`)
-      toast('✅ API Key 已删除', 'ok')
-      load()
-    } catch (err) {
-      setError(errorMessage(err))
-      toast(`删除失败：${errorMessage(err)}`, 'err')
-    } finally {
-      setDeletingId('')
-    }
-  }
-
-  return (
-    <Dialog open onOpenChange={next => { if (!next) onClose() }}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Cline API Key · {label}</DialogTitle></DialogHeader>
-        <DialogBody>
-          <DialogSection>
-            <p>账号在 Cline 官方的 API Key 清单（与 app.cline.bot 的 Settings → API Keys 是同一份）。删除后使用这把 Key 的调用会立即失效。</p>
-            {loading && rows === null ? (
-              <p className='mt-2.5 flex items-center gap-2 text-sm'><Spinner className='size-3' />正在加载…</p>
-            ) : null}
-            {error ? <p className='mt-2.5 text-sm text-destructive'>{error}</p> : null}
-            {rows !== null && rows.length === 0 ? (
-              <p className='mt-2.5 text-sm'>该账号还没有 API Key（可在官方 app.cline.bot 的 Settings → API Keys 创建，创建后点「刷新」查看）。</p>
-            ) : null}
-            {rows !== null && rows.length > 0 ? (
-              <table className='mt-2.5 w-full text-sm'>
-                <thead>
-                  <tr className='text-left'>
-                    <th className='py-1.5 pr-3 font-medium'>名称</th>
-                    <th className='py-1.5 pr-3 font-medium'>Key</th>
-                    <th className='py-1.5 pr-3 font-medium'>创建时间</th>
-                    <th className='py-1.5 font-medium' aria-label='操作' />
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map(row => (
-                    <tr key={row.id || row.key}
-                      title={row.lastUsedAt ? `最后使用：${formatTime(row.lastUsedAt)}` : undefined}>
-                      <td className='py-1.5 pr-3'>{row.name || '（未命名）'}</td>
-                      <td className='max-w-[220px] truncate py-1.5 pr-3' title={row.key}>{row.key || '—'}</td>
-                      <td className='py-1.5 pr-3'>{formatTime(row.createdAt) || '—'}</td>
-                      <td className='py-1.5 text-right'>
-                        <Button variant='outline' size='xs' disabled={deletingId !== ''}
-                          onClick={() => void remove(row)}>
-                          {deletingId === row.id ? '删除中…' : '删除'}
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : null}
-          </DialogSection>
-        </DialogBody>
-        <DialogFooter>
-          <div className='mr-auto' />
-          <Button variant='outline' disabled={deletingId !== ''} onClick={load}>刷新</Button>
-          <Button variant='outline' onClick={onClose}>关闭</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }

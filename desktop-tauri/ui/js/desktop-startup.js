@@ -27,6 +27,7 @@
     if (!parsed || done) return
     const page = document.querySelector('.page.active')
     if (!page?.children.length || page.getAttribute('data-page-ready') === 'false') return
+    const pageKey = page.dataset.page === '__plugin__' ? page.querySelector('iframe')?.dataset.pluginPage : page.dataset.page
     const tags = document.getElementById('shell-tags-host')
     if (root.getAttribute('data-pref-tags') !== 'off' && !tags?.querySelector('[role="tablist"]')) return
     // Every independent header island must commit before exposing its first frame.
@@ -35,7 +36,7 @@
     if (controls.some(id => !document.getElementById(id))) return
     const activeNavigation = document.querySelector('#nav .nav-item.active')
     if (activeNavigation) {
-      if (activeNavigation.getAttribute('data-page') !== page.getAttribute('data-page')) return
+      if (activeNavigation.getAttribute('data-page') !== pageKey) return
     } else if (window.innerWidth > 1000) return // A closed narrow-screen Sheet has no mounted navigation.
     if (root.getAttribute('data-pref-crumb') !== 'off') {
       const label = activeNavigation?.querySelector('.label')?.textContent?.trim()
@@ -45,7 +46,7 @@
     }
     if (root.getAttribute('data-pref-tags') !== 'off') {
       const selected = tags?.querySelector('[role="tab"][aria-selected="true"]')
-      if (selected?.closest('[data-page]')?.getAttribute('data-page') !== page.getAttribute('data-page')) return
+      if (selected?.closest('[data-page]')?.getAttribute('data-page') !== pageKey) return
     }
     if (page.getAttribute('data-page') === 'overview') {
       if (page.getAttribute('data-initial-ready') !== 'true') return

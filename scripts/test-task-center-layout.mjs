@@ -14,7 +14,7 @@ globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};window.R
 window.wbI18n={t:(s,v={})=>s.replace(/\{(\w+)\}/g,(_,k)=>String(v[k]??`{${k}}`))}
 const requests=[],saved=[],nav=[];let tabState,React,roots=[],allowActions=false,queue={running:false,total:1,done:1,items:[{accountName:'completed fixture',taskCode:'@activity',status:'success',message:'completed result should only appear in history'}]}
 const schedule={growthEnabled:true,growthTime:'09:00',blackcatEnabled:false,blackcatTime:'23:00',travelEnabled:true,travelHours:[9,21],activityEnabled:true,activityTime:'10:00',streakEnabled:true,streakTime:'09:30',recordRetentionDays:90,tasks:[]}
-const snapshot={auto:{enabled:true,schedules:[]},daily:{providers:[],outOfScope:[],totalCount:0,doneCount:0},extras:{onboarding:[],plans:[],growth:[]},keepalive:{models:['fixture-model-a','fixture-model-b'],defaultModels:['fixture-model-a','fixture-model-b']}}
+const snapshot={auto:{enabled:true,schedules:[]},daily:{providers:[{id:'workbuddy',label:'WorkBuddy 国内版',description:'fixture provider description',totalCount:1,doneCount:0,accounts:[{id:'domestic',name:'国内测试账号',available:true,checkedInToday:false,streakDays:0,checkinAt:null}]}],outOfScope:[],todayEligible:1,todayDone:0,totalCount:1,doneCount:0},extras:{onboarding:[],plans:[],growth:[]},keepalive:{models:['fixture-model-a','fixture-model-b'],defaultModels:['fixture-model-a','fixture-model-b']}}
 window.wbApp={currentPage:'tasks',toast(){},renderTopbarStatus(){},showPage(page){nav.push(page);this.currentPage=page}}
 window.workbuddyDesktop={getCheckinCenter:async()=>snapshot,getCheckinRecords:async()=>({total:0,records:[]}),getCheckinSchedules:async()=>({enabled:true,schedules:[]}),getCheckinKeepalive:async()=>({models:[]}),getQoderUmid:async()=>({available:true}),getScheduledTasks:async()=>({tasks:['credentialMaintenance','modelRefresh','logsAutoRefresh','requestsAutoRefresh','reportAutoRefresh','updateCheck'].map((id,i)=>({id,label:['凭证自动维护','模型目录刷新','日志页自动刷新','请求日志页自动刷新','报表自动刷新','软件版本检查'][i],description:'fixture maintenance',unit:'minutes',runner:'backend',enabled:true,interval:10,min:1,max:1440,defaultInterval:10,running:false,lastRunAt:null,lastResult:null,retryAt:null,nextRunAt:null,canRun:true}))})}
 let scanDeferred=null,travelFails=false
@@ -39,6 +39,18 @@ try{
  const tabs=()=>[...account.querySelectorAll('[role=tablist][aria-label="任务中心分区"] [role=tab]')]
  assert.deepEqual(tabs().map(n=>n.textContent),['签到与福利','WorkBuddy任务','定时签到','签到记录'])
  const click=async(node)=>{assert.ok(node);await React.act(async()=>{if(node.getAttribute('role')==='option'){const pointer=new MouseEvent('pointerdown',{bubbles:true,button:0,buttons:1});Object.defineProperty(pointer,'pointerType',{value:'mouse'});node.dispatchEvent(pointer)}node.click()})}
+ // Apply the shipped stylesheet to the real CenterTab: missing migrated selectors used to
+ // leave provider rows as blocks and render the logo at its intrinsic 256px size.
+ const style=document.createElement('style');style.textContent=fs.readFileSync(root+'/desktop-tauri/ui/css/page-checkin.css','utf8');document.head.append(style)
+ const provider=account.querySelector('.ck-row-main[role=button]'),logo=provider.querySelector('.ck-badge')
+ assert.equal(getComputedStyle(provider).display,'flex','daily provider row has the shipped horizontal layout')
+ assert.equal(getComputedStyle(logo).width,'30px');assert.equal(getComputedStyle(logo).height,'30px')
+ assert.equal(getComputedStyle(logo.querySelector('img')).width,'100%','provider image is constrained by its logo frame')
+ assert.equal(getComputedStyle(provider.querySelector('.ck-row-right')).display,'flex')
+ await click(provider);assert.ok(account.querySelector('.ck-row-detail .ck-table').textContent.includes('国内测试账号'))
+ assert.equal(getComputedStyle(account.querySelector('.ck-row-detail')).overflowX,'auto','wide account table stays inside its detail region')
+ await click(provider);assert.equal(account.querySelector('.ck-row-detail'),null)
+ assert.equal(requests.filter(r=>r.method==='POST').length,0,'expanding a daily provider never signs in or claims rewards')
  await click(tabs()[1]);assert.equal(f.getCheckinStore().tab,'workbuddy');assert.ok(account.textContent.includes('猫猫旅行'));assert.equal(document.querySelectorAll('#tasks-badge').length,1);assert.equal(document.querySelectorAll('#workbuddy-task-badge').length,0);assert.ok(!account.textContent.includes('completed fixture'),'completed queue does not persist as a progress card')
  const workTabs=()=>[...account.querySelectorAll('[role=tablist][aria-label="WorkBuddy任务分区"] [role=tab]')]
  assert.deepEqual(workTabs().map(n=>n.textContent),['任务与排程','执行记录']);assert.equal(account.querySelectorAll('button[aria-label^="立即执行"]').length,5,'one execution entry per task');let timeInput=account.querySelector('input[aria-label="成长任务执行时刻"]');assert.equal(timeInput.value,'09:00')

@@ -62,12 +62,18 @@ const frames = [
 ]
 const sse = frames => frames.map(frame => `event: ${frame.type}\r\ndata: ${JSON.stringify(frame)}\r\n\r\n`).join('') + 'data: [DONE]\r\n\r\n'
 for (const ending of [[], [event('response.completed', { response: { output } })], [event('response.output_item.done', { output_index: 1, item: output[1] })]]) {
-  const streamed = parse('', sse([...frames, ...ending])).messages[0]
-  assert.equal(streamed.text, 'answer', 'done/completed snapshots must not duplicate text')
-  assert.equal(streamed.calls.length, 2)
-  assert.equal(JSON.parse(streamed.calls[0].args).q, 'test')
-  assert.equal(streamed.calls[1].args, 'echo hello')
-  assert.equal(streamed.thinking, ending[0]?.type === 'response.completed' ? 'reason one\nreason two' : 'reason one')
+  for (const prefix of ['', ': heartbeat\n\n', '\r\n: first\r\n: second\r\n\r\n']) {
+    const response = prefix + sse([...frames, ...ending])
+    const parsed = parse('', response)
+    const streamed = parsed.messages[0]
+    assert.ok(streamed, 'Responses SSE must parse after leading keepalive comments')
+    assert.equal(streamed.text, 'answer', 'done/completed snapshots must not duplicate text')
+    assert.equal(streamed.calls.length, 2)
+    assert.equal(JSON.parse(streamed.calls[0].args).q, 'test')
+    assert.equal(streamed.calls[1].args, 'echo hello')
+    assert.equal(streamed.thinking, ending[0]?.type === 'response.completed' ? 'reason one\nreason two' : 'reason one')
+    assert.equal(parsed.raw[0].source, response)
+  }
 }
 const partial = parse('', sse([...frames, event('response.failed', { response: { error: { message: 'stream interrupted' } } })])).messages[0]
 assert.equal(partial.text, 'answer'); assert.equal(partial.errorText, 'stream interrupted')
@@ -81,4 +87,4 @@ assert.equal(invalid.notices.length, 2); assert.equal(invalid.raw.length, 2)
 const rawRequest = JSON.stringify({ input: 'raw stays exact' })
 assert.equal(parse(rawRequest, '').raw[0].source, rawRequest)
 assert.ok(window.wbConversationPreview.render(JSON.stringify({ input: '<img onerror=bad>' }), '').includes('&lt;img'))
-console.log('PASS: Responses input/instructions, ordered history, images, reasoning, function/custom tools/results, JSON/refusal, SSE deltas/final snapshots/no duplication, interrupted streams and safe fallback')
+console.log('PASS: Responses input/instructions, ordered history, images, reasoning, function/custom tools/results, JSON/refusal, SSE keepalives/deltas/final snapshots/no duplication, interrupted streams and safe fallback')

@@ -62,51 +62,69 @@ export function typeValueOf(value: string): AccountType {
  * （models-page）与签到中心的提供商行（checkin-page）用同一份映射，别处不要照抄。
  */
 export const PROVIDER_ICONS: Record<string, string> = {
-  workbuddy: '/assets/providers/workbuddy.png',
-  'workbuddy-intl': '/assets/providers/workbuddy.png',
-  raccoon: '/assets/providers/raccoon.png',
-  catpaw: '/assets/providers/catpaw.png',
-  autoclaw: '/assets/providers/autoclaw.png',
-  'autoclaw-intl': '/assets/providers/autoclaw.png',
-  qoder: '/assets/providers/qoder.png',
-  'qoder-intl': '/assets/providers/qoder.png',
-  'cline-free': '/assets/providers/cline.png',
-  'cline-pass': '/assets/providers/cline.png',
-  accio: '/assets/providers/accio.png',
-  'accio-cn': '/assets/providers/accio.png',
-  zcode: '/assets/providers/zcode.png',
-  'zcode-intl': '/assets/providers/zcode.png',
-  codearts: '/assets/providers/codearts.png',
-  trae: '/assets/providers/trae.png',
+  workbuddy: 'assets/providers/workbuddy.png',
+  'workbuddy-intl': 'assets/providers/workbuddy.png',
+  raccoon: 'assets/providers/raccoon.png',
+  catpaw: 'assets/providers/catpaw.png',
+  autoclaw: 'assets/providers/autoclaw.png',
+  'autoclaw-intl': 'assets/providers/autoclaw.png',
+  qoder: 'assets/providers/qoder.png',
+  'qoder-intl': 'assets/providers/qoder.png',
+  'cline-free': 'assets/providers/cline.png',
+  'cline-pass': 'assets/providers/cline.png',
+  accio: 'assets/providers/accio.png',
+  'accio-cn': 'assets/providers/accio.png',
+  zcode: 'assets/providers/zcode.png',
+  'zcode-intl': 'assets/providers/zcode.png',
+  codearts: 'assets/providers/codearts.png',
+  trae: 'assets/providers/trae.png',
   // Loomy：取自安装包 `resources/app.asar` 的 Windows 图标集
   // （`build/icons/favicon-228.png`，与系统里显示的应用图标为同一张；
   // 绿色圆底上的品牌形象）
-  loomy: '/assets/providers/loomy.png',
+  loomy: 'assets/providers/loomy.png',
   // KukuAI：取自客户端 `GenFlowPro.exe` 的 RT_ICON 资源（256×256 那张，
   // 与系统里显示的应用图标为同一张）
-  kuku: '/assets/providers/kuku.png',
+  kuku: 'assets/providers/kuku.png',
   // MonkeyCode：取自客户端 asar 内嵌的应用图标（`electron/icon.png`，与系统里
   // 显示的应用图标为同一张；国内 / 国际版共用这一张，同 AutoClaw 的形态）
-  monkeycode: '/assets/providers/monkeycode.png',
-  'monkeycode-intl': '/assets/providers/monkeycode.png',
+  monkeycode: 'assets/providers/monkeycode.png',
+  'monkeycode-intl': 'assets/providers/monkeycode.png',
   // Command Code / Antigravity：这两家没有可解的本地安装包，图取自官方资产 ——
   // Command Code 用官网 `apple-touch-icon.png`（黑底 + 白结的应用图标形态；官方
   // brand 页那种「白描边框 + 满幅黑底」的变体在 13px 徽章里会糊），Antigravity
   // 用官方 press 页的「Icon - Full Color」（antigravity.google/press）
-  commandcode: '/assets/providers/commandcode.png',
-  antigravity: '/assets/providers/antigravity.png',
+  commandcode: 'assets/providers/commandcode.png',
+  antigravity: 'assets/providers/antigravity.png',
   // OfficeAce（华为云果办）：取自官网产品页的产品图标
   // （`res-static.hc-cdn.cn/.../OfficeAce/新图标.png`，176×176 RGBA，
   // 归一成 256×256 入库 —— 与系统里显示的应用图标为同一形象）
-  officeace: '/assets/providers/officeace.png',
+  officeace: 'assets/providers/officeace.png',
   // OrcaTerm（腾讯云遨驰终端桌面客户端）：取自官方 PWA 图标
   // （`cloudcache.tencent-cloud.com/qcloud/orcaterm/pwa/icon/orcaterm_192x192.png`，
   // 与客户端 / 官网显示的应用图标为同一形象）
-  orcaterm: '/assets/providers/orcaterm.png',
-  // 智谱清言：取自客户端安装包 `resources/app.asar` 内的应用图标
+  orcaterm: 'assets/providers/orcaterm.png',
+// 智谱清言：取自客户端安装包 `resources/app.asar` 内的应用图标
   // （`assets/icon.png`，512×512，与系统里显示的应用图标为同一形象；
   // 归一成 256×256 入库 —— 与 officeace 同一处置）
-  chatglm: '/assets/providers/chatglm.png',
+  chatglm: 'assets/providers/chatglm.png',
+  // ModelScope（魔搭）：取自官网 favicon（`https://modelscope.cn/favicon.ico`，
+  // 内含 128×128 的一帧，归一成 256×256 入库 —— 与站点标签页上显示的是同一形象；
+  // 国内 / 国际版共用这一张，同 AutoClaw / MonkeyCode 的形态）
+  modelscope: 'assets/providers/modelscope.png',
+  'modelscope-intl': 'assets/providers/modelscope.png',
+  // AtomCode（AtomGit / GitCode）：取自官网首页的产品图标
+  // （`https://cdn-news.gitcode.com/news/atomcode-icon1.png`，524×524 RGBA，
+  // 归一成 256×256 入库 —— 与官网首页 / 客户端显示的应用图标为同一形象）。
+  // ⚠️ 官网的 `<link rel="icon">` 指向的是 GitCode **平台**的 favicon
+  // （`cdn-static.gitcode.host/static/images/logo-favicon.png`），不是本产品的形象，
+  // 所以没有采用它。
+  atomcode: 'assets/providers/atomcode.png',
+  // LobsterAI（网易有道「有道龙虾」）：图标取自 sibling 仓库 cpa-jethub-plugins 里
+  // 已核过的品牌图标（`internal/jethub/brandicons/brandicons.go` 的 `LobsterAI`
+  // 常量 —— 那正是产品站点从有道共享 CDN 引用的同一枚，不是有道自家的 favicon）。
+  // 该处是 24×24 的 SVG，已栅格化成 256×256 RGBA 入库（与 orcaterm / officeace
+  // 同一处置）。
+  lobsterai: 'assets/providers/lobsterai.png',
 }
 
 /**
@@ -191,19 +209,23 @@ function providerCards(accountType: AccountType): CardItem[] {
     id === WORKBUDDY_PROVIDER
       ? WORKBUDDY_ENTRY_LABEL
       : t(shared().wbProviders?.labelOf?.(id) || fallback)
-  // 摘要还没到时先放 WorkBuddy 一张：弹窗不能因为一次状态未就绪就空着。
-  // 名字与注册表无关（走上面那条中性口径）—— 兜底文案与真实文案不一致的话，
-  // 网络慢的那一次会让用户以为界面变了样。
-  const cards: CardItem[] = list.length
-    ? list.map(item => {
-      const id = String(item.id || '')
-      return {
-        id,
-        label: labelOf(id, String(item.label || item.id || '')),
-        count: Number(item.count) || 0,
-      }
-    })
-    : [{ id: WORKBUDDY_PROVIDER, label: WORKBUDDY_ENTRY_LABEL, count: accountCountOf(WORKBUDDY_PROVIDER) }]
+  // 摘要为空**不再兜底放 WorkBuddy 一张**（2026-10 改）：
+  // 以前那张兜底卡的理由是「弹窗不能因为一次状态未就绪就空着」，但本版本
+  // 转发与账号实现全在插件里，没装插件时它点了必然 503 —— 兜底一张点不动的卡
+  // 比空着更糟（用户以为功能坏了）。空列表的处置交给渲染处：显示
+  // 「先去安装提供商插件包」，并给一个跳转入口。
+  //
+  // 「摘要还没到」那一瞬也走空态：`add-account-modal` 的 reset 已经会在
+  // 列表为空时补拉一次再重画（见那里的 `providers?.load?.().then(bump)`），
+  // 所以空态最多闪一下。这个代价比留一张必然失败的卡小得多。
+  const cards: CardItem[] = list.map(item => {
+    const id = String(item.id || '')
+    return {
+      id,
+      label: labelOf(id, String(item.label || item.id || '')),
+      count: Number(item.count) || 0,
+    }
+  })
   // WorkBuddy 国际版**不进这张卡列表**：它已经由国内版那张卡里的「账号版本」
   // 分段覆盖（同一个 WorkBuddyBlock 的两个选项），两处入口会让用户以为要走两条
   // 流程，而落到国际版卡片时那个块根本不会渲染（`add-account-modal` 按

@@ -12,7 +12,7 @@
   var HOME = 'overview';                   // 首页页签固定不可关
 
   // 与 app.js 的 PAGES 保持一致（那边是脚本内常量读不到，改动时两处同步）
-  var PAGES = ['agent', 'assistant', 'overview', 'accounts', 'checkin', 'credits', 'gateway', 'proxies', 'keys', 'docs', 'logs', 'tasks', 'requests', 'settings'];
+  var PAGES = ['agent', 'assistant', 'overview', 'accounts', 'checkin', 'credits', 'gateway', 'proxies', 'keys', 'docs', 'logs', 'tasks', 'requests', 'plugins', 'settings'];
   // 与 app.js 的 PAGE_LABELS 保持一致；优先取侧栏导航上的现成文案，取不到才退回这张表
   var LABELS = {
     agent: 'Agent',
@@ -28,6 +28,7 @@
     logs: '系统日志',
     tasks: '系统维护',
     requests: '运行日志',
+    plugins: '插件',
     settings: '配置',
   };
   // 页签图标键：与 index.html 侧栏 <button class="nav-item" data-page data-icon>
@@ -47,6 +48,7 @@
     requests: 'requests',
     logs: 'logs',
     tasks: 'tasks',
+    plugins: 'plugins',
     settings: 'settings',
   };
 
@@ -71,7 +73,7 @@
       var raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
       if (Array.isArray(raw)) {
         raw.forEach(function (id) {
-          if (typeof id === 'string' && PAGES.indexOf(id) !== -1 && out.indexOf(id) === -1) out.push(id);
+          if (knownPage(id) && out.indexOf(id) === -1) out.push(id);
         });
       }
     } catch (e) { /* 存档坏了就回到默认：只剩首页 */ }
@@ -83,9 +85,13 @@
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tags)); } catch (e) { /* 隐私模式等场景忽略 */ }
   }
 
+  function knownPage(name) {
+    return typeof name === 'string' && (PAGES.indexOf(name) !== -1 || /^plugin:[a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+$/.test(name));
+  }
+
   /** 非法页名归一到 overview（与 app.js 的 showPage 同一取向） */
   function normalize(name) {
-    return typeof name === 'string' && PAGES.indexOf(name) !== -1 ? name : HOME;
+    return knownPage(name) ? name : HOME;
   }
 
   /** 页签文案：优先侧栏导航的 label（与界面天然同步），退回内置表 */

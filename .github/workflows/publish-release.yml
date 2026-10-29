@@ -50,7 +50,7 @@ jobs:
               return subprocess.check_output(['git', 'show', f'{tag}:{path}']).decode()
           sha = subprocess.check_output(['git', 'rev-parse', '--verify', f'refs/tags/{tag}^{{commit}}']).decode().strip()
           version = json.loads(source('desktop-tauri/src-tauri/tauri.conf.json'))['version']
-          assert tag.startswith(f'v{version}-'), 'tag 与安装包版本不一致'
+          assert tag == f'v{version}' or tag.startswith(f'v{version}-'), 'tag 与安装包版本不一致'
           for path in ('package.json', 'desktop-tauri/package.json'):
               assert json.loads(source(path))['version'] == version
           for path in ('desktop-tauri/src-tauri/Cargo.toml', 'desktop-tauri/src-tauri/server/Cargo.toml'):

@@ -36,6 +36,7 @@ globalThis.fetch=window.fetch=async(url,init={})=>{
  else if(u.pathname==='/api/session/login/wait')data={pending:true}
  else if(u.pathname==='/api/session/login/cancel')data={canceled:true}
  else if(u.pathname==='/api/session'){if(providerGate)await providerGate;data=window.wbApp.getState()}
+ else if(u.pathname==='/api/plugins')data={packs:[{id:'aibuddy-providers',name:'Fixture pack',version:'0.2.2-beta.2',enabled:true,signed:true,installedAt:Date.now(),entryPresent:true,protocol:1,providers:[{id:'catpaw',label:'CatPaw',enabled:true,loaded:true}]}],host:{running:true,providers:['catpaw'],crashes:0,disabled:false},target:'aarch64-apple-darwin',protocol:1,pluginsDir:'/fixture/plugins',catalog:{plugins:[],available:false,current:'0.2.2-beta.2',reason:null,error:false},updates:[],operations:[]}
  else if(u.pathname==='/api/accounts')data={accounts:[account]}
  else if(u.pathname==='/api/accounts/fixture'&&method==='PATCH'){
   if(failSave){failSave=false;return Response.json({success:false,error:'fixture-save-failed'},{status:500})}
@@ -53,7 +54,7 @@ globalThis.fetch=window.fetch=async(url,init={})=>{
  else if(u.pathname==='/api/keys')data={keys:[],settings:{},modelsByProvider:{}}
  else if(u.pathname==='/api/scheduled-tasks')data={tasks:[]}
  else if(u.pathname.startsWith('/api/stats/'))data={entries:[],total:0,matched:0,overview:{},timeline:[],models:[],accounts:[],providers:[]}
- else if(u.pathname.startsWith('/api/checkin-center'))data={daily:{todayEligible:0,todayDone:0,providers:[],outOfScope:[]},extras:{onboarding:[],plans:[]}}
+ else if(u.pathname.startsWith('/api/checkin-center'))data={daily:{todayEligible:0,todayDone:0,providers:[],outOfScope:[]},extras:{onboarding:[],plans:[],growth:[]}}
  else if(u.pathname==='/api/logs')data={entries:[],total:0}
  else if(u.pathname==='/api/cline/headers')data={defaults:{},overrides:{}}
  else if(u.pathname==='/api/notifications/channels')data={channels:[]}
@@ -224,9 +225,10 @@ try {
  const fileInput=document.querySelector('input[type=file]');Object.defineProperty(fileInput,'files',{configurable:true,value:[new window.File(['draft'],'phone-draft.txt',{type:'text/plain'})]});fileInput.dispatchEvent(new Event('change',{bubbles:true}));await settle();assert(document.body.textContent.includes('phone-draft.txt'))
  await mount('accounts');await mount('assistant');await until(()=>document.querySelector('textarea'))
  assert.equal(document.querySelector('textarea').value,'看看哪些模型在多家重复了','draft survives tab changes');assert(document.body.textContent.includes('phone-draft.txt'),'attachment selection survives tab changes')
- for(const page of ['accounts','keys','gateway','agent','proxies','checkin','overview','requests','logs','tasks','docs','credits']) {
+ for(const page of ['accounts','keys','gateway','agent','proxies','checkin','overview','requests','logs','tasks','docs','credits','plugins']) {
   await mount(page);assert(host.textContent.trim(),page+' mounts');assert.equal(document.querySelectorAll('iframe').length,0)
   assert(!host.querySelector('[data-feature-error]'),page+' renders without boundary error: '+host.textContent)
+  if(page==='plugins')assert(host.textContent.includes('AIBuddy 提供商增强'),'remote phone plugin management uses the custom package identity')
   if(page==='docs')assert.equal(document.getElementById('api-base').textContent,'http://localhost/v1','new document nodes always get the current gateway address')
   if(page==='proxies')assert(calls.some(c=>c.path==='/api/proxies/pool'),'proxy page loads its pool on every mount')
   if(page==='agent')assert(calls.some(c=>c.path==='/api/agents'),'Agent page loads clients on every mount')
@@ -234,6 +236,6 @@ try {
  assert(!calls.some(c=>c.path.includes('/checkin')&&c.method!=='GET'),'navigation never starts real check-in')
  assert(!calls.some(c=>c.path==='/api/assistant/chat'),'opening/typing does not send prompts')
  assert(!calls.some(c=>c.path.includes('/agents/')&&c.method!=='GET'),'opening Agent does not apply config')
- console.log(`PASS: mobile provider flow; all 5 account editor panes and exact save/error/draft contracts; ${cats.length} settings categories including update/backup; full assistant/history/model controls and tab draft retention; 14 in-document feature surfaces; no automatic provider/config writes`)
+ console.log(`PASS: mobile provider flow; all 5 account editor panes and exact save/error/draft contracts; ${cats.length} settings categories including update/backup; full assistant/history/model controls and tab draft retention; 15 in-document feature surfaces including plugin management; no automatic provider/config writes`)
 } finally {cleanup?.();await settle();dom.window.close();fs.rmSync(temp,{recursive:true,force:true})}
 process.exit(0)

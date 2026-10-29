@@ -7,7 +7,7 @@ import {join} from 'node:path';
 import {createInterface} from 'node:readline';
 import assert from 'node:assert/strict';
 
-const script = await readFile(new URL('../desktop-tauri/src-tauri/server/src/server/core/providers/accio/security_guard.cjs', import.meta.url), 'utf8');
+const script = await readFile(new URL('../provider-plugin/crates/providers/src/providers/accio/security_guard.cjs', import.meta.url), 'utf8');
 const folder = await mkdtemp(join(tmpdir(), 'accio-sg-test-'));
 let probes = 0;
 async function probe(source, requests) {
@@ -87,6 +87,17 @@ try {
   const thrownNull = await probe(cookieSdk.replace("if(c!=='synthetic-cookie')throw Error('bad cookie');return 'token';", "throw null;"),[{sgcookie:'synthetic-cookie'}]);
   assert.equal(thrownNull[0].init.status,'success');
   assert.equal(thrownNull[0].init.cookieErrorCode,null);
+  // A getter after cookie rejection must not contaminate the fallback state.
+  const ordered = await probe(`let calls=[];let ready=false;module.exports={
+    initUmidBySgCookie:async()=>{calls.push('cookie');throw Object.assign(Error('private cookie'),{errorCode:17500});},
+    getSecurityToken:()=>{calls.push('getter');return ready?'token':'';},
+    initUmid:async env=>{if(calls.join(',')!=='cookie'||env!==6)throw Error('wrong init order');calls.push('environment');ready=true;return 'token';},
+    getSecurityFactorsForWeb:()=>JSON.stringify({'x-bx-order':calls.join(',')})};`,[{sgcookie:'synthetic-cookie'}, {sgcookie:'synthetic-cookie'}]);
+  assert.equal(ordered[0].init.status,'success');assert.equal(ordered[0].init.cookieErrorCode,17500);
+  assert.equal(ordered[0].headers['x-bx-order'],encodeURIComponent('cookie,environment'));
+  assert.equal(ordered[1].headers['x-bx-order'],ordered[0].headers['x-bx-order']);
+  const noRead = await probe(`module.exports={initUmid:async()=>{throw Object.assign(Error('failed'),{errorCode:17500});},getSecurityToken:()=>{throw Error('getter must not run');},getSecurityFactorsForWeb:()=>{throw Error('factors must not run');}};`,[{}]);
+  assert.equal(noRead[0].errType,'sg_init_failed');assert.equal(noRead[0].init.tokenPresent,false);
   const stub = await probe('module.exports={isStub:true,getSecurityFactorsForWeb(){}};',[{}]);
   assert.equal(stub[0].errType,'sg_unavailable');
   const badUrl = await probe(base,[{url:'file:///tmp/foo'}]);assert.equal(badUrl[0].errType,'sg_bridge_error');

@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "plugins": [
+    {
+      "id": "aibuddy-providers",
+      "name": "AIBuddy 提供商增强",
+      "description": "保留本地提供商增强的独立插件包",
+      "official": true,
+      "manifest": "plugins/aibuddy-providers.json",
+      "source": {
+        "repo": "sinner351sdf/AIBuddy-Panel"
+      }
+    }
+  ]
+}

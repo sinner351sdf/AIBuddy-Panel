@@ -22,6 +22,7 @@
   "可用模型：{names}": "Modelos permitidos: {names}",
   "可用范围": "Escopo permitido",
   "可用范围 · {name}": "Escopo permitido · {name}",
+  "后端未返回 Key 列表": "",
   "启用「{name}」": "Habilitar “{name}”",
   "复制 Key": "Copiar Key",
   "客户端请求带上 ": "",
@@ -34,8 +35,9 @@
   "搜索模型…": "Buscar modelos…",
   "操作失败：{reason}": "Falha na operação: {reason}",
   "新建 API Key": "Nova API Key",
+  "新建 Key / 编辑范围与额度": "",
   "新建 Key 与设置可用范围（提供商 / 模型白名单）在桌面端完成。": "",
-  "显示": "Mostrar",
+  "显示": "Visível",
   "未启用鉴权": "Sem autenticação",
   "未命名": "Sem nome",
   "模型：{names}": "Modelos: {names}",
@@ -51,6 +53,7 @@
   "读取 Key 列表失败：{reason}": "Falha ao ler a lista de Keys: {reason}",
   "还没有 Key。去桌面端「网关 Key」页新建一把。": "",
   "还没有 Key，当前不鉴权": "Ainda não há Keys; sem autenticação no momento",
+  "还没有 Key，点击下方新建。": "",
   "这几家当前没有可用模型（账号未登录或清单为空）": "Estes provedores não têm modelos disponíveis no momento (contas sem sessão ou catálogo vazio)",
   "这把 Key 不限制提供商与模型（可用全部上游与全部对外模型）": "Esta Key não restringe provedores nem modelos (pode usar todos os upstreams e todos os modelos expostos)",
   "限制：{text}": "Restrições: {text}",
@@ -61,5 +64,6 @@
   "＋ 新建 Key": "+ Nova Key",
   "； 修改后立即生效，本程序自身会自动使用第一把启用的 Key。每把 Key 可单独限制": "; as alterações entram em vigor imediatamente, e este próprio programa usará automaticamente a primeira Key habilitada. Cada Key pode restringir individualmente ",
   "；一把启用的 Key 都没有时不鉴权。": "",
-  "；当前必须带 Key。": ""
+  "；当前必须带 Key。": "",
+  "；请妥善保存 Key，可随时禁用或更换。": ""
 }

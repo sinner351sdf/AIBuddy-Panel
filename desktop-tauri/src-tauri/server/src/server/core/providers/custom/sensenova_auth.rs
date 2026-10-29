@@ -34,6 +34,7 @@
 //! release 是 `panic=abort`：本文件零 unwrap / expect / panic。
 //! 失败一律返回可读的 `String`（调用方拼进余额查询的错误文案）。
 
+use crate::server::core::validation::ValidatedRequest as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use serde_json::{json, Value};
@@ -164,7 +165,7 @@ pub(super) async fn login(
         .header("Referer", format!("{PLATFORM_BASE}/login"))
         .timeout(std::time::Duration::from_millis(STEP_TIMEOUT_MS))
         .json(&body)
-        .send()
+        .send_guarded()
         .await
         .map_err(|error| format!("商汤登录接口请求失败：{}", egress::describe_error_detail(&error)))?;
     let status = response.status().as_u16();
@@ -212,7 +213,7 @@ pub(super) async fn login(
         .header("User-Agent", USER_AGENT)
         .timeout(std::time::Duration::from_millis(STEP_TIMEOUT_MS))
         .body(form)
-        .send()
+        .send_guarded()
         .await
         .map_err(|error| format!("商汤换码请求失败：{}", egress::describe_error_detail(&error)))?;
     let status = response.status().as_u16();
@@ -278,7 +279,7 @@ async fn follow(
             request = request.header("Cookie", cookie);
         }
         let response = request
-            .send()
+            .send_guarded()
             .await
             .map_err(|error| format!("商汤登录跳转请求失败：{}", egress::describe_error_detail(&error)))?;
         jar.capture(&response);

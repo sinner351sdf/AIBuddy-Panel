@@ -39,7 +39,6 @@ use serde_json::{json, Value};
 
 use crate::server::core::account_store::AccountStore;
 use crate::server::core::limiter;
-use crate::server::core::providers::adapter::adapter_for;
 use crate::server::core::usage_records;
 
 use crate::server::logging;
@@ -213,14 +212,18 @@ async fn query_usage_inner(
             .map_err(|error| UsageFailure::Request(error.message, error.code));
     }
     // 注册表里没有的 id（前端比后端新、或手改过的账号文件）：明确报「未知的
-    // 提供商」，不猜成任何一家（与全仓的 provider 口径一致）
-    let Some(kind) = crate::server::core::providers::kind_from_id(provider_id) else {
+    // 提供商」，不猜成任何一家（与全仓的 provider 口径一致）。
+    //
+    // ── 插件家在这里分流 ────────────────────────────────────────
+    // 它们的 id 不在枚举里，但**在运行时注册表里** —— 用 `adapter_by_id`
+    // 同时覆盖两类，而不是只认 `kind_from_id`（那会让插件家的余额查询
+    // 报「未知的提供商」，而界面上明明有那张卡片）。
+    let Some(adapter) = crate::server::core::providers::adapter::adapter_by_id(provider_id) else {
         return Err(UsageFailure::Request(
             format!("未知的提供商 {provider_id}，无法查询余额"),
             None,
         ));
     };
-    let adapter = adapter_for(kind);
     match adapter.query_usage(store, id).await {
         Ok(usage) => Ok(usage),
         Err(error) => {
@@ -265,11 +268,17 @@ fn supports_usage(account: &Value) -> bool {
         .get("provider")
         .and_then(Value::as_str)
         .unwrap_or(crate::server::core::providers::DEFAULT_PROVIDER_ID);
+    supports_usage_provider(provider_id)
+}
+
+pub(crate) fn supports_usage_provider(provider_id: &str) -> bool {
     if crate::server::core::custom_providers::is_custom_provider_id(provider_id) {
         return crate::server::core::providers::custom::balance::supports_usage(provider_id);
     }
-    crate::server::core::providers::kind_from_id(provider_id)
-        .map(|kind| adapter_for(kind).supports_usage())
+    // 用 `adapter_by_id` 而不是 `kind_from_id`：插件家的 id 不在枚举里，
+    // 但它们同样声明了 `supports_usage`（见上面那条注释）。
+    crate::server::core::providers::adapter::adapter_by_id(provider_id)
+        .map(|adapter| adapter.supports_usage())
         .unwrap_or(false)
 }
 
@@ -301,6 +310,14 @@ fn supports_usage(account: &Value) -> bool {
 ///
 /// 未知 id 由 `resolve_batch_targets` 报 404「账号不存在」。
 pub async fn query_all(store: &AccountStore, id: Option<&str>) -> Result<Value, TargetError> {
+    // A read-only review must not replace the copied balance history with a
+    // synthetic network-policy failure, even when a page requests a refresh.
+    if crate::server::core::validation::enabled() {
+        return Err(TargetError {
+            message: "隔离验收已暂停余额刷新，保留原有余额记录".to_string(),
+            status_code: 503,
+        });
+    }
     let single = id.filter(|value| !value.is_empty());
     // `provider = None`：跨四家取目标（签到那条仍按 provider 过滤）
     let (targets, skipped) = resolve_batch_targets(store, None, single)?;
@@ -404,7 +421,7 @@ pub async fn query_credit_packages(store: &AccountStore) -> Value {
                 let outcome = match store.get_session_by_id(&id) {
                     Some(entry) => {
                         billing
-                            .query_usage(Some(&entry.session), None)
+                            .query_credits_summary(Some(&entry.session), None)
                             .await
                             .map_err(|error| error.message)
                     }
@@ -548,6 +565,7 @@ pub const SWEEP_TICK_MS: u64 = 10_000;
 /// 起动每账号自动查询的心跳循环（`ServerState::bootstrap` 调一次，进程内
 /// 只有这一个循环）。循环体：扫到期账号 → 占位 → 并发查询 → 落记录 → 钩子。
 pub fn spawn_sweeper(store: AccountStore) {
+    if crate::server::core::validation::enabled() { return; }
     crate::spawn_task(async move {
         loop {
             sweep_due(&store).await;
@@ -571,6 +589,7 @@ pub fn spawn_sweeper(store: AccountStore) {
 ///   ② **Token 自动禁用判定**（`enforce_token_disable`）：disable 档命中
 ///      （当前窗口消耗 ≥ 阈值）就把账号禁用 —— 与余额禁用同一条硬动作语义。
 async fn sweep_due(store: &AccountStore) {
+    if crate::server::core::validation::enabled() { return; }
     usage_records::prune_orphans();
     let now = logging::now_ms();
     // 全量账号快照（不看启用 / 可用）：Token 事实表要覆盖所有配了规则的账号，
@@ -706,4 +725,20 @@ pub fn snapshot(store: &AccountStore) -> Value {
         "tokenAt": now,
         "tokenUsage": token_usage,
     })
+}
+
+#[cfg(test)]
+mod validation_tests {
+    #[tokio::test]
+    async fn isolated_manual_refresh_stops_before_resolving_accounts_or_writing_history() {
+        if !crate::server::core::validation::enabled() { return; }
+        let store = super::AccountStore::with_db(None);
+        // A nonexistent account normally returns 404. The isolation gate must
+        // instead reject before account resolution, RPC and record mutation.
+        for id in [None, Some("nonexistent-validation-account")] {
+            let error = super::query_all(&store, id).await.unwrap_err();
+            assert_eq!(error.status_code, 503);
+            assert!(error.message.contains("保留原有余额记录"));
+        }
+    }
 }

@@ -20,7 +20,7 @@
  * 但为了在浏览器里调试时不炸，仍然保留了纯 JS 兜底。
  */
 
-import { apiCall, url, type PanelStatus } from './client'
+import { apiCall, invalidatePanelSession, url, type PanelStatus } from './client'
 import { activeServerId, readServerAuth, storeServerAuth } from '../lib/servers'
 
 /** 题面（服务端 `altcha::challenge()` 的原样输出） */
@@ -211,6 +211,7 @@ export async function authenticate(input: {
   password: string
   captcha: string | null
 }): Promise<AuthResult> {
+  invalidatePanelSession()
   const body: Record<string, string> = {
     username: input.username,
     password: input.password,
@@ -259,6 +260,7 @@ function readError(error: unknown): string {
 
 /** 退出登录：撤掉服务端会话（失败也无所谓），再清本地 */
 export async function logout(): Promise<void> {
+  invalidatePanelSession()
   const auth = readServerAuth(activeServerId())
   const headers: Record<string, string> = {
     Accept: 'application/json',

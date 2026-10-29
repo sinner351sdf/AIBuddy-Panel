@@ -44,6 +44,7 @@ use crate::server::core::providers::{kind_id, ProviderKind};
 use crate::server::core::usage_records::{default_low_balance_mode, DEFAULT_LOW_BALANCE_THRESHOLD};
 use crate::server::db::Db;
 use crate::server::logging;
+use agent2api_provider_protocol as proto;
 
 /// Cline 免费池的 provider id（与 `usage_records::CLINE_FREE_PROVIDER` 同源推导）。
 const CLINE_FREE_PROVIDER: &str = kind_id(ProviderKind::ClineFree);
@@ -186,7 +187,14 @@ fn parse_rules(value: Option<&Value>) -> Option<Vec<LimiterRule>> {
                     0
                 };
                 let enabled = fields.get("enabled").map(js_truthy).unwrap_or(true);
-                Some(LimiterRule { kind, action, threshold, period, reset, enabled })
+                Some(LimiterRule {
+                    kind,
+                    action,
+                    threshold,
+                    period,
+                    reset,
+                    enabled,
+                })
             })
             .collect(),
     )
@@ -198,6 +206,13 @@ fn parse_rules(value: Option<&Value>) -> Option<Vec<LimiterRule>> {
 /// 各 provider 的**缺省限制规则**（记录上没有 `limiters` 也没有显式 `lowBalance`
 /// 配置时用）。
 ///
+/// ── 判据顺序：插件申报优先，注册表兜底 ──────────────────────
+/// 缺省规则是「这一家的额度形态长什么样」的结论，属于 provider 知识，所以
+/// 插件在握手时申报（`AccountFeatures::default_limiters`）。这里先问插件：
+/// 申报了就照它执行（含「明确声明为空」这一档），没申报才走下面的内置表 ——
+/// 于是没升级的旧插件照旧工作，升级后行为由插件自己说了算。
+///
+/// 内置表的三条（**只有旧插件会走到**）：
 /// - **CodeArts → Token 自然日 1000 万，跳过**：这一家的余额读数常判不出
 ///   （免费版账号的统计里没有积分类计量表、`available` 为 null，额度全在福利
 ///   token 池），缺省的余额规则形同虚设；按自然日 Token 消耗判定才兜得住
@@ -206,6 +221,9 @@ fn parse_rules(value: Option<&Value>) -> Option<Vec<LimiterRule>> {
 ///   缺省的理由不变。
 /// - **其余 provider → 余额 < 1 跳过**（历史缺省不变）。
 pub fn default_rules(provider: &str) -> Vec<LimiterRule> {
+    if let Some(declared) = declared_rules(provider) {
+        return declared;
+    }
     if provider == CODEARTS_PROVIDER {
         return vec![LimiterRule {
             kind: LimiterKind::Token,
@@ -229,6 +247,50 @@ pub fn default_rules(provider: &str) -> Vec<LimiterRule> {
     }]
 }
 
+/// 插件申报的缺省规则（`None` = 这一家没申报，调用方走内置表）。
+///
+/// 协议里的 `DefaultLimiter` 与这里的 `LimiterRule` 是同一件事的两份表达：
+/// 前者是过线形态（字段少、枚举封闭），后者是网关内部形态（带 `reset`
+/// 这类展示口径）。转换只在这一处，别处不要再写一遍。
+fn declared_rules(provider: &str) -> Option<Vec<LimiterRule>> {
+    let features = crate::server::core::plugin_host::account_features_of(provider)?;
+    let declared = features.default_limiters?;
+    Some(
+        declared
+            .into_iter()
+            .filter(|rule| rule.threshold.is_finite() && rule.threshold > 0.0)
+            .map(|rule| {
+                let (kind, reset) = match rule.kind {
+                    proto::DefaultLimiterKind::Balance => {
+                        (LimiterKind::Balance, LimiterReset::Fixed)
+                    }
+                    proto::DefaultLimiterKind::Token => {
+                        // `period_seconds == 0` = 自然日；否则是固定周期窗口
+                        let reset = if rule.period_seconds == 0 {
+                            LimiterReset::Daily
+                        } else {
+                            LimiterReset::Fixed
+                        };
+                        (LimiterKind::Token, reset)
+                    }
+                };
+                let action = match rule.action {
+                    proto::DefaultLimiterAction::Skip => LimiterAction::Skip,
+                    proto::DefaultLimiterAction::Disable => LimiterAction::Disable,
+                };
+                LimiterRule {
+                    kind,
+                    action,
+                    threshold: rule.threshold,
+                    period: i64::from(rule.period_seconds),
+                    reset,
+                    enabled: true,
+                }
+            })
+            .collect(),
+    )
+}
+
 /// 记录字段上**没有** `limiters` 键时的推导：有显式 `lowBalance`（用户 / 旧版
 /// 配过）就原样尊重；两者都没有时按 provider 给缺省规则（[`default_rules`]）——
 /// CodeArts 从这里拿到的是一条 Token 自然日规则而不是余额规则。
@@ -241,8 +303,11 @@ fn derive_from_legacy(fields: &serde_json::Map<String, Value>) -> Vec<LimiterRul
         // 自动套餐按模型/通道余额判断。Start 总额为 0 不能证明 Coding 也没额度；
         // 用户显式设置的余额规则仍照常生效。
         if matches!(provider, "zcode" | "zcode-intl")
-            && fields.get("zcodePlan").and_then(Value::as_str)
-                .is_none_or(|plan| plan.is_empty() || plan == "auto") {
+            && fields
+                .get("zcodePlan")
+                .and_then(Value::as_str)
+                .is_none_or(|plan| plan.is_empty() || plan == "auto")
+        {
             return Vec::new();
         }
         return default_rules(provider);
@@ -261,7 +326,14 @@ fn derive_from_legacy(fields: &serde_json::Map<String, Value>) -> Vec<LimiterRul
         "disable" => (LimiterKind::Balance, LimiterAction::Disable),
         _ => return Vec::new(),
     };
-    vec![LimiterRule { kind, action, threshold, period: 0, reset: LimiterReset::Fixed, enabled: true }]
+    vec![LimiterRule {
+        kind,
+        action,
+        threshold,
+        period: 0,
+        reset: LimiterReset::Fixed,
+        enabled: true,
+    }]
 }
 
 /// 这条账号的**有效限制规则**：显式 `limiters` 优先，缺失时按旧配置推导。
@@ -327,6 +399,11 @@ pub fn normalize_rules(
         if !threshold.is_finite() || threshold <= 0.0 {
             return Err("限制阈值必须是大于 0 的数字".to_string());
         }
+        if kind == LimiterKind::Token
+            && (threshold.fract() != 0.0 || threshold > 9_007_199_254_740_991.0)
+        {
+            return Err("Token 阈值必须是 1 ~ 9007199254740991 的安全整数".to_string());
+        }
         // reset 缺省 = fixed（前端旧草稿不带这个键也能存）；只认两值，不猜
         let reset = match fields.get("reset").and_then(Value::as_str) {
             None | Some("fixed") => LimiterReset::Fixed,
@@ -334,9 +411,10 @@ pub fn normalize_rules(
             Some(_) => return Err("Token 重置方式必须是「固定周期 / 自然日」之一".to_string()),
         };
         let period = if kind == LimiterKind::Token && reset == LimiterReset::Fixed {
-            let period = fields.get("period").and_then(Value::as_i64).ok_or_else(|| {
-                "Token 规则必须带重置周期（整数秒）".to_string()
-            })?;
+            let period = fields
+                .get("period")
+                .and_then(Value::as_i64)
+                .ok_or_else(|| "Token 规则必须带重置周期（整数秒）".to_string())?;
             if !(MIN_TOKEN_PERIOD_SECONDS..=MAX_TOKEN_PERIOD_SECONDS).contains(&period) {
                 return Err(format!(
                     "Token 重置周期必须是 {} ~ {} 秒（30 分钟 ~ 24 小时）",
@@ -348,7 +426,14 @@ pub fn normalize_rules(
             0
         };
         let enabled = fields.get("enabled").map(js_truthy).unwrap_or(true);
-        rules.push(LimiterRule { kind, action, threshold, period, reset, enabled });
+        rules.push(LimiterRule {
+            kind,
+            action,
+            threshold,
+            period,
+            reset,
+            enabled,
+        });
     }
     Ok(rules)
 }
@@ -359,14 +444,21 @@ pub fn normalize_rules(
 /// `facts` 是 `usage_records::balance_facts()` 的内存读数（判不出 = 放行，
 /// 那条口径不变）。取代旧版按 `lowBalance.mode` 单配置的读法 —— 推导规则
 /// 让旧记录拿到同一个结论。
-pub fn balance_skip_blocked(account: &Value, facts: &HashMap<String, crate::server::core::usage_records::BalanceFact>) -> bool {
-    let Some(id) = account.get("id").and_then(Value::as_str) else { return false };
+pub fn balance_skip_blocked(
+    account: &Value,
+    facts: &HashMap<String, crate::server::core::usage_records::BalanceFact>,
+) -> bool {
+    let Some(id) = account.get("id").and_then(Value::as_str) else {
+        return false;
+    };
     let fact = facts.get(id);
     effective_rules(account).iter().any(|rule| {
         rule.kind == LimiterKind::Balance
             && rule.action == LimiterAction::Skip
             && rule.enabled
-            && fact.is_some_and(|fact| matches!(fact.remaining, Some(remaining) if remaining < rule.threshold))
+            && fact.is_some_and(
+                |fact| matches!(fact.remaining, Some(remaining) if remaining < rule.threshold),
+            )
     })
 }
 
@@ -377,7 +469,9 @@ pub fn balance_disable_threshold(account: &Value) -> Option<f64> {
     effective_rules(account)
         .iter()
         .filter(|rule| {
-            rule.kind == LimiterKind::Balance && rule.action == LimiterAction::Disable && rule.enabled
+            rule.kind == LimiterKind::Balance
+                && rule.action == LimiterAction::Disable
+                && rule.enabled
         })
         .map(|rule| rule.threshold)
         .fold(None, |max: Option<f64>, threshold| {
@@ -442,7 +536,9 @@ pub fn token_skip_blocked(
     facts: &HashMap<(String, i64), TokenFact>,
     now_ms: i64,
 ) -> bool {
-    let Some(id) = account.get("id").and_then(Value::as_str) else { return false };
+    let Some(id) = account.get("id").and_then(Value::as_str) else {
+        return false;
+    };
     effective_rules(account).iter().any(|rule| {
         if rule.kind != LimiterKind::Token || rule.action != LimiterAction::Skip || !rule.enabled {
             return false;
@@ -468,7 +564,9 @@ pub fn token_disable_hit(
     let id = account.get("id").and_then(Value::as_str)?;
     let hits: Vec<(LimiterRule, i64)> = effective_rules(account)
         .into_iter()
-        .filter(|rule| rule.kind == LimiterKind::Token && rule.action == LimiterAction::Disable && rule.enabled)
+        .filter(|rule| {
+            rule.kind == LimiterKind::Token && rule.action == LimiterAction::Disable && rule.enabled
+        })
         .filter_map(|rule| {
             let start = kind_window_start(rule_kind(&rule), now_ms);
             let used = facts
@@ -479,8 +577,11 @@ pub fn token_disable_hit(
             (used as f64 >= rule.threshold).then_some((rule, used))
         })
         .collect();
-    hits.into_iter()
-        .min_by(|(a, _), (b, _)| a.threshold.partial_cmp(&b.threshold).unwrap_or(std::cmp::Ordering::Equal))
+    hits.into_iter().min_by(|(a, _), (b, _)| {
+        a.threshold
+            .partial_cmp(&b.threshold)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    })
 }
 
 /// 秒数 → 人能读的周期 / 间隔文案（`每 90 分钟` 这类）：整小时 / 整分钟进位，
@@ -599,7 +700,13 @@ pub fn refresh_token_facts(kinds: &[i64]) {
             rows.filter_map(|item| item.ok()).collect::<Vec<_>>()
         });
         for (account_id, used) in rows.unwrap_or_default() {
-            fresh.insert((account_id, kind), TokenFact { window_start: start, used });
+            fresh.insert(
+                (account_id, kind),
+                TokenFact {
+                    window_start: start,
+                    used,
+                },
+            );
         }
     }
     if let Ok(mut slot) = facts_slot().lock() {
@@ -617,7 +724,9 @@ pub fn note_request_tokens(account_id: &str, tokens: i64, now_ms: i64) {
     if account_id.is_empty() || tokens <= 0 {
         return;
     }
-    let Ok(mut facts) = facts_slot().lock() else { return };
+    let Ok(mut facts) = facts_slot().lock() else {
+        return;
+    };
     let kinds: Vec<i64> = facts
         .keys()
         .filter(|(id, _)| id == account_id)
@@ -640,7 +749,11 @@ pub fn note_request_tokens(account_id: &str, tokens: i64, now_ms: i64) {
 /// 种类一项，`kind` = 固定周期的秒数或 0（自然日）；事实缺 / 旧窗口按 0 算
 /// 但 `windowStart` 恒是**当前**窗口起点，前端的倒计时与「已用多少」因此永远
 /// 是同一窗口的语义）。
-pub fn token_usage_rows(account: &Value, facts: &HashMap<(String, i64), TokenFact>, now_ms: i64) -> Vec<Value> {
+pub fn token_usage_rows(
+    account: &Value,
+    facts: &HashMap<(String, i64), TokenFact>,
+    now_ms: i64,
+) -> Vec<Value> {
     let id = match account.get("id").and_then(Value::as_str) {
         Some(id) if !id.is_empty() => id.to_string(),
         _ => return Vec::new(),
@@ -664,4 +777,24 @@ pub fn token_usage_rows(account: &Value, facts: &HashMap<(String, i64), TokenFac
             json!({ "kind": kind, "windowStart": start, "used": used })
         })
         .collect()
+}
+
+#[cfg(test)]
+mod migration_rule_tests {
+    use super::*;
+    use serde_json::json;
+    #[test]
+    fn token_threshold_requires_safe_integer_and_keeps_disabled() {
+        let fields = serde_json::Map::new();
+        for threshold in [0.0, -1.0, 0.5, 1.5, 9_007_199_254_740_992.0] {
+            assert!(normalize_rules(&json!([{"type":"token","action":"skip","threshold":threshold,"reset":"daily","enabled":false}]),&fields).is_err());
+        }
+        let rules=normalize_rules(&json!([{"type":"token","action":"skip","threshold":9_007_199_254_740_991_u64,"reset":"daily","enabled":false}]),&fields).unwrap();
+        assert!(!rules[0].enabled);
+        assert!(normalize_rules(
+            &json!([{"type":"balance","action":"skip","threshold":0.25,"enabled":false}]),
+            &fields
+        )
+        .is_ok());
+    }
 }

@@ -21,5 +21,6 @@
   "首次使用：创建一个管理员账号，用于登录此面板": "Primeiro uso: crie uma conta de administrador para entrar neste painel",
   "验证中…": "Verificando…",
   "验证失败，请重试": "Falha na verificação, tente novamente",
-  "验证成功": "Verificado"
+  "验证成功": "Verificado",
+  "登录会话已失效，请重新登录": "Sua sessão expirou. Entre novamente."
 }

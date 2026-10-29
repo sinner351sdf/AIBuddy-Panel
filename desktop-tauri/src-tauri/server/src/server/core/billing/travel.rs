@@ -97,14 +97,14 @@ const BUDDY_TASK_INCOMPLETE_MARKER: &str = "first_buddy task not completed yet";
 // ─── 状态结构（refs travel.go:31-42）────────────────────────
 
 /// 账号当前猫档案；`buddy/info` 的 data.buddy 为 null 表示无猫。
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Buddy {
     pub id: i64,
     pub name: String,
 }
 
 /// 猫猫旅行状态。
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct TravelState {
     /// idle（空闲可派出）/ traveling（在途）/ arrived（到站可领奖）
     pub state: String,
@@ -132,20 +132,13 @@ pub async fn buddy_info(
     service: &BillingService,
     session: &Value,
 ) -> Result<Option<Buddy>, BillingError> {
-    let call = service.call_billing(BUDDY_INFO, travel_options(session)).await?;
-    let buddy = call.data.get("buddy").cloned().unwrap_or(Value::Null);
-    // null / 缺字段 / 非对象都按无猫处理（refs 的 trimmed == "" | "null" 口径）
-    let Some(buddy) = buddy.as_object().filter(|b|!b.is_empty()) else {
-        return Ok(None);
-    };
-    Ok(Some(Buddy {
-        id: buddy.get("id").and_then(Value::as_i64).unwrap_or(0),
-        name: buddy
-            .get("name")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string(),
-    }))
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.travel.buddy_info",
+        serde_json::json!({}),
+    )
+    .await
 }
 
 /// 同意协议（幂等，重复调用无副作用；refs travel.go:129-133）。
@@ -153,29 +146,35 @@ pub async fn buddy_agreement(
     service: &BillingService,
     session: &Value,
 ) -> Result<(), BillingError> {
-    let body = json!({ "agree": true });
-    let options = CallOptions {
-        body: Some(&body),
-        ..travel_options(session)
-    };
-    service.call_billing(BUDDY_AGREEMENT, options).await?;
-    Ok(())
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.travel.buddy_agreement",
+        serde_json::json!({}),
+    )
+    .await
 }
 
 /// 领养第一只猫（refs travel.go:123-127 BuddyFirst）。门槛未达标返回
 /// HTTP 400（[`is_buddy_task_incomplete`]），属预期行为，调用方当日不再重试。
-pub async fn buddy_first(
-    service: &BillingService,
-    session: &Value,
-) -> Result<(), BillingError> {
-    service.call_billing(BUDDY_FIRST, travel_options(session)).await?;
-    Ok(())
+pub async fn buddy_first(service: &BillingService, session: &Value) -> Result<(), BillingError> {
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.travel.buddy_first",
+        serde_json::json!({}),
+    )
+    .await
 }
 
 /// 判定「领养门槛未达标」：HTTP 400 + 关键词（refs travel.go:155-166）。
 /// 该错误当日不应重试（避免对上游重试轰炸）。
 pub fn is_buddy_task_incomplete(error: &BillingError) -> bool {
-    error.status_code == 400 && error.message.to_lowercase().contains(BUDDY_TASK_INCOMPLETE_MARKER)
+    error.status_code == 400
+        && error
+            .message
+            .to_lowercase()
+            .contains(BUDDY_TASK_INCOMPLETE_MARKER)
 }
 
 /// 查询猫猫旅行状态（refs travel.go:64-74 TravelStatus）。
@@ -183,65 +182,54 @@ pub async fn travel_status(
     service: &BillingService,
     session: &Value,
 ) -> Result<TravelState, BillingError> {
-    let call = service.call_billing(TRAVEL_STATUS, travel_options(session)).await?;
-    Ok(TravelState {
-        state: call
-            .data
-            .get("state")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string(),
-        daily_limit_reached: call
-            .data
-            .get("daily_limit_reached")
-            .and_then(Value::as_bool)
-            .unwrap_or(false),
-        record_id: call
-            .data
-            .get("record_id")
-            .and_then(Value::as_i64)
-            .unwrap_or(0),
-        reward_credit: call
-            .data
-            .get("reward_credit")
-            .and_then(Value::as_i64)
-            .unwrap_or(0),
-    })
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.travel.travel_status",
+        serde_json::json!({}),
+    )
+    .await
 }
 
 /// 派出猫旅行（refs travel.go:77-80；locationID 实测 1~4 收益/时长相同）。
-pub async fn travel_depart(
-    service: &BillingService,
-    session: &Value,
-) -> Result<(), BillingError> {
-    let body = json!({ "location_id": TRAVEL_LOCATION_ID });
-    let options = CallOptions {
-        body: Some(&body),
-        ..travel_options(session)
-    };
-    service.call_billing(TRAVEL_DEPART, options).await?;
-    Ok(())
+pub async fn travel_depart(service: &BillingService, session: &Value) -> Result<(), BillingError> {
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.travel.travel_depart",
+        serde_json::json!({}),
+    )
+    .await
 }
 
 /// 领取到站奖励（refs travel.go:83-96 TravelClaim），返回 reward_credit。
 /// 奖励字段缺失不视为失败（调用方按 0 记日志即可）。
-pub async fn travel_claim(service:&BillingService,session:&Value,record_id:i64)->Result<i64,BillingError>{Ok(travel_claim_known(service,session,record_id).await?.unwrap_or(0))}
+pub async fn travel_claim(
+    service: &BillingService,
+    session: &Value,
+    record_id: i64,
+) -> Result<i64, BillingError> {
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.travel.travel_claim",
+        serde_json::json!({"record_id": record_id}),
+    )
+    .await
+}
 
 pub async fn travel_claim_known(
     service: &BillingService,
     session: &Value,
     record_id: i64,
 ) -> Result<Option<i64>, BillingError> {
-    let body = json!({ "record_id": record_id });
-    let options = CallOptions {
-        body: Some(&body),
-        ..travel_options(session)
-    };
-    let call = service.call_billing(TRAVEL_CLAIM, options).await?;
-    Ok(call
-        .data
-        .get("reward_credit")
-        .and_then(Value::as_i64))
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.travel.travel_claim_known",
+        serde_json::json!({"record_id": record_id}),
+    )
+    .await
 }
 
 // ─── 领养「当日已试」登记（跨调用进程内记忆）────────────────
@@ -291,53 +279,15 @@ fn mark_adopt_tried(uid: &str) {
 
 /// 单账号单趟旅行巡检：查有无猫 + 查状态 + 最多一个动作，不轮询不等待。
 /// 返回可读结果（供调用方记日志/展示）。
-pub async fn travel_account_once(
-    service: &BillingService,
-    session: &Value,
-    uid: &str,
-) -> String {
-    let buddy = match buddy_info(service, session).await {
-        Ok(buddy) => buddy,
-        Err(error) => return format!("查询猫档案失败: {}", error.message),
-    };
-    let Some(buddy) = buddy else {
-        return travel_adopt(service, session, uid).await;
-    };
-    let state = match travel_status(service, session).await {
-        Ok(state) => state,
-        Err(error) => return format!("查询旅行状态失败: {}", error.message),
-    };
-    match state.state.as_str() {
-        "arrived" => {
-            // 到站领奖（必须带 record_id，refs scheduler/travel.go:110-121）
-            if state.record_id == 0 {
-                return format!("猫猫「{}」到站但缺少 record_id，跳过领奖", buddy.name);
-            }
-            match travel_claim(service, session, state.record_id).await {
-                Ok(reward) => format!(
-                    "猫猫「{}」到站奖励已领取（record {}，+{reward}c）",
-                    buddy.name, state.record_id
-                ),
-                Err(error) => format!(
-                    "猫猫「{}」领奖失败（record {}）: {}",
-                    buddy.name, state.record_id, error.message
-                ),
-            }
-        }
-        "idle" => {
-            if state.daily_limit_reached {
-                return "今日已派出过（每日 1 次，CST 自然日重置）".to_string();
-            }
-            match travel_depart(service, session).await {
-                Ok(()) => format!("猫猫「{}」已派出（location={TRAVEL_LOCATION_ID}）", buddy.name),
-                Err(error) => format!("派出失败: {}", error.message),
-            }
-        }
-        "traveling" => {
-            format!("猫猫「{}」在途中（record {}），跳过", buddy.name, state.record_id)
-        }
-        other => format!("未知旅行状态 {other}，跳过"),
-    }
+pub async fn travel_account_once(service: &BillingService, session: &Value, uid: &str) -> String {
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.travel.travel_account_once",
+        serde_json::json!({"uid": uid}),
+    )
+    .await
+    .unwrap_or_default()
 }
 
 /// 无猫时的领养链（refs scheduler/travel.go:123-154 travelAdopt）：
@@ -371,7 +321,12 @@ async fn travel_adopt(service: &BillingService, session: &Value, uid: &str) -> S
 }
 
 /// A verified new activity state permits one more adoption attempt today.
-pub fn allow_adopt_retry(session:&Value) {
-    let uid=session.pointer("/account/uid").and_then(Value::as_str).unwrap_or("");
-    if let Ok(mut map)=adopt_tried_map().lock() {map.remove(uid);}
+pub fn allow_adopt_retry(session: &Value) {
+    let uid = session
+        .pointer("/account/uid")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if let Ok(mut map) = adopt_tried_map().lock() {
+        map.remove(uid);
+    }
 }

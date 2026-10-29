@@ -7,7 +7,7 @@
 ## 1. 基座与协议
 
 ### aimod-cc/agent2api（上游基座）
-- 仓库：https://github.com/aimod-cc/agent2api
+- 仓库：https://github.com/aimod-cc/Agent2API
 - 参考内容：多提供商协议引擎全部（账号候选链、429 降级、出站指纹脱敏、出网代理、各家登录态转发与签名）、/health 与 /api/* 的接口形状、Node 版 server.mjs 的行为基准
 - 许可：MIT + 附加使用声明（本项目沿用）
 
@@ -28,7 +28,7 @@
 | https://github.com/ardeyouxipianyi/workbuddy2api-hub | WorkBuddy Hub（聚合参照） |
 | https://github.com/cyz824/WorkBuddyCheckin | WorkBuddy 独立签到工具（定时签到参照） |
 | https://github.com/88lin/workbuddy-auto-signin | WorkBuddy 自动签到脚本（签到排期参照） |
-| https://github.com/aimod-cc/agent2api | **本项目上游**（已在 §1） |
+| https://github.com/aimod-cc/Agent2API | **本项目上游**（已在 §1） |
 
 文章声明的功能设计参考：阿虚的分享文（把 Workbuddy/小浣熊/Qoder/千问办公/Loomy/CatPaw 的内置额度转成本地 OpenAI 兼容 API 供任意 Agent 使用的思路与推广文案）。提供商代号对照：qclaw=讯飞系、qwenwork=千问办公、traework=TraeWork、loomy=讯飞 Loomy、raccoon=商汤小浣熊。
 

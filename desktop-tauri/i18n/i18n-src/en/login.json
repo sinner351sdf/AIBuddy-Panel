@@ -21,5 +21,6 @@
   "首次使用：创建一个管理员账号，用于登录此面板": "First-time use: create an admin account to sign in to this panel",
   "验证中…": "Verifying…",
   "验证失败，请重试": "Verification failed. Please try again.",
-  "验证成功": "Verified"
+  "验证成功": "Verified",
+  "登录会话已失效，请重新登录": "Your login session has expired. Please sign in again."
 }

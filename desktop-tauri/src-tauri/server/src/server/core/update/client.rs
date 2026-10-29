@@ -21,6 +21,7 @@
 //! 否则 404 会被误当成「需要换代理」而白试一轮。这里 `fetch_with_egress`
 //! 只在 `send()` 返回 Err（DNS/TLS/连接/超时）时切下一个候选。
 
+use crate::server::core::validation::ValidatedRequest as _;
 use std::time::Duration;
 
 use serde_json::{json, Value};
@@ -151,6 +152,19 @@ async fn fetch_via_candidates(
     headers: &[(String, String)],
     timeout_ms: Option<u64>,
 ) -> Result<reqwest::Response, String> {
+    if std::env::var("AIBUDDY_VALIDATION_MODE").ok().as_deref() == Some("1") {
+        validation_url(url)?;
+        // The isolated verifier never follows a loopback redirect to the internet,
+        // uses a copied user's proxy, or sends their GitHub credential to a fixture.
+        let client = reqwest::Client::builder().no_proxy()
+            .redirect(reqwest::redirect::Policy::none()).build().map_err(|error| error.to_string())?;
+        let mut request = client.get(url);
+        if let Some(timeout_ms) = timeout_ms { request = request.timeout(Duration::from_millis(timeout_ms)); }
+        for (name, value) in headers {
+            if !name.eq_ignore_ascii_case("authorization") { request = request.header(name, value); }
+        }
+        return request.send_guarded().await.map_err(|error| error.to_string());
+    }
     let candidates = resolve_egress_candidates();
     let multiple = candidates.len() > 1;
     let mut last_error: Option<reqwest::Error> = None;
@@ -166,7 +180,7 @@ async fn fetch_via_candidates(
         for (name, value) in headers {
             builder = builder.header(name.as_str(), value.as_str());
         }
-        match builder.send().await {
+        match builder.send_guarded().await {
             Ok(response) => {
                 if multiple && proxy.is_some() {
                     logging::verbose(tag, &format!("经 {label} 访问成功"));
@@ -186,6 +200,20 @@ async fn fetch_via_candidates(
         Some(error) => egress::describe_error_detail(error),
         None => "未知错误".to_string(),
     })
+}
+
+fn validation_url(raw: &str) -> Result<(), String> {
+    crate::server::core::validation::assert_url(raw)
+}
+
+#[cfg(test)]
+mod validation_tests {
+    use super::validation_url;
+    #[test]
+    fn validation_accepts_only_loopback_http() {
+        for url in ["http://127.0.0.1:3165", "http://[::1]:3165", "https://localhost/fixture"] { assert!(validation_url(url).is_ok()); }
+        for url in ["https://api.github.com", "http://127.0.0.1.evil.invalid", "file:///tmp/a", "not a url"] { assert!(validation_url(url).is_err()); }
+    }
 }
 
 /// 出网候选的展示形态（供日志/排障；不含凭证）。

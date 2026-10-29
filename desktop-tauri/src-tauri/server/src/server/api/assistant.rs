@@ -129,25 +129,20 @@ async fn write_config(body: Bytes, partial: bool) -> Response {
     let Some(block) = payload.get("config").and_then(Value::as_object) else {
         return errors::management_error(400, "缺少 config 对象");
     };
-    let merged = if partial {
-        match merge_config(&config::assistant_config(), block) {
-            Ok(value) => value,
-            Err(message) => return errors::management_error(400, message),
+    let saved = match config::update_assistant_config(|current| {
+        let merged = if partial { merge_config(current, block)? } else { block.clone() };
+        parse_config(&merged)
+    }) {
+        Ok(saved) => saved,
+        Err(config::ConfigUpdateError::Invalid(message)) => return errors::management_error(400, message),
+        Err(config::ConfigUpdateError::Persistence) => {
+            logging::log("[Config]", "❌ AI 助手设置写入失败，保留原配置");
+            return errors::management_error(500, "AI 助手设置保存失败，配置未改变；请检查数据库及磁盘状态后重试");
         }
-    } else { block.clone() };
-    let config = match parse_config(&merged) {
-        Ok(config) => config,
-        Err(message) => return errors::management_error(400, message),
     };
-    if !config::set_assistant_config(config.clone()) {
-        logging::log(
-            "[Config]",
-            "⚠️  AI 助手设置写入失败（本次运行内仍生效）",
-        );
-    }
     // 回给前端的形态与 GET 完全一致（展开过的工具表）——「存了什么」与
     // 「界面看到什么」用同一个序列化口，免得前端保存后自己那那份与后端分叉
-    ok_json(json!({ "config": config::assistant_config().status_value() }))
+    ok_json(json!({ "config": saved.status_value() }))
 }
 
 fn merge_config(current: &AssistantConfig, patch: &Map<String, Value>) -> Result<Map<String, Value>, String> {
@@ -202,6 +197,134 @@ mod patch_tests {
         for patch in [json!({"unknown":true}), json!({"tools":{"invented":true}}), json!({"tools":{"test_model":"yes"}}), json!({"systemPromptEnabled":null})] {
             assert!(merge_config(&current, patch.as_object().unwrap()).is_err());
         }
+    }
+
+    #[test]
+    fn persistence_failure_is_an_http_error_and_preserves_tool_permissions() {
+        use crate::server::config::persistence_tests;
+        const NAME: &str = "server::api::assistant::patch_tests::persistence_failure_is_an_http_error_and_preserves_tool_permissions";
+        if !persistence_tests::isolated(NAME) { return; }
+        let database = persistence_tests::open_database();
+        if persistence_tests::is_restart() {
+            assert!(!config::assistant_config().tool_enabled("set_account_enabled"));
+            return;
+        }
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        runtime.block_on(async {
+            let update = |on| Bytes::from(json!({"config":{"tools":{"set_account_enabled":on}}}).to_string());
+            assert_eq!(write_config(update(true), true).await.status(), StatusCode::OK);
+            database.with(|conn| conn.execute_batch(
+                "CREATE TRIGGER reject_assistant BEFORE INSERT ON kv
+                 WHEN NEW.key = 'assistantConfig'
+                 BEGIN SELECT RAISE(ABORT, 'injected persistence failure'); END;"
+            )).unwrap().unwrap();
+            for partial in [true, false] {
+                let response = write_config(update(false), partial).await;
+                assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+                let bytes = axum::body::to_bytes(response.into_body(), 4096).await.unwrap();
+                let body: Value = serde_json::from_slice(&bytes).unwrap();
+                assert!(body.to_string().contains("配置未改变"));
+                assert!(config::assistant_config().tool_enabled("set_account_enabled"));
+                config::reload();
+                assert!(config::assistant_config().tool_enabled("set_account_enabled"));
+            }
+            database.with(|conn| conn.execute_batch("DROP TRIGGER reject_assistant;")).unwrap().unwrap();
+            let response = write_config(update(false), true).await;
+            assert_eq!(response.status(), StatusCode::OK);
+            let bytes = axum::body::to_bytes(response.into_body(), 4096).await.unwrap();
+            let body: Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(body["data"]["config"]["tools"]["set_account_enabled"], false);
+        });
+        persistence_tests::assert_restart(NAME);
+    }
+
+    #[test]
+    fn concurrent_patches_and_restores_preserve_latest_assistant_fields() {
+        use crate::server::config::persistence_tests;
+        use std::sync::mpsc;
+        use std::time::Duration;
+        const NAME: &str = "server::api::assistant::patch_tests::concurrent_patches_and_restores_preserve_latest_assistant_fields";
+        if !persistence_tests::isolated(NAME) { return; }
+        let database = persistence_tests::open_database();
+        if persistence_tests::is_restart() {
+            let saved = config::assistant_config();
+            assert_eq!(saved.model.as_deref(), Some("after-restore"));
+            assert_eq!(saved.system_prompt, "restored-prompt");
+            assert!(!saved.tool_enabled("set_account_enabled"));
+            return;
+        }
+        let runtime = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().unwrap();
+        runtime.block_on(async {
+            let initial = Bytes::from(json!({"config":{
+                "model":"initial", "systemPrompt":"keep-prompt", "tools":{"set_account_enabled":true}
+            }}).to_string());
+            assert_eq!(write_config(initial, false).await.status(), StatusCode::OK);
+            let start = Arc::new(tokio::sync::Barrier::new(3));
+            let model_start = start.clone();
+            let model = tokio::spawn(async move {
+                model_start.wait().await;
+                write_config(Bytes::from(json!({"config":{"model":"patched-model"}}).to_string()), true).await.status()
+            });
+            let tools_start = start.clone();
+            let tools = tokio::spawn(async move {
+                tools_start.wait().await;
+                write_config(Bytes::from(json!({"config":{"tools":{"set_account_enabled":false}}}).to_string()), true).await.status()
+            });
+            start.wait().await;
+            assert_eq!(model.await.unwrap(), StatusCode::OK);
+            assert_eq!(tools.await.unwrap(), StatusCode::OK);
+            let saved = config::assistant_config();
+            assert_eq!(saved.model.as_deref(), Some("patched-model"));
+            assert_eq!(saved.system_prompt, "keep-prompt");
+            assert!(!saved.tool_enabled("set_account_enabled"));
+
+            let bad = Bytes::from(json!({"config":{"model":"bad-model", "tools":{"test_model":"yes"}}}).to_string());
+            assert_eq!(write_config(bad, true).await.status(), StatusCode::BAD_REQUEST);
+            assert_eq!(config::assistant_config(), saved);
+            let replacement = Bytes::from(json!({"config":{"model":"put-model"}}).to_string());
+            assert_eq!(write_config(replacement, false).await.status(), StatusCode::OK);
+            assert_eq!(config::assistant_config().system_prompt, "");
+            assert!(!config::assistant_config().tool_enabled("set_account_enabled"));
+        });
+
+        // A PATCH queued while a database restore owns the global gate must merge
+        // with the restored assistant, not the snapshot that preceded the restore.
+        let mut initial = config::assistant_config();
+        initial.tools.insert("set_account_enabled".into(), true);
+        assert!(config::set_assistant_config(initial));
+        let (committed_tx, committed_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let restore = std::thread::spawn(move || {
+            config::update_persisted_and_reload(|| {
+                database.with(|conn| conn.execute(
+                    "UPDATE kv SET value=?1 WHERE key='assistantConfig'",
+                    [json!({"model":"restored-model", "systemPrompt":"restored-prompt", "tools":{"set_account_enabled":false}}).to_string()],
+                )).unwrap().unwrap();
+                committed_tx.send(()).unwrap();
+                release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+                Ok(((), true))
+            }).unwrap();
+        });
+        committed_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        let (started_tx, started_rx) = mpsc::channel();
+        let (done_tx, done_rx) = mpsc::channel();
+        let patch = runtime.spawn(async move {
+            started_tx.send(()).unwrap();
+            let response = write_config(Bytes::from(json!({"config":{"model":"after-restore"}}).to_string()), true).await;
+            done_tx.send(()).unwrap();
+            response.status()
+        });
+        started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        let completed_early = done_rx.recv_timeout(Duration::from_millis(100)).is_ok();
+        release_tx.send(()).unwrap();
+        restore.join().unwrap();
+        assert_eq!(runtime.block_on(patch).unwrap(), StatusCode::OK);
+        assert!(!completed_early);
+        let saved = config::assistant_config();
+        assert_eq!(saved.model.as_deref(), Some("after-restore"));
+        assert_eq!(saved.system_prompt, "restored-prompt");
+        assert!(!saved.tool_enabled("set_account_enabled"));
+        persistence_tests::assert_restart(NAME);
     }
 }
 

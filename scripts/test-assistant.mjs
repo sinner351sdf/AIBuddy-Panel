@@ -30,12 +30,13 @@ window.matchMedia=()=>({matches:false,addEventListener(){},removeEventListener()
 Element.prototype.scrollTo=function(opts){this.scrollTop=opts?.top||0};Element.prototype.scrollIntoView=function(){};Element.prototype.getAnimations=()=>[]
 const noModel=process.argv.includes('--no-model')
 let config={model:noModel?null:'fixture',systemPromptEnabled:true,systemPrompt:'',tools:{list_models:true,list_account_balance:true,set_account_enabled:false,test_model:false}}
+let modelUnavailable=false
 let changes=0,chatCalls=0,mode='write',releaseRead=null,releaseWrite=null,releaseConfig=null,holdConfig=false,failConfig=false
 const requests=[]
 const conversations=new Map();let historyId=0
 window.wbI18n={t:(s,v={})=>s.replace(/\{(\w+)\}/g,(_,k)=>String(v[k]??`{${k}}`))}
 const originalState=async()=>({accounts:[{id:'account',name:'Fixture',provider:'fixture',enabled:true}]})
-window.workbuddyDesktop={platform:'web',getAssistantAccess:async()=>({'x-panel-token':'synthetic'}),getModelManage:async()=>({models:[{provider:'fixture',id:'fixture',enabled:true}],mappings:[{provider:'fixture',target:'fixture',alias:'',enabled:true}]}),getState:originalState,updateAccount:async()=>{changes++},getAllBalances:async()=>({results:[{id:'account',usage:{available:7,unit:'USD',raw:{token:'must-not-leave'}},apiKey:'must-not-leave'}]})}
+window.workbuddyDesktop={platform:'web',getAssistantAccess:async()=>({'x-panel-token':'synthetic'}),getModelManage:async()=>({models:modelUnavailable?[]:[{provider:'fixture',id:'fixture',enabled:true},{provider:'fixture',id:'second',enabled:true}],mappings:[{provider:'fixture',target:'fixture',alias:'',enabled:true}]}),getState:originalState,updateAccount:async()=>{changes++},getAllBalances:async()=>({results:[{id:'account',usage:{available:7,unit:'USD',raw:{token:'must-not-leave'}},apiKey:'must-not-leave'}]})}
 function sse(parts){return new Response(parts.map(p=>'data: '+(typeof p==='string'?p:JSON.stringify(p))+'\n\n').join(''),{headers:{'Content-Type':'text/event-stream','x-vercel-ai-ui-message-stream':'v1'}})}
 globalThis.fetch=async(url,init={})=>{
  const headers=new Headers(init.headers)
@@ -58,10 +59,11 @@ globalThis.fetch=async(url,init={})=>{
  chatCalls++;const body=JSON.parse(init.body);requests.push(body);assert.equal(body.uiStream,true)
  const toolDone=body.messages.at(-1)?.role==='tool'
  const start=[{type:'start'},{type:'start-step'}]
+ if(mode==='empty')return sse([...start,{type:'finish-step'},{type:'finish',finishReason:'stop'},'[DONE]'])
  if(mode==='error')return sse([...start,{type:'error',errorText:'fixture upstream failure'},'[DONE]'])
  if(mode==='text'||(toolDone&&mode!=='loop'))return sse([...start,{type:'text-start',id:'text'},{type:'text-delta',id:'text',delta:'done'},{type:'text-end',id:'text'},{type:'finish-step'},{type:'finish',finishReason:'stop'},'[DONE]'])
  const name=mode==='loop'?'list_models':mode==='test'?'test_model':'set_account_enabled'
- const input=name==='list_models'?{}:name==='test_model'?{model:'fixture'}:{items:[{account:'account',enabled:false},...(mode==='batch'?[{account:'account',enabled:true}]:[])]}
+ const input=name==='list_models'?{}:name==='test_model'?{provider:'fixture',id:'fixture',prompt:'x'.repeat(300)+'完整提示词尾部'}:{items:[{account:'account',enabled:false},...(['batch','batchfail'].includes(mode)?[{account:'account',enabled:true}]:[])]}
  return sse([...start,{type:'tool-input-start',toolCallId:'tool'+chatCalls,toolName:name,dynamic:true},{type:'tool-input-available',toolCallId:'tool'+chatCalls,toolName:name,input,dynamic:true},{type:'finish-step'},{type:'finish',finishReason:'tool-calls'},'[DONE]'])
 }
 const api=require(out)
@@ -160,7 +162,7 @@ try{
  document.querySelector('button[aria-label="看看哪些模型在多家重复了"]').click()
  await until(()=>document.querySelector('textarea').value==='看看哪些模型在多家重复了');assert.equal(chatCalls,0)
  if(noModel)await api.saveAssistantConfig({model:null})
- assert.deepEqual(await api.loadModelNames(),['fixture'])
+ assert.deepEqual(await api.loadModelNames(),['fixture','second'])
  assert(!(await api.toolById('list_account_balance').run({})).text.includes('must-not-leave'))
  // Actual file conversion and validation: no remote storage or synthetic protocol shortcuts.
  const file=new window.File(['你好，附件\nexport const answer = 42;'],'sample.ts',{type:'application/typescript'})
@@ -181,6 +183,11 @@ try{
  if(noModel){
   attach([file]);await until(()=>document.querySelector('[aria-label="移除附件 sample.ts"]'));await send();await until(()=>document.body.textContent.includes('输入的内容会保留'));assert.equal(chatCalls,0);assert.equal(document.querySelector('textarea').value,'fixture');assert(document.querySelector('[aria-label="移除附件 sample.ts"]'));assert(document.querySelector('[data-slot="empty"]'))
  }else{
+  // A model removed after selection must not consume the draft, attachment or create history.
+  modelUnavailable=true;attach([file]);await until(()=>document.querySelector('[aria-label="移除附件 sample.ts"]'))
+  const oldHistoryCount=conversations.size;await send();await until(()=>document.body.textContent.includes('当前模型已不可用'))
+  assert.equal(chatCalls,0);assert.equal(conversations.size,oldHistoryCount);assert.equal(document.querySelector('textarea').value,'fixture');assert(document.querySelector('[aria-label="移除附件 sample.ts"]'))
+  modelUnavailable=false;document.querySelector('[aria-label="移除附件 sample.ts"]').click();await until(()=>!document.querySelector('[data-slot="attachment"]'))
   await send();await until(()=>document.body.textContent.includes('此工具已关闭'));await clear();assert.equal(changes,0)
   document.querySelector('[aria-label="已启用工具详情"]').click()
   await until(()=>document.querySelector('[data-tool-id="set_account_enabled"] [role="switch"]'))
@@ -202,9 +209,18 @@ try{
   mode='batch';window.workbuddyDesktop.updateAccount=async()=>{changes++;await new Promise(r=>releaseWrite=r)}
   await send();await until(()=>button('执行'));button('执行').click();await until(()=>releaseWrite);const batchBefore=chatCalls;stopButton().click();releaseWrite();await new Promise(r=>setTimeout(r,30));assert.equal(changes,2);assert.equal(chatCalls,batchBefore);await clear()
   window.workbuddyDesktop.updateAccount=async()=>{changes++}
+  // A failed second bridge call shows a failed card with the first change preserved in details.
+  mode='batchfail';let batchWrites=0;window.workbuddyDesktop.updateAccount=async()=>{if(++batchWrites===2)throw new Error('HTTP 401 Bearer fixture-secret')}
+  await send();await until(()=>button('执行'));button('执行').click();await until(()=>document.body.textContent.includes('已完成 1 项，第 2 项失败'))
+  assert.equal(batchWrites,2);assert(document.body.textContent.includes('"partial":true'));assert(!document.body.textContent.includes('fixture-secret'));await clear()
+  window.workbuddyDesktop.updateAccount=async()=>{changes++}
   // Model tests require both enablement and their own confirmation.
-  mode='test';let tests=0;window.workbuddyDesktop.testModel=async()=>{tests++;return {success:true}}
-  await api.saveAssistantConfig({tools:{test_model:true}});await send();await until(()=>button('执行'));assert.equal(tests,0);button('执行').click();await until(()=>tests===1);await clear()
+  mode='test';let tests=0;let testPayload;window.workbuddyDesktop.testModel=async payload=>{testPayload=payload;tests++;return {success:true}}
+  await api.saveAssistantConfig({tools:{test_model:true}});await send();await until(()=>button('执行'));assert.equal(tests,0)
+  const promptDetails=document.querySelector('[data-tool-confirm] details');assert(promptDetails);promptDetails.querySelector('summary').click();assert(promptDetails.open)
+  const confirmedPrompt=promptDetails.querySelector('pre').textContent;assert(confirmedPrompt.endsWith('完整提示词尾部'));assert(confirmedPrompt.length>256)
+  button('执行').click();await until(()=>tests===1);assert.equal(testPayload.prompt,confirmedPrompt);await clear()
+  mode='empty';await send();await until(()=>document.body.textContent.includes('模型返回了空回复'));assert(!stopButton());await clear()
   mode='error';await send();await until(()=>document.body.textContent.includes('fixture upstream failure'));assert.equal(changes,2);await clear()
   mode='loop';const loopBefore=chatCalls;await send();await until(()=>document.body.textContent.includes('12 次上限'));assert.equal(chatCalls-loopBefore,12);await clear()
   // AI SDK steps must become separate OpenAI assistant/tool groups.
@@ -216,6 +232,7 @@ try{
   document.querySelector('button[aria-label="复制回答"]').click();await until(()=>copied==='done'&&document.querySelector('button[aria-label="已复制"]'))
   navigator.clipboard.writeText=async()=>{throw new Error('denied')};document.querySelector('button[aria-label="已复制"]').click();await until(()=>document.querySelector('button[aria-label="复制失败，请重试"]'))
   window.copyToClipboard=async text=>{copied=text;return true};document.querySelector('button[aria-label="复制失败，请重试"]').click();await until(()=>document.querySelector('button[aria-label="已复制"]'))
+  const removedRetryBefore=chatCalls;modelUnavailable=true;document.querySelector('button[aria-label="重新生成"]').click();await until(()=>document.body.textContent.includes('当前模型已不可用'));assert.equal(chatCalls,removedRetryBefore,'retry also checks the current model directory');modelUnavailable=false
   const retryBefore=chatCalls;document.querySelector('button[aria-label="重新生成"]').click();await until(()=>chatCalls>retryBefore&&!stopButton());assert.equal(requests.filter(item=>Array.isArray(item.messages)).at(-1).messages[0].content.find(p=>p.type==='image_url').image_url.url,prepared[1].url)
   // Real history hook: save actual SDK messages/files; selecting must not invoke any tool or model.
   const historyKey=window.localStorage.getItem('aibuddy.assistant.active-conversation')
@@ -246,5 +263,5 @@ try{
   // IME Enter must not submit a partially composed Chinese sentence.
   const textarea=document.querySelector('textarea');Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set.call(textarea,'输入中');textarea.dispatchEvent(new Event('input',{bubbles:true}));const imeBefore=chatCalls;textarea.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',isComposing:true,bubbles:true,cancelable:true}));await new Promise(r=>setTimeout(r,10));assert.equal(chatCalls,imeBefore)
  }
- console.log('PASS: actual AI SDK + official Base UI chat composition; readonly defaults, field patches, revocation/confirmation/stop, 12-round limit, UTF-8 files and inline images, file-only sends, validation/rejection, drop/paste/removal, no-model retention, URL cleanup, copy/retry with attachments, IME, secret filtering, searchable model capabilities, click-open tool switches with pending/failure/field-save synchronization and per-action confirmation, history CRUD and confirmed bulk deletion; context budget, attachments, hidden reasoning exclusion, conservative route limits and aliases')
+ console.log('PASS: actual AI SDK + official Base UI chat composition; readonly defaults, field patches, revocation/confirmation/stop, 12-round limit, UTF-8 files and inline images, file-only sends, validation/rejection, drop/paste/removal, missing/removed-model draft retention, empty-response completion, URL cleanup, copy/retry with attachments, IME, secret filtering, searchable model capabilities, click-open tool switches with pending/failure/field-save synchronization and per-action confirmation, history CRUD and confirmed bulk deletion; context budget, attachments, hidden reasoning exclusion, conservative route limits and aliases')
 }finally{dom.window.close();fs.rmSync(dir,{recursive:true,force:true})}

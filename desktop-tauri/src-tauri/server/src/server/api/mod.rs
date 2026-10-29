@@ -1,7 +1,7 @@
 //! HTTP 路由处理器（每个文件一组端点，与 Node 版的 route 模块一一对应）。
 //!
 //! 命名约定：`*_api.rs` 对应 Node 版 src/workbuddy-*-routes.mjs 形态的模块；
-//! 单端点模块直接用端点名（health.rs / session.rs / endpoints.rs）。
+//! 单端点模块直接用端点名（health.rs / session.rs）。
 //!
 //! 现有模块：
 //!   health.rs     GET /health
@@ -24,7 +24,6 @@
 //!   auto_checkin.rs /api/auto-checkin*（定时签到设置 / 手动执行）
 //!   scheduled_tasks.rs /api/scheduled-tasks*（间隔型定时任务的开关 / 间隔 / 立即执行）
 //!   update.rs     /api/update/*（软件更新检查 / 下载 / 进度 / 取消）
-//!   endpoints.rs  GET /api/endpoints（接口清单）
 //!   storage_api.rs GET /api/storage（统一库的位置、大小与各表条数，只读）
 //!   zcode_captcha.rs GET/POST /api/zcode/captcha（活动套餐通道的人机验证令牌池：
 //!                 界面静默铸造后推入，转发层按请求取用）
@@ -65,6 +64,9 @@ pub mod chat;
 // 签到中心的聚合快照（GET /api/checkin-center）：分组口径在后端唯一化，
 // 资格类状态由前端按需惰性查询，见该文件模块头
 pub mod checkin_center;
+// 云同步（设置页「数据 → 云同步」）：WebDAV / S3 兼容存储上的业务数据快照。
+// 范围与密钥封装见 `core::cloud_sync` 的模块头
+pub mod cloud_sync;
 // 签到记录明细台账（GET/DELETE /api/checkin-records）：每账号一行的成败与
 // 收益明细，记账点在 `core::billing::checkin::run_checkin`，见该文件模块头
 pub mod checkin_records;
@@ -154,3 +156,23 @@ pub mod zcode_captcha;
 // 令牌池的**补货节奏**设置（目标 / 轮询间隔 / 单轮上限），见该文件模块头
 pub mod zcode_captcha_pool;
 pub mod zcode_claim;
+// ZCode 客户端版本号（设置页可改）：上游按它决定活动套餐下不下发，
+// 落后时的症状是**静默空列表**，见该文件模块头
+pub mod zcode_version;
+// 设置页「版本信息」：环境 / 版本 / 路径 / 开关状态的一次性读数
+// （`GET /api/system-info`，见该文件模块头）
+pub mod system_info;
+
+pub mod accounts_batch;
+
+pub mod plugins;
+
+pub mod plugin_ui;
+
+pub mod plugin_theme;
+
+pub mod sidebar_layout;
+
+pub mod plugin_backup;
+
+pub mod provider_compat;

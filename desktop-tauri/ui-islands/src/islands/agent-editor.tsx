@@ -62,50 +62,40 @@ export function ProfileEditor({ client }: { client: AgentClient }) {
   // 想让它们可编辑，先「从客户端导入」收进 kv。
   const readonly = client.profilesAreLive
 
-  const save = async (profiles: AgentProfile[]) => {
-    await saveProfiles(client.id, profiles)
-  }
-
   const toggle = async (profile: AgentProfile, checked: boolean) => {
-    const next = client.profiles.map(item => ({ ...item }))
-    const target = next.find(item => item.id === profile.id)
-    if (!target) return
+    if (!multi && !checked) return
+    await saveProfiles(client.id, next => {
+      const target = next.find(item => item.id === profile.id)
+      if (!target) return next
 
-    if (multi) {
-      target.enabled = checked
-      // 打开一条而当前没有任何默认项时，把它设为默认（客户端总得有个默认）
-      if (checked && !next.some(item => item.enabled && item.default)) target.default = true
-      // 关掉默认项时把默认位让给下一条启用的
-      if (!checked && target.default) {
-        target.default = false
-        const fallback = next.find(item => item.enabled)
-        if (fallback) fallback.default = true
+      if (multi) {
+        target.enabled = checked
+        // 打开一条而当前没有任何默认项时，把它设为默认（客户端总得有个默认）
+        if (checked && !next.some(item => item.enabled && item.default)) target.default = true
+        // 关掉默认项时把默认位让给下一条启用的
+        if (!checked && target.default) {
+          target.default = false
+          const fallback = next.find(item => item.enabled)
+          if (fallback) fallback.default = true
+        }
+        return next
       }
-      await save(next)
-      return
-    }
-
-    if (!checked) {
-      // 单配置：不允许「一套都不生效」
-      return
-    }
-    for (const item of next) {
-      item.enabled = item.id === profile.id
-      item.default = item.id === profile.id
-    }
-    await save(next)
+      for (const item of next) {
+        item.enabled = item.id === profile.id
+        item.default = item.id === profile.id
+      }
+      return next
+    })
   }
 
   const setDefault = async (profile: AgentProfile) => {
-    const next = client.profiles.map(item => ({ ...item, default: item.id === profile.id }))
-    await save(next)
+    await saveProfiles(client.id, current => current.map(item => ({ ...item, default: item.id === profile.id })))
   }
 
   const add = async () => {
     const created = blankProfile(client.profiles, store.gateway)
     // 单配置客户端新建的这套默认不生效（生效的仍是原来那套）
-    const next = [...client.profiles, created]
-    const ok = await saveProfiles(client.id, next)
+    const ok = await saveProfiles(client.id, current => [...current, created])
     if (ok) startEditing(created.id)
   }
 
@@ -122,14 +112,19 @@ export function ProfileEditor({ client }: { client: AgentClient }) {
 
   const remove = async (profile: AgentProfile) => {
     if (client.profiles.length <= 1) return
-    const next = client.profiles.filter(item => item.id !== profile.id)
-    // 删掉的若是唯一生效那套，把生效位让给剩下的第一条
-    if (!next.some(item => item.enabled)) {
-      next[0].enabled = true
-      next[0].default = true
-    }
-    const ok = await saveProfiles(client.id, next)
-    if (ok) startEditing(next[0].id)
+    let nextId = ''
+    const ok = await saveProfiles(client.id, current => {
+      if (current.length <= 1) return current
+      const next = current.filter(item => item.id !== profile.id)
+      // 删掉的若是唯一生效那套，把生效位让给剩下的第一条
+      if (!next.some(item => item.enabled)) {
+        next[0].enabled = true
+        next[0].default = true
+      }
+      nextId = next[0].id
+      return next
+    })
+    if (ok && nextId) startEditing(nextId)
   }
 
   return (
@@ -231,7 +226,7 @@ export function ProfileEditor({ client }: { client: AgentClient }) {
         </div>
       </div>
 
-      {editing && !readonly ? <ProfileForm client={client} profile={editing} /> : null}
+      {editing && !readonly ? <ProfileForm key={`${client.id}:${editing.id}`} client={client} profile={editing} /> : null}
 
       {editing && editing.kind !== 'gateway' ? <p className='agent-hint'>{t('外部配置只读；自动写入仅支持选择网关 Key 的本机网关配置。')}</p> : null}
       <div className='agent-actions'>
@@ -263,27 +258,48 @@ export function ProfileEditor({ client }: { client: AgentClient }) {
 
 /* ─── 编辑表单 ─────────────────────────────── */
 
+type ProfileFields = Pick<AgentProfile, 'name' | 'baseUrl' | 'model' | 'protocol' | 'effort' | 'kind' | 'gatewayKeyId' | 'note'>
+
 function ProfileForm({ client, profile }: { client: AgentClient; profile: AgentProfile }) {
   /** 本地草稿：输入时不逐字保存（每次按键都发请求会很吵），失焦或点保存才落 */
-  const [draft, setDraft] = React.useState<AgentProfile>(profile)
-  const [dirty, setDirty] = React.useState(false)
-
-  React.useEffect(() => {
-    setDraft(profile)
-    setDirty(false)
-  }, [profile.id, profile.name, profile.baseUrl, profile.model, profile.protocol, profile.effort, profile.kind, profile.gatewayKeyId])
-
-  const update = (patch: Partial<AgentProfile>) => {
-    setDraft(current => ({ ...current, ...patch }))
-    setDirty(true)
+  const [changes, setChanges] = React.useState<Partial<ProfileFields>>({})
+  const changesRef = React.useRef(changes)
+  const saving = React.useRef(false)
+  const saveAgain = React.useRef(false)
+  const mounted = React.useRef(true)
+  React.useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+  const draft = { ...profile, ...changes }
+  const dirty = Object.keys(changes).length > 0
+  const update = (patch: Partial<ProfileFields>) => {
+    changesRef.current = { ...changesRef.current, ...patch }
+    setChanges(changesRef.current)
   }
 
   const commit = async () => {
-    const next = client.profiles.map(item => (item.id === profile.id ? { ...draft } : item))
-    const ok = await saveProfiles(client.id, next)
-    if (ok) {
-      setDirty(false)
-      void refreshPreview(client.id, profile.id)
+    if (!Object.keys(changesRef.current).length) return
+    if (saving.current) { saveAgain.current = true; return }
+    saving.current = true
+    const submitted = { ...changesRef.current }
+    try {
+      const ok = await saveProfiles(client.id, current => current.map(item => item.id === profile.id ? { ...item, ...submitted } : item))
+      if (ok) {
+        const remaining = { ...changesRef.current }
+        // Only acknowledge the values this request saved; later keystrokes stay dirty.
+        for (const key of Object.keys(submitted) as Array<keyof ProfileFields>) {
+          if (remaining[key] === submitted[key]) delete remaining[key]
+        }
+        changesRef.current = remaining
+        if (mounted.current) {
+          setChanges(remaining)
+          void refreshPreview(client.id, profile.id)
+        }
+      }
+    } finally {
+      saving.current = false
+      if (saveAgain.current) {
+        saveAgain.current = false
+        void commit()
+      }
     }
   }
 

@@ -163,6 +163,7 @@
   "请求日志表": "Request Logs table",
   "请求来源": "",
   "请求正在转发中，用时列显示的是已用时": "The request is being forwarded; the duration column shows elapsed time",
+  "请求筛选": "",
   "请求详情": "Request details",
   "读取请求日志失败，详见控制台": "Failed to load request logs; see the console for details",
   "路由回放": "Routing replay",

@@ -12,7 +12,7 @@ use super::request::{raw_json_call, CHAT_BASE};
 use super::{BillingError, BillingService};
 
 /// 专家市场的单个专家（refs desktop.go:369-377 MarketExpert 字段子集）。
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct MarketExpert {
     pub expert_id: String,
     pub expert_type: String,
@@ -51,75 +51,11 @@ pub async fn market_expert_list(
     session: &Value,
     expert_type: &str,
 ) -> Result<Vec<MarketExpert>, BillingError> {
-    let mut body = json!({
-        "page": 1, "page_size": 20,
-        "sort_by": "reco_rank", "sort_order": "desc",
-    });
-    if !expert_type.is_empty() {
-        if let Some(object) = body.as_object_mut() {
-            object.insert("expert_type".to_string(), json!(expert_type));
-        }
-    }
-    // 头集合照抄 refs desktop.go:394-401（桌面指纹形态，非 BillingHeaders）
-    let uid = session
-        .get("account")
-        .and_then(|account| account.get("uid"))
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string();
-    let token = session
-        .get("auth")
-        .and_then(|auth| auth.get("accessToken"))
-        .and_then(Value::as_str)
-        .unwrap_or("");
-    let mut headers = vec![
-        ("Authorization".to_string(), format!("Bearer {token}")),
-        ("Content-Type".to_string(), "application/json".to_string()),
-        ("User-Agent".to_string(), super::report::DESKTOP_UA.to_string()),
-        ("X-Domain".to_string(), CHAT_BASE.to_string()),
-        ("X-Product".to_string(), "SaaS".to_string()),
-    ];
-    if !uid.is_empty() {
-        headers.push(("X-User-Id".to_string(), uid));
-    }
-    let proxy = super::BillingService::proxy_of(session);
-    let url = format!("{CHAT_BASE}/portal/operation-platform/market/expert/list");
-    let call = raw_json_call("POST", &url, Some(&body), &headers, proxy.as_ref()).await?;
-    let experts = call.data.get("experts").and_then(Value::as_array);
-    let mut out = Vec::new();
-    for expert in experts.into_iter().flatten() {
-        out.push(MarketExpert {
-            expert_id: expert
-                .get("expert_id")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_string(),
-            expert_type: expert
-                .get("expert_type")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_string(),
-            display_name_zh: expert
-                .get("display_name_zh")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_string(),
-            profession_zh: expert
-                .get("profession_zh")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_string(),
-            version: expert
-                .get("version")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_string(),
-            categories: expert
-                .get("categories")
-                .and_then(Value::as_array)
-                .cloned()
-                .unwrap_or_default(),
-        });
-    }
-    Ok(out)
+    crate::server::core::billing::legacy_call(
+        _service,
+        session,
+        "aibuddy.expert.market_expert_list",
+        serde_json::json!({"expert_type": expert_type}),
+    )
+    .await
 }

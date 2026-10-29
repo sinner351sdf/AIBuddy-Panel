@@ -46,7 +46,11 @@ use crate::server::access;
 use crate::server::api::audit_api;
 use crate::server::api::maintenance_api;
 use crate::server::config;
-use crate::server::core::{backup, task_state, crypto::{self, SecretScope}};
+use crate::server::core::{
+    backup,
+    crypto::{self, SecretScope},
+    task_state,
+};
 use crate::server::errors;
 use crate::server::http::{ok_json, parse_body};
 use crate::server::logging;
@@ -177,7 +181,10 @@ pub async fn post_import(State(state): State<ServerState>, body: Bytes) -> Respo
         Err(message) => return errors::management_error(400, message),
     };
     if let Err(message) = access::validate_restored_admin(
-        kv_rows.iter().find(|(key, _)| key == "panelAdmin").map(|(_, value)| value.as_str()),
+        kv_rows
+            .iter()
+            .find(|(key, _)| key == "panelAdmin")
+            .map(|(_, value)| value.as_str()),
         access::admin_registered(),
     ) {
         return errors::management_error(400, message);
@@ -216,13 +223,21 @@ pub async fn post_import(State(state): State<ServerState>, body: Bytes) -> Respo
             tx.execute(
                 "INSERT INTO accounts (id, provider, priority, enabled, added_at, data)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![row.id, row.provider, row.priority, row.enabled, row.added_at, row.data],
+                params![
+                    row.id,
+                    row.provider,
+                    row.priority,
+                    row.enabled,
+                    row.added_at,
+                    row.data
+                ],
             )
             .map_err(|error| format!("写入账号行失败: {error}"))?;
         }
         tx.execute("DELETE FROM kv WHERE key = 'panelTokens'", params![])
             .map_err(|error| format!("清除备份会话失败: {error}"))?;
-        tx.commit().map_err(|error| format!("提交导入事务失败: {error}"))?;
+        tx.commit()
+            .map_err(|error| format!("提交导入事务失败: {error}"))?;
         Ok((kv_rows.len(), account_rows.len()))
     });
 
@@ -255,11 +270,17 @@ pub async fn post_import(State(state): State<ServerState>, body: Bytes) -> Respo
 
 /// 快照定位：顶层（与 confirm 并列）或导出信封的 `data` 字段里
 fn extract_snapshot(payload: &Value) -> Option<&Value> {
-    if matches!(payload.get("kind").and_then(Value::as_str), Some(SNAPSHOT_KIND | "aibuddy-panel-backup")) {
+    if matches!(
+        payload.get("kind").and_then(Value::as_str),
+        Some(SNAPSHOT_KIND | "aibuddy-panel-backup")
+    ) {
         return Some(payload);
     }
     let inner = payload.get("data")?;
-    if matches!(inner.get("kind").and_then(Value::as_str), Some(SNAPSHOT_KIND | "aibuddy-panel-backup")) {
+    if matches!(
+        inner.get("kind").and_then(Value::as_str),
+        Some(SNAPSHOT_KIND | "aibuddy-panel-backup")
+    ) {
         return Some(inner);
     }
     None
@@ -305,7 +326,9 @@ fn parse_kv_rows(snapshot: &Value) -> Result<Vec<(String, String)>, String> {
         if key == "apiKeys" {
             let entries = parsed.as_array_mut().ok_or("apiKeys 必须是数组")?;
             for entry in entries {
-                if let Some(secret) = entry.get_mut("key") { seal_restored_secret(secret)?; }
+                if let Some(secret) = entry.get_mut("key") {
+                    seal_restored_secret(secret)?;
+                }
             }
         } else if key == "apiKey" {
             seal_restored_secret(&mut parsed)?;
@@ -345,30 +368,57 @@ fn parse_account_rows(snapshot: &Value) -> Result<Vec<AccountRow>, String> {
             Some(Value::String(text)) => {
                 let bytes = if crypto::is_envelope(text) {
                     crypto::open(text, SecretScope::Accounts).map_err(|_| format!("accounts[{index}] 无法解密，请先恢复原 account.key 或 AGENT2API_ACCOUNT_KEY；未修改数据"))?
-                } else { text.as_bytes().to_vec() };
+                } else {
+                    text.as_bytes().to_vec()
+                };
                 serde_json::from_slice::<Value>(&bytes)
                     .map_err(|_| format!("accounts[{index}].data 不是有效 JSON"))?
-            },
+            }
             _ => return Err(format!("accounts[{index}] 缺少 data 字段")),
         };
-        if !identity.is_object() { return Err(format!("accounts[{index}].data 必须是 JSON 对象")); }
-        if identity.get("id").and_then(Value::as_str) != Some(id.as_str()) ||
-            identity.get("provider").and_then(Value::as_str).is_some_and(|v| v != provider) {
-            return Err(format!("accounts[{index}] 的身份列与 data 不一致，恢复未执行"));
+        if !identity.is_object() {
+            return Err(format!("accounts[{index}].data 必须是 JSON 对象"));
+        }
+        if identity.get("id").and_then(Value::as_str) != Some(id.as_str())
+            || identity
+                .get("provider")
+                .and_then(Value::as_str)
+                .is_some_and(|v| v != provider)
+        {
+            return Err(format!(
+                "accounts[{index}] 的身份列与 data 不一致，恢复未执行"
+            ));
         }
         let data = crypto::seal(identity.to_string().as_bytes(), SecretScope::Accounts)?;
-        rows.push(AccountRow { id, provider, priority, enabled, added_at, data, identity });
+        rows.push(AccountRow {
+            id,
+            provider,
+            priority,
+            enabled,
+            added_at,
+            data,
+            identity,
+        });
     }
     Ok(rows)
 }
 
 /// 恢复前验证密文能由本机密钥打开；旧明文立即加密，失败不写入数据库。
 fn seal_restored_secret(value: &mut Value) -> Result<(), String> {
-    let Some(raw) = value.as_str() else { return Err("网关 Key 必须是字符串".to_string()); };
-    if raw.is_empty() { return Ok(()); }
+    let Some(raw) = value.as_str() else {
+        return Err("网关 Key 必须是字符串".to_string());
+    };
+    if raw.is_empty() {
+        return Ok(());
+    }
     let plaintext = if crypto::is_envelope(raw) {
-        crypto::open(raw, SecretScope::Accounts).map_err(|_| "网关 Key 无法解密，请先恢复原 account.key 或 AGENT2API_ACCOUNT_KEY；未修改数据".to_string())?
-    } else { raw.as_bytes().to_vec() };
+        crypto::open(raw, SecretScope::Accounts).map_err(|_| {
+            "网关 Key 无法解密，请先恢复原 account.key 或 AGENT2API_ACCOUNT_KEY；未修改数据"
+                .to_string()
+        })?
+    } else {
+        raw.as_bytes().to_vec()
+    };
     *value = Value::String(crypto::seal(&plaintext, SecretScope::Accounts)?);
     Ok(())
 }

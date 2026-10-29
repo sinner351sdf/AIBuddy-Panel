@@ -81,13 +81,13 @@ try {
     logLevel: 'silent',
   })
 
-  const pages = ['overview', 'accounts', 'credits', 'checkin', 'gateway', 'proxies', 'keys', 'docs', 'requests', 'logs', 'tasks', 'settings']
+  const pages = ['overview', 'accounts', 'credits', 'checkin', 'gateway', 'proxies', 'keys', 'docs', 'requests', 'logs', 'tasks', 'plugins', 'settings']
   dom = new JSDOM(`<!doctype html><html><body>
     <div id="shell-sidebar-trigger-host"></div><div id="shell-sidebar-root"></div>
     <div id="shell-sidebar-assets" hidden><div id="shell-brand"><span>Fixture brand</span></div><div id="sidebar-status"></div><div id="sidebar-user"></div></div>
     <main>${pages.map((page, index) => `<section class="page${index === 0 ? ' active' : ''}" data-page="${page}"></section>`).join('')}</main>
     <input id="outside-input"><textarea id="outside-textarea"></textarea><div id="outside-editable" contenteditable="true"><span id="nested-editable">edit</span></div><button id="outside-button">outside</button>
-  </body></html>`, { url: 'http://navigation.fixture.invalid/', pretendToBeVisual: true })
+  </body></html>`, { url: 'http://navigation.fixture.invalid/', pretendToBeVisual: true, runScripts: 'outside-only' })
   for (const key of ['window', 'document', 'HTMLElement', 'Element', 'Node', 'DocumentFragment', 'ShadowRoot', 'MouseEvent', 'KeyboardEvent', 'Event', 'CustomEvent', 'FocusEvent', 'MutationObserver', 'HTMLButtonElement', 'HTMLInputElement', 'HTMLTextAreaElement']) {
     globalThis[key] = dom.window[key]
   }
@@ -102,6 +102,7 @@ try {
   window.cancelAnimationFrame = globalThis.cancelAnimationFrame
   window.ResizeObserver = globalThis.ResizeObserver
   window.wbI18n = { t: text => text }
+  window.eval(fs.readFileSync(path.join(root, 'desktop-tauri/ui/sidebar-layout.js'), 'utf8'))
   Object.defineProperty(document, 'readyState', { configurable: true, value: 'loading' })
   Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 1400 })
   const media = new Map()
@@ -185,7 +186,7 @@ try {
 
   assert.equal(document.body.classList.contains('shell-collapsed'), true, 'restore the existing collapsed storage key')
   assert.equal(trigger().getAttribute('aria-expanded'), 'false')
-  assert.equal(document.querySelectorAll('#nav .nav-item[data-page]').length, 14, 'collapsed rail renders all routes including the assistant')
+  assert.deepEqual([...document.querySelectorAll('#nav .nav-item[data-page]')].map(item => item.dataset.page).sort(), ['assistant','overview','accounts','credits','checkin','gateway','proxies','keys','docs','agent','requests','logs','tasks','plugins','settings'].sort(), 'collapsed rail retains every local route and adds plugin management')
   assert.equal(group('forward').getAttribute('aria-expanded'), 'true')
   assert.equal(localStorage.getItem('nav-group-forward'), 'closed', 'rail expansion must not overwrite the saved group state')
   assert.equal(document.querySelector('#shell-sidebar #sidebar-user'), account)
@@ -281,6 +282,20 @@ try {
   await act(() => window.wbApp.applyTheme('system'))
   assert.equal(document.querySelector('#theme-switch [data-mode="system"]').getAttribute('aria-pressed'), 'true')
 
+  // Use the same layout model as production, including persistence and runtime plugin pages.
+  const layout = window.wbSidebarLayout.readLayout()
+  const changed = window.wbSidebarLayout.setItemHidden(layout, 'credits', true)
+  await act(() => { window.wbSidebarLayout.writeLayout(changed); window.dispatchEvent(new CustomEvent('wb:sidebar-layout')) })
+  assert.equal(nav('credits'), null, 'layout hiding updates the actual React navigation')
+  await act(() => { window.wbSidebarLayout.writeLayout(layout); window.dispatchEvent(new CustomEvent('wb:sidebar-layout')) })
+  assert(nav('credits'), 'restoring the layout brings the retained custom route back')
+  await act(() => { window.wbSidebarLayout.setDynamicMenus([{key:'plugin:aibuddy-providers:fixture',label:'Fixture plugin page',icon:'plugins'}]); window.wbShell.refreshLayout() })
+  assert(nav('plugin:aibuddy-providers:fixture'), 'plugin page registration updates the actual React navigation')
+  await act(() => { window.wbSidebarLayout.setDynamicMenus([]); window.wbShell.refreshLayout() })
+  assert.equal(nav('plugin:aibuddy-providers:fixture'), null, 'plugin removal does not leave a dead navigation item')
+  await click(nav('plugins'))
+  assert.equal(routes.at(-1), 'plugins')
+
   const assertRetained = (parent = '#shell-sidebar') => {
     assert.equal(document.getElementById('shell-brand'), brand)
     assert.equal(document.querySelector(`${parent} #sidebar-user`), account)
@@ -336,7 +351,7 @@ try {
   await viewport(1400)
   await act(() => retainedRoots.forEach(root => root.unmount()))
   retainedRoots = []
-  console.log('PASS: real shell navigation: 14 routes, collapsed persistence/cookie, keyboard editing and overlay guards, group persistence/active reveal, badge handle retention, theme bridge, 1000px mobile Sheet and retained live account/status roots')
+  console.log('PASS: real shell navigation: 15 routes, collapsed persistence/cookie, keyboard editing and overlay guards, group persistence/active reveal, badge handle retention, theme bridge, 1000px mobile Sheet and retained live account/status roots')
 } finally {
   if (fixture && retainedRoots.length) await fixture.React.act(async () => retainedRoots.forEach(root => root.unmount()))
   dom?.window.close()

@@ -52,7 +52,7 @@ export function loadFeatures(): Promise<FeatureApi> {
     runtime.wbApp = {
       getState: () => store.get().session,
       get currentPage() { const route = store.get().route; return route.params?.page || route.screen },
-      refresh: async () => { await store.refresh(true); runtime.wbAccountsView?.render?.() },
+      refresh: async () => { await store.refresh(true); runtime.wbAccountsView?.render?.(); return !store.get().sessionError },
       toast: (message: string, tone?: string) => store.toast(message, tone === 'err' ? 'err' : 'ok'),
       esc: (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c] || c)),
       formatTime: (value: unknown) => new Date(Number(value)).toLocaleString(),
@@ -65,7 +65,7 @@ export function loadFeatures(): Promise<FeatureApi> {
     if (runtime.workbuddyDesktop) runtime.workbuddyDesktop.getAssistantAccess = mobileAssistantAccess
     await stylesheet('/m-features.css')
     await script('/islands/ui.js')
-    for (const name of ['theme.js','i18n.js','icons.js','units.js','filter-memory.js','providers.js','preset-providers.js','clipboard.js','web-login.js','sms-login.js','aliyun-captcha.js','autoclaw-oauth.js','zcode-claim.js','codearts-welfare.js','zcode-captcha-pool.js','custom-provider-ui.js','markdown.js','js/prefs.js','js/notify-center.js']) await script('/' + name)
+    for (const name of ['theme.js','i18n.js','icons.js','units.js','sidebar-layout.js','filter-memory.js','providers.js','preset-providers.js','clipboard.js','web-login.js','sms-login.js','aliyun-captcha.js','autoclaw-oauth.js','zcode-claim.js','codearts-welfare.js','zcode-captcha-pool.js','custom-provider-ui.js','markdown.js','js/prefs.js','js/notify-center.js']) await script('/' + name)
     if (!runtime.wbMobileFeatures) throw new Error('手机功能组件未加载，请重试')
     let lastSnapshot = store.get().balancesSnapshot
     store.subscribe(() => {

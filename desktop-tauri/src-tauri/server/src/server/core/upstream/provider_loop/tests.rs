@@ -1,10 +1,8 @@
 use super::*;
-use crate::server::core::providers::zcode::adapter::{ZCODE_ADAPTER, ZCODE_INTL_ADAPTER};
+use crate::server::core::providers::adapter::ProviderAdapter;
 use crate::server::core::upstream::usage::RequestTelemetry;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-
-const QUOTA_BODY: &str = r#"{"code":1005,"msg":"exceed quota limit","logid":"test-request"}"#;
 
 async fn mock_upstream(
     status: u16,
@@ -47,155 +45,20 @@ async fn mock_upstream(
     )
 }
 
-#[tokio::test]
-async fn zcode_http_200_quota_json_is_classified_before_streaming_without_resend() {
-    for adapter in [&ZCODE_ADAPTER, &ZCODE_INTL_ADAPTER] {
-        let (transport, hits, task) =
-            mock_upstream(200, "application/json; charset=utf-8", QUOTA_BODY).await;
-        let mut budget = RetryBudget::new(3);
-        let capture = crate::server::core::debug_traffic::TrafficCapture::begin("quota-test");
-        let result = send_with_retry(
-            adapter,
-            &transport,
-            &mut budget,
-            Some(&capture),
-            &RequestTelemetry::new(),
-            false,
-        )
-        .await;
-        task.abort();
-        let failure = match result {
-            Err(failure) => failure,
-            Ok(_) => panic!("HTTP 200 quota envelope must not enter the success stream"),
-        };
-        assert!(matches!(
-            failure.class,
-            UpstreamErrorClass::QuotaLimited {
-                status: 429,
-                upstream_code: Some(1005),
-                reset_at: None,
-                ..
-            }
-        ));
-        assert_eq!(failure.error.status_code, 429);
-        assert_eq!(failure.error.upstream_code, Some(1005));
-        assert!(failure.error.message.contains("exceed quota limit"));
-        assert_eq!(hits.load(Ordering::SeqCst), 1);
-        assert_eq!(budget.remaining, 3);
-        assert_eq!(capture.captured_body(), QUOTA_BODY);
-    }
-}
-
-#[test]
-fn zcode_header_detection_handles_mime_parameters_without_requiring_sse_headers() {
-    use axum::http::{header::CONTENT_TYPE, HeaderMap, HeaderValue};
-    for (mime, expected) in [
-        (None, false),
-        (Some("application/json"), true),
-        (Some("Application/JSON; charset=utf-8"), true),
-        (Some("text/event-stream; charset=utf-8"), false),
-        (Some("application/octet-stream"), false),
-    ] {
-        let mut headers = HeaderMap::new();
-        if let Some(mime) = mime {
-            headers.insert(CONTENT_TYPE, HeaderValue::from_static(mime));
-        }
-        assert_eq!(ZCODE_ADAPTER.is_error_response(200, &headers), expected);
-        assert!(ZCODE_ADAPTER.is_error_response(401, &headers));
-        assert!(ZCODE_ADAPTER.is_error_response(429, &headers));
-    }
-}
-
-#[tokio::test]
-async fn zcode_http_auth_and_quota_errors_keep_their_status() {
-    for (status, body) in [(401, ""), (429, r#"{"msg":"rate limited"}"#)] {
-        let (transport, _, task) = mock_upstream(status, "application/json", body).await;
-        let result = send_with_retry(
-            &ZCODE_ADAPTER,
-            &transport,
-            &mut RetryBudget::new(0),
-            None,
-            &RequestTelemetry::new(),
-            false,
-        )
-        .await;
-        task.abort();
-        let failure = match result {
-            Err(failure) => failure,
-            Ok(_) => panic!("HTTP error must not be accepted"),
-        };
-        assert_eq!(failure.error.status_code, i32::from(status));
-        if status == 401 {
-            assert!(matches!(
-                failure.class,
-                UpstreamErrorClass::TokenExpired { .. }
-            ));
-        } else {
-            assert!(matches!(
-                failure.class,
-                UpstreamErrorClass::QuotaLimited { .. }
-            ));
-        }
-    }
-}
-
-#[tokio::test]
-async fn zcode_unknown_or_malformed_success_json_returns_an_error() {
-    for body in [r#"{"code":9999,"msg":"unexpected rejection"}"#, "not json"] {
-        let (transport, _, task) = mock_upstream(200, "application/json", body).await;
-        let result = send_with_retry(
-            &ZCODE_ADAPTER,
-            &transport,
-            &mut RetryBudget::new(0),
-            None,
-            &RequestTelemetry::new(),
-            false,
-        )
-        .await;
-        task.abort();
-        let failure = match result {
-            Err(failure) => failure,
-            Ok(_) => panic!("non-SSE ZCode response must not be accepted"),
-        };
-        assert_eq!(failure.error.status_code, 502);
-        assert!(failure.error.message.contains(if body == "not json" {
-            "not json"
-        } else {
-            "unexpected rejection"
-        }));
-    }
-}
-
-#[tokio::test]
-async fn zcode_success_sse_and_other_providers_json_remain_unconsumed() {
-    let sse = "data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_test\"}}\n\n";
-    let cases: [(&dyn ProviderAdapter, &str, &str); 2] = [
-        (&ZCODE_ADAPTER, "text/event-stream", sse),
-        (
-            adapter_for(ProviderKind::WorkBuddy),
-            "application/json",
-            QUOTA_BODY,
-        ),
-    ];
-    for (adapter, content_type, body) in cases {
-        let (transport, _, task) = mock_upstream(200, content_type, body).await;
-        let result = send_with_retry(
-            adapter,
-            &transport,
-            &mut RetryBudget::new(0),
-            None,
-            &RequestTelemetry::new(),
-            false,
-        )
-        .await;
-        task.abort();
-        let response = match result {
-            Ok(response) => response,
-            Err(failure) => panic!("valid response rejected: {}", failure.error.message),
-        };
-        assert_eq!(response.text().await.unwrap(), body);
-    }
-}
+// ── ZCode 的响应判定与错误分类（测试随实现搬到插件）────────────────────────
+//
+// 这里原有五条用例钉的是 ZCode 适配器的两件事：
+//   · `is_error_response`：HTTP 200 + `application/json` 是**业务拒绝**而不是
+//     SSE 正文（`1005 exceed quota limit` 走 200 回来），网关必须先读错误体；
+//   · `classify_error`：401 → TokenExpired、429 / 业务码 1005 → QuotaLimited。
+//
+// 这两条判据都跟着 ZCode 的实现搬到 `agent2api-providers` 了，因此用例也一起
+// 搬走 —— 留在网关只会编译不过（`ZCODE_ADAPTER` 已不存在）。插件侧的同名用例
+// 在 `zcode::mod` 的 `classify` 附近。
+//
+// 顺带说明**为什么这段注释留着**：`provider_loop` 的「HTTP 200 也可能是错误」
+// 与「401/429 各自的动作」这两条**编排层**语义没有变，下面几条用例
+// （会话式路径的限额记账）仍在验证它们。
 
 // ── 会话式路径的限额记账（`mark_conversation_limited`）──────────────────────
 //
@@ -234,7 +97,9 @@ fn temp_service() -> (TempDbDir, UpstreamService, String) {
     let seq = TEMP_SEQ.fetch_add(1, Ordering::SeqCst);
     let dir = std::env::temp_dir().join(format!("pl-quota-{}-{seq}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    let store = AccountStore::with_db(Some(Db::open(&dir.join("agent2api.db")).expect("临时库应当能建起来")));
+    let store = AccountStore::with_db(Some(
+        Db::open(&dir.join("agent2api.db")).expect("临时库应当能建起来"),
+    ));
     let saved = store
         .add_account(
             &json!({"auth": {"accessToken": "at"}, "account": {"uid": "quota-1"}}),
@@ -249,12 +114,19 @@ fn temp_service() -> (TempDbDir, UpstreamService, String) {
 
 #[test]
 fn zcode_success_clears_only_its_channel_and_settings_keep_other_limits() {
-    use crate::server::core::providers::zcode::{credentials::ZcodeCredentials, region::Region};
     let (_dir, service, _) = temp_service();
-    let saved = service.store.add_zcode_account(&ZcodeCredentials {
-        region: Region::Cn, access_token: "test".into(), jwt: "test".into(),
-        user_id: "channels".into(), device_mid: "".into(),
-    }, None, "test").unwrap();
+    let saved = json!({"id":"zcode:channels","provider":"zcode","userId":"channels","accessToken":"test","jwt":"test","priority":1,"enabled":true,"zcodePlan":"auto"});
+    let record =
+        crate::server::core::account_store::state::StoredAccount::from_value(saved.clone())
+            .unwrap();
+    service
+        .store
+        .with_lock(|guard| {
+            service.store.with_conn(guard, |conn| {
+                crate::server::core::account_store::sql::put(conn, &record)
+            })
+        })
+        .unwrap();
     let id = saved["id"].as_str().unwrap().to_string();
     assert_eq!(saved["zcodePlan"], "auto");
     let coding = zcode::channel::cooldown_key(zcode::PLAN_CODING, "glm-5.3-flash");
@@ -262,14 +134,36 @@ fn zcode_success_clears_only_its_channel_and_settings_keep_other_limits() {
     for key in [&coding, &start] {
         rotate::mark_account_limited(&service, &id, key, 429, None, None, "resource exhausted");
     }
-    rotate::mark_account_limited(&service, &id, "glm-5.3", 429, None, None, "legacy coding limit");
-    service.store.update_zcode_plan(&id, &json!("start-plan")).unwrap();
+    rotate::mark_account_limited(
+        &service,
+        &id,
+        "glm-5.3",
+        429,
+        None,
+        None,
+        "legacy coding limit",
+    );
+    service
+        .store
+        .update_zcode_plan(&id, &json!("start-plan"))
+        .unwrap();
     assert!(!rotate::account_had_limit(&service, &id, "glm-5.3"));
-    assert!(rotate::account_had_limit(&service, &id, "coding-plan::glm-5.3"));
+    assert!(rotate::account_had_limit(
+        &service,
+        &id,
+        "coding-plan::glm-5.3"
+    ));
     assert!(rotate::account_had_limit(&service, &id, &coding));
     let session = service.store.get_session_by_id(&id).unwrap().session;
-    let target = RouteTarget { provider:"zcode".into(), account_id:Some(id.clone()),
-        account:Some(saved), proxy:None, priority:None, proxy_notice:None, decision:None };
+    let target = RouteTarget {
+        provider: "zcode".into(),
+        account_id: Some(id.clone()),
+        account: Some(saved),
+        proxy: None,
+        priority: None,
+        proxy_notice: None,
+        decision: None,
+    };
     cap_cleared(&service, &target, &start, &start, &session, "zcode");
     assert!(!rotate::account_had_limit(&service, &id, &start));
     assert!(rotate::account_had_limit(&service, &id, &coding));
@@ -296,10 +190,19 @@ fn stateful_quota_bookkeeping_keeps_the_adapter_reset_at() {
     };
     // 整组（福利池按账号记账）与单键走的是同一个循环，这里给两个名字覆盖循环体
     let group = vec!["m-benefit-a".to_string(), "m-benefit-b".to_string()];
-    mark_conversation_limited(&service, &id, &group, &class, "上游返回 403: insufficient quota");
+    mark_conversation_limited(
+        &service,
+        &id,
+        &group,
+        &class,
+        "上游返回 403: insufficient quota",
+    );
     for name in &group {
         let stored = rotate::account_limit_reset_at(&service, &id, name);
-        assert_eq!(stored, reset_at, "{name} 的 resetAt 应当是适配器给的恢复时刻");
+        assert_eq!(
+            stored, reset_at,
+            "{name} 的 resetAt 应当是适配器给的恢复时刻"
+        );
         let minutes = (stored - now) / 60_000;
         assert!(
             (stored - (now + 10 * 60 * 1000)).abs() > 60_000,
@@ -351,24 +254,54 @@ fn stateful_quota_bookkeeping_ignores_non_quota_classes() {
         upstream_code: None,
     };
     mark_conversation_limited(&service, &id, &single("m-fatal"), &class, message);
-    assert_eq!(rotate::account_limit_reset_at(&service, &id, "m-fatal"), 0, "非限额分类不该落冷却");
+    assert_eq!(
+        rotate::account_limit_reset_at(&service, &id, "m-fatal"),
+        0,
+        "非限额分类不该落冷却"
+    );
 }
 
-#[test]
-fn codearts_daily_pool_envelope_cools_to_the_boundary_instead_of_ten_minutes() {
+#[tokio::test(flavor = "multi_thread")]
+async fn codearts_daily_pool_envelope_cools_to_the_boundary_instead_of_ten_minutes() {
     use crate::server::errors::GatewayError;
 
     let (_dir, service, id) = temp_service();
     // 生产库里那条真实文案（HTTP 200 的 SSE 里折出 403，首包门送进会话式分支）
     let error = GatewayError::with_status(403, "上游报告 InferHub.4291.200：insufficient quota");
-    let class = adapter_for(ProviderKind::CodeArts).classify_conversation_error(&error);
-    let UpstreamErrorClass::QuotaLimited { reset_at: Some(reset_at), .. } = &class else {
+    let Some((host, providers)) = crate::server::core::plugin_host::tests::boot().await else {
+        return;
+    };
+    let info = providers
+        .into_iter()
+        .find(|provider| provider.id.0 == "codearts")
+        .expect("CodeArts fixture provider");
+    let adapter = crate::server::core::plugin_host::RpcAdapter::new(
+        "codearts".into(),
+        ProviderKind::CodeArts,
+        host.clone(),
+        info,
+    );
+    let class = adapter.classify_conversation_error_async(&error).await;
+    let UpstreamErrorClass::QuotaLimited {
+        reset_at: Some(reset_at),
+        ..
+    } = &class
+    else {
         panic!("福利池耗尽的文案应分类为带恢复时刻的 QuotaLimited，实际 {class:?}");
     };
-    mark_conversation_limited(&service, &id, &single("glm-5.3-flash"), &class, &error.message);
+    mark_conversation_limited(
+        &service,
+        &id,
+        &single("glm-5.3-flash"),
+        &class,
+        &error.message,
+    );
 
     let stored = rotate::account_limit_reset_at(&service, &id, "glm-5.3-flash");
-    assert_eq!(stored, *reset_at, "落库的恢复时刻必须是适配器算出的日池重置点");
+    assert_eq!(
+        stored, *reset_at,
+        "落库的恢复时刻必须是适配器算出的日池重置点"
+    );
     // ── 断言「是下一个北京零点」，而不是「距现在 > 10 分钟」（2026-10-13 修）──
     //
     // 原断言写的是 `minutes > 10`，本意是「不是 10 分钟兜底常量」；但它有个
@@ -393,6 +326,7 @@ fn codearts_daily_pool_envelope_cools_to_the_boundary_instead_of_ten_minutes() {
         "恢复时刻必须是北京零点（日池按天重置），实际 {}",
         at.format("%Y-%m-%d %H:%M:%S")
     );
+    host.shutdown().await;
 }
 
 #[test]
@@ -422,7 +356,15 @@ fn that_one_argument_is_the_divider_between_a_day_and_ten_minutes() {
     };
     mark_conversation_limited(&service, &id, &single("m-after"), &class, message);
     // 改前的那一发：另三个字段照旧，恢复时刻写成 None
-    rotate::mark_account_limited(&service, &pre_fix_id, "m-before", 403, Some(4291200), None, message);
+    rotate::mark_account_limited(
+        &service,
+        &pre_fix_id,
+        "m-before",
+        403,
+        Some(4291200),
+        None,
+        message,
+    );
 
     let after = rotate::account_limit_reset_at(&service, &id, "m-after");
     let before = rotate::account_limit_reset_at(&service, &pre_fix_id, "m-before");
@@ -440,7 +382,8 @@ fn that_one_argument_is_the_divider_between_a_day_and_ten_minutes() {
     );
 }
 
-const APIG_TOO_LARGE_BODY: &str = r#"{"error_msg":"Request entity too large","error_code":"APIG.0201","request_id":"apig-test"}"#;
+const APIG_TOO_LARGE_BODY: &str =
+    r#"{"error_msg":"Request entity too large","error_code":"APIG.0201","request_id":"apig-test"}"#;
 
 fn fatal(status: u16) -> UpstreamErrorClass {
     UpstreamErrorClass::Fatal {
@@ -489,8 +432,12 @@ async fn a_real_413_response_is_sent_once_and_handed_back() {
         mock_upstream(413, "application/json; charset=utf-8", APIG_TOO_LARGE_BODY).await;
     let mut budget = RetryBudget::new(3);
     let capture = crate::server::core::debug_traffic::TrafficCapture::begin("payload-too-large");
+    // 适配器只提供「怎么判上游错误」这一半；413 的处置在**编排层**
+    // （`transport::RetryBudget` + `fallback_retry_advice`），因此随便挑一个
+    // 内置家即可。原先这里用 ZCode 的实例，它随实现搬到插件了 —— 换成本家
+    // 走得通的 WorkBuddy，断言的仍是同一处语义。
     let result = send_with_retry(
-        &ZCODE_ADAPTER,
+        adapter_for(ProviderKind::WorkBuddy),
         &transport,
         &mut budget,
         Some(&capture),

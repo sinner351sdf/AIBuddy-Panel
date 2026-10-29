@@ -67,7 +67,7 @@ use std::sync::Mutex;
 
 use chrono::Local;
 use rusqlite::backup::{Backup, StepResult};
-use rusqlite::hooks::{AuthAction, Authorization, AuthContext};
+use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
 use rusqlite::{Connection, OpenFlags, OptionalExtension};
 use serde_json::{json, Value};
 
@@ -118,6 +118,202 @@ const REQUIRED_TABLES: &[&str] = &["kv", "accounts"];
 /// （后到的把先到的覆盖掉，用户看到的统计却各说各话），也不必细化到读写锁。
 static RESTORE_MUTEX: Mutex<()> = Mutex::new(());
 
+// ─── 进度（恢复 / 导出，供前端轮询）──────────────────────────
+//
+// ── 为什么要有这个 ──────────────────────────────────────────
+// 整库恢复是**一次同步的长调用**：读几百 MB 的 SQL、在暂存库上执行、校验
+// schema、拍安全备份、用 Backup API 覆盖主库。整个过程在 30 秒到几分钟之间，
+// 而接口在结束时才返回 —— 界面上只有一个「恢复中…」的灰按钮，用户既看不到
+// 进展，也不知道还要等多久。
+//
+// ── 为什么是「全局快照 + 轮询」而不是事件推送 ────────────────
+// 与 `/api/update/progress`、`/api/storage/progress` 同一套：进度写入进程内的
+// 一个静态快照，前端每 500ms 拉一次。理由是不必为一条低频进度引入事件通道
+// （桌面壳与网页端两种形态都要接），而且刷新页面后仍能接上同一次恢复 ——
+// 弹窗按快照重建即可，事件流做不到（断了就丢）。
+//
+// ── 为什么没有「取消」────────────────────────────────────────
+// 恢复的每一步都不可回退：暂存库执行到一半、主库覆盖到一半时停下，留下的是
+// 一个既不是旧库也不是新库的现场。所以这个弹窗**不给关闭按钮**，只给进度与
+// 结果（见设置页的 `DbRestoreDialog`）。
+
+/// 恢复进度的一个阶段。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RestorePhase {
+    /// 空闲（没有恢复在跑）
+    Idle,
+    /// 读备份文件 + 头部校验
+    Reading,
+    /// 在暂存库上执行备份 SQL
+    Applying,
+    /// 校验 schema 版本 / 必需表 / 对齐
+    Validating,
+    /// 给当前主库拍安全备份
+    SafetyBackup,
+    /// 用 Backup API 覆盖主库
+    Replacing,
+    /// 重装内存态（config / 令牌）
+    Reloading,
+    /// 完成
+    Done,
+    /// 失败
+    Failed,
+}
+
+impl RestorePhase {
+    /// 阶段 → 界面文案。
+    ///
+    /// 文案写在后端：它是「这一步在做什么」的唯一权威（步骤顺序由这里决定），
+    /// 前端只负责显示。两处各写一份必然漂 —— 早先的「恢复中…」就是因为
+    /// 只有一句话，才说不出任何进展。
+    fn label(self) -> &'static str {
+        match self {
+            Self::Idle => "",
+            Self::Reading => "正在读取备份文件…",
+            Self::Applying => "正在把数据写入暂存库…",
+            Self::Validating => "正在校验备份完整性…",
+            Self::SafetyBackup => "正在备份当前数据（可回滚）…",
+            Self::Replacing => "正在替换主数据库…",
+            Self::Reloading => "正在重新加载配置…",
+            Self::Done => "恢复完成",
+            Self::Failed => "恢复失败",
+        }
+    }
+
+    /// 这个阶段占整条进度的百分比（起点）。
+    ///
+    /// 各阶段的耗时比例差得很远（读文件几秒、执行 SQL 可能几十秒、覆盖主库
+    /// 与库大小成正比），但**没有可靠的细粒度计量**（`execute_batch` 不回调）。
+    /// 所以给的是「大致位置」而不是精确百分比 —— 一个稳定的、只增不减的
+    /// 进度条比一个乱跳的假进度好。数值在 `DONE` 处收口到 100。
+    fn percent(self) -> u8 {
+        match self {
+            Self::Idle => 0,
+            Self::Reading => 5,
+            Self::Applying => 15,
+            Self::Validating => 45,
+            Self::SafetyBackup => 55,
+            Self::Replacing => 65,
+            Self::Reloading => 92,
+            Self::Done => 100,
+            Self::Failed => 100,
+        }
+    }
+}
+
+/// 恢复进度快照（前端轮询读它）。
+#[derive(Clone, Debug)]
+struct RestoreProgress {
+    phase: RestorePhase,
+    /// 失败时的原因（`Failed` 阶段才有）
+    error: Option<String>,
+    /// 完成时的结果（`Done` 阶段才有；形状与 `import_from_file` 的返回值一致）
+    result: Option<Value>,
+    /// 开始时刻（毫秒）：界面据此显示「已用时」
+    started_at: i64,
+    /// 结束时刻（毫秒；进行中为 0）
+    finished_at: i64,
+}
+
+impl RestoreProgress {
+    fn idle() -> Self {
+        Self {
+            phase: RestorePhase::Idle,
+            error: None,
+            result: None,
+            started_at: 0,
+            finished_at: 0,
+        }
+    }
+
+    fn to_json(&self) -> Value {
+        json!({
+            "active": matches!(
+                self.phase,
+                RestorePhase::Reading
+                    | RestorePhase::Applying
+                    | RestorePhase::Validating
+                    | RestorePhase::SafetyBackup
+                    | RestorePhase::Replacing
+                    | RestorePhase::Reloading
+            ),
+            "phase": self.phase.label(),
+            "percent": self.phase.percent(),
+            "done": self.phase == RestorePhase::Done,
+            "failed": self.phase == RestorePhase::Failed,
+            "error": self.error,
+            "result": self.result,
+            "startedAt": self.started_at,
+            "finishedAt": self.finished_at,
+        })
+    }
+}
+
+/// 全局进度槽。`None` = 从没跑过恢复（界面据此不显示任何东西）。
+static RESTORE_PROGRESS: Mutex<Option<RestoreProgress>> = Mutex::new(None);
+
+/// 写一个阶段（内部用；锁失败时静默 —— 进度是锦上添花，不该让恢复本身失败）。
+fn set_phase(phase: RestorePhase) {
+    if let Ok(mut guard) = RESTORE_PROGRESS.lock() {
+        if let Some(progress) = guard.as_mut() {
+            progress.phase = phase;
+        }
+    }
+}
+
+/// 读当前进度（前端轮询）。从没跑过 → `{"active": false, "phase": ""}`。
+pub fn restore_progress() -> Value {
+    match RESTORE_PROGRESS.lock() {
+        Ok(guard) => guard
+            .as_ref()
+            .map(RestoreProgress::to_json)
+            .unwrap_or_else(|| RestoreProgress::idle().to_json()),
+        Err(_) => RestoreProgress::idle().to_json(),
+    }
+}
+
+/// 开始一次恢复：重置进度槽。`finish` 负责收口（成功 / 失败）。
+///
+/// ── 为什么没有 Drop 兜底 ────────────────────────────────────
+/// `import_from_file` 里 `finish` 是**唯一出口**（`let result = …` 先接住结果，
+/// 无论 Ok / Err 都会走到它），所以不存在「没收口就返回」的路径。而 release 是
+/// `panic=abort` —— 真到进程异常那一步 `Drop` 本身也不会执行，兜底代码是死的。
+/// 留着它只会让「失败时进度槽会怎样」看起来比实际复杂。
+struct RestoreRun;
+
+impl RestoreRun {
+    fn begin() -> Self {
+        if let Ok(mut guard) = RESTORE_PROGRESS.lock() {
+            *guard = Some(RestoreProgress {
+                phase: RestorePhase::Reading,
+                error: None,
+                result: None,
+                started_at: logging::now_ms(),
+                finished_at: 0,
+            });
+        }
+        Self
+    }
+
+    fn finish(self, result: Result<Value, String>) {
+        if let Ok(mut guard) = RESTORE_PROGRESS.lock() {
+            if let Some(progress) = guard.as_mut() {
+                progress.finished_at = logging::now_ms();
+                match result {
+                    Ok(value) => {
+                        progress.phase = RestorePhase::Done;
+                        progress.result = Some(value);
+                    }
+                    Err(message) => {
+                        progress.phase = RestorePhase::Failed;
+                        progress.error = Some(message);
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// 多行 VALUES 批的上限：行数封顶 + 字节封顶（大行单独成批，因为它拆不开）。
 /// 批量把「每行一次语句解析」摊薄成每批一次，cc-switch 实测 2 万行
 /// 21 秒 → <100ms。
@@ -131,16 +327,13 @@ const IMPORT_ALLOWED_PRAGMAS: &[&str] = &["foreign_keys", "user_version"];
 
 // ── 导出 ────────────────────────────────────────────────────────
 
-/// 导出整库为 SQL 文本并写到 `target`。
+/// 导出整库为 SQL 文本并写到 `target`（桌面壳：用户选好路径，后端直写）。
 ///
 /// `include_logs = false` 为精简导出（跳过日志与调试报文五张表）。
 /// 返回 `{ bytes, tables: {表名: 行数} }` 给前端展示。
 pub fn export_to_file(db: &Db, target: &Path, include_logs: bool) -> Result<Value, String> {
-    let snapshot = snapshot_to_memory(db)?;
-    let skip: &[&str] = if include_logs { &[] } else { LOG_TABLES };
-    let dump = dump_sql(&snapshot, skip)?;
+    let (dump, tables) = export_sql(db, include_logs)?;
     atomic_write(target, dump.as_bytes())?;
-    let tables = table_row_counts(&snapshot, skip);
     logging::log(
         "[Storage]",
         &format!(
@@ -151,6 +344,19 @@ pub fn export_to_file(db: &Db, target: &Path, include_logs: bool) -> Result<Valu
         ),
     );
     Ok(json!({ "bytes": dump.len(), "tables": tables }))
+}
+
+/// 导出整库为 SQL 文本（网页端：内容直接进 HTTP 响应体，见 `backup_api`）。
+///
+/// 与 `export_to_file` 共用同一条 dump 链路 —— 两者只差「写文件」与
+/// 「交给 HTTP」这一步，格式与表清单必须完全一致（同一份备份在两端可互导）。
+/// 返回 `(SQL 文本, [{table, rows}])`。
+pub fn export_sql(db: &Db, include_logs: bool) -> Result<(String, Vec<Value>), String> {
+    let snapshot = snapshot_to_memory(db)?;
+    let skip: &[&str] = if include_logs { &[] } else { LOG_TABLES };
+    let dump = dump_sql(&snapshot, skip)?;
+    let tables = table_row_counts(&snapshot, skip);
+    Ok((dump, tables))
 }
 
 /// 主库 → 内存库的一致性快照（主连接锁只持拷贝那一下，见模块头）。
@@ -171,9 +377,7 @@ fn snapshot_to_memory(db: &Db) -> Result<Connection, String> {
 /// SQLite Backup 的收尾：`step(-1)` 必须以 Done 结束，Busy/Locked/More 都是
 /// 「没拷完」—— 当成功返回会留下半截库，比直接报错严重得多。
 fn complete_backup(backup: &Backup<'_, '_>, context: &str) -> Result<(), String> {
-    let result = backup
-        .step(-1)
-        .map_err(|e| format!("{context}失败: {e}"))?;
+    let result = backup.step(-1).map_err(|e| format!("{context}失败: {e}"))?;
     match result {
         StepResult::Done => Ok(()),
         other => Err(format!("{context}未完成: SQLite Backup 返回 {other:?}")),
@@ -290,10 +494,15 @@ fn dump_table_rows(conn: &Connection, table: &str, output: &mut String) -> Resul
 
     let mut pending_rows = 0usize;
     let mut batch = String::new();
-    while let Some(row) = rows.next().map_err(|e| format!("读取表 {table} 失败: {e}"))? {
+    while let Some(row) = rows
+        .next()
+        .map_err(|e| format!("读取表 {table} 失败: {e}"))?
+    {
         let mut values = Vec::with_capacity(columns.len());
         for idx in 0..columns.len() {
-            let value = row.get_ref(idx).map_err(|e| format!("读取表 {table} 失败: {e}"))?;
+            let value = row
+                .get_ref(idx)
+                .map_err(|e| format!("读取表 {table} 失败: {e}"))?;
             values.push(format_sql_value(value)?);
         }
 
@@ -341,7 +550,9 @@ fn dump_sqlite_sequences(
         .prepare("SELECT name, seq FROM sqlite_sequence ORDER BY name")
         .map_err(|e| format!("读取自增序列失败: {e}"))?;
     let rows = stmt
-        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)))
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })
         .map_err(|e| format!("读取自增序列失败: {e}"))?;
     let mut values = Vec::new();
     for row in rows {
@@ -401,9 +612,7 @@ fn format_sql_value(value: rusqlite::types::ValueRef<'_>) -> Result<String, Stri
         rusqlite::types::ValueRef::Integer(i) => Ok(i.to_string()),
         rusqlite::types::ValueRef::Real(f) => Ok(format_sql_real(f)),
         rusqlite::types::ValueRef::Text(t) => match std::str::from_utf8(t) {
-            Ok(text) if !text.contains('\0') => {
-                Ok(format!("'{}'", text.replace('\'', "''")))
-            }
+            Ok(text) if !text.contains('\0') => Ok(format!("'{}'", text.replace('\'', "''"))),
             _ => Ok(format!("CAST({} AS TEXT)", format_sql_blob(t))),
         },
         rusqlite::types::ValueRef::Blob(bytes) => Ok(format_sql_blob(bytes)),
@@ -443,13 +652,26 @@ fn format_sql_blob(bytes: &[u8]) -> String {
 
 /// 快照里各业务表的行数（导出统计；只数被导出的表）。
 fn table_row_counts(conn: &Connection, skip: &[&str]) -> Vec<Value> {
-    let known = ["kv", "accounts", "logs", "requests", "request_daily", "debug_traffic", "request_raw", "account_usage_records"];
+    let known = [
+        "kv",
+        "accounts",
+        "logs",
+        "requests",
+        "request_daily",
+        "debug_traffic",
+        "request_raw",
+        "account_usage_records",
+    ];
     known
         .iter()
         .filter(|table| !skip.contains(table))
         .filter_map(|table| {
             let count: i64 = conn
-                .query_row(&format!("SELECT COUNT(*) FROM {}", quote_identifier(table)), [], |row| row.get(0))
+                .query_row(
+                    &format!("SELECT COUNT(*) FROM {}", quote_identifier(table)),
+                    [],
+                    |row| row.get(0),
+                )
                 .ok()?;
             Some(json!({ "table": table, "rows": count }))
         })
@@ -521,13 +743,21 @@ fn account_key_warning(backup_marker: Option<String>) -> Option<String> {
 /// （见模块头「替换后要重装哪些内存状态」）。`warning` 只在密钥指纹对不上时出现
 /// ——**不阻断导入**，只是把「账号为什么解不开」明确说出来（见 `account_key_warning`）。
 pub fn import_from_file(db: &Db, source: &Path, config_dir: &Path) -> Result<Value, String> {
-    let sql_raw = std::fs::read_to_string(source)
-        .map_err(|e| format!("读取备份文件失败: {e}"))?;
+    // 进度槽在这里开：`import_from_file` 是恢复的**唯一入口**（桌面壳的
+    // import / 网页端的上传 / 云同步下载都落到它），把开槽放在这里，三条路径
+    // 就都有进度，不必各接一次。
+    let run = RestoreRun::begin();
+    let result = import_with_progress(db, source, config_dir);
+    run.finish(result.clone());
+    result
+}
+
+/// 恢复主体（与 `import_from_file` 的差别只有进度上报）。
+fn import_with_progress(db: &Db, source: &Path, config_dir: &Path) -> Result<Value, String> {
+    let sql_raw = std::fs::read_to_string(source).map_err(|e| format!("读取备份文件失败: {e}"))?;
     let sql_content = sql_raw.trim_start_matches('\u{feff}');
     if !sql_content.trim_start().starts_with(BACKUP_SQL_HEADER) {
-        return Err(
-            "仅支持导入由 Agent2API 导出的整库备份文件（缺少文件头标记）".to_string(),
-        );
+        return Err("仅支持导入由 Agent2API 导出的整库备份文件（缺少文件头标记）".to_string());
     }
     // 密钥指纹比对：在重活之前先算好文案，最后随结果一起返回。这里只看头部注释，
     // 不碰暂存库；比对结果**不影响**导入流程（见 account_key_warning 的注释）。
@@ -537,6 +767,7 @@ pub fn import_from_file(db: &Db, source: &Path, config_dir: &Path) -> Result<Val
     // journal_mode 先对齐主库的 WAL —— Backup 会把源文件头拷进目标，
     // 暂存库若停在默认的回滚日志模式，覆盖后主库会被拉出 WAL
     // （cc-switch 对 auto_vacuum 处理过同一类坑）。
+    set_phase(RestorePhase::Applying);
     let temp = TempRestoreDb::new()?;
     let conn = &temp.conn;
     conn.execute_batch("PRAGMA journal_mode=WAL;")
@@ -556,6 +787,7 @@ pub fn import_from_file(db: &Db, source: &Path, config_dir: &Path) -> Result<Val
         return Err("备份文件的事务未完成，文件可能被截断".to_string());
     }
 
+    set_phase(RestorePhase::Validating);
     // 版本闸门：比当前程序新的库不收（migrate 只升不降，旧程序缺对应代码）。
     let restored_version: i64 = conn
         .query_row("PRAGMA user_version;", [], |row| row.get(0))
@@ -567,11 +799,15 @@ pub fn import_from_file(db: &Db, source: &Path, config_dir: &Path) -> Result<Val
         ));
     }
     validate_required_tables(conn)?;
-    let admin: Option<String> = conn.query_row(
-        "SELECT value FROM kv WHERE key = 'panelAdmin'", [], |row| row.get(0),
-    ).optional().map_err(|error| format!("读取备份管理员记录失败: {error}"))?;
+    let admin: Option<String> = conn
+        .query_row("SELECT value FROM kv WHERE key = 'panelAdmin'", [], |row| {
+            row.get(0)
+        })
+        .optional()
+        .map_err(|error| format!("读取备份管理员记录失败: {error}"))?;
     crate::server::access::validate_restored_admin(
-        admin.as_deref(), crate::server::access::admin_registered(),
+        admin.as_deref(),
+        crate::server::access::admin_registered(),
     )?;
     // 补齐缺失表（精简备份的日志表）并把版本升到当前
     schema::migrate(conn).map_err(|e| format!("对齐备份库 schema 失败: {e}"))?;
@@ -579,25 +815,28 @@ pub fn import_from_file(db: &Db, source: &Path, config_dir: &Path) -> Result<Val
     seal_restored_credentials(conn)?;
     let tables = table_row_counts(conn, &[]);
 
-    // 覆盖主库：进程锁内再持主连接锁（两把锁顺序固定，绝无嵌套死锁）。
+    // 固定锁序：恢复锁 → 配置写入闸门 → 主连接锁；释放主连接锁后再发布配置。
     // 安全备份与覆盖共用一次持锁 —— 快照必须精确代表「被替换掉的状态」。
+    set_phase(RestorePhase::SafetyBackup);
     let _guard = match RESTORE_MUTEX.lock() {
         Ok(guard) => guard,
         Err(poisoned) => poisoned.into_inner(),
     };
     conn.execute("DELETE FROM kv WHERE key = 'panelTokens'", [])
         .map_err(|e| format!("清除备份会话失败: {e}"))?;
-    let safety = db
-        .with_mut(|main| safety_backup(main, config_dir).and_then(|safety| {
-            let backup = Backup::new(conn, main).map_err(|e| format!("初始化恢复失败: {e}"))?;
-            complete_backup(&backup, "恢复主数据库")?;
-            Ok(safety)
-        }))
-        .unwrap_or_else(|| Err("数据库连接不可用，恢复未执行".to_string()));
-    let safety = safety?;
+    let safety = crate::server::config::update_persisted_and_reload(|| {
+        db.with_mut(|main| {
+            safety_backup(main, config_dir).and_then(|safety| {
+                set_phase(RestorePhase::Replacing);
+                let backup = Backup::new(conn, main).map_err(|e| format!("初始化恢复失败: {e}"))?;
+                complete_backup(&backup, "恢复主数据库")?;
+                Ok((safety, true))
+            })
+        })
+        .unwrap_or_else(|| Err("数据库连接不可用，恢复未执行".to_string()))
+    })?;
 
-    // 锁已释放：重装内存态（config 快照、面板刷新令牌），短效令牌清空。
-    crate::server::config::reload();
+    // 配置写入闸门与库锁已释放，配置快照已同步；重装面板刷新令牌，清空短效令牌。
     crate::server::access::invalidate_restored_sessions();
     crate::server::api::maintenance_api::refresh_from_config();
 
@@ -707,16 +946,18 @@ struct TempRestoreDb {
 impl TempRestoreDb {
     fn new() -> Result<Self, String> {
         let mut nonce = [0u8; 16];
-        getrandom::getrandom(&mut nonce)
-            .map_err(|e| format!("生成暂存库文件名失败: {e}"))?;
+        getrandom::getrandom(&mut nonce).map_err(|e| format!("生成暂存库文件名失败: {e}"))?;
         let suffix: String = nonce.iter().map(|byte| format!("{byte:02x}")).collect();
         let path = std::env::temp_dir().join(format!("agent2api-restore-{suffix}.db"));
         // 先排他创建空文件，再让 SQLite 打开；不删除可能属于另一次恢复的文件。
-        std::fs::OpenOptions::new().write(true).create_new(true).open(&path)
+        std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
             .map_err(|e| format!("创建暂存库文件失败: {e}"))?;
         let conn = Connection::open_with_flags(
             &path,
-            OpenFlags::SQLITE_OPEN_READ_WRITE,
+            OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE,
         )
         .map_err(|e| {
             let _ = std::fs::remove_file(&path);
@@ -740,7 +981,8 @@ pub fn snapshot_to_file(db: &Db, path: &Path) -> Result<(), String> {
     db.with(|source| {
         let backup = Backup::new(source, &mut target).map_err(|e| e.to_string())?;
         complete_backup(&backup, "备份数据库")
-    }).ok_or_else(|| "数据库不可用".to_string())?
+    })
+    .ok_or_else(|| "数据库不可用".to_string())?
 }
 
 #[cfg(test)]
@@ -749,27 +991,67 @@ mod safety_tests {
     #[test]
     fn sql_restore_seals_old_credentials_before_activation_and_preserves_identity() {
         use crate::server::core::crypto::{self, SecretScope};
-        let c=Connection::open_in_memory().unwrap(); schema::migrate(&c).unwrap();
-        let account=json!({"id":"sql-fixture","provider":"accio","edition":"intl","accessToken":"synthetic-secret","enabled":false});
+        let c = Connection::open_in_memory().unwrap();
+        schema::migrate(&c).unwrap();
+        let account = json!({"id":"sql-fixture","provider":"accio","edition":"intl","accessToken":"synthetic-secret","enabled":false});
         c.execute("INSERT INTO accounts(id,provider,priority,enabled,data) VALUES('sql-fixture','accio',0,0,?1)",[account.to_string()]).unwrap();
-        c.execute("INSERT INTO kv(key,value) VALUES('apiKeys',?1)",[json!([{"id":"fixture-key","key":"sk-synthetic-only","quotaTokens":42}]).to_string()]).unwrap();
+        c.execute(
+            "INSERT INTO kv(key,value) VALUES('apiKeys',?1)",
+            [
+                json!([{"id":"fixture-key","key":"sk-synthetic-only","quotaTokens":42}])
+                    .to_string(),
+            ],
+        )
+        .unwrap();
         seal_restored_credentials(&c).unwrap();
-        let raw:String=c.query_row("SELECT data FROM accounts",[],|r|r.get(0)).unwrap();
-        assert!(crypto::is_envelope(&raw)); assert_eq!(serde_json::from_slice::<Value>(&crypto::open(&raw,SecretScope::Accounts).unwrap()).unwrap(),account);
-        let keys:String=c.query_row("SELECT value FROM kv WHERE key='apiKeys'",[],|r|r.get(0)).unwrap();
-        let keys:Value=serde_json::from_str(&keys).unwrap();assert!(crypto::is_envelope(keys[0]["key"].as_str().unwrap()));assert_eq!(keys[0]["quotaTokens"],42);
-        let edition:String=c.query_row("SELECT edition FROM account_history WHERE account_id='sql-fixture'",[],|r|r.get(0)).unwrap();assert_eq!(edition,"intl");
+        let raw: String = c
+            .query_row("SELECT data FROM accounts", [], |r| r.get(0))
+            .unwrap();
+        assert!(crypto::is_envelope(&raw));
+        assert_eq!(
+            serde_json::from_slice::<Value>(&crypto::open(&raw, SecretScope::Accounts).unwrap())
+                .unwrap(),
+            account
+        );
+        let keys: String = c
+            .query_row("SELECT value FROM kv WHERE key='apiKeys'", [], |r| r.get(0))
+            .unwrap();
+        let keys: Value = serde_json::from_str(&keys).unwrap();
+        assert!(crypto::is_envelope(keys[0]["key"].as_str().unwrap()));
+        assert_eq!(keys[0]["quotaTokens"], 42);
+        let edition: String = c
+            .query_row(
+                "SELECT edition FROM account_history WHERE account_id='sql-fixture'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(edition, "intl");
         seal_restored_credentials(&c).unwrap();
-        let again:String=c.query_row("SELECT data FROM accounts",[],|r|r.get(0)).unwrap();assert_eq!(again,raw);
+        let again: String = c
+            .query_row("SELECT data FROM accounts", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(again, raw);
     }
     #[test]
     fn restore_staging_files_are_created_independently_and_cleaned_up() {
         let first = TempRestoreDb::new().unwrap();
         let second = TempRestoreDb::new().unwrap();
         assert_ne!(first.path, second.path);
-        first.conn.execute_batch("CREATE TABLE fixture (value TEXT); INSERT INTO fixture VALUES ('preserved');").unwrap();
-        second.conn.execute_batch("CREATE TABLE fixture (value TEXT);").unwrap();
-        let value: String = first.conn.query_row("SELECT value FROM fixture", [], |r| r.get(0)).unwrap();
+        first
+            .conn
+            .execute_batch(
+                "CREATE TABLE fixture (value TEXT); INSERT INTO fixture VALUES ('preserved');",
+            )
+            .unwrap();
+        second
+            .conn
+            .execute_batch("CREATE TABLE fixture (value TEXT);")
+            .unwrap();
+        let value: String = first
+            .conn
+            .query_row("SELECT value FROM fixture", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(value, "preserved");
         let first_path = first.path.clone();
         let second_path = second.path.clone();
@@ -787,11 +1069,17 @@ mod safety_tests {
         let target = Connection::open_in_memory().unwrap();
         target.authorizer(Some(import_authorizer)).unwrap();
         target.execute_batch(&sql).unwrap();
-        let value: String = target.query_row("SELECT value FROM fixture WHERE id=1", [], |r| r.get(0)).unwrap();
+        let value: String = target
+            .query_row("SELECT value FROM fixture WHERE id=1", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(value, "it's safe");
-        let bytes: Vec<u8> = target.query_row("SELECT bytes FROM fixture WHERE id=1", [], |r| r.get(0)).unwrap();
+        let bytes: Vec<u8> = target
+            .query_row("SELECT bytes FROM fixture WHERE id=1", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(bytes, vec![0, 255]);
-        let value: Option<String> = target.query_row("SELECT value FROM fixture WHERE id=2", [], |r| r.get(0)).unwrap();
+        let value: Option<String> = target
+            .query_row("SELECT value FROM fixture WHERE id=2", [], |r| r.get(0))
+            .unwrap();
         assert!(value.is_none());
     }
     #[test]
@@ -805,17 +1093,29 @@ mod safety_tests {
         target.authorizer(Some(import_authorizer)).unwrap();
         target.execute_batch(&sql).unwrap();
         schema::migrate(&target).unwrap();
-        let restored:String=target.query_row("SELECT messages FROM assistant_conversations WHERE id='chat'",[],|row|row.get(0)).unwrap();
-        assert_eq!(restored,messages);
+        let restored: String = target
+            .query_row(
+                "SELECT messages FROM assistant_conversations WHERE id='chat'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(restored, messages);
     }
     #[test]
     fn import_cannot_attach_files_or_change_dangerous_pragmas() {
         let target = Connection::open_in_memory().unwrap();
         target.authorizer(Some(import_authorizer)).unwrap();
-        assert!(target.execute_batch("ATTACH DATABASE ':memory:' AS escaped").is_err());
+        assert!(target
+            .execute_batch("ATTACH DATABASE ':memory:' AS escaped")
+            .is_err());
         assert!(target.execute_batch("PRAGMA writable_schema=ON").is_err());
-        assert!(target.execute_batch("CREATE VIRTUAL TABLE escaped USING fts5(content)").is_err());
-        target.execute_batch("CREATE TABLE safe (value TEXT)").unwrap();
+        assert!(target
+            .execute_batch("CREATE VIRTUAL TABLE escaped USING fts5(content)")
+            .is_err());
+        target
+            .execute_batch("CREATE TABLE safe (value TEXT)")
+            .unwrap();
     }
 }
 
@@ -825,33 +1125,62 @@ mod safety_tests {
 fn seal_restored_credentials(conn: &Connection) -> Result<(), String> {
     use crate::server::core::crypto::{self, SecretScope};
     crate::server::db::account_history::backfill(conn).map_err(|e| e.to_string())?;
-    let accounts: Vec<(String,String)> = conn.prepare("SELECT id,data FROM accounts")
-        .map_err(|e|e.to_string())?.query_map([], |r|Ok((r.get(0)?,r.get(1)?)))
-        .map_err(|e|e.to_string())?.collect::<rusqlite::Result<_>>().map_err(|e|e.to_string())?;
-    for (id,raw) in accounts {
-        if crypto::is_envelope(&raw) { continue; }
-        let identity: Value = serde_json::from_str(&raw).map_err(|_|format!("账号 {id} 的历史 JSON 无效，恢复未执行"))?;
-        if !identity.is_object() { return Err(format!("账号 {id} 的历史数据不是对象，恢复未执行")); }
-        crate::server::db::account_history::remember_account(conn,&identity).map_err(|e|e.to_string())?;
-        let sealed = crypto::seal(raw.as_bytes(),SecretScope::Accounts)?;
-        conn.execute("UPDATE accounts SET data=?2 WHERE id=?1",rusqlite::params![id,sealed]).map_err(|e|e.to_string())?;
+    let accounts: Vec<(String, String)> = conn
+        .prepare("SELECT id,data FROM accounts")
+        .map_err(|e| e.to_string())?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+        .map_err(|e| e.to_string())?
+        .collect::<rusqlite::Result<_>>()
+        .map_err(|e| e.to_string())?;
+    for (id, raw) in accounts {
+        if crypto::is_envelope(&raw) {
+            continue;
+        }
+        let identity: Value = serde_json::from_str(&raw)
+            .map_err(|_| format!("账号 {id} 的历史 JSON 无效，恢复未执行"))?;
+        if !identity.is_object() {
+            return Err(format!("账号 {id} 的历史数据不是对象，恢复未执行"));
+        }
+        crate::server::db::account_history::remember_account(conn, &identity)
+            .map_err(|e| e.to_string())?;
+        let sealed = crypto::seal(raw.as_bytes(), SecretScope::Accounts)?;
+        conn.execute(
+            "UPDATE accounts SET data=?2 WHERE id=?1",
+            rusqlite::params![id, sealed],
+        )
+        .map_err(|e| e.to_string())?;
     }
-    for key in ["apiKeys","apiKey"] {
-        let raw: Option<String> = conn.query_row("SELECT value FROM kv WHERE key=?1",[key],|r|r.get(0)).optional().map_err(|e|e.to_string())?;
-        let Some(raw)=raw else { continue; };
-        let mut data: Value=serde_json::from_str(&raw).map_err(|e|format!("{key} 格式无效：{e}"))?;
-        let seal = |v: &mut Value| -> Result<(),String> {
-            let text=v.as_str().ok_or("网关 Key 必须是字符串")?;
-            if !text.is_empty() && !crypto::is_envelope(text) { *v=Value::String(crypto::seal(text.as_bytes(),SecretScope::Accounts)?); }
+    for key in ["apiKeys", "apiKey"] {
+        let raw: Option<String> = conn
+            .query_row("SELECT value FROM kv WHERE key=?1", [key], |r| r.get(0))
+            .optional()
+            .map_err(|e| e.to_string())?;
+        let Some(raw) = raw else {
+            continue;
+        };
+        let mut data: Value =
+            serde_json::from_str(&raw).map_err(|e| format!("{key} 格式无效：{e}"))?;
+        let seal = |v: &mut Value| -> Result<(), String> {
+            let text = v.as_str().ok_or("网关 Key 必须是字符串")?;
+            if !text.is_empty() && !crypto::is_envelope(text) {
+                *v = Value::String(crypto::seal(text.as_bytes(), SecretScope::Accounts)?);
+            }
             Ok(())
         };
-        if key=="apiKey" { seal(&mut data)?; }
-        else {
+        if key == "apiKey" {
+            seal(&mut data)?;
+        } else {
             for entry in data.as_array_mut().ok_or("apiKeys 必须是数组")? {
-                if let Some(v)=entry.get_mut("key") { seal(v)?; }
+                if let Some(v) = entry.get_mut("key") {
+                    seal(v)?;
+                }
             }
         }
-        conn.execute("UPDATE kv SET value=?2 WHERE key=?1",rusqlite::params![key,data.to_string()]).map_err(|e|e.to_string())?;
+        conn.execute(
+            "UPDATE kv SET value=?2 WHERE key=?1",
+            rusqlite::params![key, data.to_string()],
+        )
+        .map_err(|e| e.to_string())?;
     }
     Ok(())
 }

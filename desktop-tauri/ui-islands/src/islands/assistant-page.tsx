@@ -49,8 +49,8 @@ function ToolCallView({ item, onConfirm }: { item: ToolView; onConfirm: (approve
     <ItemContent className='min-w-0 gap-3'>
       <ItemTitle>{label}<Badge variant='secondary'>{t('待确认')}</Badge></ItemTitle>
       <ItemDescription>{item.plan?.lead || t('请确认是否执行这次操作')}</ItemDescription>
-      {item.plan?.table && <Table><TableHeader><TableRow>{item.plan.table.head.map((cell, index) => <TableHead key={index}>{cell}</TableHead>)}</TableRow></TableHeader><TableBody>{item.plan.table.rows.slice(0, 20).map((row, i) => <TableRow key={i}>{row.map((cell, j) => <TableCell key={j}>{cell}</TableCell>)}</TableRow>)}</TableBody></Table>}
-      {item.plan?.table && item.plan.table.rows.length > 20 && <ItemDescription>{t('（仅显示前 20 条，共 {n} 条）', { n: item.plan.table.rows.length })}</ItemDescription>}
+      {item.plan?.table && <Table><TableHeader><TableRow>{item.plan.table.head.map((cell, index) => <TableHead key={index}>{cell}</TableHead>)}</TableRow></TableHeader><TableBody>{item.plan.table.rows.map((row, i) => <TableRow key={i}>{row.map((cell, j) => <TableCell key={j}>{cell}</TableCell>)}</TableRow>)}</TableBody></Table>}
+      {item.plan?.content && <details><summary className='cursor-pointer text-sm'>{item.plan.content.label}</summary><pre className='max-h-72 overflow-auto whitespace-pre-wrap break-all text-sm'>{item.plan.content.text}</pre></details>}
       <ItemDescription>{item.plan?.note}{tool?.kind === 'run' ? t('这会真实发起上游请求并消耗额度') : t('确认后立即生效')}</ItemDescription>
     </ItemContent>
     <ItemActions><Button size='sm' variant='outline' onClick={() => onConfirm(false)}>{t('取消')}</Button><Button size='sm' onClick={() => onConfirm(true)}>{t('执行')}</Button></ItemActions>
@@ -119,6 +119,23 @@ export function AssistantPage({ mobile = false }: { mobile?: boolean } = {}) {
     void saveAssistantConfig({ model: value }).then(() => setStatus('')).catch(error => setStatus(errorText(error))).finally(() => setSavingModel(false))
   }} />
   const resetComposer = () => { setDraft(''); setDraftFiles([]); setStatus(''); setComposerKey(key => key + 1) }
+  const validateModel = async (): Promise<boolean> => {
+    if (!config?.model) { setStatus(t('请先选择对话模型，输入的内容会保留。')); return false }
+    try {
+      const currentModels = await loadAssistantModelOptions()
+      setModels(currentModels)
+      if (!currentModels.some(model => model.id === config.model)) {
+        setStatus(t('当前模型已不可用，请重新选择模型，输入的内容和附件会保留。'))
+        return false
+      }
+      return true
+    } catch (error) { setStatus(errorText(error)); return false }
+  }
+  const retry = async (id?: string) => {
+    if (locked || !await validateModel()) return
+    setStatus(''); void chat.retry(id).catch(error => setStatus(errorText(error)))
+  }
+
   return <TooltipProvider><div className={cn(mobile ? 'asst-shell mobile-assistant' : 'asst-shell')} data-collapsed={collapsed || undefined}>
     {!collapsed && <aside className='asst-history-desktop'><HistoryList history={history} disabled={locked} onSelected={resetComposer} onCollapse={() => setCollapsed(true)} /></aside>}
     <div className='asst-layout' data-empty={!chat.messages.length || undefined}>
@@ -129,7 +146,7 @@ export function AssistantPage({ mobile = false }: { mobile?: boolean } = {}) {
         const text = message.parts.filter(part => part.type === 'text').map(part => part.text).join('\n')
         return <MessageScrollerItem key={message.id} messageId={message.id} scrollAnchor={message.role === 'user'}><Message align={message.role === 'user' ? 'end' : 'start'}><MessageContent className='min-w-0 gap-3'>
           {message.role === 'user' ? <><div className='flex max-w-full flex-wrap justify-end gap-2'>{message.parts.filter(part => part.type === 'file').map((part, partIndex) => <ChatAttachment key={partIndex} data={part} />)}</div>{text && <Bubble align='end' variant='muted'><BubbleContent className='whitespace-pre-wrap'>{text}</BubbleContent></Bubble>}</> : <AssistantTurn message={message} cards={chat.cards} onConfirm={chat.confirm} />}
-          {message.role === 'assistant' && !locked && <MessageFooter>{text && <CopyReply text={text} />}{index === chat.messages.length - 1 && <Tooltip><TooltipTrigger render={<Button variant='ghost' size='icon-sm' />} aria-label={t('重新生成')} onClick={() => void chat.retry(message.id)}><RefreshCcwIcon data-icon="inline-start" /></TooltipTrigger><TooltipContent>{t('重新生成')}</TooltipContent></Tooltip>}</MessageFooter>}
+          {message.role === 'assistant' && !locked && <MessageFooter>{text && <CopyReply text={text} />}{index === chat.messages.length - 1 && <Tooltip><TooltipTrigger render={<Button variant='ghost' size='icon-sm' />} aria-label={t('重新生成')} onClick={() => void retry(message.id)}><RefreshCcwIcon data-icon="inline-start" /></TooltipTrigger><TooltipContent>{t('重新生成')}</TooltipContent></Tooltip>}</MessageFooter>}
         </MessageContent></Message></MessageScrollerItem>
       })}
       {chat.status === 'submitted' && <MessageScrollerItem><Message><MessageContent><span role='status' className='flex items-center gap-2 text-sm text-muted-foreground'><Spinner />{t('正在回复…')}</span></MessageContent></Message></MessageScrollerItem>}
@@ -145,11 +162,12 @@ export function AssistantPage({ mobile = false }: { mobile?: boolean } = {}) {
       </SelectGroup></SelectContent></Select><AssistantContextPopover config={config} model={models.find(model => model.id === config?.model)} messages={chat.messages} draft={draft} files={draftFiles} /><AssistantToolsPopover config={config} /></div>} onSend={async ({ text, files }) => {
         if (locked) return false
         if (chat.messages.length >= 198) { setStatus(t('这段对话已达到消息上限，请新建对话后继续。')); return false }
-        if (!config?.model) { setStatus(t('请先选择对话模型，输入的内容会保留。')); return false }
+        // Validate the routable directory before creating history or clearing drafts.
+        if (!await validateModel()) return false
         try { await history.ensure(text, files[0]?.filename) } catch (error) { setStatus(errorText(error)); return false }
         setStatus(''); void chat.send(text, files).catch(error => setStatus(errorText(error))); return true
       }} />
-      {displayStatus && <Alert variant={chat.notice && !chat.error && !status ? 'default' : 'destructive'}><AlertDescription>{displayStatus}{history.error ? <Button size='sm' variant='ghost' onClick={() => { void history.flush().then(() => history.reload()).catch(() => {}) }}>{t('重试')}</Button> : loadingFailed ? <Button size='sm' variant='ghost' onClick={() => void activate()}>{t('重试')}</Button> : chat.error && !locked && <Button size='sm' variant='ghost' onClick={() => void chat.retry()}>{t('重试')}</Button>}</AlertDescription></Alert>}
+      {displayStatus && <Alert variant={chat.notice && !chat.error && !status ? 'default' : 'destructive'}><AlertDescription>{displayStatus}{history.error ? <Button size='sm' variant='ghost' onClick={() => { void history.flush().then(() => history.reload()).catch(() => {}) }}>{t('重试')}</Button> : loadingFailed ? <Button size='sm' variant='ghost' onClick={() => void activate()}>{t('重试')}</Button> : chat.error && !locked && <Button size='sm' variant='ghost' onClick={() => void retry()}>{t('重试')}</Button>}</AlertDescription></Alert>}
     </div>
   </div></div></TooltipProvider>
 }

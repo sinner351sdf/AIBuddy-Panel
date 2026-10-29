@@ -87,7 +87,7 @@ use super::request::client_token;
 // ─── 状态结构（refs streak.go:36-61 StreakFull 的裁剪视图）────
 
 /// 一个连登档位的可兑换信息。
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct StreakTier {
     /// "7d" | "14d" | "28d"
     pub tier: String,
@@ -100,7 +100,7 @@ pub struct StreakTier {
 }
 
 /// 连登完整状态（GET /activity/growth/streak 的裁剪解析）。
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct StreakFull {
     /// 连续登录天数
     pub days: i64,
@@ -120,7 +120,10 @@ fn parse_streak_full(data: &Value) -> StreakFull {
         .and_then(|cards| cards.get("balance"))
         .and_then(Value::as_i64)
         .unwrap_or(0);
-    let redemption = data.get("redemption_status").cloned().unwrap_or(Value::Null);
+    let redemption = data
+        .get("redemption_status")
+        .cloned()
+        .unwrap_or(Value::Null);
     // refs streak.go:53-57：档位状态按 tier 名从 tier_7d_status 等键读取
     let status_of = |tier: &str| -> String {
         let key = format!("tier_{tier}_status");
@@ -154,7 +157,11 @@ fn parse_streak_full(data: &Value) -> StreakFull {
                 .collect()
         })
         .unwrap_or_default();
-    StreakFull { days, makeup_balance, tiers }
+    StreakFull {
+        days,
+        makeup_balance,
+        tiers,
+    }
 }
 
 // ─── 请求选项 ───────────────────────────────────────────────
@@ -174,8 +181,13 @@ pub async fn streak_full(
     service: &BillingService,
     session: &Value,
 ) -> Result<StreakFull, BillingError> {
-    let call = service.call_billing(STREAK_GET, streak_options(session)).await?;
-    Ok(parse_streak_full(&call.data))
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.streak.streak_full",
+        serde_json::json!({}),
+    )
+    .await
 }
 
 /// 兑换连登档位（refs streak.go:78-82 GrowthRedeemTier）。
@@ -186,13 +198,13 @@ pub async fn redeem_tier(
     session: &Value,
     tier: &str,
 ) -> Result<(), BillingError> {
-    let body = json!({ "tier": tier, "client_token": client_token() });
-    let options = CallOptions {
-        body: Some(&body),
-        ..streak_options(session)
-    };
-    service.call_billing(STREAK_REDEEM, options).await?;
-    Ok(())
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.streak.redeem_tier",
+        serde_json::json!({"tier": tier}),
+    )
+    .await
 }
 
 /// 当前抽奖次数（refs streak.go:85-100 LotteryChances）。
@@ -200,14 +212,13 @@ pub async fn lottery_chances(
     service: &BillingService,
     session: &Value,
 ) -> Result<i64, BillingError> {
-    let call = service
-        .call_billing(LOTTERY_SUMMARY, streak_options(session))
-        .await?;
-    Ok(call
-        .data
-        .get("chances")
-        .and_then(Value::as_i64)
-        .unwrap_or(0))
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.streak.lottery_chances",
+        serde_json::json!({}),
+    )
+    .await
 }
 
 /// 抽奖一次，返回原始奖品载荷（refs streak.go:103-106 LotteryDraw；
@@ -216,13 +227,13 @@ pub async fn lottery_draw(
     service: &BillingService,
     session: &Value,
 ) -> Result<Value, BillingError> {
-    let body = json!({ "client_token": client_token() });
-    let options = CallOptions {
-        body: Some(&body),
-        ..streak_options(session)
-    };
-    let call = service.call_billing(LOTTERY_DRAW, options).await?;
-    Ok(call.data)
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.streak.lottery_draw",
+        serde_json::json!({}),
+    )
+    .await
 }
 
 /// 检查昨日是否漏签（refs blackcat.go:97-119 `HeatmapYesterdayMissed`：
@@ -231,21 +242,13 @@ pub async fn heatmap_yesterday_missed(
     service: &BillingService,
     session: &Value,
 ) -> Result<bool, BillingError> {
-    // refs 用本地时区的昨日日期（time.Now().AddDate(0,0,-1)）
-    let yesterday = (crate::server::core::beijing::now() - chrono::Duration::days(1))
-        .format("%Y-%m-%d")
-        .to_string();
-    let call = service.call_billing(HEATMAP, streak_options(session)).await?;
-    let cells = call.data.get("cells").and_then(Value::as_array);
-    for cell in cells.into_iter().flatten() {
-        let date = cell.get("date").and_then(Value::as_str).unwrap_or("");
-        // refs：取 cell.date 前 10 位比对（date 可能带时间部分）
-        if date.get(..10) == Some(yesterday.as_str()) {
-            let score = cell.get("score").and_then(Value::as_i64).unwrap_or(0);
-            return Ok(score == 0);
-        }
-    }
-    Ok(false)
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.streak.heatmap_yesterday_missed",
+        serde_json::json!({}),
+    )
+    .await
 }
 
 /// 对指定日期使用补签卡（refs blackcat.go:121-126 `UseMakeupCard`；
@@ -255,13 +258,13 @@ pub async fn use_makeup_card(
     session: &Value,
     date: &str,
 ) -> Result<(), BillingError> {
-    let body = json!({ "target_date": date });
-    let options = CallOptions {
-        body: Some(&body),
-        ..streak_options(session)
-    };
-    service.call_billing(MAKEUP_CARD_USE, options).await?;
-    Ok(())
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.streak.use_makeup_card",
+        serde_json::json!({"date": date}),
+    )
+    .await
 }
 
 // ─── 单账号幂等状态机（对照 refs scheduler/streak.go:36-88）────
@@ -274,90 +277,30 @@ pub async fn use_makeup_card(
 /// 注：refs 的 ClaimGift/ClaimCompensation（每号一次，无则业务错误静默跳过）
 /// 由 [`super::gift`] 承担，本状态机顺带调用，与 refs 的步骤顺序一致。
 pub async fn streak_bonus_account(service: &BillingService, session: &Value) -> Vec<String> {
-    streak_bonus_with_policy(service, session, true).await
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.streak.streak_bonus_account",
+        serde_json::json!({}),
+    )
+    .await
+    .unwrap_or_else(|error| vec![error.message])
 }
 
 /// Background rewards never spend makeup cards or lottery chances.
-pub async fn streak_bonus_with_policy(service: &BillingService, session: &Value, spend: bool) -> Vec<String> {
-    let mut messages = Vec::new();
-    // 0. 补签保连登（refs scheduler/streak.go:99-116 makeupYesterday）：
-    //    昨日漏签且有补签卡则补上（连续天数一断就要重攒 7 天）
-    if spend { makeup_yesterday(service, session, &mut messages).await; }
-    // 0.5 礼包/补偿（每号一次，无则业务错误静默跳过，refs scheduler/streak.go:40-46）
-    for (kind, label) in [
-        (super::gift::GiftKind::Gift, "新手礼包"),
-        (super::gift::GiftKind::Compensation, "活动补偿"),
-    ] {
-        match super::gift::claim_gift(service, session, kind).await {
-            Ok(outcome) => {
-                if outcome.claimed {
-                    logging::log("[Growth]", &format!("🎊 {label}: {}", outcome.message));
-                    messages.push(outcome.message);
-                }
-            }
-            Err(error) => {
-                logging::verbose("[Growth]", &format!("{label}静默跳过: {}", error.message));
-            }
-        }
-    }
-    let full = match streak_full(service, session).await {
-        Ok(full) => full,
-        Err(error) => {
-            logging::log("[Growth]", &format!("连登状态查询失败: {}", error.message));
-            return messages;
-        }
-    };
-    // 兑换所有已解锁档位（refs scheduler/streak.go:58-70）
-    for tier in &full.tiers {
-        if tier.status == "locked" || tier.status == "claimed" || tier.tier.is_empty() {
-            continue;
-        }
-        match redeem_tier(service, session, &tier.tier).await {
-            Ok(()) => {
-                let message = format!(
-                    "兑换 {} 档（+{}c +{}e 卡×{} 抽奖×{}）",
-                    tier.tier, tier.credit, tier.energy, tier.cards, tier.chances
-                );
-                logging::log("[Growth]", &format!("★ 连登{message}"));
-                messages.push(message);
-            }
-            // 未解锁（403）属预期，静默跳过；其余记日志（refs 同款语义）
-            Err(error) => {
-                logging::log(
-                    "[Growth]",
-                    &format!("连登兑换 {} 跳过（未解锁或上游拒绝）: {}", tier.tier, error.message),
-                );
-            }
-        }
-    }
-    if !spend { return messages; }
-    // 抽奖：按当前 chances 全抽完（兑换刚发的次数已在服务端累加，refs:71-87）
-    let chances = match lottery_chances(service, session).await {
-        Ok(chances) => chances,
-        Err(error) => {
-            logging::log("[Growth]", &format!("抽奖次数查询失败: {}", error.message));
-            return messages;
-        }
-    };
-    for index in 0..chances {
-        match lottery_draw(service, session).await {
-            Ok(prize) => {
-                let text = prize.to_string();
-                let snippet = text.get(..text.len().min(220)).unwrap_or(&text).to_string();
-                logging::log("[Growth]", &format!("🎲 第{}抽 {snippet}", index + 1));
-                messages.push(format!("第{}抽 {snippet}", index + 1));
-            }
-            Err(error) => {
-                logging::log("[Growth]", &format!("第{}抽失败: {}", index + 1, error.message));
-                return messages;
-            }
-        }
-        // 抽奖动作间隔：refs scheduler 未加间隔；抽奖本身低频，保持一致不加。
-    }
-    if chances > 0 {
-        messages.push(format!("抽奖完成 {chances} 次"));
-    }
-    messages
+pub async fn streak_bonus_with_policy(
+    service: &BillingService,
+    session: &Value,
+    spend: bool,
+) -> Vec<String> {
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.streak.streak_bonus_with_policy",
+        serde_json::json!({"spend": spend}),
+    )
+    .await
+    .unwrap_or_else(|error| vec![error.message])
 }
 
 /// 昨日漏签且有补签卡时自动补签（保住连登连续天数；对照 refs
@@ -382,7 +325,10 @@ async fn makeup_yesterday(service: &BillingService, session: &Value, messages: &
         .format("%Y-%m-%d")
         .to_string();
     if let Err(error) = use_makeup_card(service, session, &yesterday).await {
-        logging::log("[Growth]", &format!("补签 {yesterday} 失败: {}", error.message));
+        logging::log(
+            "[Growth]",
+            &format!("补签 {yesterday} 失败: {}", error.message),
+        );
         return;
     }
     let message = format!("已用补签卡补签 {yesterday}（保连登）");
@@ -392,9 +338,11 @@ async fn makeup_yesterday(service: &BillingService, session: &Value, messages: &
 
 /// A date-specific oracle, not cumulative streak days.
 pub async fn active_today(service: &BillingService, session: &Value) -> Result<bool, BillingError> {
-    let call=service.call_billing(HEATMAP,streak_options(session)).await?;
-    let today=crate::server::core::beijing::today_key();
-    Ok(call.data.get("cells").and_then(Value::as_array).is_some_and(|cells|cells.iter().any(|cell|
-        cell.get("date").and_then(Value::as_str).and_then(|date|date.get(..10))==Some(today.as_str())
-        && cell.get("score").and_then(Value::as_i64).unwrap_or(0)>0)))
+    crate::server::core::billing::legacy_call(
+        service,
+        session,
+        "aibuddy.streak.active_today",
+        serde_json::json!({}),
+    )
+    .await
 }

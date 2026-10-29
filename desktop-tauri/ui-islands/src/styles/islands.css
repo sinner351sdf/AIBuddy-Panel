@@ -11,6 +11,7 @@
    ───────────────────────────────────────────── */
 
 @import '../../../ui-kit/styles/globals.css';
+@import '../../../ui/css/page-sidebar-pane.css';
 
 /* 组件库源码（相对本文件：src/styles/ → 回到 desktop-tauri/ 再进 ui-kit） */
 @source '../../../ui-kit/src';

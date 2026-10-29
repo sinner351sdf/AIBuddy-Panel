@@ -1,20 +1,6 @@
 name: android
 on:
-  push:
-    branches: [beta]
-    paths:
-      - 'desktop-tauri/mobile/**'
-      - 'desktop-tauri/src-tauri/android-gateway/**'
-      - 'desktop-tauri/src-tauri/server/**'
-      - 'desktop-tauri/src-tauri/Cargo.toml'
-      - 'desktop-tauri/src-tauri/Cargo.lock'
-      - 'desktop-tauri/ui-islands/**'
-      - 'scripts/package-android-gateway-ui.mjs'
-      - 'assets/brand/**'
-      - 'build/make-icon.mjs'
-      - 'desktop-tauri/ui-kit/**'
-      - 'desktop-tauri/ui/**'
-      - '.github/workflows/android.yml'
+  # Android remains frozen; new desktop/server changes never trigger its build.
   workflow_dispatch:
 permissions:
   contents: read
@@ -27,27 +13,31 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
+      - name: Verify and extract the complete frozen Android baseline
+        run: node scripts/build-android-frozen.mjs --prepare-only --out "$RUNNER_TEMP/aibuddy-android-frozen"
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: |
-            desktop-tauri/mobile/package-lock.json
-            desktop-tauri/ui-islands/package-lock.json
-            desktop-tauri/ui-kit/package-lock.json
-            assets/brand/generator/package-lock.json
+            ${{ env.AIBUDDY_ANDROID_SOURCE }}/desktop-tauri/mobile/package-lock.json
+            ${{ env.AIBUDDY_ANDROID_SOURCE }}/desktop-tauri/ui-islands/package-lock.json
+            ${{ env.AIBUDDY_ANDROID_SOURCE }}/desktop-tauri/ui-kit/package-lock.json
+            ${{ env.AIBUDDY_ANDROID_SOURCE }}/assets/brand/generator/package-lock.json
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
           cache: gradle
       - name: Install locked frontend dependencies
+        working-directory: ${{ env.AIBUDDY_ANDROID_SOURCE }}
         run: |
           npm --prefix assets/brand/generator ci
           npm --prefix desktop-tauri/ui-kit ci
           npm --prefix desktop-tauri/mobile ci
           npm --prefix desktop-tauri/ui-islands ci
       - name: Build packaged mobile frontend
+        working-directory: ${{ env.AIBUDDY_ANDROID_SOURCE }}
         run: |
           node assets/brand/generator/render.js --check-mobile
           npm --prefix desktop-tauri/ui-islands run build
@@ -61,6 +51,7 @@ jobs:
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
       - name: Prepare Android SDK
+        working-directory: ${{ env.AIBUDDY_ANDROID_SOURCE }}
         run: |
           sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358'
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > desktop-tauri/mobile/android/local.properties
@@ -69,22 +60,25 @@ jobs:
           targets: aarch64-linux-android,x86_64-linux-android
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: desktop-tauri/src-tauri -> ../../target
+          workspaces: ${{ env.AIBUDDY_ANDROID_SOURCE }}/desktop-tauri/src-tauri -> ${{ env.AIBUDDY_ANDROID_TARGET }}
           cache-workspace-crates: true
-          key: android-native-gateway
+          key: android-frozen-native-gateway
           cache-on-failure: true
       - name: Identify native compiler
         id: native-rust
+        working-directory: ${{ env.AIBUDDY_ANDROID_SOURCE }}
         run: printf 'hash=%s\n' "$(rustc -Vv | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache/restore@v5
         id: native-libs
         with:
-          path: desktop-tauri/mobile/android/app/src/main/jniLibs
-          key: android-jni-v1-${{ steps.native-rust.outputs.hash }}-${{ hashFiles('desktop-tauri/src-tauri/server/**', 'desktop-tauri/src-tauri/android-gateway/**', 'desktop-tauri/src-tauri/Cargo.toml', 'desktop-tauri/src-tauri/Cargo.lock', 'desktop-tauri/src-tauri/.cargo/config.toml', 'desktop-tauri/mobile/android/app/src/main/java/com/aibuddy/panel/mobile/GatewayNative.java', '.github/workflows/android.yml') }}
+          path: ${{ env.AIBUDDY_ANDROID_SOURCE }}/desktop-tauri/mobile/android/app/src/main/jniLibs
+          key: android-jni-v1-${{ steps.native-rust.outputs.hash }}-${{ hashFiles('legacy/android-baseline/source.tar.gz') }}
       - name: Build the embedded Rust gateway for device and emulator
         if: steps.native-libs.outputs.cache-hit != 'true'
         env:
           RUSTFLAGS: '-C link-arg=-Wl,-z,max-page-size=16384'
+          CARGO_TARGET_DIR: ${{ env.AIBUDDY_ANDROID_TARGET }}
+        working-directory: ${{ env.AIBUDDY_ANDROID_SOURCE }}
         run: |
           export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
           export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
@@ -96,16 +90,17 @@ jobs:
       - uses: actions/cache/save@v5
         if: steps.native-libs.outputs.cache-hit != 'true'
         with:
-          path: desktop-tauri/mobile/android/app/src/main/jniLibs
+          path: ${{ env.AIBUDDY_ANDROID_SOURCE }}/desktop-tauri/mobile/android/app/src/main/jniLibs
           key: ${{ steps.native-libs.outputs.cache-primary-key }}
       - name: Compile debug and unsigned release APKs
-        working-directory: desktop-tauri/mobile/android
+        working-directory: ${{ env.AIBUDDY_ANDROID_SOURCE }}/desktop-tauri/mobile/android
         env:
           AIBUDDY_UNSIGNED_APK: '1'
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon --stacktrace :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest
       - name: Verify APK identity and checksums
+        working-directory: ${{ env.AIBUDDY_ANDROID_SOURCE }}
         run: |
           mkdir -p dist/android
           cp desktop-tauri/mobile/android/app/build/outputs/apk/debug/app-debug.apk dist/android/AIBuddy-Panel-debug.apk
@@ -117,6 +112,7 @@ jobs:
           (cd dist/android && sha256sum *.apk > SHA256SUMS.txt)
           echo 'Debug uses a separate .debug package id. Release APK is unsigned; production private keys never enter CI.' >> "$GITHUB_STEP_SUMMARY"
       - name: Enable emulator acceleration
+        working-directory: ${{ env.AIBUDDY_ANDROID_SOURCE }}
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
@@ -128,21 +124,21 @@ jobs:
           arch: x86_64
           profile: pixel_7
           disable-animations: true
-          working-directory: desktop-tauri/mobile/android
+          working-directory: ${{ env.AIBUDDY_ANDROID_SOURCE }}/desktop-tauri/mobile/android
           script: ./gradlew --no-daemon :app:connectedDebugAndroidTest
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: android-apks
-          path: dist/android/*
+          name: android-frozen-apks
+          path: ${{ env.AIBUDDY_ANDROID_SOURCE }}/dist/android/*
           if-no-files-found: error
           retention-days: 7
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: android-device-tests
+          name: android-frozen-device-tests
           path: |
-            desktop-tauri/mobile/android/app/build/reports/androidTests/
-            desktop-tauri/mobile/android/app/build/outputs/androidTest-results/
+            ${{ env.AIBUDDY_ANDROID_SOURCE }}/desktop-tauri/mobile/android/app/build/reports/androidTests/
+            ${{ env.AIBUDDY_ANDROID_SOURCE }}/desktop-tauri/mobile/android/app/build/outputs/androidTest-results/
           if-no-files-found: warn
           retention-days: 7

@@ -36,7 +36,7 @@ pub(crate) mod client;
 // 一律返回「不支持」）。
 pub mod selfupdate;
 mod token;
-mod version;
+pub(crate) mod version;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
